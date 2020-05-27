@@ -1,25 +1,25 @@
 pipeline {
 	agent any
 	stages {
-		state('Init'){
+		stage('Init'){
 			steps {
 				echo 'init'
 				echo '****************************'
 			}
 		}
-		state('Yarn install'){
+		stage('Yarn install'){
 			steps {
 				echo 'Yarn install'
 				echo '****************************'
 			}
 		}
-		state('Yarn build'){
+		stage('Yarn build'){
 			steps {
 				echo 'Yarn build'
 				echo '****************************'
 			}
 		}
-		state('Deploy'){
+		stage('Deploy'){
 			steps {
 				echo 'Deploy'
 				echo '****************************'
