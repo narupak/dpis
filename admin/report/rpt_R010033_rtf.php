@@ -1,0 +1,828 @@
+<?
+	include("../../php_scripts/connect_database.php");
+	include("../../php_scripts/calendar_data.php");
+	include ("../php_scripts/function_share.php");
+
+	include ("rtf_setvar.php");	// กำหนดตัวแปรค่าสี set_of_colors
+	
+	require("../../RTF/rtf_class.php");
+
+	ini_set("max_execution_time", $max_execution_time);
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	
+	if($_GET[NUMBER_DISPLAY])	$NUMBER_DISPLAY = $_GET[NUMBER_DISPLAY];
+	if(!trim($RPTORD_LIST)){ 
+	if($select_org_structure==1){	//สำหรับมอบหมายงาน
+			if(trim($search_org_ass_id)){	$search_org_id=trim($search_org_ass_id);		}	
+			if(trim($search_org_ass_id_1)){	$search_org_id_1=trim($search_org_ass_id_1);		}
+			if(trim($search_org_ass_id_2)){	$search_org_id_2=trim($search_org_ass_id_2);		}
+		}
+		$RPTORD_LIST = "ORG|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)=="" && trim($search_org_id_2)=="") $RPTORD_LIST .= "ORG_1|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)!="" && trim($search_org_id_2)=="") $RPTORD_LIST .= "ORG_2|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)!="" && trim($search_org_id_2)!="") $RPTORD_LIST .= "LINE|";
+		if(in_array("PER_COUNTRY", $list_type) && trim($search_pv_code)!="") $RPTORD_LIST .= "PROVINCE|";
+	} // end if
+	$arr_rpt_order = explode("|", $RPTORD_LIST);
+//	$arr_rpt_order = array("MINISTRY", "DEPARTMENT", "ORG", "LINE"); 
+
+	$select_list = "";
+	$order_by = "";
+	$heading_name = "";
+	for($rpt_order_index=0; $rpt_order_index<count($arr_rpt_order); $rpt_order_index++){
+		$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+		switch($REPORT_ORDER){
+			case "MINISTRY" :
+				if($select_list) $select_list .= ", ";
+				$select_list .= "c.ORG_ID_REF as MINISTRY_ID";
+
+				if($order_by) $order_by .= ", ";
+				$order_by .= "c.ORG_ID_REF";
+
+				$heading_name .= " ส่วนราชการ";
+				break;
+			case "DEPARTMENT" :
+				if($select_list) $select_list .= ", ";
+				$select_list .= "c.ORG_SEQ_NO, c.ORG_CODE, a.DEPARTMENT_ID";
+
+				if($order_by) $order_by .= ", ";
+				$order_by .= "c.ORG_SEQ_NO, c.ORG_CODE, a.DEPARTMENT_ID";
+
+				$heading_name .= " ส่วนราชการ";
+				break;
+			case "ORG" :
+				if($select_list) $select_list .= ", ";
+				if($select_org_structure==0) $select_list .= "b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID";
+				else if($select_org_structure==1) $select_list .= "b.ORG_SEQ_NO, b.ORG_CODE, d.ORG_ID";
+
+				if($order_by) $order_by .= ", ";
+				if($select_org_structure==0) $order_by .= "b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID";
+				else if($select_org_structure==1) $order_by .= "b.ORG_SEQ_NO, b.ORG_CODE, d.ORG_ID";
+
+				$heading_name .= " ส่วนราชการ";
+				break;
+			case "LINE" :
+				if($select_list) $select_list .= ", ";
+				$select_list .= "e.PM_SEQ_NO, a.PM_CODE, f.PL_SEQ_NO, a.PL_CODE";
+
+				if($order_by) $order_by .= ", ";
+				$order_by .= "e.PM_SEQ_NO, a.PM_CODE, f.PL_SEQ_NO, a.PL_CODE";
+
+				$heading_name .= " ตำแหน่งในการบริหารงาน";
+				break;
+		} // end switch case
+	} // end for
+	if(!trim($order_by)){ 
+		if(!$MINISTRY_ID){
+			$order_by = "c.ORG_ID_REF";
+		}elseif(!$DEPARTMENT_ID){
+			$order_by = "c.ORG_SEQ_NO, c.ORG_CODE, a.DEPARTMENT_ID";
+		}else{ 
+			if($select_org_structure==0) $order_by = "b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID";
+			else if($select_org_structure==1) $order_by = "b.ORG_SEQ_NO, b.ORG_CODE, d.ORG_ID";
+		}
+	} // end if
+	if(!trim($select_list)){ 
+		if(!$MINISTRY_ID){
+			$select_list = "c.ORG_ID_REF as MINISTRY_ID";
+		}elseif(!$DEPARTMENT_ID){
+			$select_list = "c.ORG_SEQ_NO, c.ORG_CODE, a.DEPARTMENT_ID";
+		}else{ 
+			if($select_org_structure==0) $select_list = "b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID";
+			else if($select_org_structure==1) $select_list = "b.ORG_SEQ_NO, b.ORG_CODE, d.ORG_ID";
+		}
+	} // end if
+
+	$search_condition = "";
+	$arr_search_condition[] = "(POS_STATUS=1)";
+
+	$list_type_text = $ALL_REPORT_TITLE;
+
+	if(in_array("PER_ORG_TYPE_1", $list_type)){
+		if($DEPARTMENT_ID){
+			$arr_search_condition[] = "(a.DEPARTMENT_ID = $DEPARTMENT_ID)";
+			$list_type_text .= " - $MINISTRY_NAME - $DEPARTMENT_NAME";
+		}elseif($MINISTRY_ID){
+			$arr_search_condition[] = "(c.ORG_ID_REF = $MINISTRY_ID)";
+			$list_type_text .= " - $MINISTRY_NAME";
+		}elseif($PROVINCE_CODE){
+			$PROVINCE_CODE = trim($PROVINCE_CODE);
+			$arr_search_condition[] = "(trim(b.PV_CODE) = '$PROVINCE_CODE')";
+			$list_type_text .= " - $PROVINCE_NAME";
+		} // end if
+		
+		// ส่วนกลาง
+		$list_type_text = "ส่วนกลาง";
+		if($select_org_structure==0) $arr_search_condition[] = "(trim(b.OT_CODE)='01')";
+		elseif($select_org_structure==1) $arr_search_condition[] = "(trim(d.OT_CODE)='01')";
+	}
+	if(in_array("PER_ORG_TYPE_3", $list_type)){
+		if($DEPARTMENT_ID){
+			$arr_search_condition[] = "(a.DEPARTMENT_ID = $DEPARTMENT_ID)";
+			$list_type_text .= " - $MINISTRY_NAME - $DEPARTMENT_NAME";
+		}elseif($MINISTRY_ID){
+			$arr_search_condition[] = "(c.ORG_ID_REF = $MINISTRY_ID)";
+			$list_type_text .= " - $MINISTRY_NAME";
+		}elseif($PROVINCE_CODE){
+			$PROVINCE_CODE = trim($PROVINCE_CODE);
+			$arr_search_condition[] = "(trim(b.PV_CODE) = '$PROVINCE_CODE')";
+			$list_type_text .= " - $PROVINCE_NAME";
+		} // end if
+		
+		// ส่วนภูมิภาค
+		$list_type_text = "ส่วนภูมิภาค";
+		if($select_org_structure==0) $arr_search_condition[] = "(trim(b.OT_CODE)='03')";
+		elseif($select_org_structure==1) $arr_search_condition[] = "(trim(d.OT_CODE)='03')";
+	}
+	if(in_array("PER_MGT", $list_type)){
+		// ตำแหน่งในการบริหารงาน
+		$list_type_text = "";
+		$search_PM_CODE = trim($search_PM_CODE);
+		$arr_search_condition[] = "(trim(a.PM_CODE)='$search_PM_CODE')";
+		$list_type_text .= "$search_PM_NAME";
+	}
+	if(in_array("PER_COUNTRY", $list_type)){
+		// ประเทศ , จังหวัด
+		$list_type_text = "";
+		if(trim($search_ct_code)){ 
+			$search_ct_code = trim($search_ct_code);
+			$arr_search_condition[] = "(trim(b.CT_CODE) = '$search_ct_code')";
+			$list_type_text .= "$search_ct_name";
+		} // end if
+		if(trim($search_pv_code)){ 
+			$search_pv_code = trim($search_pv_code);
+			$arr_search_condition[] = "(trim(b.PV_CODE) = '$search_pv_code')";
+			$list_type_text .= " - $search_pv_name";
+		} // end if
+	}
+	if(in_array("ALL", $list_type) || !isset($list_type)){	//กรณีทั้งหมด หรือไม่ติ๊กเลือก check box list_type เลย
+		if($DEPARTMENT_ID){
+			$arr_search_condition[] = "(a.DEPARTMENT_ID = $DEPARTMENT_ID)";
+			$list_type_text .= " - $MINISTRY_NAME - $DEPARTMENT_NAME";
+		}elseif($MINISTRY_ID){
+			$arr_search_condition[] = "(c.ORG_ID_REF = $MINISTRY_ID)";
+			$list_type_text .= " - $MINISTRY_NAME";
+		}elseif($PROVINCE_CODE){
+			$PROVINCE_CODE = trim($PROVINCE_CODE);
+			$arr_search_condition[] = "(trim(b.PV_CODE) = '$PROVINCE_CODE')";
+			$list_type_text .= " - $PROVINCE_NAME";
+		} // end if
+	} // end if
+	if(count($arr_search_condition)) $search_condition = " where ". implode(" and ", $arr_search_condition);
+
+//	include ("rpt_R010033_format.php");	// กำหนดหัวและตัวแปรสำหรับการเปลี่ยนรูปแบบรายงาน
+//	$sum_w = array_sum($heading_width);
+//	for($h = 0; $h < count($heading_width); $h++) {
+//		$heading_width[$h] = $heading_width[$h] / $sum_w * 100;
+//	}
+
+//	session_cache_limiter("nocache");
+	session_cache_limiter("private");
+	session_start();
+
+	$fname= "rpt_R010033_rtf.rtf";
+
+//	RTF $papersize = "a4", $margl = 720, $margr = 720, $margt = 720, $margb = 720, $orient = "p", $u_color_tab="";
+	$paper_size="a4";
+	$orientation='L';
+	$RTF = new RTF($paper_size, ".7in", ".3in", ".5in", ".1in", $orientation, $set_of_colors);
+
+	$RTF->set_default_font($font, 14);
+//	echo "default font_id::".$RTF->dfl_FontID."<br>";	
+
+	$company_name = "$list_type_text";
+	$report_title = "$DEPARTMENT_NAME||จำนวนข้าราชการ".$list_type_text." ประจำปีงบประมาณ พ.ศ. $search_budget_year||จำแนกตามตำแหน่งในการบริหารงาน และสังกัด";
+	if($export_type=="report")$report_title = (($NUMBER_DISPLAY==2)?convert2thaidigit($report_title):$report_title);
+	$report_code = "R1033";
+	$RTF->set_report_code($report_code);
+	$RTF->set_report_title($report_title);
+	$RTF->set_company_name($company_name);
+
+	$heading_width[0] = "10";
+	$heading_width[1] = "25"; 	// A4 กว่าง 282 หักไป 35 เหลือ 212
+	//$idx = 2;
+	//foreach($org_seq as $key => $val) {		
+		//$heading_width[$idx] = "10";
+	// $idx++;
+	//}
+	$heading_width[2] = "10";
+	
+	function print_header($org_seq, $org){
+//		echo "".implode(",",$org).",".count($org)."<br>";
+		global $RTF, $heading_width, $heading_name, $font, $fmtTableHeader_col_idx, $fmtTableHeader_bgcol_idx;
+		global $ARR_LEVEL_GROUP, $ARR_LEVEL_GROUP_NAME, $ARR_LEVEL, $ARR_LEVEL_NAME, $TOTAL_LEVEL;
+
+		$RTF->set_table_font($font, 14);
+//		$RTF->set_font($font, 20);
+		$RTF->color($fmtTableHeader_col_idx);	// $fmtTableHeader_col_idx
+		
+		$RTF->paragraph();
+		// $fmtTableHeader_col_idx, $fmtTableHeader_bgcol_idx
+		$border = "tlbr";
+		$RTF->open_line("center", false, true);			
+		$RTF->cell("ลำดับ", $heading_width[0], "center", $fmtTableHeader_bgcol_idx, $border);
+		$RTF->cell("ตำแหน่งในการบริหารงาน", $heading_width[1], "center", $fmtTableHeader_bgcol_idx, $border);
+		if(!$idx)	$idx = 2;
+		foreach($org_seq as $key => $val) {
+			$RTF->cell($org[$val][name], $heading_width[$idx], "center", $fmtTableHeader_bgcol_idx, $border);
+//			echo "$key -- $val -- ".$org[$val][name]." (w=".$heading_width[$idx].")<br>";
+//			 $idx++;
+		}
+		$RTF->cell("รวม", $heading_width[$idx], "center", $fmtTableHeader_bgcol_idx, $border);
+		$RTF->close_line();
+	} // function
+
+	function count_person($budget_year, $pos_org_id, $search_condition, $addition_condition){
+		global $DPISDB, $db_dpis2;
+		global $select_org_structure;
+
+		if(trim($addition_condition)) $search_condition .= (trim($search_condition)?" and ":" where ") . $addition_condition;
+		$year_condition="";
+//		if($budget_year) $year_condition = generate_year_condition($budget_year);
+/*		if($DPISDB=="odbc") $year_condition = " and (LEFT(trim(d.PER_RETIREDATE), 10) >= '".($budget_year - 1)."-10-01' and LEFT(trim(d.PER_RETIREDATE), 10) < '".($budget_year)."-10-01')";
+		elseif($DPISDB=="oci8") $year_condition = " and (SUBSTR(trim(d.PER_RETIREDATE), 1, 10) >= '".($budget_year - 1)."-10-01' and SUBSTR(trim(d.PER_RETIREDATE), 1, 10) < '".($budget_year)."-10-01')";
+		elseif($DPISDB=="mysql") $year_condition = " and (SUBSTRING(trim(d.PER_RETIREDATE), 1, 10) >= '".($budget_year - 1)."-10-01' and SUBSTRING(trim(d.PER_RETIREDATE), 1, 10) < '".($budget_year)."-10-01')";  */
+
+		$pos_org_condition = "a.ORG_ID='$pos_org_id'";
+
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+
+		if($DPISDB=="odbc"){
+			$cmd = " select			count(d.PER_ID) as count_person
+							from				(
+														(
+															PER_POSITION a
+															left join PER_ORG b on (a.ORG_ID=b.ORG_ID)
+														) left join PER_ORG c on (a.DEPARTMENT_ID=c.ORG_ID)
+													) left join PER_PERSONAL d on (a.POS_ID=d.POS_ID and d.PER_TYPE=1 and d.PER_STATUS=1)
+							 where			$pos_org_condition $year_condition
+													$search_condition 
+							 group by		d.PER_ID ";
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$cmd = " select			count(d.PER_ID) as count_person
+							 from				PER_POSITION a, PER_ORG b, PER_ORG c, PER_PERSONAL d
+							 where			a.ORG_ID=b.ORG_ID(+) and a.DEPARTMENT_ID=c.ORG_ID(+) and a.POS_ID=d.POS_ID(+) and d.PER_TYPE=1 and d.PER_STATUS=1
+							 						and $pos_org_condition $year_condition
+													$search_condition 
+							 group by		d.PER_ID ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select			count(d.PER_ID) as count_person
+							from				(
+														(
+															PER_POSITION a
+															left join PER_ORG b on (a.ORG_ID=b.ORG_ID)
+														) left join PER_ORG c on (a.DEPARTMENT_ID=c.ORG_ID)
+													) left join PER_PERSONAL d on (a.POS_ID=d.POS_ID and d.PER_TYPE=1 and d.PER_STATUS=1)
+							 where			$pos_org_condition $year_condition 
+													$search_condition 
+							 group by		d.PER_ID ";
+		} // end if
+		if($select_org_structure==1) { 
+			$cmd = str_replace("a.ORG_ID", "d.ORG_ID", $cmd);
+			$cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+		}
+		$count_person = $db_dpis2->send_cmd($cmd);
+//		echo "$cmd<br>";
+//		$db_dpis2->show_error();
+		if($count_person==1){
+			$data = $db_dpis2->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+			if($data[count_person] == 0) $count_person = 0;
+		} // end if
+
+		return $count_person;
+	} // function
+	
+	function generate_year_condition($budget_year){
+		global $DPISDB;
+		
+//			คิดตามอายุจริง (ถ้ายังไม่ถึงวันเกิดจะไม่นับเป็นปี)
+//			$birthdate_min = date_adjust(date("Y-m-d"), "y", -25);
+//			if($DPISDB=="odbc") $age_condition = "(LEFT(trim(d.PER_BIRTHDATE), 10) > '$birthdate_min')";
+//			elseif($DPISDB=="oci8") $age_condition = "(SUBSTR(trim(d.PER_BIRTHDATE), 1, 10) > '$birthdate_min')";
+
+//			คิดเฉพาะปีเกิด กับปีปัจจุบัน
+			$birthyear_min = date("Y") - 25;
+			if($DPISDB=="odbc") $year_condition = "(LEFT(trim(d.PER_BIRTHDATE), 4) > '$birthyear_min')";
+			elseif($DPISDB=="oci8") $year_condition = "(SUBSTR(trim(d.PER_BIRTHDATE), 1, 4) > '$birthyear_min')";
+			elseif($DPISDB=="mysql") $year_condition = "(SUBSTRING(trim(d.PER_BIRTHDATE), 1, 4) > '$birthyear_min')";
+
+//			echo "age <= 24 :: $age_condition<br>";
+		
+		return $year_condition;
+	} // function
+	
+	function generate_condition($current_index){
+		global $DPISDB, $arr_rpt_order,$select_org_structure;
+		global $MINISTRY_ID, $DEPARTMENT_ID, $ORG_ID, $PM_CODE;
+				
+		for($rpt_order_index=0; $rpt_order_index <= $current_index; $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "MINISTRY" :	
+					if($MINISTRY_ID && $MINISTRY_ID!=-1)  $arr_addition_condition[] = "(c.ORG_ID_REF = $MINISTRY_ID)";
+				break;
+				case "DEPARTMENT" :	
+					if($DEPARTMENT_ID && $DEPARTMENT_ID!=-1)  $arr_addition_condition[] = "(a.DEPARTMENT_ID = $DEPARTMENT_ID)";
+				break;
+				case "ORG" :	
+					if($ORG_ID && $ORG_ID!=-1){
+						if($select_org_structure==0) $arr_addition_condition[] = "(a.ORG_ID = $ORG_ID)";
+						else if($select_org_structure==1) $arr_addition_condition[] = "(d.ORG_ID = $ORG_ID)";
+					}else{ 
+						if($select_org_structure==0) $arr_addition_condition[] = "(a.ORG_ID = 0 or a.ORG_ID is null)";
+						else if($select_org_structure==1) $arr_addition_condition[] = "(d.ORG_ID = 0 or d.ORG_ID is null)";
+					}
+				break;
+				case "LINE" :
+					if($PM_CODE) $arr_addition_condition[] = "(trim(a.PM_CODE) = '$PM_CODE')";
+					else $arr_addition_condition[] = "(trim(a.PM_CODE) = '$PM_CODE' or a.PM_CODE is null)";
+				break;
+			} // end switch case
+		} // end for
+		
+		$addition_condition = "";
+		if(count($arr_addition_condition)) $addition_condition = implode(" and ", $arr_addition_condition);
+
+		return $addition_condition;
+	} // function
+	
+	function initialize_parameter($current_index){
+		global $arr_rpt_order;
+		global $MINISTRY_ID, $DEPARTMENT_ID, $ORG_ID, $PM_CODE;
+		for($rpt_order_index=$current_index; $rpt_order_index < count($arr_rpt_order); $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "MINISTRY" :	
+					$MINISTRY_ID = -1;
+				break;
+				case "DEPARTMENT" :	
+					$DEPARTMENT_ID = -1;
+				break;
+				case "ORG" :	
+					$ORG_ID = -1;
+				break;
+				case "LINE" :
+					$PM_CODE = -1;
+				break;
+			} // end switch case
+		} // end for
+	} // function
+	
+	function clear_display_order($req_index){
+		global $arr_rpt_order, $display_order_number;
+		
+		$current_index = $req_index + 1;
+		for($i=$current_index; $i<count($arr_rpt_order); $i++){
+			$display_order_number[$current_index] = 0;
+		} // loop for
+	} // function
+
+	function display_order($req_index){
+		global $display_order_number;
+		
+		$return_display_order = "";
+		$current_index = $req_index;
+		while($current_index >= 0){
+			if($current_index == $req_index){
+				$return_display_order = $display_order_number[$current_index];
+			}else{
+				$return_display_order = $display_order_number[$current_index].".".$return_display_order;
+			} // if else
+			$current_index--;
+		} // loop while
+		
+		return $return_display_order;
+	} // function
+
+	$budget_year = ($search_budget_year - 543);
+	$year_condition = "";
+/*	if($DPISDB=="odbc") $year_condition = "and (LEFT(trim(d.PER_RETIREDATE), 10) >= '".($budget_year - 1)."-10-01' and LEFT(trim(d.PER_RETIREDATE), 10) < '".($budget_year)."-10-01')";
+	elseif($DPISDB=="oci8") $year_condition = "and (SUBSTR(trim(d.PER_RETIREDATE), 1, 10) >= '".($budget_year - 1)."-10-01' and SUBSTR(trim(d.PER_RETIREDATE), 1, 10) < '".($budget_year)."-10-01')";
+	elseif($DPISDB=="mysql") $year_condition = "and (SUBSTRING(trim(d.PER_RETIREDATE), 1, 10) >= '".($budget_year - 1)."-10-01' and SUBSTRING(trim(d.PER_RETIREDATE), 1, 10) < '".($budget_year)."-10-01')"; */
+
+	if($DPISDB=="odbc"){
+		$cmd = " select			distinct b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $select_list, count(d.PER_ID) as COUNT_PERSON
+						 from		(
+											(
+												(
+													(
+														PER_POSITION a
+														left join PER_ORG b on (a.ORG_ID=b.ORG_ID)
+													) left join PER_MGT e on (a.PM_CODE=e.PM_CODE)
+												) left join PER_ORG c on (a.DEPARTMENT_ID=c.ORG_ID)
+											) left join PER_PERSONAL d on (a.POS_ID=d.POS_ID and d.PER_TYPE=1 and d.PER_STATUS=1)
+									) left join PER_LINE f on (a.PL_CODE=f.PL_CODE)
+						$search_condition $year_condition and (POS_STATUS=1)
+						 group by		b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $order_by
+						order by		$order_by ";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$cmd = " select			distinct b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $select_list, count(d.PER_ID) as COUNT_PERSON
+						 from			PER_POSITION a, PER_ORG b, PER_MGT e, PER_ORG c, PER_PERSONAL d, PER_LINE f
+						 where			a.ORG_ID=b.ORG_ID(+) and a.PM_CODE=e.PM_CODE(+) and a.PL_CODE=f.PL_CODE(+) and a.DEPARTMENT_ID=c.ORG_ID(+) 
+						 					and a.POS_ID=d.POS_ID(+) and d.PER_TYPE=1 and d.PER_STATUS=1
+											$search_condition $year_condition and (POS_STATUS=1)
+						 group by		b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $order_by
+						 order by		$order_by ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select			distinct b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $select_list, count(d.PER_ID) as COUNT_PERSON
+						 from		(
+											(
+												(
+													(
+														PER_POSITION a
+														left join PER_ORG b on (a.ORG_ID=b.ORG_ID)
+													) left join PER_MGT e on (a.PM_CODE=e.PM_CODE)
+												) left join PER_ORG c on (a.DEPARTMENT_ID=c.ORG_ID)
+											) left join PER_PERSONAL d on (a.POS_ID=d.POS_ID and d.PER_TYPE=1 and d.PER_STATUS=1)
+									) left join PER_LINE f on (a.PL_CODE=f.PL_CODE)
+						 $search_condition $year_condition and (POS_STATUS=1)
+						 group by		b.ORG_SEQ_NO, b.ORG_CODE, a.ORG_ID, $order_by
+						 order by 		$order_by ";
+	} // end if
+ 	if($select_org_structure==1) { 
+		$cmd = str_replace("a.ORG_ID", "d.ORG_ID", $cmd);
+		$cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+	}
+	$count_data = $db_dpis->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db_dpis->show_error();
+
+	$arr_content = (array) null;
+	$arr_grand_total = (array) null;
+	$arr_org = (array) null;
+	$arr_org_seq = (array) null;
+	$arr_count = (array) null;
+
+	$data_count = -1;
+	initialize_parameter(0);
+	unset($display_order_number);
+	
+	$DISPLAY_ORDER_PLCODE = 0;
+	$count_person = 0;
+	while($data = $db_dpis->get_array()) {
+		$s_org = $data[ORG_ID];
+		$s_org_seq = $data[ORG_SEQ_NO];
+		if (!$s_org_seq) $s_org_seq = $s_org;
+		$s_pm = trim($data[PM_CODE]);
+		$s_pl = trim($data[PL_CODE]);
+		if (!$s_pm) $s_pm = trim($data[PL_CODE]);
+		
+		// รวมพวก seq เท่ากันให้เป็น 1 แถว
+		$b_pm_seq = $data[PM_SEQ_NO];
+		if (!$b_pm_seq) $b_pm_seq = 900000+$data[PL_SEQ_NO];
+		if (!$b_pm_seq) $b_pm_seq = 9000000+$s_pm;
+		if ($s_pm_seq != $b_pm_seq) {
+			$s_pm_seq = $b_pm_seq;
+			$data_count ++;
+		}
+		// จบ การรวมพวก seq เท่ากันให้เป็น 1 แถว
+
+		if (!in_array($s_org_seq, $arr_org_seq)) {
+			$arr_org_seq[] = $s_org_seq;  // เพื่อจัดลำดับ สำหรับ ORG_SEQ_NO
+		}
+		if (!$arr_org[$s_org_seq]) {
+			$cmd = " select ORG_NAME, ORG_SHORT from PER_ORG where ORG_ID=$s_org ";
+			if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+			$db_dpis2->send_cmd($cmd);
+//			$db_dpis2->show_error();
+			$data2 = $db_dpis2->get_array();
+			$s_org_name = ($data2[ORG_SHORT]?$data2[ORG_SHORT]:$data2[ORG_NAME]);
+			if($s_org_name){
+				$arr_org[$s_org_seq][code] = $s_org;
+				$arr_org[$s_org_seq][name] = $s_org_name;
+			}
+		}
+		
+		//-------------------------------------------------------------------------
+		$count_person= $data[COUNT_PERSON];
+		if(!$count_person)	$count_person=0;
+		$arr_count_person[$s_pm][$s_org] = $count_person;
+		//$arr_count_total_person[$s_pm] += $arr_count_person[$s_pm][$s_org]; 
+		//------------------------------------------------------------------------
+		
+		for($rpt_order_index=0; $rpt_order_index < count($arr_rpt_order); $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "MINISTRY" :
+					if($MINISTRY_ID != trim($data[MINISTRY_ID])){
+						$display_order_number[$rpt_order_index]++;
+						clear_display_order($rpt_order_index);
+						$MINISTRY_ID = trim($data[MINISTRY_ID]);
+						if($MINISTRY_ID != ""){
+							$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+							if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+							$db_dpis2->send_cmd($cmd);
+//							$db_dpis2->show_error();
+							$data2 = $db_dpis2->get_array();
+							$MINISTRY_NAME = $data2[ORG_NAME];
+						} // end if
+
+						$addition_condition = generate_condition($rpt_order_index);
+
+						$arr_content[$data_count][type] = "MINISTRY";
+						$arr_content[$data_count][order] = display_order($rpt_order_index);
+						$arr_content[$data_count][code] = "M".$DEPARTMENT_ID;
+						$arr_content[$data_count][name] = str_repeat(" ", ($rpt_order_index * 5)) . $MINISTRY_NAME;
+						
+						$arr_content[$data_count][$s_org][$s_pm] = $arr_count_person[$s_pm][$s_org];	
+						$arr_content[$data_count][total] += $arr_content[$data_count][$s_org][$s_pm];
+						
+						if($rpt_order_index == 0){ 
+							//$arr_grand_total[$s_org] += $arr_count[$data_count][$s_org][$arr_content[$data_count][code]];
+							$arr_grand_total[$s_org] += $arr_count_person[$s_pm][$s_org];
+						}
+
+						if($rpt_order_index < (count($arr_rpt_order) - 1)) initialize_parameter($rpt_order_index + 1);
+						$data_count++;
+					} // end if
+				break;
+
+				case "DEPARTMENT" :
+					if($DEPARTMENT_ID != trim($data[DEPARTMENT_ID])){
+						$display_order_number[$rpt_order_index]++;
+						clear_display_order($rpt_order_index);
+						$DEPARTMENT_ID = trim($data[DEPARTMENT_ID]);
+						if($DEPARTMENT_ID != ""){
+							$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+							if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+							$db_dpis2->send_cmd($cmd);
+//							$db_dpis2->show_error();
+							$data2 = $db_dpis2->get_array();
+							$DEPARTMENT_NAME = $data2[ORG_NAME];
+						} // end if
+
+						$addition_condition = generate_condition($rpt_order_index);
+
+						$arr_content[$data_count][type] = "DEPARTMENT";
+						$arr_content[$data_count][order] = display_order($rpt_order_index);
+						$arr_content[$data_count][code] = "D".$DEPARTMENT_ID;
+						$arr_content[$data_count][name] = str_repeat(" ", ($rpt_order_index * 5)) . $DEPARTMENT_NAME;
+						$arr_content[$data_count][$s_org][$s_pm] = $arr_count_person[$s_pm][$s_org];	
+						$arr_content[$data_count][total] += $arr_content[$data_count][$s_org][$s_pm];
+
+						if($rpt_order_index == 0){ 
+							//$arr_grand_total[$s_org] += $arr_count[$data_count][$s_org][$arr_content[$data_count][code]];
+							$arr_grand_total[$s_org] += $arr_count_person[$s_pm][$s_org];
+						}
+						
+						if($rpt_order_index < (count($arr_rpt_order) - 1)) initialize_parameter($rpt_order_index + 1);			
+						$data_count++;
+					} // end if
+				break;
+
+				case "ORG" :
+					if($ORG_ID != trim($data[ORG_ID])){
+						$display_order_number[$rpt_order_index]++;
+						clear_display_order($rpt_order_index);
+						$ORG_ID = trim($data[ORG_ID]);
+						if($ORG_ID != ""){
+							$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$ORG_ID ";
+							if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+							$db_dpis2->send_cmd($cmd);
+//							$db_dpis2->show_error();
+							$data2 = $db_dpis2->get_array();
+							$ORG_NAME = $data2[ORG_NAME];
+						} // end if
+
+						$addition_condition = generate_condition($rpt_order_index);
+
+						$arr_content[$data_count][type] = "ORG";
+						$arr_content[$data_count][order] = display_order($rpt_order_index);
+						$arr_content[$data_count][code] = "O".$ORG_ID;
+						$arr_content[$data_count][name] = str_repeat(" ", ($rpt_order_index * 5)) . $ORG_NAME;
+						$arr_content[$data_count][$s_org][$s_pm] = $arr_count_person[$s_pm][$s_org];	
+						$arr_content[$data_count][total]  += $arr_content[$data_count][$s_org][$s_pm];
+
+						if($rpt_order_index == 0){ 
+							//$arr_grand_total[$s_org] += $arr_count[$data_count][$s_org][$arr_content[$data_count][code]];
+							$arr_grand_total[$s_org] += $arr_count_person[$s_pm][$s_org];
+						}
+
+						if($rpt_order_index < (count($arr_rpt_order) - 1)) initialize_parameter($rpt_order_index + 1);			
+						$data_count++;
+					} // end if
+				break;
+				
+				case "LINE" :
+//					if($PM_CODE != trim($data[PM_CODE])){
+						$display_order_number[$rpt_order_index]++;
+						clear_display_order($rpt_order_index);
+							$cmd = " select PM_NAME, PM_SHORTNAME from PER_MGT where trim(PM_CODE)='$s_pm' ";
+							$db_dpis2->send_cmd($cmd);
+//							$db_dpis2->show_error();
+							$data2 = $db_dpis2->get_array();
+							$PM_NAME = trim($data2[PM_SHORTNAME])?$data2[PM_SHORTNAME]:$data2[PM_NAME];
+							if (!$PM_NAME) {
+								$cmd = " select PL_NAME, PL_SHORTNAME from PER_LINE where trim(PL_CODE)='$s_pl' ";
+								$db_dpis2->send_cmd($cmd);
+//								$db_dpis2->show_error();
+								$data2 = $db_dpis2->get_array();
+								$PM_NAME = trim($data2[PL_SHORTNAME])?$data2[PL_SHORTNAME]:$data2[PL_NAME];
+							}	
+//						} // end if
+ 
+						$addition_condition = generate_condition($rpt_order_index);
+			
+						$arr_content[$data_count][type] = "LINE";
+						$arr_content[$data_count][order] = display_order($rpt_order_index);
+						$arr_content[$data_count][code] = $s_pm;
+						$arr_content[$data_count][name] = str_repeat(" ", ($rpt_order_index * 5)) . $PM_NAME;
+						
+						$arr_content[$data_count][$s_org][$s_pm] = $arr_count_person[$s_pm][$s_org];
+						$arr_content[$data_count][total] += $arr_content[$data_count][$s_org][$s_pm];
+
+						if($rpt_order_index == 0){ 
+							//$arr_grand_total[$s_org] += $arr_count[$data_count][$s_org][$s_pm];
+							$arr_grand_total[$s_org] += $arr_count_person[$s_pm][$s_org];
+						}
+						
+						if($rpt_order_index < (count($arr_rpt_order) - 1)) initialize_parameter($rpt_order_index + 1);			
+						$data_count++;
+//					} // end if
+				break;		
+			} // end switch case
+		} // end for
+	} // end while
+	
+//print("<pre><b>ARR_CONTENT</b> :: ");		print_r($arr_content);		print("</pre>");		
+//print("<pre><b>ARR_COUNT_PERSON</b> :: ");		print_r($arr_count_person);		print("</pre>");		
+//print("<pre><b>ARR_COUNT_TOTAL_PERSON</b> :: ");		print_r($arr_count_total_person);		print("</pre>");
+
+//	$RTF->open_section(1); 
+	$RTF->set_font($font, 14);
+	$RTF->color("0");	// 0=BLACK
+		
+	$RTF->add_header("", 0, false);	// header default
+	$RTF->add_footer("", 0, false);		// footer default
+/*		
+	$head_text1 = implode(",", $heading_text);
+	$head_width1 = implode(",", $heading_width);
+	$head_align1 = implode(",", $heading_align);
+	$col_function = implode(",", $column_function);
+//	echo "$head_text1<br>";
+	$tab_align = "center";
+	$result = $RTF->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "14", "b", $fmtTableHeader_col_idx, $fmtTableHeader_bgcol_idx, $COLUMN_FORMAT, $col_function, false, $tab_align);
+	if (!$result) echo "****** error ****** on open table for $table<br>";
+*/		
+	if ($count_data) {
+	
+		sort($arr_org_seq);	
+
+		$buff1 = floor(212 / (count($arr_org_seq) + 1));				// A4 กว่าง 282 หักไป 70 เหลือ 212
+		$heading_width[2] = trim((string) $buff1);			// 212 / จำนวน column ที่เหลือ + col รวม
+		$buff2 = 50 + (212 - ((count($arr_org_seq) + 1) * $buff1));
+		$heading_width[1] = trim((string) $buff2); 			//  เศษที่เหลือ ไปบวกเพิ่มที่ หัว 1
+//		echo "$heading_width[0],$heading_width[1],$heading_width[2]<br>";
+		$sum_w = (int)$heading_width[0]+(int)$heading_width[1]+((count($arr_org_seq)+1) * (int)$heading_width[2]);
+		for($h = 0; $h < count($heading_width); $h++) {
+			$heading_width[$h] = $heading_width[$h] / $sum_w * 100;
+		}
+//		echo "sum_w=$sum_w, (".count($arr_org_seq).")head_width=".implode(",",$heading_width)."<br>";
+
+/**	
+		echo "<pre> ARR_ORG_SEQ : ";
+		print_r($arr_org_seq);
+		echo "</hr>  ARR_ORG : ";
+		print_r($arr_org);
+		echo "</pre>";
+**/
+
+		print_header($arr_org_seq, $arr_org);
+		
+//print("<pre><b>ARR_CONTENT</b> :: ");	print_r($arr_content);		print("</pre>");		
+
+	for($data_count=0; $data_count<count($arr_content); $data_count++){
+		$REPORT_ORDER = $arr_content[$data_count][type];
+//		$DISPLAY_ORDER = $arr_content[$data_count][order];
+		$DISPLAY_ORDER = $data_count+1;
+		$NAME = $arr_content[$data_count][name];
+		$CODE = $arr_content[$data_count][code];
+
+		$border = "TLBR";
+//		$pdf->SetFont($font,'b',14);
+//		$pdf->SetTextColor(hexdec("00"),hexdec("00"),hexdec("00"));
+
+//		$start_x = $pdf->x;			$start_y = $pdf->y;				$max_y = $pdf->y;
+//		$RTF->ln();			
+		$RTF->set_table_font($font, 14);
+
+		if(!in_array($CODE,$arr_exist_plcode)){
+			$DISPLAY_ORDER_PLCODE++;
+			$arr_exist_plcode[] = $CODE;
+/*			$pdf->MultiCell($heading_width[0], 7, (($NUMBER_DISPLAY==2)?convert2thaidigit($DISPLAY_ORDER_PLCODE ):$DISPLAY_ORDER_PLCODE ), $border, "C");
+			if($pdf->y > $max_y) $max_y = $pdf->y;
+			$pdf->x = $start_x + $heading_width[0];
+			$pdf->y = $start_y;
+			$pdf->MultiCell($heading_width[1], 7, "$NAME", $border, "L");
+			if($pdf->y > $max_y) $max_y = $pdf->y;
+			$pdf->x = $start_x + $heading_width[0] + $heading_width[1];
+			$pdf->y = $start_y;*/
+			
+			$RTF->open_line("center", false, false);			
+			$RTF->cell($RTF->bold(1) . (($NUMBER_DISPLAY==2)?convert2thaidigit($DISPLAY_ORDER_PLCODE ):$DISPLAY_ORDER_PLCODE ) . $RTF->bold(0), $heading_width[0], "center", "0", $border);
+			$RTF->cell($RTF->bold(1) . (($NUMBER_DISPLAY==2)?convert2thaidigit($NAME):$NAME) . $RTF->bold(0), $heading_width[1], "left", "0", $border);
+
+/****
+print("<hr><pre><b>ARR_COUNT</b> :: ");	print_r($arr_count);		print("</pre>");
+print("<hr><pre><b>ARR_ORG_SEQ</b> :: ");	print_r($arr_org_seq);	print("</pre>");
+print("<hr><pre><b>ARR_ORG</b> :: ");	print_r($arr_org);	print("</pre>");
+print("<hr><b>CODE</b> :: $CODE<br>");
+*****/
+
+			foreach($arr_org_seq as $key => $val) {	//หน่วยงาน
+				//echo "-> $key => $val && $CODE <br>";
+					
+				//$pdf->Cell($heading_width[2], 7, ($arr_count[$data_count][$arr_org[$val][code]][$CODE]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_count[$data_count][$arr_org[$val][code]][$CODE])):number_format($arr_count[$data_count][$arr_org[$val][code]][$CODE])):"-"), $border, 0, 'R', 0);
+//				$pdf->Cell($heading_width[2], 7, ($arr_count_person[$CODE][$arr_org[$val][code]]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_count_person[$CODE][$arr_org[$val][code]])):number_format($arr_count_person[$CODE][$arr_org[$val][code]])):"-"), $border, 0, 'R', 0);
+				$RTF->cell($RTF->bold(1) . ($arr_count_person[$CODE][$arr_org[$val][code]]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_count_person[$CODE][$arr_org[$val][code]])):number_format($arr_count_person[$CODE][$arr_org[$val][code]])):"-") . $RTF->bold(0), $heading_width[2], "right", "0", $border);
+				//$arr_count_total_person[$CODE]	+= $arr_count_person[$CODE][$arr_org[$val][code]];
+			}	//end foreach
+			//$pdf->Cell($heading_width[2], 7, ($arr_content[$data_count][total]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_content[$data_count][total])):number_format($arr_content[$data_count][total])):"-"), $border, 0, 'R', 0);
+//			$pdf->Cell($heading_width[2], 7, (array_sum($arr_count_person[$CODE])?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format(array_sum($arr_count_person[$CODE]))):number_format(array_sum($arr_count_person[$CODE]))):"-"), $border, 0, 'R', 0);
+			$RTF->cell($RTF->bold(1) . (array_sum($arr_count_person[$CODE])?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format(array_sum($arr_count_person[$CODE]))):number_format(array_sum($arr_count_person[$CODE]))):"-") . $RTF->bold(0), $heading_width[2], "right", "0", $border);
+			$RTF->close_line();
+
+			//================= Draw Border Line ====================
+/*			$line_start_y = $start_y;		$line_start_x = $start_x;
+			$line_end_y = $max_y;		$line_end_x = $start_x;
+			$pdf->Line($line_start_x, $line_start_y, $line_end_x, $line_end_y);
+
+			for($i=0; $i<=count($arr_org)+2; $i++){
+				if($i==0){
+					$line_start_y = $start_y;		$line_start_x += $heading_width[0];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[0];
+				}elseif($i==1){
+					$line_start_y = $start_y;		$line_start_x += $heading_width[1];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[1];
+				}else{
+					$line_start_y = $start_y;		$line_start_x += $heading_width[2];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[2];
+				} // end if
+				$pdf->Line($line_start_x, $line_start_y, $line_end_x, $line_end_y);
+			} // end for
+			//====================================================
+
+			if(($pdf->h - $max_y - 10) < 15){ 
+				$pdf->Line($start_x, $max_y, $pdf->x, $max_y);
+				if($data_count < (count($arr_content) - 1)){
+					$pdf->AddPage();
+					print_header($arr_org_seq, $arr_org);
+					$max_y = $pdf->y;
+				} // end if
+			}else{
+				if($data_count == (count($arr_content) - 1)) $pdf->Line($start_x, $max_y, $pdf->x, $max_y);
+			} // end if
+			$pdf->x = $start_x;			$pdf->y = $max_y;
+*/			
+		} //end if(!in_array($CODE,$arr_exist_plcode))			
+			
+	} // end for data_count
+		
+		$border = "LTBR";
+		$RTF->set_table_font($font, 14);
+
+		$RTF->open_line("center", false, false);			
+		$RTF->cell("", $heading_width[0], "center", "0", $border);
+		$RTF->cell("รวมทั้งหมด", $heading_width[1], "left", "0", $border);
+		foreach($arr_org_seq as $key => $val) {	//หน่วยงาน
+			$RTF->cell($RTF->bold(1) . ($arr_grand_total[$arr_org[$val][code]]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_grand_total[$arr_org[$val][code]])):number_format($arr_grand_total[$arr_org[$val][code]])):"-") . $RTF->bold(0), $heading_width[2], "right", "0", $border);
+		}	//end foreach
+		$RTF->cell($RTF->bold(1) . ($GRAND_TOTAL?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($GRAND_TOTAL)):number_format($GRAND_TOTAL)):"-") . $RTF->bold(0), $heading_width[2], "right", "0", $border);
+		$RTF->close_line();
+/*
+		$start_x = $pdf->x;			$start_y = $pdf->y;				$max_y = $pdf->y;
+
+		$pdf->MultiCell($heading_width[0], 7, "", $border, "L");
+		if($pdf->y > $max_y) $max_y = $pdf->y;
+		$pdf->x = $start_x + $heading_width[0];
+		$pdf->y = $start_y;
+		$pdf->MultiCell($heading_width[1], 7, "รวมทั้งหมด", $border, "C");
+		if($pdf->y > $max_y) $max_y = $pdf->y;
+		$pdf->x = $start_x + $heading_width[0] + $heading_width[1];
+		$pdf->y = $start_y;
+
+		$GRAND_TOTAL = 0;
+		foreach($arr_org_seq as $key => $val) {
+			$pdf->Cell($heading_width[2], 7, ($arr_grand_total[$arr_org[$val][code]]?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($arr_grand_total[$arr_org[$val][code]])):number_format($arr_grand_total[$arr_org[$val][code]])):"-"), $border, 0, 'R', 0);
+			$GRAND_TOTAL += $arr_grand_total[$arr_org[$val][code]];
+		}
+		$pdf->Cell($heading_width[2], 7, ($GRAND_TOTAL?(($NUMBER_DISPLAY==2)?convert2thaidigit(number_format($GRAND_TOTAL)):number_format($GRAND_TOTAL)):"-"), $border, 1, 'R', 0);
+*/
+	}else{
+		$RTF->set_font($font, 16);
+		$RTF->color("0");	// 0=BLACK
+//		$pdf->SetFont($font,'b',16);
+//		$pdf->SetTextColor(hexdec("00"),hexdec("00"),hexdec("00"));
+//		$pdf->Cell(287,10,"********** ไม่มีข้อมูล **********",0,1,'C');
+		$RTF->add_text($RTF->bold(1) . "********** ไม่มีข้อมูล **********" . $RTF->bold(0) , "center");
+	} // end if
+//	$RTF->close_tab(); 
+//	$RTF->close_section(); 
+	
+	$RTF->display($fname);
+	
+?>

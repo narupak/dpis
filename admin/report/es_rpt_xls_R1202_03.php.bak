@@ -1,0 +1,447 @@
+<?php
+    include("../../php_scripts/connect_database.php");
+    include("../../php_scripts/calendar_data.php");
+    include ("../php_scripts/function_share.php");
+
+    include ("../report/rpt_function.php");
+
+    ini_set("max_execution_time", 0);
+    
+    $db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    
+    function getNamePersonal($db_dpis,$perId){
+        $cmd = "SELECT PP.PN_NAME,PPN.PER_NAME,PPN.PER_SURNAME 
+                FROM PER_PERSONAL PPN
+                LEFT JOIN PER_PRENAME PP ON(PP.PN_CODE=PPN.PN_CODE)
+                WHERE PER_ID = $perId ";
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $fullname = $data2[PN_NAME].$data2[PER_NAME].' '.$data2[PER_SURNAME];
+        return $fullname;
+    }
+    define('EOL',(PHP_SAPI == 'cli') ? PHP_EOL : '<br />');
+    //date_default_timezone_set('Asia/Bangkok');
+    require_once '../../Excel/eslip/Classes/PHPExcel/IOFactory.php';
+    
+    $objReader = PHPExcel_IOFactory::createReader('Excel5');
+    if($chkmonth==15){
+        $objPHPExcel = $objReader->load("../../Excel/eslip/templates/R1204_template15Col.xls");
+    }else{
+        $objPHPExcel = $objReader->load("../../Excel/eslip/templates/R1204_template31Col.xls");
+    }
+    
+    //หาหน่วยงาน
+	 if($select_org_structure==0){ // แบบตามกฏหมาย
+		 $varORGID= $search_org_id;
+		 $varORGNAME= $search_org_name;
+	 }else{ //แบบมอบหมายงาน
+		 $varORGID= $search_org_ass_id;
+		  $varORGNAME= $search_org_ass_name;
+	}
+	
+	// จัดเรียงข้อมูล
+	if(!trim($RPTORD_LIST)){ 
+		$RPTORD_LIST = "MINISTRY|";
+	}
+	$arr_rpt_order = explode("|", $RPTORD_LIST);
+//	$order_by = "";
+	$order_by .= " ORDER BY P.PER_NAME, P.PER_SURNAME";
+/*
+	for($rpt_order_index=0; $rpt_order_index<count($arr_rpt_order); $rpt_order_index++){
+		$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+		switch($REPORT_ORDER){
+			case "NAME" :
+				$order_by .= " ORDER BY P.PER_NAME, P.PER_SURNAME";
+				break;
+
+			
+		} // end switch case
+	} // end for
+*/      
+
+    $report_title = $DEPARTMENT_NAME."||รายงานการมาปฏิบัติราชการของ$PERSON_TYPE[$search_per_type]||ประจำเดือน ".$month_full[($search_month + 0)][TH]." พ.ศ. ". $search_year;
+    $org_structure="โครงสร้างตามกฎหมาย";
+    if($select_org_structure==1){$org_structure="โครงสร้างตามมอบหมายงาน";}
+    $company_name ="รูปแบบการออกรายงาน : ".$org_structure." ".$varORGNAME;
+    
+    $objPHPExcel->setActiveSheetIndex(0)
+            ->setCellValue('A1', iconv('TIS-620','UTF-8',$DEPARTMENT_NAME))
+            ->setCellValue('A2', iconv('TIS-620','UTF-8','รายงานการมาปฏิบัติราชการของ$PERSON_TYPE[$search_per_type]'))
+            ->setCellValue('A3', iconv('TIS-620','UTF-8','ประจำเดือน'.$month_full[($search_month + 0)][TH].' พ.ศ. '. $search_year))
+            ->setCellValue('A4', iconv('TIS-620','UTF-8',$company_name));
+    
+    $Arrsearch_date = explode("/", $search_date);
+    $varBgnDataEat= ($Arrsearch_date[2]-543).'-'.$Arrsearch_date[1].'-'.$Arrsearch_date[0].' 00:00:00';
+    $varToDateEat= ($Arrsearch_date[2]-543).'-'.$Arrsearch_date[1].'-'.$Arrsearch_date[0].' 23:59:59';
+    $varPerType= $search_per_type;
+    $varOrgStructure = 'PER_ORG';
+   
+    if($select_org_structure==1){$varOrgStructure = 'PER_ORG_ASS';}
+    
+    //หาช่วงวันที่ 15 / 30
+    if(strlen($search_month)==1){
+        $search_month = '0'.$search_month;
+    }
+    
+    //$search_year=($search_year);
+    $varBgnDate = ($search_year-543).'-'.$search_month.'-01';
+    
+    $cmdBtw="SELECT to_char( work_date,'YYYY-MM-DD') AS WORK_DATE,CASe WHEN ph.hol_date is not null THEN 1 ELSE 0 END AS HOLDAY
+            FROM (
+                SELECT (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+rownum AS WORK_DATE FROM all_objects
+                WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= last_day(TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))
+              ) tbmain 
+              left join per_holiday ph on(ph.hol_date=to_char( tbmain.work_date,'YYYY-MM-DD'))";
+    $cmdBtw=str_ireplace(":BEGINDATEAT","'".$varBgnDate."'",$cmdBtw);
+    $cntDay = $db_dpis2->send_cmd($cmdBtw);
+    $workDateIN = "";
+    $comma=",";
+    $iloop = 0;
+    if($chkmonth==15){$cntDay=15;}
+    
+    $ArrHol = array();
+    while ($dataDAY = $db_dpis2->get_array()) {
+        $ArrHol[$iloop]=$dataDAY[HOLDAY];
+        $iloop++;
+        if($iloop==$cntDay){$comma='';}
+        $workDateIN .= "'".$dataDAY[WORK_DATE]."'".$comma;
+        if($comma==''){break;}
+    }
+    $ArrworkDateIN = explode(",", $workDateIN);
+    //die($workDateIN);
+    
+    $cmdMain ="WITH
+                ALLWORKDAY AS
+                (
+                  SELECT (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ROWNUM AS WORK_DATE FROM ALL_OBJECTS
+                    WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ ROWNUM <= LAST_DAY(TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))
+                )
+                ,GetList_ORG_ID As
+                (
+
+                  select org_id from PER_ORG o where :LAW_OR_ASS=1 and o.org_active=1 and o.org_id in
+                    (select org_id from PER_ORG start with ORG_ID=:ORG_ID CONNECT BY PRIOR org_id = ORG_ID_REF)  
+                  union
+                  select org_id from PER_ORG_ASS o where :LAW_OR_ASS=2 and o.org_active=1 and o.org_id in
+                    (select org_id from PER_ORG_ASS start with ORG_ID=:ORG_ID CONNECT BY PRIOR org_id = ORG_ID_REF)  
+
+                )
+                ,List_Per_Type as
+                (
+                  select CAST(:PER_TYPE AS number) PER_TYPE from dual 
+                  union select 1 from dual where :PER_TYPE=0
+                  union select 2 from dual where :PER_TYPE=0
+                  union select 3 from dual where :PER_TYPE=0
+                  union select 4 from dual where :PER_TYPE=0
+
+                )
+                ,PersonInDepart As
+                (
+                  /* By Law */
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POSITION pp on (pp.POS_ID=p.POS_ID)
+                  where p.per_status=1 and p.per_type=1 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_EMP pp on (pp.POEM_ID=p.POEM_ID)
+                  where p.per_status=1 and p.per_type=2 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_EMPSER pp on (pp.POEMS_ID=p.POEMS_ID)
+                  where p.per_status=1 and p.per_type=3 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_TEMP pp on (pp.POT_ID=p.POT_ID)
+                  where p.per_status=1 and p.per_type=4 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  /* By Assignment */
+                  union
+                  select per_id from PER_PERSONAL p
+                  where p.per_status=1 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=2 and p.ORG_ID in (select org_id from GetList_ORG_ID)
+                )
+				, AllWorks as
+				(
+                    SELECT PER_ID,TO_CHAR( WORK_DATE,'YYYY-MM-DD') AS WORK_DATE,NVL(TO_CHAR(ABSENT_FLAG),'*')||NVL(TO_CHAR(WORK_FLAG),'*')
+                    || (CASE WHEN ABSENT_FLAG=1 OR ABSENT_FLAG=2 THEN (
+                        SELECT NVL(TRIM(P.AB_CODE),'**')
+                        FROM PER_ABSENTHIS P
+                        WHERE P.PER_ID=PER_WORK_TIME.PER_ID AND P.ABS_STARTDATE=TO_CHAR( WORK_DATE,'YYYY-MM-DD') AND TRIM(P.AB_CODE) NOT IN ('10','13')
+                      ) ELSE '--' END) ||'('|| NVL(TO_CHAR(APV_ENTTIME,'HH24:MI'),'XX:XX') || '-' || NVL(TO_CHAR(APV_EXITTIME,'HH24:MI'),'XX:XX') || ')' AW
+                    FROM PER_WORK_TIME
+                    WHERE 
+                      PER_ID IN (SELECT * FROM PERSONINDEPART)
+                      AND WORK_DATE BETWEEN (SELECT MIN(WORK_DATE) FROM ALLWORKDAY) AND (SELECT MAX(WORK_DATE) FROM ALLWORKDAY) 
+
+					union  select * from (
+						SELECT PER_ID, to_char(x.WORK_DATE,'YYYY-MM-DD') AS WORK_DATE,to_char(case when ph.ABS_STARTDATE=to_char(x.WORK_DATE,'YYYY-MM-DD') then abs_startperiod
+						  else 
+							case when ph.ABS_ENDDATE=to_char(x.WORK_DATE,'YYYY-MM-DD') then abs_endperiod
+							else 
+							  3
+							end
+						end)|| '0' ||TRIM(AB_CODE) ||(select '('|| NVL(TO_CHAR(APV_ENTTIME,'HH24:MI'),'XX:XX') || '-' || 				 																		NVL(TO_CHAR(APV_EXITTIME,'HH24:MI'),'XX:XX') || ')' from PER_WORK_TIME where PER_ID=ph.PER_ID 
+								and WORK_DATE=x.WORK_DATE) AS AW 
+						/*
+						,ph.ABS_STARTDATE
+						,abs_startperiod,ABS_ENDDATE,abs_endperiod,ph.abs_day,
+						case when ph.ABS_STARTDATE=x.WORK_DATE then abs_startperiod
+						  else 
+							case when ph.ABS_ENDDATE=x.WORK_DATE then abs_endperiod
+							else 
+							  3
+							end
+						end period
+						*/
+						FROM PER_ABSENTHIS ph
+						left join 
+						(
+						/*
+						  SELECT (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+rownum AS WORK_DATE FROM all_objects
+							WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD')
+						*/    
+						  select * from (
+							select x.DayList WORK_DATE
+							,case when (TO_CHAR(x.DayList, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') in ('SAT','SUN')) then '1'
+								  else case when exists (select null from PER_HOLIDAY where HOL_DATE=to_char(x.DayList,'YYYY-MM-DD'))
+											then '1'
+									   else 
+											'0'
+									   end
+							 end status
+							from (
+								SELECT to_date(:BEGINDATEAT, 'YYYY-MM-DD')-1+rownum AS DayList FROM all_objects
+								 WHERE to_date(:BEGINDATEAT, 'YYYY-MM-DD')-1+rownum <= last_day(to_date(:BEGINDATEAT, 'YYYY-MM-DD'))
+							) x
+						  ) where status=0  
+							
+							
+						) x on (to_char(x.WORK_DATE,'YYYY-MM-DD') between ph.ABS_STARTDATE and ph.abs_enddate)
+						WHERE ABS_STARTDATE BETWEEN (SELECT MIN(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) AND 
+										(SELECT MAX(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) 
+								and PER_ID IN (SELECT * FROM PERSONINDEPART)
+					)
+/*
+                    UNION ALL 
+                    SELECT PER_ID, ABS_STARTDATE AS WORK_DATE,'3'|| '0' ||TRIM(AB_CODE) AS AW 
+                    FROM PER_ABSENTHIS 
+                    WHERE ABS_STARTDATE BETWEEN (SELECT MIN(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) AND (SELECT MAX(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) 
+*/
+				)
+                SELECT X.*,P.PER_NAME,PER_SURNAME FROM 
+                (
+                  SELECT * FROM
+                  (
+				  	select p.per_id, WORK_DATE, aw
+                    FROM per_personal p
+					left join AllWorks on (AllWorks.per_id=p.per_id)
+                    WHERE 
+                      p.PER_ID IN (SELECT * FROM PERSONINDEPART)
+                  )
+                  PIVOT 
+                  (
+                      MIN(AW) 
+                      FOR  WORK_DATE IN (".$workDateIN.")
+                  )
+                ) X
+                LEFT JOIN PER_PERSONAL P ON (P.PER_ID=X.PER_ID)
+                ".$order_by;
+    $org_structure=1;
+    if($select_org_structure==1){$org_structure=2;}
+    $cmdMain=str_ireplace(":BEGINDATEAT","'".$varBgnDate."'",$cmdMain);
+    $cmdMain=str_ireplace(":PER_TYPE",$varPerType,$cmdMain);
+    $cmdMain=str_ireplace(":ORG_ID",$varORGID,$cmdMain);
+     $cmdMain=str_ireplace(":LAW_OR_ASS",$org_structure,$cmdMain);
+    $count_page_data = $db_dpis2->send_cmd($cmdMain);
+    //die('<pre>'.$cmdMain);
+    $no=0;
+    $AB_COUNT_TOTAL_04=0;
+    $SUM_CODE_04=0;
+    $TotalCODE_04=0;
+    
+    $ArrCol = array('C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC','AD','AE','AF','AG');
+    $baseRow = 7;
+    $baseRow2 = 8;
+    $r=0;
+    $r2=0;
+    while ($data = $db_dpis2->get_array()) {
+        $no++;
+        $sum1=0;//01=ลาป่วย
+        $sum3=0;//03=ลากิจส่วนตัว
+        $sum13=0; //13=ขาดราชการ
+        $sum10=0;//10=สาย
+        
+        $AB_COUNT_04=0;
+        $arr_data = (array) null;
+        $arr_dataIn = (array) null;
+        $arr_dataOut = (array) null;
+        $arr_data[] = $no;
+        $arr_data[] = getNamePersonal($db_dpis,$data[PER_ID]);
+        
+        $arr_dataIn[]='';
+        $arr_dataIn[]='  เวลาเข้า';
+        
+        $arr_dataOut[]='';
+        $arr_dataOut[]='  เวลาออก';
+        
+        
+        //getPER_VACATION($data[PER_ID],$search_year,$AB_COUNT_TOTAL_04,$AB_COUNT_04);
+        // การลาพักผ่อน
+        $AS_YEAR = $search_year+543;
+        $cmd = " select VC_DAY from PER_VACATION where VC_YEAR='$AS_YEAR'and PER_ID=".$data[PER_ID];
+        $count = $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $AB_COUNT_TOTAL_04 = $data2[VC_DAY]; 	// วันลาพักผ่อนที่ลาได้ทั้งหมดในปีงบประมาณ
+        //$AB_COUNT_04 = $AB_COUNT_TOTAL_04 - $SUM_CODE_04 + $ABS_DAY_MFA;		// วันลาสะสมที่เหลือ
+        $TMP_START_DATE =  ($search_year-1).'-10-01';
+        $TMP_END_DATE =  $search_year.'-09-30';
+
+        $cmd = " select sum(ABS_DAY) as abs_day
+            from PER_ABSENTHIS 
+            where PER_ID=".$data[PER_ID]." and trim(AB_CODE)='04' 
+            and ABS_STARTDATE >= '$TMP_START_DATE' and ABS_ENDDATE <= '$TMP_END_DATE' ";
+        
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $data2 = array_change_key_case($data2, CASE_LOWER);
+        $SUM_CODE_04 = $data2[abs_day]+0; 
+        
+        $TotalCODE_04 =$AB_COUNT_TOTAL_04-$SUM_CODE_04;
+        
+        $days = (array) null;
+        $timeIN = (array) null;
+        $timeOut = (array) null;
+        $row = $baseRow + $r;
+        for($idx=0;$idx<count($ArrworkDateIN);$idx++){
+            if($ArrHol[$idx]==1){ //วันหยุด
+                //*ใส่สี*//
+            }
+            $dataAbs = $data[$ArrworkDateIN[$idx]];
+            $subAbs = substr($dataAbs,0,1);
+            $ArrInOut = explode('(', $dataAbs);
+            $ArrInOut2 = explode('-', $ArrInOut[1]);
+            if($subAbs==1 || $subAbs==2 || $subAbs==3 ){
+                $dataAbs = substr($dataAbs,2,2);
+                if($subAbs==1){$subAbs1='';$subAbs2='/';}
+                if($subAbs==2){$subAbs1='/';$subAbs2='';}
+                if($subAbs==3){$subAbs1='';$subAbs2='';}
+                
+                if($dataAbs=='1'){//ลาป่วย
+                    $dataAbs=$subAbs2.'ป'.$subAbs1;
+                    if($subAbs==1 || $subAbs==2){
+                        $sum1=$sum1+0.5;
+                    }else{
+                        $sum1++;
+                    }
+                }elseif($dataAbs=='2'){//ลาคลอดบุตร
+                    $dataAbs='';/*$subAbs2.''.$subAbs1;*/
+                }elseif($dataAbs=='3'){//ลากิจส่วนตัว
+                    $dataAbs=$subAbs2.'ก'.$subAbs1;
+                    if($subAbs==1 || $subAbs==2){
+                        $sum3=$sum3+0.5;
+                    }else{
+                        $sum3++;
+                    }
+                }elseif($dataAbs=='4'){//ลาพักผ่อน
+                    $dataAbs=$subAbs2.'พ'.$subAbs1;
+                }elseif($dataAbs=='13'){//ขาดราชการ
+                    $dataAbs='ข';/*$subAbs2.'ข'.$subAbs1;*/
+                    $sum13++;
+                }else{
+                    $dataAbs='';
+                }
+            }else{
+                $dataAbs = substr($dataAbs,0,2)+0;
+                if($dataAbs==1){
+                    $dataAbs='ส';
+                    $sum10++;
+                }elseif($dataAbs==2){
+                    $dataAbs='ข';
+                    $sum13++;
+                }elseif($dataAbs==3){
+                    $dataAbs='อ';
+                }else{
+                    $dataAbs='';
+                }
+            }
+            $days[] = $dataAbs;//$arr_data[] = $dataAbs;
+            $timeIN[]=$ArrInOut2[0]=="XX:XX"?'':$ArrInOut2[0];//$arr_dataIn[]=$ArrInOut2[0]=="XX:XX"?'':$ArrInOut2[0];
+            $timeOut[]=$ArrInOut2[1]=="XX:XX)"?'':str_replace(')', '', $ArrInOut2[1]);//$arr_dataOut[]=$ArrInOut2[1]=="XX:XX)"?'':str_replace(')', '', $ArrInOut2[1]);
+        }
+        
+        $objPHPExcel->getActiveSheet()->insertNewRowBefore($row,1);
+        $objPHPExcel->getActiveSheet()->setCellValue('A'.$row, $no)
+                                        ->setCellValue('B'.$row, iconv('TIS-620','UTF-8',getNamePersonal($db_dpis,$data[PER_ID])));
+         $objPHPExcel->getActiveSheet()
+                    ->getStyle('B'.$row)
+                    ->getAlignment()
+                    ->setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_LEFT);
+         
+         
+         
+         for($idx=0;$idx<count($ArrworkDateIN);$idx++){
+            $objPHPExcel->getActiveSheet()->setCellValue($ArrCol[$idx].$row, iconv('TIS-620','UTF-8',$days[$idx]));
+        }
+        if(count($ArrworkDateIN)>15){
+            $objPHPExcel->getActiveSheet()->setCellValue('AH'.$row, iconv('TIS-620','UTF-8',$sum1==0?'':$sum1))
+                                        ->setCellValue('AI'.$row, iconv('TIS-620','UTF-8',$sum3==0?'':$sum3))
+                                        ->setCellValue('AJ'.$row, iconv('TIS-620','UTF-8',$sum13==0?'':$sum13))
+                                        ->setCellValue('AK'.$row, iconv('TIS-620','UTF-8',$sum10==0?'':$sum10))
+                                        ->setCellValue('AL'.$row, iconv('TIS-620','UTF-8',''));
+            $objPHPExcel->getActiveSheet()
+                    ->getStyle('A'.$row.':AL'.$row)
+                    ->getFill()
+                    ->getStartColor()
+                    ->setRGB('FFFFFF');
+        }else{
+            $objPHPExcel->getActiveSheet()->setCellValue('R'.$row, iconv('TIS-620','UTF-8',$sum1==0?'':$sum1))
+                                        ->setCellValue('S'.$row, iconv('TIS-620','UTF-8',$sum3==0?'':$sum3))
+                                        ->setCellValue('T'.$row, iconv('TIS-620','UTF-8',$sum13==0?'':$sum13))
+                                        ->setCellValue('U'.$row, iconv('TIS-620','UTF-8',$sum10==0?'':$sum10))
+                                        ->setCellValue('V'.$row, iconv('TIS-620','UTF-8',''));
+            $objPHPExcel->getActiveSheet()
+                    ->getStyle('A'.$row.':V'.$row)
+                    ->getFill()
+                    ->getStartColor()
+                    ->setRGB('FFFFFF');
+        }
+        $objPHPExcel->getActiveSheet()->getRowDimension($row)->setRowHeight(15);
+        
+        $r++;
+        $row = $baseRow + $r;
+        $objPHPExcel->getActiveSheet()->insertNewRowBefore($row,1);
+        $objPHPExcel->getActiveSheet()->setCellValue('A'.$row, '')->setCellValue('B'.$row, iconv('TIS-620','UTF-8','     เวลาเข้า'));
+        for($idx=0;$idx<count($ArrworkDateIN);$idx++){
+            $objPHPExcel->getActiveSheet()->setCellValue($ArrCol[$idx].$row, iconv('TIS-620','UTF-8',$timeIN[$idx]));
+        }
+        
+        $r++;
+        $row = $baseRow + $r;
+        $objPHPExcel->getActiveSheet()->insertNewRowBefore($row,1);
+        $objPHPExcel->getActiveSheet()->setCellValue('A'.$row, '')->setCellValue('B'.$row, iconv('TIS-620','UTF-8','     เวลาออก'));
+        for($idx=0;$idx<count($ArrworkDateIN);$idx++){
+            $objPHPExcel->getActiveSheet()->setCellValue($ArrCol[$idx].$row, iconv('TIS-620','UTF-8',$timeOut[$idx]));
+        }
+        
+        $r++;
+    }
+    header('Content-Type: application/vnd.ms-excel');
+    header('Content-Disposition: attachment;filename="R1202_03.xls"');
+    header('Cache-Control: max-age=0');
+    // If you're serving to IE 9, then the following may be needed
+    header('Cache-Control: max-age=1');
+
+    // If you're serving to IE over SSL, then the following may be needed
+    header ('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
+    header ('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT'); // always modified
+    header ('Cache-Control: cache, must-revalidate'); // HTTP/1.1
+    header ('Pragma: public'); // HTTP/1.0
+
+    $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+    $objWriter->save('php://output');
+
+?>

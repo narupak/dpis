@@ -1,0 +1,1686 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	include("php_scripts/data_scholar.php"); 
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);	
+
+	switch($CTRL_TYPE){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+		
+	if(trim($search_cardno)) $arr_search_condition[] = "(SC_CARDNO like '$search_cardno%')";
+	if(trim($search_name)) $arr_search_condition[] = "(SC_NAME||' '||SC_SURNAME like '%$search_name%')";
+
+	if($search_department_id){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID is NULL or a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+	$from = "PER_SCHOLAR a, PER_SCHOLARSHIP b";		
+	if( trim($search_typecode) ) {
+		$arr_search_condition[] = "(b.ST_CODE = '$search_typecode')";
+	}
+        
+	if(trim($search_org_id))  {
+		$arr_search_condition[] = "(f.ORG_ID = $search_org_id)";
+	}
+        
+	if(trim($INS_CODE_SEARCH))  {
+		$arr_search_condition[] = "(a.INS_CODE = '$INS_CODE_SEARCH' or a.INS_CODE1 = '$INS_CODE_SEARCH' or a.INS_CODE2 = '$INS_CODE_SEARCH')";
+	} elseif(trim($INS_NAME_SEARCH))  {
+		$arr_search_condition[] = "(a.SC_INSTITUTE = '$INS_NAME_SEARCH' or a.SC_INSTITUTE1 = '$INS_NAME_SEARCH' or a.SC_INSTITUTE2 = '$INS_NAME_SEARCH')";
+	}
+	
+	if(trim($CT_CODE_SEARCH))  {
+		$arr_search_condition[] = "(trim(a.CT_CODE) = trim('$CT_CODE_SEARCH') or trim(a.CT_CODE1) = trim('$CT_CODE_SEARCH') or trim(a.CT_CODE2) = trim('$CT_CODE_SEARCH'))";
+	}
+	
+	if(trim($EM_CODE_SEARCH))  {
+		$arr_search_condition[] = "(a.EM_CODE = '$EM_CODE_SEARCH' or a.EM_CODE1 = '$EM_CODE_SEARCH' or a.EM_CODE2 = '$EM_CODE_SEARCH')";
+	}
+	
+	if(trim($SCH_CODE_SEARCH))  {
+		$arr_search_condition[] = "(a.SCH_CODE = '$SCH_CODE_SEARCH')";
+	}
+        
+	 if ($search_sc_startdate) {
+		$temp_start =  save_date($search_sc_startdate);
+		$arr_search_condition[] = "(a.SC_STARTDATE >= '$temp_start')";
+	} // end if
+        
+	if ($search_sc_enddate) {
+		$temp_end =  save_date($search_sc_enddate);
+		$arr_search_condition[] = "(a.SC_ENDDATE <= '$temp_end')";
+	} // end if 
+        
+	if( trim($search_status) )  {
+		$from = "PER_SCHOLAR a, PER_SCHOLARSHIP b, PER_SCHOLARINC c";
+		$arr_search_condition[] = "(a.SC_ID=c.SC_ID)";
+		 if ($search_sc_startdate) {
+			$temp_start =  save_date($search_sc_startdate);
+			$arr_search_condition[] = "(c.SCI_BEGINDATE >= '$temp_start')";
+		} // end if
+		
+		if ($search_sc_enddate) {
+			$temp_end =  save_date($search_sc_enddate);
+			$arr_search_condition[] = "(c.SC_ENDDATE <= '$temp_end')";
+		} // end if 
+	}
+
+	$search_condition = "";
+	if(count($arr_search_condition)) 	$search_condition 	= " where " . implode(" and ", $arr_search_condition);
+
+	$search_condition = str_replace(" where ", " and ", $search_condition);
+	$cmd =" select count(a.SC_ID) as count_data 
+					from 		$from , PER_ORG f, PER_POSITION e, PER_PERSONAL d
+					where		a.SCH_CODE=b.SCH_CODE(+) and a.PER_ID = d.PER_ID(+) and d.POS_ID=e.POS_ID(+) and e.ORG_ID=f.ORG_ID(+)
+					$search_condition  ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+//echo "$count_data : $cmd";
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+//---จาก data_scholar_inquire.html
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat_zero(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDHZERO");
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function call_search_scholarship () {
+		parameter = "&send_by=search_scholarship";
+	    call_openDialog("search_scholarship.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ทุนการศึกษา");		
+	}
+	
+	function call_search_institute () {
+		parameter = "&send_by=search_institute";
+	    call_openDialog("search_institute.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$INS_TITLE?>");		
+	}
+	
+	function call_search_scholartype (code, name) {	
+		st_code = eval("form1." + code);
+		st_name = eval("form1." + name);
+		parameter = "";
+	    call_openDialog("search_scholartype.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ประเภททุน");		
+	}
+
+	function call_search_country () {	
+		parameter = "&send_by=search_country";
+	    call_openDialog("search_country.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$CT_TITLE?>");		
+	}
+
+	function call_search_country_per (code, name) {	
+		parameter = "&send_by=search_country_per";
+		ct_code = eval("form1." + code);
+		ct_name = eval("form1." + name);
+	    call_openDialog("search_country.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$CT_TITLE?>");		
+	}
+
+	function call_rtf_pdf_report(from, search_condition,report_type) {
+	    var report_type
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		if (report_type==1){
+		document.form1.action = "report/rpt_data_scholar_inquire.php?report_title=" + report_title + "&UTC" + rptDate + "&from=" + from + "&search_condition=" + search_condition+"&FLAG_RTF=1";
+		}else if (report_type==0){ 
+		document.form1.action = "report/rpt_data_scholar_inquire.php?report_title=" + report_title + "&UTC" + rptDate + "&from=" + from + "&search_condition=" + search_condition+"&FLAG_RTF=0";
+		}
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_scholar.html";
+	} 
+	
+	function call_export_file(type) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		if (type == 1)
+			document.form1.action = "report/rpt_data_scholar_foreign_xls.php?report_title=" + report_title + "&UTC" + rptDate;
+		else
+			document.form1.action = "report/rpt_data_scholar_inquire_xls.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_scholar.html";
+	}	
+	
+	function check_valid_date() {
+		if(form1.search_sc_startdate.value && form1.search_sc_enddate.value){
+			intMinDate = Date.parse(form1.search_sc_startdate.value);
+			intMaxDate = Date.parse(form1.search_sc_enddate.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ ไม่ถูกต้อง");
+				form1.search_sc_enddate.focus();
+				return false;
+			} else  			
+		//form1.command.value='SEARCH';
+		form1.current_page.value=0;
+		return true; 
+		}
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+//---จาก data_scholar.html
+	function confirm_delete(data_id , data_label){
+		if(confirm("ต้องการลบข้อมูลผู้ลาศึกษา/ฝึกอบรมนี้ [ " + data_label + " ] ใช่หรือไม่?")){
+			form1.command.value = "DELETE";
+			form1.SC_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_search_person () {	
+		if(form1.DEPARTMENT_ID.value.trim()==""){
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			return false;
+		} 
+		parameter = "&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}	
+	
+	function call_search_person_scholar () {	
+		parameter = "";
+	    call_openDialog("search_person_scholar.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}		
+
+	function call_search_education (code, name) {	
+		parameter = "";
+		en_code = eval("form1." + code);
+		en_name = eval("form1." + name);
+	    call_openDialog("search_education.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$EN_TITLE?>");		
+	}	
+	
+	function call_search_major () {	
+		parameter = "&send_by=search_major";
+	    call_openDialog("search_major.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$EM_TITLE?>");		
+	}	
+	
+	function call_search_major_per (code, name) {	
+		parameter = "&send_by=search_major_per";
+		em_code = eval("form1." + code);
+		em_name = eval("form1." + name);
+	    call_openDialog("search_major.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$EM_TITLE?>");		
+	}	
+	
+	function call_search_educlevel (code, name) {	
+		parameter = "";
+		el_code = eval("form1." + code);
+		el_name = eval("form1." + name);
+		if (code=="EL_CODE") {
+			parameter = "&search_el_code=40";
+		} else if (code=="EL_CODE1") {
+			parameter = "&search_el_code=60";
+		} else if (code=="EL_CODE2") {
+			parameter = "&search_el_code=80";
+		}
+//		alert(parameter);
+	    call_openDialog("search_educlevel.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$EL_TITLE?>");		
+	}		
+
+	function call_search_institute_per (code, name, ct_name) {
+		parameter = "&send_by=search_institute_per";
+		ins_code = eval("form1." + code);
+		ins_name = eval("form1." + name);
+		ct_name = eval("form1." + ct_name);
+	    call_openDialog("search_institute.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$INS_TITLE?>");		
+	}
+	
+	function call_search_scholarship_per () {
+		parameter = "&send_by=search_scholarship_per";
+	    call_openDialog("search_scholarship.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ทุนการศึกษา");		
+	}
+	
+	function radio_sc_type(obj) {
+		if (obj.value == 1)  { 
+			form1.btn_cardno.disabled = false;
+			form1.PER_ID.value = "";
+			form1.PN_CODE.value = "";
+			form1.SC_CARDNO.value = "";
+			form1.SC_NAME.value = "";
+			form1.SC_SURNAME.value = "";
+			form1.SC_BIRTHDATE.value = "";
+			form1.SC_GENDER[0].checked = true;
+			form1.SC_ADD1.value = "";		
+						
+			form1.SC_NAME.readOnly = true;
+			form1.SC_SURNAME.readOnly = true;			
+		} else if (obj.value == 2 || obj.value == 3) {
+			form1.btn_cardno.disabled = true;
+			form1.PER_ID.value = "";
+			form1.PN_CODE.value = "";
+			form1.SC_CARDNO.value = "";
+			form1.SC_NAME.value = "";
+			form1.SC_SURNAME.value = "";
+			form1.SC_BIRTHDATE.value = "";
+			form1.SC_GENDER[0].checked = true;
+			form1.SC_ADD1.value = "";		
+			
+			form1.SC_NAME.readOnly = false;
+			form1.SC_SURNAME.readOnly = false;
+		}
+	}
+
+	function radio_sc_el_type(obj) {
+//			var thisImage = document.getElementById("image_el"); 
+		if (obj.value == 1)  { 
+//			alert("1");
+			form1.EL_CODE.value = '<?=$EL_CODE_BACHELOR?>';
+			form1.EL_NAME.value = '<?=$EL_NAME_BACHELOR?>';
+			form1.EL_CODE.readOnly = true;
+			form1.EL_NAME.readOnly = true;			
+			form1.btn_el.disabled = true;
+//			thisImage.disabled = true; 
+//			form1.image_el.onclick = false;
+			document.getElementById("sc_type_1").style.display = 'block';
+			document.getElementById("sc_type_2").style.display = 'none';
+			document.getElementById("sc_type_3").style.display = 'none';
+		} else if (obj.value == 2) {
+			form1.EL_CODE1.value = '<?=$EL_CODE_MASTER?>';
+			form1.EL_NAME1.value = '<?=$EL_NAME_MASTER?>';
+			form1.EL_CODE1.readOnly = true;
+			form1.EL_NAME1.readOnly = true;			
+			form1.btn_el1.disabled = true;
+			document.getElementById("sc_type_1").style.display = 'none';
+			document.getElementById("sc_type_2").style.display = 'block';
+			document.getElementById("sc_type_3").style.display = 'none';
+		} else if (obj.value == 3) {
+//			alert("3");
+			form1.EL_CODE2.value = '<?=$EL_CODE_DOCTOR?>';
+			form1.EL_NAME2.value = '<?=$EL_NAME_DOCTOR?>';
+			form1.EL_CODE2.readOnly = true;
+			form1.EL_NAME2.readOnly = true;			
+			form1.btn_el2.disabled = true;
+			document.getElementById("sc_type_1").style.display = 'none';
+			document.getElementById("sc_type_2").style.display = 'none';
+			document.getElementById("sc_type_3").style.display = 'block';
+		} else if (obj.value == 4) {	// ตรี - โท
+			form1.EL_CODE.value = '<?=$EL_CODE_BACHELOR?>';
+			form1.EL_NAME.value = '<?=$EL_NAME_BACHELOR?>';
+			form1.EL_CODE1.value = '<?=$EL_CODE_MASTER?>';
+			form1.EL_NAME1.value = '<?=$EL_NAME_MASTER?>';
+			form1.EL_CODE.readOnly = true;
+			form1.EL_NAME.readOnly = true;			
+			form1.btn_el.disabled = true;
+			form1.EL_CODE1.readOnly = true;
+			form1.EL_NAME1.readOnly = true;			
+			form1.btn_el1.disabled = true;
+			document.getElementById("sc_type_1").style.display = 'block';
+			document.getElementById("sc_type_2").style.display = 'block';
+			document.getElementById("sc_type_3").style.display = 'none';
+		} else if (obj.value == 5) {	// ตรี - เอก
+			form1.EL_CODE.value = '<?=$EL_CODE_BACHELOR?>';
+			form1.EL_NAME.value = '<?=$EL_NAME_BACHELOR?>';
+			form1.EL_CODE1.value = '<?=$EL_CODE_MASTER?>';
+			form1.EL_NAME1.value = '<?=$EL_NAME_MASTER?>';
+			form1.EL_CODE2.value = '<?=$EL_CODE_DOCTOR?>';
+			form1.EL_NAME2.value = '<?=$EL_NAME_DOCTOR?>';
+			form1.EL_CODE.readOnly = true;
+			form1.EL_NAME.readOnly = true;			
+			form1.btn_el.disabled = true;
+			form1.EL_CODE1.readOnly = true;
+			form1.EL_NAME1.readOnly = true;			
+			form1.btn_el1.disabled = true;
+			form1.EL_CODE2.readOnly = true;
+			form1.EL_NAME2.readOnly = true;			
+			form1.btn_el2.disabled = true;
+			document.getElementById("sc_type_1").style.display = 'block';
+			document.getElementById("sc_type_2").style.display = 'block';
+			document.getElementById("sc_type_3").style.display = 'block';
+		} else if (obj.value == 6) {	// โท - เอก
+			form1.EL_CODE1.value = '<?=$EL_CODE_MASTER?>';
+			form1.EL_NAME1.value = '<?=$EL_NAME_MASTER?>';
+			form1.EL_CODE2.value = '<?=$EL_CODE_DOCTOR?>';
+			form1.EL_NAME2.value = '<?=$EL_NAME_DOCTOR?>';
+			form1.EL_CODE1.readOnly = true;
+			form1.EL_NAME1.readOnly = true;			
+			form1.btn_el1.disabled = true;
+			form1.EL_CODE2.readOnly = true;
+			form1.EL_NAME2.readOnly = true;			
+			form1.btn_el2.disabled = true;
+			document.getElementById("sc_type_1").style.display = 'none';
+			document.getElementById("sc_type_2").style.display = 'block';
+			document.getElementById("sc_type_3").style.display = 'block';
+		}
+	}
+
+	function call_select_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=select_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_select_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=select_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$search_department_id":"form1.search_department_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_search_department.focus();
+			<? } ?>
+		} // end if
+	}	
+
+	function checkadd(f) {
+	if(f.SC_CARDNO.value=="") {
+		alert("กรุณาระบุ เลขประจำตัวประชาชน");
+		f.SC_CARDNO.focus();
+		return false;
+		} 
+		else if(f.SC_GENDER.value=="") {
+		alert("กรุณาระบุ เพศ");
+		f.SC_GENDER.focus();
+		return false;
+		}
+		else if(f.SCH_NAME.value=="") {
+		alert("กรุณาระบุ ชื่อทุน");
+		f.SCH_NAME.focus();
+		return false;
+		}
+		else if(f.EL_NAME.value=="" && f.EL_NAME1.value=="" && f.EL_NAME2.value=="") {
+		alert("กรุณาระบุ ระดับที่ศึกษา");
+		f.EL_NAME.focus();
+		return false;
+		}
+		else if(f.INS_NAME.value=="" && f.SC_INSTITUTE.value=="" && f.INS_NAME1.value=="" && f.SC_INSTITUTE1.value=="" && f.INS_NAME2.value=="" && f.SC_INSTITUTE2.value=="") {
+		alert("กรุณาระบุ สถานศึกษา");
+		f.INS_NAME.focus();
+		return false;
+		}
+		else if(f.SC_STARTDATE.value=="" && f.SC_STARTDATE1.value=="" && f.SC_STARTDATE2.value=="") {
+		alert("กรุณาระบุ วันที่เริ่มศึกษา");
+		f.SC_STARTDATE.focus();
+		return false;
+		}
+		else if(f.SC_ENDDATE.value=="" && f.SC_ENDDATE1.value=="" && f.SC_ENDDATE2.value=="") {
+		alert("กรุณาระบุ วันที่สุ้นสุดระยะเวลาศึกษา");
+		f.SC_ENDDATE.focus();
+		return false;
+		}
+		else  
+				form1.command.value='ADD';
+		return true;
+		}
+		
+		function checkupdate(f) {
+	if(f.SC_CARDNO.value=="") {
+		alert("กรุณาระบุ เลขประจำตัวประชาชน");
+		f.SC_CARDNO.focus();
+		return false;
+		} 
+		else if(f.SCH_NAME.value=="") {
+		alert("กรุณาระบุ ชื่อทุน");
+		f.SCH_NAME.focus();
+		return false;
+		}
+		else if(f.EL_NAME.value=="" && f.EL_NAME1.value=="" && f.EL_NAME2.value=="") {
+		alert("กรุณาระบุ ระดับที่ศึกษา");
+		f.EL_NAME.focus();
+		return false;
+		}
+		else if(f.INS_NAME.value=="" && f.SC_INSTITUTE.value=="" && f.INS_NAME1.value=="" && f.SC_INSTITUTE1.value=="" && f.INS_NAME2.value=="" && f.SC_INSTITUTE2.value=="") {
+		alert("กรุณาระบุ สถานศึกษา");
+		f.INS_NAME.focus();
+		return false;
+		}
+		else if(f.SC_STARTDATE.value=="" && f.SC_STARTDATE1.value=="" && f.SC_STARTDATE2.value=="") {
+		alert("กรุณาระบุ วันที่เริ่มศึกษา");
+		f.SC_STARTDATE.focus();
+		return false;
+		}
+		else if(f.SC_ENDDATE.value=="" && f.SC_ENDDATE1.value=="" && f.SC_ENDDATE2.value=="") {
+		alert("กรุณาระบุ วันที่สุ้นสุดระยะเวลาศึกษา");
+		f.SC_ENDDATE.focus();
+		return false;
+		}
+		else  
+				form1.command.value='UPDATE';
+		return true;
+		}
+
+	function clear_form() {
+		form1.search_typecode.value='';
+		form1.search_typename.value=''; 
+		form1.INS_NAME_SEARCH.value='';
+		form1.INS_CODE_SEARCH.value=''; 
+		form1.CT_NAME_SEARCH.value='';
+		form1.CT_CODE_SEARCH.value='';
+		form1.EM_NAME_SEARCH.value='';
+		form1.EM_CODE_SEARCH.value=''; 
+		form1.SCH_NAME_SEARCH.value='';
+		form1.SCH_CODE_SEARCH.value='';
+		form1.ORG_NAME.value='';
+		form1.ORG_ID.value='';
+		form1.search_sc_startdate.value='';
+		form1.search_sc_enddate.value='';
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="select_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+				} else if (arrValue[7]=="select_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+				} else if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+				} else if (arrValue[7]=="search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_scholarship") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[4]=="search_scholarship") {
+					form1.SCH_CODE_SEARCH.value = arrValue[0];
+					form1.SCH_NAME_SEARCH.value = arrValue[1];
+					form1.ST_NAME.value = arrValue[2];
+					form1.SCH_OWNER.value = arrValue[3];			
+				} else if (arrValue[4]=="search_scholarship_per") {
+					form1.SCH_CODE.value = arrValue[0];
+					form1.SCH_NAME.value = arrValue[1];
+					form1.ST_NAME.value = arrValue[2];
+					form1.SCH_OWNER.value = arrValue[3];			
+				}
+			} // end if
+		} else if  (src.indexOf("search_institute") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[4]=="search_institute") {
+					form1.INS_CODE_SEARCH.value = arrValue[0];
+					form1.INS_NAME_SEARCH.value = arrValue[1];
+					form1.CT_NAME.value = arrValue[2];
+				} else if (arrValue[4]=="search_institute_per") {
+					ins_code.value = arrValue[0];
+					ins_name.value = arrValue[1];
+					ct_name.value = arrValue[2];
+				}
+			} // end if
+		} else if  (src.indexOf("search_scholartype") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				st_code.value = arrValue[0];
+				st_name.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_country") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[2]=="search_country") {
+					form1.CT_CODE_SEARCH.value = arrValue[0];
+					form1.CT_NAME_SEARCH.value = arrValue[1];
+				} else if (arrValue[2]=="search_country_per") {
+					ct_code.value = arrValue[0];
+					ct_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_person_scholar") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.search_per_id.value = arrValue[0];
+				form1.search_name.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PER_ID.value = arrValue[0];
+				if(arrValue[0]) {
+					document.all.PROCESS_IFRAME.src = "find_data_scholar.html?PER_ID=" + arrValue[0];
+				}
+			} // end if
+		} else if  (src.indexOf("search_education") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				en_code.value = arrValue[0];
+				en_name.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_major") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[2]=="search_major") {
+					form1.EM_CODE_SEARCH.value = arrValue[0];
+					form1.EM_NAME_SEARCH.value = arrValue[1];
+				} else if (arrValue[2]=="search_major_per") {
+					em_code.value = arrValue[0];
+					em_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_educlevel") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				el_code.value = arrValue[0];
+				el_name.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<? if (!$HEAD_HIDE) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>		</td>
+	</tr>
+<? } ?>
+  	<tr>
+    	<td align="left" valign="top"><table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td>
+  	<tr>
+	  <td><table width="15%" cellpadding="1" cellspacing="1" class="input_table" style="border-style:solid;" border="1">  
+		  <tr>
+			<td  id="CELL_TOPIC_2" nowrap="nowrap" height="22" align="center" class="<?=($show_topic==2)?"table_body_3":"table_body"?>"><span style="cursor:hand;"><? if($UPD){ echo"แก้ไข"; }else if($VIEW){ echo "ดู"; }else{ echo "เพิ่ม"; } ?>ข้อมูล</span></td>
+		  </tr>
+	  </table></td>
+	</tr>
+</table>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<tr>
+	<td align="left" valign="top"><form name="form1" method="post" action="data_scholar.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+		<input type="hidden" name="command" value="">
+		<input type="hidden" name="SC_ID" value="<?=$SC_ID?>">
+		<input type="hidden" name="show_topic" value="<?=$show_topic?>">
+<!--<div id="DIV_TOPIC_2" style="display:<?=($show_topic==2)?"block":"none"?>;"> -->
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+  	<tr>
+	  <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">  
+		<tr><td height="3"></td></tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr> 
+                        <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+             <td width="32%">
+			 	<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+				<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+				<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_select_ministry();">
+             <input name="image" type="image" onClick="form1.MINISTRY_ID.value=''; form1.MINISTRY_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+				<? } // end if ?>			 </td>
+             <td width="18%" align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+             <td width="32%">
+			 	<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+				<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+				<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_select_department();">
+             <input name="image" type="image" onClick="form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+				<? } // end if ?>			 </td>
+           </tr>
+           <tr>
+             <td align="right">&nbsp;</td>
+             <td colspan="2">
+	    	  	<input type="radio" name="SC_TYPE" value="1" <?=($SC_TYPE == 1)? "checked" : ""; ?> onClick="radio_sc_type(this);"><?=$PERSON_TITLE?>&nbsp;&nbsp;
+				<input type="radio" name="SC_TYPE" value="2" <?=($SC_TYPE == 2)? "checked" : ""; ?> onClick="radio_sc_type(this);">บุคคลทั่วไป&nbsp;&nbsp;
+				<? if ($MFA_FLAG==1) { ?>
+				<input type="radio" name="SC_TYPE" value="3" <?=($SC_TYPE == 3)? "checked" : ""; ?> onClick="radio_sc_type(this);">นักเรียนทุน&nbsp;&nbsp;
+				<? } ?>
+				<span class="label_alert"><?=$err_text?>
+             </span></td>
+             <td>&nbsp;</td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;<?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input name="SC_CARDNO" type="text" class="textbox" style="width:75%" onKeyPress="return DigitOnly();" value="<?=$SC_CARDNO?>" maxlength="13" <?=($UPD)?"readonly":""?>>
+			<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		      	<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+			<input type="button" name="btn_cardno" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person();">
+			<? endif; ?>	      </td>
+             <td align="right">คำนำหน้าชื่อ&nbsp;:&nbsp;</td>
+             <td><? create_dpis_list_box("select PN_CODE, PN_NAME from PER_PRENAME where PN_ACTIVE=1 order by PN_SEQ_NO, PN_CODE", "PN_CODE", "$PN_CODE", "== เลือกคำนำหน้า ==", "style='width=75%'", 0, 1); ?></td>
+           </tr>
+           <tr>
+             <td align="right">&nbsp;<?=$NAME_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_NAME" value="<?=$SC_NAME?>" style="width:75%" class="textbox" <?=($SC_TYPE != 1)? "" : "readonly"; ?> ></td>
+             <td align="right"><?=$SURNAME_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_SURNAME" value="<?=$SC_SURNAME?>" style="width:75%" class="textbox" <?=($SC_TYPE != 1)? "" : "readonly"; ?> ></td>
+           </tr>
+           <tr>
+             <td align="right"><?=$BIRTHDATE_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_BIRTHDATE" id="SC_BIRTHDATE" value="<?=$SC_BIRTHDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SC_BIRTHDATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_BIRTHDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?></td>
+             <td align="right"><?=$SEX_TITLE?>&nbsp;:&nbsp;</td>
+             <td>
+	      	<input type="radio" name="SC_GENDER" value="1" <?=($SC_GENDER == 1)? "checked" : "";?>>ชาย&nbsp;&nbsp;
+		<input type="radio" name="SC_GENDER" value="2" <?=($SC_GENDER == 2)? "checked" : "";?>>หญิง	      </td>
+           </tr>
+           <tr>
+             <td align="right">ที่อยู่ตามทะเบียนบ้าน&nbsp;:&nbsp;</td>
+             <td colspan="3"><input type="text" name="SC_ADD1" value="<?=$SC_ADD1?>" style="width:55%" class="textbox" ></td>
+           </tr>
+		   <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;ชื่อทุน&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SCH_NAME" value="<?=$SCH_NAME?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="SCH_CODE" value="<?=$SCH_CODE?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+			<input type="button" name="button" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_scholarship_per();">
+             <input name="image" type="image" onClick="form1.SCH_CODE.value=''; form1.SCH_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+			<? } ?></td>
+             <td align="right">ประเภททุน&nbsp;:&nbsp;</td>
+             <td><input type="text" name="ST_NAME" value="<?=$ST_NAME?>" style="width:75%" class="textbox" readonly></td>
+           </tr>	 
+		   <tr>
+             <td align="right">ชื่อผู้ให้ทุน&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SCH_OWNER" value="<?=$SCH_OWNER?>" style="width:75%" class="textbox" readonly></td>
+			 </tr>
+		<? if ($MFA_FLAG==1 && $SC_TYPE == 3) { ?>
+			<tr>
+              <td height="22" align="right">สาขาวิชาที่ทุนกำหนด&nbsp;:&nbsp;</td>
+                  <td>
+			<input type="text" name="SC_MAJOR_DESC" value="<?=$SC_MAJOR_DESC?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  				</td>
+              <td height="22" align="right">ระดับการศึกษาตามที่ทุนกำหนด&nbsp;:&nbsp;</td>
+				<td>
+				<input type="radio" name="SC_EL_TYPE" value="1" <?=($SC_EL_TYPE == 1)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">ตรี&nbsp;&nbsp;
+				<input type="radio" name="SC_EL_TYPE" value="2" <?=($SC_EL_TYPE == 2)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">โท&nbsp;&nbsp;
+				<input type="radio" name="SC_EL_TYPE" value="3" <?=($SC_EL_TYPE == 3)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">เอก&nbsp;&nbsp;
+				<input type="radio" name="SC_EL_TYPE" value="4" <?=($SC_EL_TYPE == 4)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">ตรี - โท&nbsp;&nbsp;
+				<input type="radio" name="SC_EL_TYPE" value="5" <?=($SC_EL_TYPE == 5)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">ตรี - เอก&nbsp;&nbsp;
+				<input type="radio" name="SC_EL_TYPE" value="6" <?=($SC_EL_TYPE == 6)? "checked" : ""; ?> onClick="radio_sc_el_type(this);">โท - เอก&nbsp;&nbsp;
+				</td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่เริ่มรับทุน&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_RECEIVEDATE" id="SC_RECEIVEDATE" value="<?=$SC_RECEIVEDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_RECEIVEDATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_RECEIVEDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่คาดว่าจะสำเร็จการศึกษา&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_EXPECTDATE" id="SC_EXPECTDATE" value="<?=$SC_EXPECTDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_EXPECTDATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_EXPECTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+			</tr>
+            <? } ?>
+
+<!-- check for open first group of education level -->
+<?
+		if ($SC_EL_TYPE==1) {	// ตรี
+			$edulevel_style1="display:block";
+			$edulevel_style2="display:none";
+			$edulevel_style3="display:none";
+        } else if ($SC_EL_TYPE==2) {	// โท
+			$edulevel_style1="display:none";
+			$edulevel_style2="display:block";
+			$edulevel_style3="display:none";
+        } else if ($SC_EL_TYPE==3) {	// เอก
+			$edulevel_style1="display:none";
+			$edulevel_style2="display:none";
+			$edulevel_style3="display:block";
+        } else if ($SC_EL_TYPE==4) {	// ตรี - โท
+			$edulevel_style1="display:block";
+			$edulevel_style2="display:block";
+			$edulevel_style3="display:none";
+        } else if ($SC_EL_TYPE==5) {	// ตรี - เอก
+			$edulevel_style1="display:block";
+			$edulevel_style2="display:block";
+			$edulevel_style3="display:block";
+        } else if ($SC_EL_TYPE==6) {	// โท - เอก
+			$edulevel_style1="display:none";
+			$edulevel_style2="display:block";
+			$edulevel_style3="display:block";
+		}
+?>
+        <tr><td colspan="4" height="5"></td></tr>	
+        
+<!-- BEGIN********* ระดับการศึกษา ปริญญาตรี ********** --> 
+		<tr><td colspan="4" >
+		<div id="sc_type_1"	style="<?=$edulevel_style1?>" >
+		<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+                <td width="18%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg;&nbsp;ระดับการศึกษา ปริญญาตรี</td>
+                <td colspan="3"></td>
+            </tr>
+               <tr>
+                 <td align="right"  width="18%"><span class="label_alert">*</span>&nbsp;<?=$EL_TITLE?>&nbsp;:&nbsp;</td>
+                 <td width="32%"><input type="text" name="EL_NAME" value="<?=$EL_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="EL_CODE" value="<?=$EL_CODE?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+                    <input type="button" name="btn_el" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_educlevel('EL_CODE','EL_NAME');">
+                 <input name="image_el" type="image" onClick="form1.EL_CODE.value=''; form1.EL_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                 <td align="right" width="18%"><?=$EN_TITLE?>&nbsp;:&nbsp;</td>
+                 <td width="32%"><input type="text" name="EN_NAME" value="<?=$EN_NAME?>" style="width:75%" class="textbox" readonly>
+                   <input type="hidden" name="EN_CODE" value="<?=$EN_CODE?>">
+                   <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+                  <input type="button" name="btn_en" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_education('EN_CODE','EN_NAME');">
+                 <input name="image" type="image" onClick="form1.EN_CODE.value=''; form1.EN_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                  <? } ?>	      </td>
+               </tr>	
+               <tr>
+                 <td align="right"><?=$EM_TITLE?>&nbsp;:&nbsp;</td>
+                 <td><input type="text" name="EM_NAME" value="<?=$EM_NAME?>" style="width:75%" class="textbox" readonly>
+                  <input type="hidden" name="EM_CODE" value="<?=$EM_CODE?>">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+                    <input type="button" name="btn_em" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_major_per('EM_CODE','EM_NAME');">
+                 <input name="image" type="image" onClick="form1.EM_CODE.value=''; form1.EM_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                <? } ?>		</td>
+                  <td height="22" align="right">ภาษา&nbsp;:&nbsp;</td>
+                      <td>
+                        <input type="text" name="SC_LANGUAGE" value="<?=$SC_LANGUAGE?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  				</td>
+               </tr>
+               <tr>
+                 <td align="right"><span class="label_alert">*</span>&nbsp;<?=$INS_TITLE?>&nbsp;:&nbsp;</td>
+                 <td><input type="text" name="INS_NAME" value="<?=$INS_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="INS_CODE" value="<?=$INS_CODE?>">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+                <input type="button" name="btn_ins" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_institute_per('INS_CODE','INS_NAME','CT_NAME');">
+                 <input name="image" type="image" onClick="form1.INS_CODE.value=''; form1.INS_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                  <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;หรือ<?=$INS_TITLE;?>อื่น ๆ&nbsp;:&nbsp;</td>
+                  <td>
+                <input type="text" name="SC_INSTITUTE" value="<?=$SC_INSTITUTE?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>			</td>
+                </tr>
+                <tr>
+                 <td align="right"><?=$CT_TITLE?>&nbsp;:&nbsp;</td>
+                 <td>
+                <input type="text" name="CT_NAME" value="<?=$CT_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="CT_CODE" value="<?=$CT_CODE?>">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                <input type="button" name="btn_ct" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเทศ" onClick="call_search_country_per('CT_CODE', 'CT_NAME');">
+                <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.CT_CODE.value=''; form1.CT_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                <? endif; ?>	     </td>
+               </tr>
+               <tr>
+                 <td align="right"><span class="label_alert">*</span>&nbsp;วันที่เริ่มลาศึกษา&nbsp;:&nbsp;</td>
+                 <td><input type="text" name="SC_STARTDATE" id="SC_STARTDATE" value="<?=$SC_STARTDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_STARTDATE,this.value)">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn_start" class="button" onClick="return showCalendar('SC_STARTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                        <? endif; ?>	      </td>
+                 <td align="right"><span class="label_alert">*</span>&nbsp;วันที่สิ้นสุดการลาศึกษา&nbsp;:&nbsp;</td>
+                 <td><input type="text" name="SC_ENDDATE" id="SC_ENDDATE" value="<?=$SC_ENDDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_ENDDATE,this.value)">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn_end" class="button" onClick="return showCalendar('SC_ENDDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                        <? endif; ?>
+				</td>
+			</tr>
+		</table>
+		</div></td></tr>
+<!-- END**********ระดับการศึกษา ปริญญาตรี********** --> 
+
+	<? if ($MFA_FLAG==1 && $SC_TYPE == 3) { ?>
+		<tr><td colspan="4" >
+<!-- BEGIN********* ระดับการศึกษา ปริญญาโท ********** --> 
+		<div id="sc_type_2"	style="<?=$edulevel_style2?>" >
+		<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+			<tr>
+				<td width="18%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg;&nbsp;ระดับการศึกษา ปริญญาโท</td>
+				<td colspan="3"></td>
+			</tr>
+			<tr>
+             	<td align="right" width="18%"><span class="label_alert">*</span>&nbsp;<?=$EL_TITLE?>&nbsp;:&nbsp;</td>
+             	<td width="32%"><input type="text" name="EL_NAME1" value="<?=$EL_NAME1?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="EL_CODE1" value="<?=$EL_CODE1?>">
+	      		<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	      		<input type="button" name="btn_el1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_educlevel('EL_CODE1','EL_NAME1');">
+             <input name="image" type="image" onClick="form1.EL_CODE1.value=''; form1.EL_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+			<? } ?></td>
+             	<td align="right" width="18%"><?=$EN_TITLE?>&nbsp;:&nbsp;</td>
+             	<td width="32%"><input type="text" name="EN_NAME1" value="<?=$EN_NAME1?>" style="width:75%" class="textbox" readonly>
+               		<input type="hidden" name="EN_CODE1" value="<?=$EN_CODE1?>">
+               <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+		      		<input type="button" name="btn_en1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_education('EN_CODE1', 'EN_NAME1');">
+             		<input name="image" type="image" onClick="form1.EN_CODE1.value=''; form1.EN_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+		      <? } ?>	      </td>
+			</tr>	
+           <tr>
+             <td align="right"><?=$EM_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="EM_NAME1" value="<?=$EM_NAME1?>" style="width:75%" class="textbox" readonly>
+		      <input type="hidden" name="EM_CODE1" value="<?=$EM_CODE1?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	      		<input type="button" name="btn_em1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_major_per('EM_CODE1', 'EM_NAME1');">
+             <input name="image" type="image" onClick="form1.EM_CODE1.value=''; form1.EM_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+			<? } ?>		</td>
+              <td height="22" align="right">ภาษา&nbsp;:&nbsp;</td>
+                  <td>
+				  	<input type="text" name="SC_LANGUAGE1" value="<?=$SC_LANGUAGE1?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  				</td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;<?=$INS_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="INS_NAME1" value="<?=$INS_NAME1?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="INS_CODE1" value="<?=$INS_CODE1?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+			<input type="button" name="btn_ins1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_institute_per('INS_CODE1', 'INS_NAME1','CT_NAME1');">
+             <input name="image" type="image" onClick="form1.INS_CODE1.value=''; form1.INS_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+			<? } ?></td>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;หรือ<?=$INS_TITLE;?>อื่น ๆ&nbsp;:&nbsp;</td>
+              <td>
+			<input type="text" name="SC_INSTITUTE1" value="<?=$SC_INSTITUTE1?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>			</td>
+			</tr>
+			<tr>
+             <td align="right"><?=$CT_TITLE?>&nbsp;:&nbsp;</td>
+             <td>
+			<input type="text" name="CT_NAME1" value="<?=$CT_NAME1?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="CT_CODE1" value="<?=$CT_CODE1?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+			<input type="button" name="btn_ct1" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเทศ" onClick="call_search_country_per('CT_CODE1', 'CT_NAME1');">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.CT_CODE1.value=''; form1.CT_NAME1.value=''; return false;" align="center" alt="ล้างค่า">
+			<? endif; ?>	     </td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่เริ่มลาศึกษา&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_STARTDATE1" id="SC_STARTDATE1" value="<?=$SC_STARTDATE1?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_STARTDATE1,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" name="btn_start1" class="button" onClick="return showCalendar('SC_STARTDATE1', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+			<? endif; ?>	      </td>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่สิ้นสุดการลาศึกษา&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_ENDDATE1" id="SC_ENDDATE1" value="<?=$SC_ENDDATE1?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_ENDDATE1,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" name="btn_end1" class="button" onClick="return showCalendar('SC_ENDDATE1', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+             <? endif; ?>	      </td>
+           </tr>
+		</table>
+		</div></td></tr>
+<!-- END**********ระดับการศึกษา ปริญญาโท ********** --> 
+
+<!-- BEGIN********* ระดับการศึกษา ปริญญาเอก ********** --> 
+		<tr><td colspan="4" >
+		<div id="sc_type_3"	style="<?=$edulevel_style3?>" >
+		<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+			<tr>
+				<td width="18%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg;&nbsp;ระดับการศึกษา ปริญญาเอก</td>
+				<td colspan="3"></td>
+			</tr>
+           <tr>
+             <td align="right" width="18%"><span class="label_alert">*</span>&nbsp;<?=$EL_TITLE?>&nbsp;:&nbsp;</td>
+             <td width="32%"><input type="text" name="EL_NAME2" value="<?=$EL_NAME2?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="EL_CODE2" value="<?=$EL_CODE2?>">
+	      		<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	      		<input type="button" name="btn_el2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_educlevel('EL_CODE2', 'EL_NAME2');">
+             <input name="image" type="image" onClick="form1.EL_CODE2.value=''; form1.EL_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+			<? } ?></td>
+             <td align="right" width="18%"><?=$EN_TITLE?>&nbsp;:&nbsp;</td>
+             <td width="32%"><input type="text" name="EN_NAME2" value="<?=$EN_NAME2?>" style="width:75%" class="textbox" readonly>
+               <input type="hidden" name="EN_CODE2" value="<?=$EN_CODE2?>">
+               <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+		      <input type="button" name="btn_en2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_education('EN_CODE2', 'EN_NAME2');">
+             <input name="image" type="image" onClick="form1.EN_CODE2.value=''; form1.EN_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+		      <? } ?>	      </td>
+           </tr>	
+           <tr>
+             <td align="right"><?=$EM_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="EM_NAME2" value="<?=$EM_NAME2?>" style="width:75%" class="textbox" readonly>
+		      <input type="hidden" name="EM_CODE2" value="<?=$EM_CODE2?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	      		<input type="button" name="btn_em2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_major_per('EM_CODE2', 'EM_NAME2');">
+             <input name="image" type="image" onClick="form1.EM_CODE2.value=''; form1.EM_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+			<? } ?>		</td>
+              <td height="22" align="right">ภาษา&nbsp;:&nbsp;</td>
+                  <td>
+				  	<input type="text" name="SC_LANGUAGE2" value="<?=$SC_LANGUAGE2?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  				</td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;<?=$INS_TITLE?>&nbsp;:&nbsp;</td>
+             <td><input type="text" name="INS_NAME2" value="<?=$INS_NAME2?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="INS_CODE2" value="<?=$INS_CODE2?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+			<input type="button" name="btn_ins2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_institute_per('INS_CODE2', 'INS_NAME2','CT_NAME2');">
+             <input name="image" type="image" onClick="form1.INS_CODE2.value=''; form1.INS_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+			<? } ?></td>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;หรือ<?=$INS_TITLE;?>อื่น ๆ&nbsp;:&nbsp;</td>
+              <td>
+			<input type="text" name="SC_INSTITUTE2" value="<?=$SC_INSTITUTE2?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>			</td>
+			</tr>
+			<tr>
+             <td align="right"><?=$CT_TITLE?>&nbsp;:&nbsp;</td>
+             <td>
+			<input type="text" name="CT_NAME2" value="<?=$CT_NAME2?>" style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="CT_CODE2" value="<?=$CT_CODE2?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+			<input type="button" name="btn_ct2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเทศ" onClick="call_search_country_per('CT_CODE2', 'CT_NAME2');">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.CT_CODE2.value=''; form1.CT_NAME2.value=''; return false;" align="center" alt="ล้างค่า">
+			<? endif; ?>	     </td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่เริ่มลาศึกษา&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_STARTDATE2" id="SC_STARTDATE2" value="<?=$SC_STARTDATE2?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_STARTDATE2,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" name="btn_start2" class="button" onClick="return showCalendar('SC_STARTDATE2', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+             <td align="right"><span class="label_alert">*</span>&nbsp;วันที่สิ้นสุดการลาศึกษา&nbsp;:&nbsp;</td>
+			<td><input type="text" name="SC_ENDDATE2" id="SC_ENDDATE2" value="<?=$SC_ENDDATE2?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.SC_ENDDATE2,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" name="btn_end2" class="button" onClick="return showCalendar('SC_ENDDATE2', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+           </tr>       
+		</table>
+		</div></td></tr>
+<!-- END**********ระดับการศึกษา ปริญญาเอก ********** --> 
+		   <? } ?>
+            <tr>
+             <td align="right">วันที่ทดสอบภาษาอังกฤษ&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_TEST_DATE" id="SC_TEST_DATE" value="<?=$SC_TEST_DATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SC_TEST_DATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_TEST_DATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                  <? endif; ?>	      </td>
+              <td height="22" align="right">ผลสอบภาษาอังกฤษ&nbsp;:&nbsp;</td>
+              <td><input type="text" name="SC_TEST_RESULT" value="<?=$SC_TEST_RESULT?>" style="width:30%" class="textbox" onKeyPress="return DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+            </tr>
+		<tr><td colspan="4" height="5"></td></tr>	    
+		<tr>
+		<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg;&nbsp;รายงานตัวกลับ</td>
+		<td colspan="3"></td>
+           </tr>
+           <tr>
+             <td align="right">วันที่สำเร็จการศึกษา&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_FINISHDATE" id="SC_FINISHDATE" value="<?=$SC_FINISHDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SC_FINISHDATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_FINISHDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+             <td align="right">วันที่กลับมารายงานตัว&nbsp;:&nbsp;</td>
+             <td><input type="text" name="SC_BACKDATE" id="SC_BACKDATE" value="<?=$SC_BACKDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SC_BACKDATE,this.value)">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="button" class="button" onClick="return showCalendar('SC_BACKDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?>	      </td>
+           </tr>	
+            <tr>
+                        <td height="22" align="right"><?=$REMARK_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td colspan="2"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                            <tr> 
+                              <td width="85%" height="22"> 
+				     				<textarea name="SC_REMARK" rows="3" class="selectbox" style="width:75%"><?=$SC_REMARK?></textarea>                              </td>
+                            </tr>
+                          </table></td>
+				<td>&nbsp;</td>	
+				<td>&nbsp;</td>	
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$BOOK_NO_TITLE;?>&nbsp;:&nbsp;</td>
+                  <td>
+				  	<input type="text" name="EDU_BOOK_NO" value="<?=$EDU_BOOK_NO?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  </td>
+              <td align="right"><?=$DOCDATE_TITLE;?>&nbsp;:&nbsp;</td>
+                  <td>
+				  	<input type="text" name="EDU_BOOK_DATE" id="EDU_BOOK_DATE" value="<?=$EDU_BOOK_DATE?>" style="width:75%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.EDU_BOOK_DATE,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+				  	<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('EDU_BOOK_DATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+            </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:75%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" style="width:75%" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+        <tr>
+          <td height="5" align="center" colspan="4"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">frame หาข้อมูลจากรหัสข้าราชการ</iframe></td>
+        </tr>	        
+           <tr align="center">
+             <td height="30" colspan="4">
+			<? if ($UPD || $VIEW) { ?>
+		<? if($PAGE_AUTH["edit"]=="Y"){?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+                 <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>"> 
+				<?  } else { ?>
+              <input name="image2" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			<? }?>
+				<? if ($BUTTON_DISPLAY==1) { ?>
+				<input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'" class="button" > 
+				<?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+		<? } elseif (!$UPD && !$VIEW) { ?>
+			<?if($PAGE_AUTH["add"]=="Y"){?>
+				<? if ($BUTTON_DISPLAY==1) { ?>
+                 <input name="Submit_add" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+				<?  } else { ?>
+              <input name="image2" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			<?}?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+                 <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+			<?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+                  <? } echo "&nbsp; &nbsp;";?>
+		<? }?>             </td>
+           </tr>
+         </table></td>
+	</tr>
+</table>
+</td>
+</tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+<tr>
+	<td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal" onKeyPress="return keyEnter(event,document.form1.btn2);">
+	<tr>
+		<td width="18%" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="32%">
+			  	<input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+				<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+				<input type="button" name="btn_search_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry();">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_ministry_id.value=''; form1.search_ministry_name.value=''; form1.search_department_id.value=''; form1.search_department_name.value=''; form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" align="center" alt="ล้างค่า">
+				<? } // end if ?>
+			  </td>
+              <td width="18%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="32%">
+			  	<input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+				<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+				<input type="button" name="btn_search_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_department_id.value=''; form1.search_department_name.value=''; form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" align="center" alt="ล้างค่า">
+				<? } // end if ?>
+			  </td>
+	</tr>
+    <tr>
+        <td align="right"><?=$ORG_TITLE;?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:75%" class="textbox" readonly> 
+                            <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                          <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                          <input type="button" name="btn_org" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_org();">	
+                          <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" align="center" alt="ล้างค่า">
+                          <? } // end if ?>
+        </td>
+        <td align="right">ประเภททุน&nbsp;:&nbsp;</td>
+        <td><input type="text" name="search_typename" value="<?=$search_typename?>" style="width:75%" class="textbox" readonly>
+	        <input type="hidden" name="search_typecode" value="<?=$search_typecode?>">
+    	    <input type="button" name="btn2_scholartype" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภททุน" 
+			onClick="call_search_scholartype('search_typecode', 'search_typename');">
+        	<input name="image3" type="image" onClick="form1.search_typecode.value=''; form1.search_typename.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+        </td>
+	</tr>
+	<tr>
+		<td align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_cardno" value="<?=$search_cardno?>" style="width:75%" class="textbox" 
+			  onKeyPress="return DigitOnly();"></td>
+              <td align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_name" value="<?=$search_name?>" style="width:75%" class="textbox">
+			<input type="hidden" name="search_per_id" value="<?=$search_per_id?>">
+			<input type="button" name="butt_person" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person_scholar();">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_per_id.value=''; form1.search_name.value=''; return false;" align="center" alt="ล้างค่า">
+		</td>
+	</tr>
+    <tr>
+          <td align="right"><?=$INS_TITLE;?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="INS_NAME_SEARCH" value="<?=$INS_NAME_SEARCH?>" style="width:75%" class="textbox" >
+            	<input type="hidden" name="INS_CODE_SEARCH" value="<?=$INS_CODE_SEARCH?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            	<input type="button" name="button" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_institute();">
+            	<input name="image32" type="image" onClick="form1.INS_CODE_SEARCH.value=''; form1.INS_NAME_SEARCH.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+            <? } ?></td>
+          <td align="right"><?=$CT_TITLE;?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="CT_NAME_SEARCH" value="<?=$CT_NAME_SEARCH?>" style="width:75%" class="textbox" >
+		  <input type="hidden" name="CT_CODE_SEARCH" value="<?=$CT_CODE_SEARCH?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            	<input type="button" name="button2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_country();">
+            	<input name="image322" type="image" onClick="form1.CT_CODE_SEARCH.value=''; form1.CT_NAME_SEARCH.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+            <? } ?>
+		  </td>
+	</tr>
+    <tr>
+          <td align="right"><?=$EM_TITLE;?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="EM_NAME_SEARCH" value="<?=$EM_NAME_SEARCH?>" style="width:75%" class="textbox" >
+            	<input type="hidden" name="EM_CODE_SEARCH" value="<?=$EM_CODE_SEARCH?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            	<input type="button" name="button" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_major();">
+            	<input name="image32" type="image" onClick="form1.EM_CODE_SEARCH.value=''; form1.EM_NAME_SEARCH.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+            <? } ?></td>
+          <td align="right">ชื่อทุน/หลักสูตร&nbsp;:&nbsp;</td>
+          <td><input type="text" name="SCH_NAME_SEARCH" value="<?=$SCH_NAME_SEARCH?>" style="width:75%" class="textbox" >
+		  <input type="hidden" name="SCH_CODE_SEARCH" value="<?=$SCH_CODE_SEARCH?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            	<input type="button" name="button2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_scholarship();">
+            	<input name="image322" type="image" onClick="form1.SCH_CODE_SEARCH.value=''; form1.SCH_NAME_SEARCH.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+            <? } ?>
+		  </td>
+	</tr>
+	<tr>
+          <td  align="right">ระหว่างวันที่&nbsp;:&nbsp;</td>
+          <td><input type="text" name="search_sc_startdate" id="search_sc_startdate" value="<?=$search_sc_startdate?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.search_sc_startdate,this.value)">
+	            <input name="button3" type="button" class="button" onClick="return showCalendar('search_sc_startdate', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+           </td>
+          <td align="right">ถึง&nbsp;:&nbsp;</td>
+          <td><input type="text" name="search_sc_enddate" id="search_sc_enddate" value="<?=$search_sc_enddate?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.search_sc_enddate,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+    	        <input name="reset" type="reset" class="button" onClick="return showCalendar('search_sc_enddate', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+           </td>
+	</tr>
+	<tr>
+          <td height="22" align="right">&nbsp;</td>
+          <td><input type="radio" name="search_status" onKeyPress="return DigitOnly();" value="0" <?=($search_status == 0)? "checked" : ""; ?>>
+            ทั้งหมด&nbsp;&nbsp;
+            <input type="radio" name="search_status" onKeyPress="return DigitOnly();" value="1" <?=($search_status == 1)? "checked" : ""; ?>>
+            เฉพาะผู้ศึกษาเกินระยะเวลา</td>
+          <td align="right">&nbsp;</td>
+          <td>&nbsp;</td>
+	</tr>
+	<tr>
+		<td align="center" colspan="4">
+		<? if ($BUTTON_DISPLAY==1) { ?>
+			<input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="if(check_valid_date()){ form1.command.value='SEARCH'; form1.current_page.value=0; }else{ return false; };">
+			<input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_cardno.value=''; form1.search_name.value=''; form1.search_per_id.value=''; <? if($CTRL_TYPE < 3){ ?>form1.search_ministry_id.value = '';form1.search_ministry_name.value = '';<? } ?><? if($CTRL_TYPE < 4){ ?>form1.search_department_id.value = '';form1.search_department_name.value = '';<? } ?>form1.current_page.value=0;">
+		<? } else { ?> 
+            <input name="image2" type="image" onClick="if(check_valid_date()){ form1.command.value='SEARCH'; form1.current_page.value=0; }else{ return false; };" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+            <input name="image2" type="image" onClick="form1.search_cardno.value=''; form1.search_name.value=''; form1.search_per_id.value=''; <? if($CTRL_TYPE < 3){ ?>form1.search_ministry_id.value = '';form1.search_ministry_name.value = '';<? } ?><? if($CTRL_TYPE < 4){ ?>form1.search_department_id.value = '';form1.search_department_name.value = '';<? } ?>form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+        <? } ?>
+		</td>
+	</tr>	
+	</table></td>
+</tr>
+</table>  
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0"  align="center"cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+              <td width="28%">
+              	<? if($PAGE_AUTH["print"]=="Y"){ ?>
+			  		<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE?>" onClick="call_rtf_pdf_report('','',0);">
+					          <? if ($RTF_FLAG==1) { ?>
+                      <input name="btn21" type="button" class="button" style="width:150" value="<?=$RTF_TITLE?>" onClick="call_rtf_pdf_report('','',1);">
+	                           <? } ?>
+					<?  } else { ?>
+							<img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_rtf_pdf_report('<?=$from?>','<?=$search_condition?>',0);">
+						        <? if ($RTF_FLAG==1) { ?>
+                        <img src="images/doc_icon_word.jpg" border="0" alt="<?=$RTF_TITLE?>" onClick="call_rtf_pdf_report('<?=$from?>','<?=$search_condition?>',1);">
+	                             <? } ?>
+					<? } ?>
+              	<? }else{ echo "&nbsp;"; } ?></td> 
+				<td width="57%" align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+				<td width="15%" align="right">
+                <? if($PAGE_AUTH["print"]=="Y"){ ?>
+					<? if ($BUTTON_DISPLAY==1) { ?>
+						<input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+					<?  } else { ?>
+						<img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+					<? } ?>
+					<? if ($MFA_FLAG==1) { ?>
+					<? if ($BUTTON_DISPLAY==1) { ?>
+						<input name="btn_export" type="button" class="button" style="width:130" value="สรุปการลาศึกษาต่อ ณ ต่างประเทศ" onClick="call_export_file(1);">
+					<?  } else { ?>
+						<img src="images/doc_icon_excel.jpg" border="0" alt="สรุปการลาศึกษาต่อ ณ ต่างประเทศ" onClick="call_export_file(1);">
+					<? } ?>
+					<? } ?>
+			  	<? }else{ echo "&nbsp;"; } ?></td> 
+            </tr>
+  </table>  
+	</td></tr>
+</table>    	
+  <?
+  	if(!$sort_by) $sort_by=1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//ชื่อ-สกุล
+		$order_str = "ORDER BY SC_NAME $SortType[$order_by], PER_NAME $SortType[$order_by], PER_SURNAME $SortType[$order_by]";
+  	}elseif($order_by==4) {	//ตำแหน่ง - ระดับ
+		$order_str = "ORDER BY AB_NAME  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	
+		$order_str = "ORDER BY f.ORG_NAME ".$SortType[$order_by];
+	} elseif($order_by==2) {	//ชื่อทุน / หลักสูตร
+		$order_str =  "ORDER BY a.SCH_CODE  ".$SortType[$order_by];
+	}elseif($order_by==5) {	//สถานศึกาษา
+		$order_str = "ORDER BY INS_CODE ".$SortType[$order_by];
+  	} elseif($order_by==6) {	//วันที่เริ่มศึกษา
+		$order_str = "ORDER BY SC_STARTDATE  ".$SortType[$order_by];
+	}elseif($order_by==7) {	//วันที่สิ้นสุดระยะเวลาศึกษา
+		$order_str = "ORDER BY SC_ENDDATE ".$SortType[$order_by];
+	}
+
+	if($current_page > 1){
+   		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(a.SC_ID) as concat_pk from $from where $search_condition a.SCH_CODE=b.SCH_CODE $order_str ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = " and trim(SC_ID) not in (". implode(", ", $arr_exclude) .")";
+		}  elseif($DPISDB=="oci8"){		
+//			$limit_data = " and trim(SC_ID) not in ( select SC_ID from (select trim(SC_ID) as concat_pk from $from where $search_condition a.SCH_CODE=b.SCH_CODE $order_str) where rownum <= $start_record ) ";
+            $limit_data = "";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+	
+	if($DPISDB=="odbc"){	
+		$cmd = " select 	top $data_per_page 
+									   a.PN_CODE, a.SC_ID, SC_NAME, SC_SURNAME, SC_STARTDATE, a.SC_ENDDATE, a.SCH_CODE, INS_CODE, a.PER_ID, SC_INSTITUTE, a.CT_CODE, SC_STARTDATE1, 
+									   a.SC_ENDDATE1, INS_CODE1, SC_INSTITUTE1, a.CT_CODE1, SC_STARTDATE2, a.SC_ENDDATE2, INS_CODE2, SC_INSTITUTE2, a.CT_CODE2   
+						 from 		$from     , PER_ORG f, PER_POSITION e, PER_PERSONAL d 
+						 where		a.SCH_CODE=b.SCH_CODE  and a.PER_ID = d.PER_ID and d.POS_ID=e.POS_ID and e.ORG_ID=f.ORG_ID 
+						 $search_condition
+										$limit_data
+						$order_str ";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								select		a.PN_CODE, a.SC_ID, SC_NAME, SC_SURNAME, SC_STARTDATE, a.SC_ENDDATE, a.SCH_CODE, INS_CODE, a.PER_ID, SC_INSTITUTE, a.CT_CODE, SC_STARTDATE1, 
+									   a.SC_ENDDATE1, INS_CODE1, SC_INSTITUTE1, a.CT_CODE1, SC_STARTDATE2, a.SC_ENDDATE2, INS_CODE2, SC_INSTITUTE2, a.CT_CODE2   
+								from 		$from , PER_ORG f, PER_POSITION e, PER_PERSONAL d
+	   							where		a.SCH_CODE=b.SCH_CODE(+) and a.PER_ID = d.PER_ID(+) and d.POS_ID=e.POS_ID(+) and e.ORG_ID=f.ORG_ID(+)
+								$search_condition 
+												$limit_data
+								$order_str 
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";						 
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	PN_CODE, a.SC_ID, SC_NAME, SC_SURNAME, SC_STARTDATE, a.SC_ENDDATE, a.SCH_CODE, INS_CODE, PER_ID, SC_INSTITUTE, a.CT_CODE, SC_STARTDATE1, 
+									   a.SC_ENDDATE1, INS_CODE1, SC_INSTITUTE1, a.CT_CODE1, SC_STARTDATE2, a.SC_ENDDATE2, INS_CODE2, SC_INSTITUTE2, a.CT_CODE2  
+						 from 		$from , PER_ORG f, PER_POSITION e, PER_PERSONAL d
+						 where	a.SCH_CODE=b.SCH_CODE(+) and a.PER_ID = d.PER_ID(+) and d.POS_ID=e.POS_ID(+) and e.ORG_ID=f.ORG_ID(+) 
+						 $search_condition  
+						$order_str
+						$limit_data ";
+	} // end if
+
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//echo "cmd=$cmd ($count_page_data)<br>";
+//$db_dpis->show_error();
+?>
+<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+<tr align="center" class="table_head">
+	<td width="5%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+	<td onClick="call_sort(1);"><strong>
+	  <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  <?=$FULLNAME_TITLE;?></strong></td>
+	<td width="10%" onClick="//call_sort(4);//"><strong>
+<!--      <? if($order_b8y==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>-->
+    </strong>ตำแหน่ง/ระดับ</td>
+    <td width="10%" onClick="call_sort(3);"><strong>
+      <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>      <?=$ORG_TITLE;?></td>
+	<td width="10%" onClick="call_sort(2);"><strong>
+	  <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  ชื่อทุน </strong></td>
+    <td width="7%" onClick="call_sort(5);"><strong>
+      <? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>      <?=$INS_TITLE;?></td>
+    <td width="5%"><?=$CT_TITLE;?></td>
+	<td width="5%" onClick="call_sort(6);"><strong>
+	  <? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  วันที่เริ่มศึกษา </strong></td>
+	<td width="5%" onClick="call_sort(7);"><strong>
+	  <? if($order_by==7&&$sort_by==7){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  วันที่สิ้นสุดระยะเวลาศึกษา </strong></td>
+    <td width="5%">จำนวนวัน</td>	
+  	<td width="5%"><?=$INQ_TITLE;?></td>	
+   	<?if($PAGE_AUTH["edit"]=="Y"){?>
+      	<td width="5%"><?=$EDIT_TITLE;?></td>
+   	<?}?>
+   	<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td width="5%"><?=$DEL_TITLE ;?></td>
+   	<?}?>
+</tr>
+<?
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+        while ($data = $db_dpis->get_array()) {
+            $data_count++;
+            if($data_count > $data_per_page) break;
+            $temp_SC_ID = $data[SC_ID];
+            $current_list .= ((trim($current_list))?", ":"") . "'" . $temp_SC_ID ."'";
+    
+            $SCH_CODE = $data[SCH_CODE];
+            $SC_NAME = $data[SC_NAME];		
+            $SC_SURNAME = $data[SC_SURNAME];
+            $SC_STARTDATE = show_date_format($data[SC_STARTDATE], 1);
+            $SC_ENDDATE = show_date_format($data[SC_ENDDATE], 1);
+            $TMP_RESTDATE = floor(date_difference($data[SC_ENDDATE], $data[SC_STARTDATE], "d"));
+            $TMP_INS_CODE = trim($data[INS_CODE]);
+            $TMP_CT_CODE = trim($data[CT_CODE]);
+    
+			$PN_NAME = $ORG_NAME = $TMP_POSITION = "";
+            $PER_ID = trim($data[PER_ID]);
+            if ($PER_ID) {
+                $cmd = "select POS_ID, POEM_ID, POEMS_ID,POT_ID, a.LEVEL_NO, b.LEVEL_NAME,b.POSITION_LEVEL, PN_CODE, PER_NAME, PER_SURNAME from PER_PERSONAL a, PER_LEVEL b where PER_ID=$PER_ID and a.LEVEL_NO=b.LEVEL_NO";
+                $db_dpis2->send_cmd($cmd);
+                if ($data2 = $db_dpis2->get_array()) {
+                    $POS_ID = trim($data2[POS_ID]);
+                    $POEM_ID = trim($data2[POEM_ID]);
+                    $POEMS_ID = trim($data2[POEMS_ID]);
+                    $POT_ID = trim($data2[POT_ID]);
+                    $LEVEL_NO = trim($data2[LEVEL_NO]);
+                    $LEVEL_NAME = trim($data2[POSITION_LEVEL]);
+                    $TMP_PN_CODE = trim($data2[PN_CODE]);
+                    $SC_NAME = trim($data2[PER_NAME]);
+                    $SC_SURNAME = trim($data2[PER_SURNAME]);
+        
+                    if ($POS_ID) { 
+                        $cmd = " select b.PL_NAME, a.CL_NAME, c.ORG_NAME, a.PT_CODE from PER_POSITION a, PER_LINE b, PER_ORG c 
+                                where POS_ID=$POS_ID and a.PL_CODE=b.PL_CODE and a.ORG_ID=c.ORG_ID ";
+                        $db_dpis2->send_cmd($cmd);
+                        //echo $cmd;
+                        $data2 = $db_dpis2->get_array();
+        //				$TMP_POSITION = $data2[PL_NAME] . " " . $data2[CL_NAME];
+                        $TMP_POSITION = trim($data2[PL_NAME])?($data2[PL_NAME] ."".$LEVEL_NAME. ((trim($data2[PT_NAME]) != "ทั่วไป" && $LEVEL_NO >= 6)?$data2[PT_NAME]:"")):"".level_no_format($LEVEL_NAME);
+                    } elseif ($POEM_ID) {
+                        $cmd = "	select PN_NAME, ORG_NAME from PER_POS_EMP a, PER_POS_NAME b, PER_ORG c  
+                                where POEM_ID=$POEM_ID and a.PN_CODE=b.PN_CODE and a.ORG_ID=c.ORG_ID ";
+                        $db_dpis2->send_cmd($cmd);
+                        $data2 = $db_dpis2->get_array();
+                        $TMP_POSITION = $data2[PN_NAME];
+                    }elseif ($POEMS_ID) {
+                        $cmd = "	select EP_NAME, ORG_NAME from PER_POS_EMPSER a, PER_EMPSER_POS_NAME b, PER_ORG c  
+                                where POEMS_ID=$POEMS_ID and a.EP_CODE=b.EP_CODE and a.ORG_ID=c.ORG_ID ";
+                        $db_dpis2->send_cmd($cmd);
+                        $data2 = $db_dpis2->get_array();
+                        $TMP_POSITION = $data2[EP_NAME];
+                    }elseif ($POT_ID) {
+                        $cmd = "	select TP_NAME, ORG_NAME from PER_POS_TEMP a, PER_TEMP_POS_NAME b, PER_ORG c  
+                                where POT_ID=$POT_ID and a.TP_CODE=b.TP_CODE and a.ORG_ID=c.ORG_ID ";
+                        $db_dpis2->send_cmd($cmd);
+                        $data2 = $db_dpis2->get_array();
+                        $TMP_POSITION = $data2[TP_NAME];
+                    }
+                    $ORG_NAME = $data2[ORG_NAME];
+                } else { // ถ้าอ่านไม่ได้
+                    $POS_ID = "";
+                    $POEM_ID = "";
+                    $POEMS_ID = "";
+                    $POT_ID = "";
+                    $LEVEL_NO = "";
+                    $LEVEL_NAME = "";
+                }	// if ($data2 = $db_dpis2->get_array())
+            }	// if ($PER_ID)
+            
+            $TMP_PN_CODE = trim($data[PN_CODE]);
+            if ($TMP_PN_CODE) {
+                $cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$TMP_PN_CODE' ";
+                $db_dpis2->send_cmd($cmd);
+                $data2 = $db_dpis2->get_array();
+                $PN_NAME = $data2[PN_NAME];
+            }
+            
+            $cmd = "	select SCH_NAME from PER_SCHOLARSHIP where SCH_CODE='$SCH_CODE' ";
+            $db_dpis2->send_cmd($cmd);
+            $data_dpis2 = $db_dpis2->get_array();
+            $SCH_NAME = $data_dpis2[SCH_NAME];
+            
+            $cmd = "select INS_NAME, CT_NAME from PER_INSTITUTE a, PER_COUNTRY b where INS_CODE = '$TMP_INS_CODE' and a.CT_CODE=b.CT_CODE ";
+            $db_dpis2->send_cmd($cmd);
+            $data2 = $db_dpis2->get_array();
+            $TMP_INS_NAME = trim($data2[INS_NAME]);
+            $TMP_CT_NAME = trim($data2[CT_NAME]);
+			if (!$TMP_INS_NAME) $TMP_INS_NAME = trim($data[SC_INSTITUTE]);
+
+			if (!$TMP_CT_NAME) {
+				$cmd = "select CT_NAME from PER_COUNTRY where CT_CODE = '$TMP_CT_CODE' ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+	            $TMP_CT_NAME = trim($data2[CT_NAME]);
+			}
+            
+            $class = "table_body";
+            $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+    
+            if($SC_ID == $temp_SC_ID){ 
+                $class = "table_body_over";
+                $onmouse_event = "";
+            } // end if
+?>
+            <tr height="23" class="<?=$class?>" <?=$onmouse_event?>>
+                <td align="center"><?=${"temp_SC_ID"}?></td>
+                <td>&nbsp;<?="$PN_NAME$SC_NAME $SC_SURNAME"?></td>
+                <td>&nbsp;<?=$TMP_POSITION?></td>
+                <td>&nbsp;<?=$ORG_NAME?></td>
+                <td>&nbsp;<?=$SCH_NAME?></td>
+                <td>&nbsp;<?=$TMP_INS_NAME?></td>
+                <td>&nbsp;<?=$TMP_CT_NAME?></td>
+                <td align='center'><?=$SC_STARTDATE?></td>
+                <td align='center'><?=$SC_ENDDATE?></td>
+                <td align='right'>&nbsp;<?=$TMP_RESTDATE?>&nbsp;</td> 	
+                <td align="center">&nbsp;<a href="<?=("javascript:form1.action+='?VIEW=1';form1.SC_ID.value=$temp_SC_ID;form1.submit()")?>"><img src="images/icon_eye.gif" alt="เรียกดูข้อมูลผู้ลาศึกษา/ฝึกอบรม" width="16" height="16" border="0"></a></td>
+                <?if($PAGE_AUTH["edit"]=="Y"){?>
+                    <td align="center">&nbsp;<a href="<?=("javascript:form1.action+='?UPD=1';form1.SC_ID.value=$temp_SC_ID;form1.submit()")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลผู้ลาศึกษา/ฝึกอบรม"></a></td>
+                <?}?>
+                <?if($PAGE_AUTH["del"]=="Y"){?>
+                    <td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('$temp_SC_ID','$PN_NAME$SC_NAME $SC_SURNAME')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลผู้ลาศึกษา/ฝึกอบรม"></a></td>
+                <?}?>
+            </tr>
+<?	
+                //  แสดงผลในส่วนของผู้ที่มีการขยายระยะเวลาศึกษา
+                $cmd = "	select SCI_BEGINDATE, SC_ENDDATE from PER_SCHOLARINC  
+                        where SC_ID=$temp_SC_ID order by SCI_BEGINDATE ";
+                $db_dpis2->send_cmd($cmd);
+                //echo "-> $cmd";
+				while ( $data2 = $db_dpis2->get_array() )  {
+                    $TMP_SCI_BEGINDATE = show_date_format($data2[SCI_BEGINDATE], 1);
+                    $TMP_SC_ENDDATE = show_date_format($data2[SC_ENDDATE], 1);
+                    $TMP_RESTDATEINC = floor(date_difference($data2[SC_ENDDATE], $data2[SCI_BEGINDATE], "d"));
+                    echo "<tr class='$class' height='22' $onmouse_event><td></td><td></td><td></td>
+                            <td></td><td></td><td></td><td></td>
+                            <td class='label_alert'>$TMP_SCI_BEGINDATE</td>
+                            <td class='label_alert'>$TMP_SC_ENDDATE</td>
+                            <td class='label_alert' align='right'>$TMP_RESTDATEINC&nbsp;</td><td></td><td></td><td></td></tr>";
+                } // while
+                $SC_ID = $temp_SC_ID;
+            } // while
+?>
+	
+<?if($PAGE_AUTH["edit"]=="Y"){?>
+<tr class="table_footer" height="22">
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+    <td>&nbsp;</td>
+	<td>&nbsp;</td>      
+	<td>&nbsp;</td>      
+	<td>&nbsp;</td>      
+	<td>&nbsp;</td>      
+	<td>&nbsp;</td>      
+	<td>&nbsp;</td> 
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>      
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+</tr>
+<?	}	?>
+</table>
+
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+<tr>
+	<td><?=$page_link?></td>
+</tr>
+</table>
+<? endif; ?>&nbsp;
+<? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+<!--</div>-->
+</form>	
+</td>
+</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

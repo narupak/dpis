@@ -1,0 +1,501 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/workflow_personal_special_skill.php");
+	
+	$cmd =" select 		count(SPS_ID) as count_data 
+					from 		PER_WORKFLOW_SPECIAL_SKILL
+					where		PER_ID=$PER_ID and SPS_WF_STATUS!='04' ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($F_REFRESH=="1") { ?>
+//		alert(<? echo "F_REFRESH=$F_REFRESH, EDU_WF_STATUS=$EDU_WF_STATUS"; ?>);
+// 		parent.refresh_opener(<?=$EDU_WF_STATUS?>);
+ 		parent.parent.refresh_opener(true);
+<? } ?>
+
+	function upd_status_command( status ) {
+		form1.command.value = "UPD-"+status;
+	}
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(abi_id , al_name){
+		if(confirm("ต้องการลบประวัติความเชี่ยวชาญพิเศษนี้ ใช่หรือไม่ [ " + al_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.SPS_ID.value = abi_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_person () {	
+		parameter = "";
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}
+	
+	function call_search_special_skillgrp () {	
+		parameter = "";
+	    call_openDialog("search_special_skillgrp.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$SG_TITLE?>พิเศษ");		
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+			var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+			parameter = "";
+			MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+
+function check(f) {
+	if(f.SS_NAME.value=="") {
+		alert("กรุณาระบุ ด้านความเชี่ยวชาญพิเศษ");
+		f.SS_NAME.focus();
+		return false;
+		} 
+		
+		else  return true;
+		}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PER_ID.value = arrValue[0];
+				form1.submit();
+			} // end if
+		} else if  (src.indexOf("search_special_skillgrp") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.SS_CODE.value = arrValue[0];
+				form1.SS_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลความเชี่ยวชาญพิเศษ":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="workflow_personal_special_skill.html" enctype="multipart/form-data" onSubmit="return check(this);">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="SPS_ID" value="<?=$SPS_ID?>">
+          <input type="hidden" name="F_REFRESH" value="<?=$F_REFRESH?>">
+	   <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="25%" height="22" align="right"><?=$FULLNAME_TITLE?></td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="btn2" type="button" class="button" value="<?=$SELECT_PERSON_TITLE ?>" onClick="call_search_person();">
+          <?  } else {  echo "&nbsp; &nbsp;"; ?>
+          <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE ?>" width="32" height="32" border="0" onClick="call_search_person();">
+          <? } echo "&nbsp; &nbsp;"; ?>          <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="20%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$SG_TITLE;?>พิเศษ&nbsp;:&nbsp;</td>
+              <td width="32%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SS_NAME" value="<?=$SS_NAME?>" style="width:100%" class="textbox" readonly>
+					<input type="hidden" name="SS_CODE" value="<?=$SS_CODE?>">				  </td>
+                  <td>&nbsp;&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกด้านความเชี่ยวชาญ" onClick="call_search_special_skillgrp('SS_CODE', 'SS_NAME');">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td width="40%" colspan="2">&nbsp;</td>
+            </tr>
+            <tr>
+              <td height="22" align="right">เน้นทาง&nbsp;:&nbsp;</td>
+              <td colspan="3"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+					<textarea name="SPS_EMPHASIZE" class="selectbox" cols="100" rows="3" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$SPS_EMPHASIZE?></textarea>
+					</td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+            </tr>			
+			<tr>
+              <td height="22" align="right"><?=$REMARK_TITLE;?>&nbsp;:&nbsp;</td>
+              <td colspan=3>
+			<input type="text" name="SPS_REMARK" value="<?=$SPS_REMARK?>" style="width:85%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>
+			</td>
+			</tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><span class="label_alert">*</span>&nbsp;</td>
+			  <?
+			  		if ($SPS_WF_STATUS=="01") {
+						$SPS_STATUS_TEXT="สร้างงาน";
+					} else if ($SPS_WF_STATUS=="02") {
+		                if($SESS_USERGROUP_LEVEL < 5){  // admin
+							$SPS_STATUS_TEXT="รออนุมัติ";
+						} else {
+							$SPS_STATUS_TEXT="ส่งงาน";
+						}
+					} else if ($SPS_WF_STATUS=="03") {
+						$SPS_STATUS_TEXT="ส่งกลับ";
+					} else if ($SPS_WF_STATUS=="04") {
+						$SPS_STATUS_TEXT="อนุมัติ";
+					} else if ($SPS_WF_STATUS=="05") {
+						$SPS_STATUS_TEXT="ไม่อนุมัติ";
+					} else {
+						$SPS_STATUS_TEXT="???";
+					}
+			  ?>
+              <td colspan="3">สถานะรายการ : <?=$SPS_STATUS_TEXT?></td>
+            </tr>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25">
+		  		<? if ($UPD || $VIEW) { ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.SPS_ID.value='';" class="button" >
+                <?  } else { ?>
+                <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.SPS_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+                <? } echo "&nbsp; &nbsp;";?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+      		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+      		  <?  } else { ?>
+              <input name="image22" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?> 
+                <? if($SESS_USERGROUP_LEVEL < 5){?> <!-- user admin -->
+					<!--? if ($PAGE_AUTH["confirm"]=="Y"){?-->
+						<? if ($SPS_WF_STATUS=="01"){?> <!-- ถ้า status เป็น สร้างงาน -->
+						<? } else if ($SPS_WF_STATUS=="02"){?>  <!-- ถ้า status เป็น รออนุมัติ -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit93" style="width:70" type="submit" class="button" onClick="upd_status_command('03');" value="ส่งกลับ" alt="ส่งกลับ" title="ส่งกลับ">
+							<?  } else { ?>
+                            <input name="image222" type="image" onClick="upd_status_command('03');" src="images/back.gif" alt="ส่งกลับ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit94" style="width:70" type="submit" class="button" onClick="upd_status_command('04');" value="อนุมัติ" alt="อนุมัติ" title="อนุมัติ">
+							<?  } else { ?>
+                            <input name="image2222" type="image" onClick="upd_status_command('04');" src="images/ok.gif" alt="อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit95" style="width:70" type="submit" class="button" onClick="upd_status_command('05');" value="ไม่อนุมัติ" alt="ไม่อนุมัติ" title="ไม่อนุมัติ">
+							<?  } else { ?>
+                            <input name="image22222" type="image" onClick="upd_status_command('05');" src="images/cancel2.png" alt="ไม่อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($SPS_WF_STATUS=="03"){ ?> <!-- ถ้า status เป็น ส่งกลับ -->
+						<? } else if ($SPS_WF_STATUS=="04"){?> <!-- ถ้า status เป็น อนุมัติ -->
+						<? } else if ($SPS_WF_STATUS=="05"){?>  <!-- ถ้า status เป็น ไม่อนุมัติ -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit93" style="width:70" type="submit" class="button" onClick="upd_status_command('03');" value="ส่งกลับ" alt="ส่งกลับ" title="ส่งกลับ">
+							<?  } else { ?>
+                            <input name="image2223" type="image" onClick="upd_status_command('03');" src="images/back.gif" alt="ส่งกลับ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit94" style="width:70" type="submit" class="button" onClick="upd_status_command('04');" value="อนุมัติ" alt="อนุมัติ" title="อนุมัติ">
+							<?  } else { ?>
+                            <input name="image22223" type="image" onClick="upd_status_command('04');" src="images/ok.gif" alt="อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } ?>
+					<!--? } ?-->
+				<? } else { ?> <!-- แต่ละจังหวัด -->
+					<!--?if($PAGE_AUTH["confirm"]=="Y"){?-->
+						<? if ($SPS_WF_STATUS=="01"){?>  <!-- ถ้า status เป็น สร้างงาน -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit92" style="width:70" type="submit" class="button" onClick="upd_status_command('02');" value="ส่งงาน" alt="ส่งงาน" title="ส่งงาน">
+							<?  } else { ?>
+                            <input name="image222232" type="image" onClick="upd_status_command('02');" src="images/up.gif" alt="ส่งงาน">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($SPS_WF_STATUS=="02"){?>  <!-- ถ้า status เป็น รออนุมัติ  -->
+						<? } else if ($SPS_WF_STATUS=="03"){?> <!-- ถ้า status เป็น ส่งกลับ  -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit92" style="width:70" type="submit" class="button" onClick="upd_status_command('02');" value="ส่งงาน" alt="ส่งงาน" title="ส่งงาน">
+							<?  } else { ?>
+                            <input name="image2222322" type="image" onClick="upd_status_command('02');" src="images/up.gif" alt="ส่งงาน">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($SPS_WF_STATUS=="04"){?> <!-- ถ้า status เป็น อนุมัติ  -->
+						<? } else if ($SPS_WF_STATUS=="05"){?> <!-- ถ้า status เป็น ไม่อนุมัติ  -->
+						<? } ?>
+					<!--?}?-->
+				<? } ?>
+      		  <? } else { ?>
+      		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+      		  <?  } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+              <? } echo "&nbsp; &nbsp;";?> 
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?>
+	  		  <? if ($BUTTON_DISPLAY==1) { ?>
+	  		  <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE?>">
+	  		  <?  } else { ?>
+              <input name="image23" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?> 
+              <?}?>          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="3"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table> 
+  &nbsp;
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+<!--	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+	<td align="center">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+     </tr>
+   </table></td>
+	</tr>
+</table>   
+<?
+	if($DPISDB=="odbc"){
+		if($current_page > 1){
+			$cmd = " select 	top $start_record trim(SPS_ID) as concat_pk 
+							from 		PER_WORKFLOW_SPECIAL_SKILL pa, PER_SPECIAL_SKILLGRP pag
+							where		pa.PER_ID=$PER_ID and pa.SS_CODE=pag.SS_CODE and SPS_WF_STATUS!='04' 						
+							order by 	SPS_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(SPS_ID) not in (". implode(", ", $arr_exclude) .")";
+		}
+	
+		$cmd = "	SELECT 		top $data_per_page  	
+													SPS_ID, pa.SS_CODE, pag.SS_NAME, SPS_EMPHASIZE, SPS_WF_STATUS
+							FROM			PER_WORKFLOW_SPECIAL_SKILL pa, PER_SPECIAL_SKILLGRP pag
+							WHERE			pa.PER_ID=$PER_ID and pa.SS_CODE=pag.SS_CODE and SPS_WF_STATUS!='04' 
+													$search_condition
+													$limit_data
+							ORDER BY	SPS_ID 	";
+					
+	}elseif($DPISDB=="oci8"){			 
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		SPS_ID, pa.SS_CODE, pag.SS_NAME, SPS_EMPHASIZE, SPS_WF_STATUS
+								  from 		PER_WORKFLOW_SPECIAL_SKILL pa, PER_SPECIAL_SKILLGRP pag
+								  where 		pa.PER_ID=$PER_ID and pa.SS_CODE=pag.SS_CODE and SPS_WF_STATUS!='04' 
+												$search_condition
+								  order by 	SPS_ID
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 		SPS_ID, pa.SS_CODE, pag.SS_NAME, SPS_EMPHASIZE, SPS_WF_STATUS
+							FROM		PER_WORKFLOW_SPECIAL_SKILL pa, PER_SPECIAL_SKILLGRP pag
+							WHERE	pa.PER_ID=$PER_ID and pa.SS_CODE=pag.SS_CODE and SPS_WF_STATUS!='04' 
+											$search_condition
+											ORDER BY	SPS_ID
+											$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+       <td width="41%"><?=$SG_TITLE;?>พิเศษ</td>
+       <td>เน้นทาง</td>
+	<td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+	  <td width="3%">จำนวนไฟล์</td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	$num_order = ($current_page - 1) * $data_per_page;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$num_order++;
+		if($data_count > $data_per_page) break;
+		$TMP_SPS_ID = $data[SPS_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SPS_ID;
+		$TMP_SS_CODE = $data[SS_CODE];
+		$TMP_SS_NAME = $data[SS_NAME];
+		$TMP_SPS_EMPHASIZE = (trim($data[SPS_EMPHASIZE]))? $data[SPS_EMPHASIZE] : "-" ;
+		$TMP_SPS_WF_STATUS = $data[SPS_WF_STATUS];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($SPS_ID==$TMP_SPS_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$num_order?></td>
+      <td align="center">&nbsp;<?=$TMP_SS_NAME?></td>
+      <td align="center"><?=$TMP_SPS_EMPHASIZE?></td>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.SPS_ID.value=$TMP_SPS_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติความเชี่ยวชาญพิเศษ" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){
+	   		if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_SPS_WF_STATUS=='02' || $TMP_SPS_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.SPS_ID.value=$TMP_SPS_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติความเชี่ยวชาญพิเศษ"></a></td>
+		  <?}
+	  }?>
+	  <?if($PAGE_AUTH["del"]=="Y"){
+	   		if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_SPS_WF_STATUS=='02' || $TMP_SPS_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_SPS_ID,'$TMP_SS_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติความเชี่ยวชาญพิเศษ"></td>
+		  <?}
+	  }?>
+	   <td>&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('PER_WORKFLOW_SPECIAL_SKILL','$TMP_SPS_ID','$TMP_SS_NAME','$PER_ID')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?>
+	   <? if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_SPS_WF_STATUS=='02' || $TMP_SPS_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+	  <td align="center">
+	<input type="hidden" name="CATEGORY" value="PER_WORKFLOW_SPECIAL_SKILL">
+	<input type="hidden" name="LAST_SUBDIR" value="<?=$TMP_SPS_ID; ?>">
+	<input type="hidden" name="UPFOR" value="<?=$TMP_SS_NAME; ?>">
+	  &nbsp; <a href="<?="javascript:call_menu_desc('PER_WORKFLOW_SPECIAL_SKILL','$TMP_SPS_ID','$TMP_SS_NAME','$PER_ID')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+		  <?}?> <?}?>
+	</tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><?}?>
+	</tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  	<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+		<tr><td colspan="7">&nbsp;</td></tr>
+		<tr><td colspan="7"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+	</table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

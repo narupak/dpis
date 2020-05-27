@@ -1,0 +1,255 @@
+<? 
+	// กรณี เข้า ครั้งแรก ก็ต้องกระจาย tree เลยตาม สังกัดของผู้ใช้ จำเป็นต้องใช้ตัวแปร 2 ตัวนี้ก่อน ใน structure_by_law.php จึงต้องมากำหนดที่นี่
+	$PAGE_ROWS = 100;
+	$PAGE_TABS = 10;
+	// แล้วจึงเอา $PAGE_ROWS และ $PAGE_TABS ไปกำหนดค่าใน form1 อีกที
+	include("../php_scripts/connect_database.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function refresh_opened_org(opened_org_id, thispage){
+		opened_org = form1.LIST_OPENED_ORG.value;
+		if(opened_org==""){
+			opened_org = "";
+		}else{
+			search_str = "," + opened_org_id + ".";
+			pos = opened_org.indexOf(search_str);
+			pos2 = opened_org.indexOf(".",pos+search_str.length+1); // search for . after thispage
+			opened_org = opened_org.substring(0, pos+search_str.length) + thispage + opened_org.substring(pos2, opened_org.length);
+			if(opened_org=="," || opened_org==",,") opened_org = "";
+		}
+//		alert("refresh"+opened_org);
+//		form1.LIST_OPENED_ORG.value = opened_org;	
+//		form1.ORG_SEARCH.value = "";
+	//	alert(form1.LIST_OPENED_ORG.value);
+	//	form1.ORG_ID.value = form1.ORG_ID_REF.value;
+	//	form1.ORG_ID_REF.value = "";
+		form1.submit();
+	}
+
+	function select_org(org_id, org_id_ref){
+		form1.ORG_ID.value = org_id;
+		form1.submit();
+	}
+	
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="structure_by_law_child.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+          <input type="hidden" name="PAGE_ROWS" value="<?=$PAGE_ROWS?>">
+          <input type="hidden" name="PAGE_TABS" value="<?=$PAGE_TABS?>">
+&nbsp;
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" valign="top">
+		  <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+            <tr><td height="10"></td></tr>
+			<tr align="center">
+              <td height="25"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+				<?
+                	$tab = "";
+                	$TMP_ORG_ID = $ORG_ID;
+					$arr_org = (array) null;
+                	while ($TMP_ORG_ID > 1) {
+				  		$cmd = " select ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID=$TMP_ORG_ID ";
+//						echo "$cmd<br>";
+						$db_dpis->send_cmd($cmd);
+						$data = $db_dpis->get_array();
+						$arr_org[id][] = $TMP_ORG_ID;
+						$arr_org[name][] = $data[ORG_NAME];
+						$arr_org[id_ref][] = $data[ORG_ID_REF];
+						$TMP_ORG_ID = $data[ORG_ID_REF];
+					}
+					array_multisort($arr_org[id], SORT_ASC, $arr_org[name], SORT_ASC, $arr_org[id_ref], SORT_ASC);
+					for($i=0; $i < count($arr_org[id]); $i++) {
+//                    	echo "id=".$arr_org[id][$i];
+						$class = "table_body";
+						if($arr_org[id][$i]==1) {
+                        	$class = "table_body_over";
+				?>
+                	<tr>
+               	  		<td height="10" class="<?=$class?>">&nbsp;<?=$tab?><span onClick="" style="cursor:hand;"><?=$arr_org[name][$i]?></span></td>
+                	</tr>
+				<?
+                		} else {
+                        	$sel_org = "select_org(". $arr_org[id][$i] .",". $arr_org[id_ref][$i] .");";
+				?>
+					<tr>
+               	  		<td height="10" class="<?=$class?>">&nbsp;<?=$tab?><span onClick="<?=$sel_org?>" style="cursor:hand;"><?=$arr_org[name][$i]?></span></td>
+                	</tr>
+                <?
+                		} // end if ()
+                        $tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+                	} // end for $i
+                ?>
+                <tr>
+                  <td height="22">
+                  <?
+					if( !$current_page ) $current_page = 1;
+					if(!$data_per_page) $data_per_page = 30;
+					$start_record = ($current_page - 1) * $data_per_page;
+
+					$cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID_REF = $ORG_ID 
+									order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE ";
+					$count_data = $db_dpis->send_cmd($cmd);
+//					echo "$cmd<br>";
+//					$db_dpis->show_error();
+					if($count_data){
+						$tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+						echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";	
+						if ($parent_page > 0) {
+							if ($DPISDB=="oci8") {
+								if (search_text.length > 0) {
+									$cmd1= "SELECT * FROM (SELECT r.*, ROWNUM as row_number FROM ($cmd ) r) WHERE ORG_NAME = '$search_text%' ORDER BY row_number";
+									$count_data1 = $db_dpis2->send_cmd($cmd1);
+									if ($count_data1 > 0) {
+										$data1 = $db_dpis2->get_array();
+										$myrow=$data1[row_number];
+										$parent_page = floor($myrow / $PAGE_ROWS) + 1;
+									}
+								}
+								$first_rec = (($parent_page - 1) * $PAGE_ROWS);
+								$end_rec = $first_rec + $PAGE_ROWS - 1;
+								$cmd1= "SELECT * FROM (SELECT r.*, ROWNUM as row_number FROM ($cmd ) r WHERE ROWNUM <= $end_rec) WHERE $first_rec <= row_number";
+								$count_data1 = $db_dpis->send_cmd($cmd1);
+							} else {
+								$first_rec = (($parent_page - 1) * $PAGE_ROWS) ;
+								$data = $db_dpis->get_data_row($first_rec);
+								$rec_cnt = 0;
+							}
+						}
+						while($data = $db_dpis->get_array()) {
+							$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=". $data[ORG_ID];
+			//				echo "$cmd<br>";
+							$count_sub_tree = $db_dpis2->send_cmd($cmd);
+							$class = "table_body";
+							if ($data[ORG_ID] == $sel_org_id) $class = "table_body_over";
+
+							// เพื่อกำหนดหน้า ในการทำรายการ แบ่งหน้า
+							if (!is_null($PAGE_ROWS) && $count_sub_tree > $PAGE_ROWS) {
+								if ($this_page == 0) $this_page = 1;
+							} if (is_null($PAGE_ROWS)) {
+								$this_page = 0;
+							}
+                            
+							// กำหนด function เพื่อ เปิด/ปิด ระดับลึกลงไป
+							$icon_name = "icon_minus.gif";
+							$onClick = "";
+
+							// กำหนด
+							$showpage = "";
+							if ($count_sub_tree > $PAGE_ROWS) {
+								// ทำรายการการแบ่งหน้า
+								$tpages = floor($count_sub_tree / $PAGE_ROWS) + ($count_sub_tree % $PAGE_ROWS > 0 ? 1 : 0);
+								$showpage=" ";
+								$stpage=(floor(($this_page-1) / $PAGE_TABS)*$PAGE_TABS)+1; // หาเลขเริ่มแต่ละชุดหน้า
+//								echo "stpage=$stpage, this_page=$this_page, PAGE_TABs=$PAGE_TABS<br>";
+								for ($ii=$stpage; $ii < $stpage+$PAGE_TABS; $ii++) {
+									if ($ii <= $tpages) {
+										if ($ii == $this_page) {
+											$showpage = $showpage."<b><a href=\"javascript:refresh_opened_org(". $data[ORG_ID] .",".$ii.")\">$ii</a></b> ";
+										} else {
+											$showpage = $showpage."<a href=\"javascript:refresh_opened_org(". $data[ORG_ID] .",".$ii.")\">$ii</a> ";
+										}
+									} else {
+										break;
+									}
+								} // end for
+								if ($stpage > 1 && $tpages > $PAGE_TABS) {
+									$ppage = $stpage - $PAGE_TABS;
+									if ($ppage < 0) { $ppage=1; }
+									$showpage = "<b><a href=\"javascript:refresh_opened_org(". $data[ORG_ID] .",".$ppage.")\">Prev</a></b>&nbsp;&nbsp; ".$showpage;
+								}
+								if ($stpage + $PAGE_TABS <= $tpages && $tpages > $PAGE_TABS) {
+									$npage = $stpage + $PAGE_TABS;
+									$showpage = $showpage." &nbsp;&nbsp;<b><a href=\"javascript:refresh_opened_org(". $data[ORG_ID] .",".$npage.")\">Next</a></b>";
+								}
+								if ($showpage > " ") {
+									$showpage = $showpage." .../$tpages";
+								}
+//								echo "**$showpage";
+							} // end if
+							// จบการทำรายการแบ่งหน้า
+							if(!$count_sub_tree) {
+                            	$icon_name = "";
+	                            $sel_org = "";
+							} else 
+	                            $sel_org = "select_org(". $data[ORG_ID] .",". $data[ORG_ID_REF] .");";
+							echo "<tr>";
+							echo "<td width=\"90%\" align=\"left\">&nbsp;<?=$tab?><img src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\">";
+							echo "&nbsp;<span onClick=\"$sel_org\" style=\"cursor:hand\">" . $data[ORG_NAME] . "</span></td>";
+							echo "</tr>";
+							// เพิ่มรายการแบ่งหน้าใต้แถวที่เปิดแบ่งหน้าเอาไว้
+							if ($showpage > "") {
+								$searchformname="search_form	$this_page";
+								$search_part="<form name=\"$searchformname\" method=\"post\" action=\"structure_by_law_child.html\" enctype=\"multipart/form-data\"><input type=\"text\" name=\"stext\" value=\"$search_org[1]\"><input name=\"orgsearch\" type=\"submit\" class=\"button\" value=\"ค้นหา\">";
+								echo "<tr><td width=\"15\"></td><td height=\"14\" align=\"left\">&nbsp;$showpage&nbsp&nbsp$search_part</td></tr>";
+							}
+							// เพิ่มเติมโดย พงษ์ศักดิ์  27 ธ.ค. 2009
+				
+//				if($count_sub_tree > 0 && $inArr){
+//					echo "<tr>";
+//					echo "<td width=\"15\" align=\"center\"></td>";
+//					echo "<td>";
+//					$display = "none";
+//					if(in_array($data[ORG_ID], $arr_opened_org)) $display = "block";
+//					echo "<div id=\"DIV_". $data[ORG_ID] ."\" style=\"display:$display\">";
+//					list_tree_org("", $data[ORG_ID], $sel_org_id, ($tree_depth + 1));
+//					// เพิ่มรายการแบ่งหน้าใต้กลุ่มรายการที่เปิดแบ่งหน้าเอาไว้ เป็นการปิดท้าย
+//					if ($showpage > "") {
+//						echo "<tr><td width=\"15\"></td><td height=\"14\" align=\"left\">&nbsp;$showpage</td></tr>";
+//					}
+//					// จบการแบ่งหน้า
+//					echo "</div>";
+//					echo "</td>";
+//					echo "</tr>";
+//				} // end if
+							$rec_cnt++;
+							if ($parent_page > 0 && $rec_cnt >= $PAGE_ROWS) {
+								break;
+							}
+						} // end while						
+						echo "</table>";
+					} // end if
+                    ?>
+                  </td>
+                </tr>
+              </table></td>
+			</tr>
+            <tr><td height="10"></td></tr>
+          </table>
+	  </td>
+    </tr>
+  </table>
+  </form>	
+	  </td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

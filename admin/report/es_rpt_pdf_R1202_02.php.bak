@@ -1,0 +1,352 @@
+<?php include("../../php_scripts/connect_database.php");
+    include("../php_scripts/pdf_wordarray_thaicut.php");
+    include("../../php_scripts/calendar_data.php");
+    define('FPDF_FONTPATH','../../PDF/font/');
+    include ("../../PDF/fpdf.php");
+    include ("../../PDF/pdf_extends_DPIS.php"); 
+    
+    ini_set("max_execution_time", $max_execution_time);
+    $db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    
+    function getNamePersonal($db_dpis,$perId){
+        $cmd = "SELECT PP.PN_NAME,PPN.PER_NAME,PPN.PER_SURNAME 
+                FROM PER_PERSONAL PPN
+                LEFT JOIN PER_PRENAME PP ON(PP.PN_CODE=PPN.PN_CODE)
+                WHERE PER_ID = $perId ";
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $fullname = $data2[PN_NAME].$data2[PER_NAME].' '.$data2[PER_SURNAME];
+        return $fullname;
+    }
+    function getPER_VACATION($PER_ID,$search_date,$AB_COUNT_TOTAL_04,$AB_COUNT_04){
+        global $db_dpis;
+    }
+    
+    $unit="mm";
+    $paper_size="A4";
+    $lang_code="TH";
+    $orientation='L';
+	
+	//หาหน่วยงาน
+	 if($select_org_structure==0){ // แบบตามกฏหมาย
+		 $varORGID= $search_org_id;
+		 $varORGNAME= $search_org_name;
+	 }else{ //แบบมอบหมายงาน
+		 $varORGID= $search_org_ass_id;
+		  $varORGNAME= $search_org_ass_name;
+	}
+	
+	// จัดเรียงข้อมูล
+	if(!trim($RPTORD_LIST)){ 
+		$RPTORD_LIST = "MINISTRY|";
+	}
+	$arr_rpt_order = explode("|", $RPTORD_LIST);
+//	$order_by = "";
+	$order_by .= " ORDER BY P.PER_NAME, P.PER_SURNAME";
+/*
+	for($rpt_order_index=0; $rpt_order_index<count($arr_rpt_order); $rpt_order_index++){
+		$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+		switch($REPORT_ORDER){
+			case "NAME" :
+				$order_by .= " ORDER BY P.PER_NAME, P.PER_SURNAME";
+				break;
+
+			
+		} // end switch case
+	} // end for
+*/	
+	/*---------------------------------------*/
+    
+    $arrHdDate = explode("/", $search_date);
+    $show_date = "วันที่ ".($arrHdDate[0] + 0) ." เดือน ". $month_full[($arrHdDate[1] + 0)][TH] ." พ.ศ. ". $arrHdDate[2];
+    
+    $report_title = $DEPARTMENT_NAME."||รายงานการมาปฏิบัติราชการของข้าราชการ||ประจำเดือน ".$month_full[($search_month + 0)][TH]." พ.ศ. ". $search_year;
+    $report_code = "R1203";
+    $org_structure="โครงสร้างตามกฎหมาย";
+    if($select_org_structure==1){$org_structure="โครงสร้างตามมอบหมายงาน";}
+    $company_name ="รูปแบบการออกรายงาน : ".$org_structure." ".$varORGNAME;
+    include ("es_rpt_pdf_R1202_02_format.php");	// กำหนดหัวและตัวแปรสำหรับการเปลี่ยนรูปแบบรายงาน
+    session_cache_limiter("private");
+    session_start();
+
+    $pdf = new PDF($orientation,$unit,$paper_size,$lang_code,$company_name,$report_title,$report_code,$heading,$heading_width,$heading_align);
+
+    $pdf->Open();
+    $pdf->SetFont($font,'',14);
+    $pdf->SetMargins(5,5,5);
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+    $pdf->SetTextColor(0, 0, 0);
+
+    $page_start_x = $pdf->x;
+    $page_start_y = $pdf->y;
+    
+    $head_text1 = implode(",", $heading_text);
+    $head_width1 = implode(",", $heading_width);
+    $head_align1 = implode(",", $heading_align);
+    $col_function = implode(",", $column_function);
+    
+    $pdf->AutoPageBreak = false;
+    $result = $pdf->open_tab($head_text1, $head_width1, 6, "TRHBL", $head_align1, "", "9", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+    
+    $Arrsearch_date = explode("/", $search_date);
+    
+    $varBgnDataEat= ($Arrsearch_date[2]-543).'-'.$Arrsearch_date[1].'-'.$Arrsearch_date[0].' 00:00:00';
+    $varToDateEat= ($Arrsearch_date[2]-543).'-'.$Arrsearch_date[1].'-'.$Arrsearch_date[0].' 23:59:59';
+    $varPerType= $search_per_type;
+    $varOrgStructure = 'PER_ORG';
+   
+    if($select_org_structure==1){$varOrgStructure = 'PER_ORG_ASS';}
+    
+    //$cmd = file_get_contents('../GetWorkTimeByOrgID.sql');	
+    //$cmd=str_ireplace(":ORG_ID",$varORGID,$cmd);
+    //$cmd=str_ireplace(":BEGINDATEAT","'".$varBgnDataEat."'",$cmd);
+    //$cmd=str_ireplace(":TODATEAT","'".$varToDateEat."'",$cmd);
+    //$cmd=str_ireplace(":ORG_TABLE",$varOrgStructure,$cmd);
+    //$cmd=str_ireplace(":PER_TYPE",$varPerType,$cmd);
+    
+    //หาช่วงวันที่ 15 / 30
+    if(strlen($search_month)==1){
+        $search_month = '0'.$search_month;
+    }
+    
+    //$search_year=($search_year);
+    $varBgnDate = $search_year.'-'.$search_month.'-01';
+    
+    $cmdBtw="SELECT to_char( work_date,'YYYY-MM-DD') AS WORK_DATE,CASe WHEN ph.hol_date is not null THEN 1 ELSE 0 END AS HOLDAY
+            FROM (
+                SELECT (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+rownum AS WORK_DATE FROM all_objects
+                WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= last_day(TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))
+              ) tbmain 
+              left join per_holiday ph on(ph.hol_date=to_char( tbmain.work_date,'YYYY-MM-DD'))";
+    $cmdBtw=str_ireplace(":BEGINDATEAT","'".$varBgnDate."'",$cmdBtw);
+    $cntDay = $db_dpis2->send_cmd($cmdBtw);
+    $workDateIN = "";
+    $comma=",";
+    $iloop = 0;
+    if($chkmonth==15){$cntDay=15;}
+    
+    $ArrHol = array();
+    while ($dataDAY = $db_dpis2->get_array()) {
+        $ArrHol[$iloop]=$dataDAY[HOLDAY];
+        $iloop++;
+        if($iloop==$cntDay){$comma='';}
+        $workDateIN .= "'".$dataDAY[WORK_DATE]."'".$comma;
+        if($comma==''){break;}
+    }
+    $ArrworkDateIN = explode(",", $workDateIN);
+    //die($workDateIN);
+    
+    $cmdMain ="WITH
+                ALLWORKDAY AS
+                (
+                  SELECT (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ROWNUM AS WORK_DATE FROM ALL_OBJECTS
+                    WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ ROWNUM <= LAST_DAY(TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))
+                )
+                ,GetList_ORG_ID As
+                (
+
+                  select org_id from PER_ORG o where :LAW_OR_ASS=1 and o.org_active=1 and o.org_id in
+                    (select org_id from PER_ORG start with ORG_ID=:ORG_ID CONNECT BY PRIOR org_id = ORG_ID_REF)  
+                  union
+                  select org_id from PER_ORG_ASS o where :LAW_OR_ASS=2 and o.org_active=1 and o.org_id in
+                    (select org_id from PER_ORG_ASS start with ORG_ID=:ORG_ID CONNECT BY PRIOR org_id = ORG_ID_REF)  
+
+                )
+                ,List_Per_Type as
+                (
+                  select CAST(:PER_TYPE AS number) PER_TYPE from dual 
+                  union select 1 from dual where :PER_TYPE=0
+                  union select 2 from dual where :PER_TYPE=0
+                  union select 3 from dual where :PER_TYPE=0
+                  union select 4 from dual where :PER_TYPE=0
+
+                )
+                ,PersonInDepart As
+                (
+                  /* By Law */
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POSITION pp on (pp.POS_ID=p.POS_ID)
+                  where p.per_status=1 and p.per_type=1 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_EMP pp on (pp.POEM_ID=p.POEM_ID)
+                  where p.per_status=1 and p.per_type=2 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_EMPSER pp on (pp.POEMS_ID=p.POEMS_ID)
+                  where p.per_status=1 and p.per_type=3 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  union
+                  select per_id from PER_PERSONAL p
+                  LEFT JOIN PER_POS_TEMP pp on (pp.POT_ID=p.POT_ID)
+                  where p.per_status=1 and p.per_type=4 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=1 and pp.ORG_ID in (select org_id from GetList_ORG_ID)
+                  /* By Assignment */
+                  union
+                  select per_id from PER_PERSONAL p
+                  where p.per_status=1 and p.per_type in (select per_type from List_Per_Type)
+                    and :LAW_OR_ASS=2 and p.ORG_ID in (select org_id from GetList_ORG_ID)
+                )
+				, AllWorks as
+				(
+                    SELECT PER_ID,TO_CHAR( WORK_DATE,'YYYY-MM-DD') AS WORK_DATE,NVL(TO_CHAR(ABSENT_FLAG),'*')||NVL(TO_CHAR(WORK_FLAG),'*')
+                    || (CASE WHEN ABSENT_FLAG=1 OR ABSENT_FLAG=2 THEN (
+                        SELECT trim(P.AB_CODE) AS  AB_CODE 
+                        FROM PER_ABSENTHIS P
+                        WHERE P.PER_ID=PER_WORK_TIME.PER_ID AND P.ABS_STARTDATE=TO_CHAR( WORK_DATE,'YYYY-MM-DD') AND trim(P.AB_CODE) NOT IN ('10','13')
+                      ) ELSE '--' END)AW
+                    FROM PER_WORK_TIME
+                    WHERE 
+                      PER_ID IN (SELECT * FROM PERSONINDEPART)
+                      AND WORK_DATE BETWEEN (SELECT MIN(WORK_DATE) FROM ALLWORKDAY) AND (SELECT MAX(WORK_DATE) FROM ALLWORKDAY) 
+                    UNION ALL 
+                    SELECT PER_ID, ABS_STARTDATE AS WORK_DATE,'3'|| '0' ||trim(AB_CODE) AS AW 
+                    FROM PER_ABSENTHIS 
+                    WHERE 
+					   PER_ID IN (SELECT * FROM PERSONINDEPART)
+					   AND ABS_STARTDATE BETWEEN (SELECT MIN(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) AND (SELECT MAX(TO_CHAR( WORK_DATE,'YYYY-MM-DD')) FROM ALLWORKDAY) 
+				)
+                SELECT X.*,P.PER_NAME,PER_SURNAME FROM 
+                (
+                  SELECT * FROM
+                  (
+				  	select p.per_id, WORK_DATE, aw
+                    FROM per_personal p
+					left join AllWorks on (AllWorks.per_id=p.per_id)
+                    WHERE 
+                      p.PER_ID IN (SELECT * FROM PERSONINDEPART)
+                  )
+                  PIVOT 
+                  (
+                      MIN(AW) 
+                      FOR  WORK_DATE IN (".$workDateIN.")
+                  )
+                ) X
+                LEFT JOIN PER_PERSONAL P ON (P.PER_ID=X.PER_ID)
+                 ".$order_by;
+    $org_structure=1;
+    
+    if($select_org_structure==1){$org_structure=2;}
+    $cmdMain=str_ireplace(":BEGINDATEAT","'".$varBgnDate."'",$cmdMain);
+    $cmdMain=str_ireplace(":PER_TYPE",$varPerType,$cmdMain);
+    $cmdMain=str_ireplace(":ORG_ID",$varORGID,$cmdMain);
+    $cmdMain=str_ireplace(":LAW_OR_ASS",$org_structure,$cmdMain);
+    $count_page_data = $db_dpis2->send_cmd($cmdMain);
+   // die("<pre>$cmdMain");
+    $no=0;
+    $AB_COUNT_TOTAL_04=0;
+    $SUM_CODE_04=0;
+    $TotalCODE_04=0;
+    while ($data = $db_dpis2->get_array()) {
+        $no++;
+        $sum1=0;//01=ลาป่วย
+        $sum3=0;//03=ลากิจส่วนตัว
+        $sum13=0; //13=ขาดราชการ
+        $sum10=0;//10=สาย
+        
+        $AB_COUNT_04=0;
+        $arr_data = (array) null;
+        $arr_data[] = $no;
+        $arr_data[] = getNamePersonal($db_dpis,$data[PER_ID]);
+        //getPER_VACATION($data[PER_ID],$search_year,$AB_COUNT_TOTAL_04,$AB_COUNT_04);
+        // การลาพักผ่อน
+        $AS_YEAR = $search_year+543;
+        $cmd = " select VC_DAY from PER_VACATION where VC_YEAR='$AS_YEAR'and PER_ID=".$data[PER_ID];
+        $count = $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $AB_COUNT_TOTAL_04 = $data2[VC_DAY]; 	// วันลาพักผ่อนที่ลาได้ทั้งหมดในปีงบประมาณ
+        //$AB_COUNT_04 = $AB_COUNT_TOTAL_04 - $SUM_CODE_04 + $ABS_DAY_MFA;		// วันลาสะสมที่เหลือ
+        $TMP_START_DATE =  ($search_year-1).'-10-01';
+        $TMP_END_DATE =  $search_year.'-09-30';
+
+        $cmd = " select sum(ABS_DAY) as abs_day
+            from PER_ABSENTHIS 
+            where PER_ID=".$data[PER_ID]." and trim(AB_CODE)='04' 
+            and ABS_STARTDATE >= '$TMP_START_DATE' and ABS_ENDDATE <= '$TMP_END_DATE' ";
+        
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $data2 = array_change_key_case($data2, CASE_LOWER);
+        $SUM_CODE_04 = $data2[abs_day]+0; 
+        
+        $TotalCODE_04 =$AB_COUNT_TOTAL_04-$SUM_CODE_04;
+        
+        
+        for($idx=0;$idx<count($ArrworkDateIN);$idx++){
+            if($ArrHol[$idx]==1){ //วันหยุด
+                //*ใส่สี*//
+            }
+            $dataAbs = $data[$ArrworkDateIN[$idx]];
+            $subAbs = substr($dataAbs,0,1);
+            if($subAbs==1 || $subAbs==2 || $subAbs==3 ){
+                $dataAbs = substr($dataAbs,2,2);
+                if($subAbs==1){$subAbs1='';$subAbs2='/';}
+                if($subAbs==2){$subAbs1='/';$subAbs2='';}
+                if($subAbs==3){$subAbs1='';$subAbs2='';}
+                
+                if($dataAbs=='1'){//ลาป่วย
+                    $dataAbs=$subAbs2.'ป'.$subAbs1;
+                    if($subAbs==1 || $subAbs==2){
+                        $sum1=$sum1+0.5;
+                    }else{
+                        $sum1++;
+                    }
+                }elseif($dataAbs=='2'){//ลาคลอดบุตร
+                    $dataAbs='';/*$subAbs2.''.$subAbs1;*/
+                }elseif($dataAbs=='3'){//ลากิจส่วนตัว
+                    $dataAbs=$subAbs2.'ก'.$subAbs1;
+                    if($subAbs==1 || $subAbs==2){
+                        $sum3=$sum3+0.5;
+                    }else{
+                        $sum3++;
+                    }
+                }elseif($dataAbs=='4'){//ลาพักผ่อน
+                    $dataAbs=$subAbs2.'พ'.$subAbs1;
+                }elseif($dataAbs=='13'){//ขาดราชการ
+                    $dataAbs='ข';/*$subAbs2.'ข'.$subAbs1;*/
+                    $sum13++;
+                }else{
+                    $dataAbs='';
+                }
+            }else{
+                $dataAbs = substr($dataAbs,0,2)+0;
+                if($dataAbs==1){
+                    $dataAbs='ส';
+                    $sum10++;
+                }elseif($dataAbs==2){
+                    $dataAbs='ข';
+                    $sum13++;
+                }elseif($dataAbs==3){
+                    $dataAbs='อ';
+                }else{
+                    $dataAbs='';
+                }
+            }
+            $arr_data[] = $dataAbs;
+        }
+        $arr_data[] = $sum1==0?'':$sum1;
+        $arr_data[] = $sum3==0?'':$sum3;
+        $arr_data[] = $sum13==0?'':$sum13;
+        $arr_data[] = $sum10==0?'':$sum10;
+        $arr_data[] = $AB_COUNT_TOTAL_04==0?'':$AB_COUNT_TOTAL_04;
+        $arr_data[] = $SUM_CODE_04==0?'':$SUM_CODE_04;
+        $arr_data[] = $TotalCODE_04==0?'':$TotalCODE_04;
+        $arr_data[] = '';
+        for($idx=0;$idx<7;$idx++){
+            $data_align[]="C";
+        }
+        $data_align[]="L";
+        $result = $pdf->add_data_tab($arr_data, 6, "TRHBL", $data_align, "", "9", "b", "000000", "");
+    }
+    
+    $pdf->close_tab(""); 
+    
+    $pdf->close();
+    $fname = "รายงานการมาปฏิบัติราชการของข้าราชการ ประจำเดือน แบบที่ 2.pdf";
+	$pdf->Output($fname,'D');	
+       
+?>

@@ -1,0 +1,1318 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_repgen.php");
+	include("php_scripts/repgen_query.php"); 
+	include("php_scripts/load_per_control.php");
+
+	$cmd =" select DATA_NO, DATA_THAI_NAME, DATA_ENG_NAME, MAP_TABLE_NAME, MAP_COLUMN_NAME from DATA_DICTIONARY ";
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "select first:$cmd<br>";
+	$data_count = 0;
+	$arr_ddic_no = (array) null;
+	$arr_ddic_thai_name = (array) null;
+	$arr_ddic_eng_name = (array) null;
+	$arr_ddic_thai_map = (array) null;
+	while( $data = $db_dpis->get_array() ){
+		$data = array_change_key_case($data, CASE_LOWER);
+		$arr_ddic_no[] = $data[data_no];
+		$arr_ddic_thai_name[$data[data_no]] = trim($data[data_thai_name]);
+		$arr_ddic_eng_name[$data[data_no]] = trim($data[data_eng_name]);
+		$arr_ddic_thai_map[$data[data_no]] = trim($data[map_table_name])."|".trim($data[map_column_name]);
+	} //end while
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" src="java_scripts/function_url_code.js"></script> 
+<script language="JavaScript">
+
+	var fieldFocus = "";
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("คุณต้องการลบข้อมูลนี้ [ " + data_label + " ] ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.QUERY_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+
+	function ClearOptionsFast(id)
+	{
+		var selectObj = document.getElementById(id);
+		var selectParentNode = selectObj.parentNode;
+		var newSelectObj = selectObj.cloneNode(false); // Make a shallow copy
+		selectParentNode.replaceChild(newSelectObj, selectObj);
+		return newSelectObj;
+	}
+
+	function call_test() {
+		var q_id = document.form1.QUERY_ID.value;
+		if (q_id) {
+			parameter = "&QUERY_ID="+q_id;
+//			alert("parameter="+parameter);
+//			childReturn = window.showModalDialog("repgen_querytest_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+			call_openDialog("repgen_querytest.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1200,700,"ทดสอบ ประโยคค้นหา");
+//			if(childReturn) 
+//				document.form1.submit();
+		} else {
+			alert("โปรดเลือกรายการ ประโยคขอข้อมูล ก่อน");
+		}
+	}
+	
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+//		var report_title = "รายงานข้อมูลตัวแปร<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_repgen_query.php?report_title=" + report_title + "&table=<?=$table?>&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "repgen_variable.html";
+	} 
+	
+	function call_export_file() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+//		var report_title = "รายงานข้อมูลตัวแปร<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_repgen_query_xls.php?report_title=" + report_title + "&table=<?=$table?>&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "repgen_variable.html";
+	}	
+
+	function checkadd(f) {
+		if(f.QUERY_NAME.value=="") {
+			alert("กรุณาระบุ ชื่อ");
+			f.QUERY_NAME.focus();
+			return false;
+		} else {
+			var bufftab = document.getElementById("tabname");
+			if (bufftab.length == 0) {
+				alert("กรุณาเลือกข้อมูลที่จะแสดง");
+				return false;
+			} else {
+				if (bufftab.length > 1 && f.Q_LINK.value.length == 0) {	
+				// ถ้า มีการตารางที่เกี่ยวข้องมากกว่า 1 ตาราง ต้องทำ link
+					alert("โปรดสร้างการเชื่อมโยงของตารางก่อน");
+					return false;
+				} else {
+					var buffgrp = document.getElementById("group_column");
+					if (buffgrp.length > 0) {	// ถ้า มีการกำหนดกลุ่ม ให้ตรวจสอบความถูกต้อง
+						if (!check_group()) {
+							alert("โปรดตรวจสอบข้อมูลกลุ่มให้ถูกต้อง");
+							return false;		
+						} else form1.command.value='ADD';
+					} else  form1.command.value='ADD';
+				}
+			}
+		}
+		pack_data_for_save();
+		
+		return true;
+	}
+	
+	function checkupdate(f) {
+		if(f.QUERY_NAME.value=="") {
+			alert("กรุณาระบุ ชื่อ");
+			f.QUERY_NAME.focus();
+			return false;
+		} else {
+			var bufftab = document.getElementById("tabname");
+			if (bufftab.length == 0) {
+				alert("กรุณาเลือกข้อมูลที่จะแสดง");
+				return false;
+			} else {
+				if (bufftab.length > 1 && f.Q_LINK.value.length == 0) {	
+				// ถ้า มีการตารางที่เกี่ยวข้องมากกว่า 1 ตาราง ต้องทำ link
+					alert("โปรดสร้างการเชื่อมโยงของตารางก่อน");
+					return false;
+				} else {
+					var buffgrp = document.getElementById("group_column");
+					if (buffgrp.length > 0) {	// ถ้า มีการกำหนดกลุ่ม ให้ตรวจสอบความถูกต้อง
+						if (!check_group()) {
+							alert("โปรดตรวจสอบข้อมูลกลุ่มให้ถูกต้อง");
+							return false;		
+						} else form1.command.value='UPDATE';
+					} else  form1.command.value='UPDATE';
+				}
+			}
+		}
+		pack_data_for_save();
+		
+		return true;
+	}
+	
+	function checkcopy(f) {
+		if(f.QUERY_ID.value=="") {
+			alert("โปรดเลือกรายการที่ต้องการ บันทึกไปเป็นตัวใหม่ ก่อน");
+			return false;
+		} else {
+			if (confirm("ต้องการ บันทึกไปเป็น ตัวใหม่ แน่นอน?")) {
+				form1.command.value='COPY';
+				pack_data_for_save();
+				return true;
+			} else 
+				return false;
+		}	
+	}
+		
+	function addColumns() {
+		var dic=document.getElementById("SEARCHDDIC");
+		var myValue = dic.options[dic.selectedIndex].value;
+		var myText = dic.options[dic.selectedIndex].text;
+		c = myText.indexOf(" (");
+		if (c == -1) {
+			c = myText.indexOf("(");
+			if (c > -1) {
+				myText = myText.substr(0, c);
+			}
+		} else {
+			myText = myText.substr(0, c);
+		}
+		var bufftab = document.getElementById("tabname");
+		var mytab = "";
+		if (bufftab.selectedIndex > -1) {
+			mytab = bufftab.options[bufftab.selectedIndex].value;
+		}
+		var ntab = myValue.split("|"); // data dic รูปแบบ tab name|column name|data dic no
+		var thistab = ntab[0];		// table select
+		var ch_tab = search_selected_tab(thistab);
+		var notAddTab = false;
+		if (!mytab) {
+			if (!ch_tab) {
+				ch_tab=document.form1.running_tab.value;
+//				alert("charCodeAt("+ch_tab+")="+ch_tab.charCodeAt(0));
+				if (ch_tab=="") ch_tab = "a";
+				else ch_tab = String.fromCharCode(ch_tab.charCodeAt(0)+1);
+//				alert("ch_tab="+ch_tab);
+				document.form1.running_tab.value = ch_tab;
+			}
+		} else {
+			var col = ch_tab+"|"+ntab[1]+"|"+ntab[2];
+			if (check_dup_column(col)) {
+				if (confirm("ข้อมูลซ้ำ ต้องการกำหนดให้เป็น ตาราง ใหม่หรือไม่?")) {
+					ch_tab = document.form1.running_tab.value;
+					alert("charCodeAt("+ch_tab+")="+ch_tab.charCodeAt(0));
+					ch_tab = String.fromCharCode(ch_tab.charCodeAt(0)+1);
+					alert("ch_tab="+ch_tab);
+					document.form1.running_tab.value = ch_tab;
+				} else
+					ch_tab = "";
+			} else {
+				mtab = mytab.split("|");
+				ch_tab = mtab[1];		// table select
+//				alert("mytab="+ntab+" & "+mtab);
+				notAddTab = true;
+			}
+		}
+		if (ch_tab) {
+			var colVal = ch_tab+"|"+ntab[1]+"|"+ntab[2];
+    	    // Add an Option object to Drop Down/List Box
+			var opt = document.createElement("option");
+	        document.getElementById("select_column").options.add(opt);         // Assign text and value to Option object
+    	    opt.text = ch_tab+"."+ntab[1]+"("+myText+")";
+        	opt.value = colVal;
+			if (!notAddTab) {
+				// Add an Table to Table Drop Down/List Box
+				addTabName(ntab[0], ch_tab);
+			}
+		}
+	}
+
+	function addTabName(tabnm, tabsign) { 
+		var ch_tab = tabsign;
+		var mytab = tabnm+" "+ch_tab;
+		ch_tab = search_selected_tab(mytab);
+//		alert("mytab="+mytab+" ch_tab="+ch_tab+"|"+ch_tab.length);
+		if (ch_tab.length > 0) {
+			var tabname = document.getElementById("tabname");
+			var option = document.createElement("option");
+			option.text = mytab;
+			option.value = tabnm+"|"+ch_tab;
+			try {       
+					 tabname.add(option, null); //Standard
+					 tabname.selectedIndex = tabname.length-1;
+			} catch(error) {        
+					tabname.add(option); // IE only    
+			}
+		}
+	}
+
+	function call_tab_sel() {	// เลือก 2 ตารางเพื่อทำการเชื่อมโยง
+		var selectedArray = new Array();
+		var selObj = document.getElementById('tabname');
+		var i;
+		var count = 0;
+		for (i=0; i<selObj.options.length; i++) {
+//			alert("1.. selected("+i+")="+selObj.options[i].selected);
+			if (selObj.options[i].selected) {
+				var sel = selObj.options[i].value.split("|");
+				selectedArray[count] = sel[0]+" "+sel[1]; // รูปแบบ table a
+				count++;
+			}
+		}
+		if (selectedArray.length != 2) 
+			alert("ต้องเลือก 2 ตาราง เพื่อกำหนดการเชื่อมต่อของทั้งคู่");
+		else {
+			var str_alltab = selectedArray.toString();
+			var q_link = document.form1.Q_LINK.value;
+		
+			parameter = "&TABSELECTS="+str_alltab+"&Q_LINK="+q_link;
+//			childReturn = window.showModalDialog("repgen_querylink_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+			call_openDialog("repgen_querylink.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1200,700,"การเชื่อมต่อประโยคต้นหา");
+/*			if(childReturn) {
+				arrValue = childReturn.split("<::>");
+//				form1.Q_LINK.value = arrValue[0];
+				if (arrValue[0] == 0) {
+					document.form1.Q_LINK.value=arrValue[1];
+//					document.form1.submit();
+				}
+			}
+*/
+		}
+	}
+
+	function add_newvar() {
+		var  varbuff=document.getElementById("varname");
+		varbuff.selectedIndex = -1;
+	}
+	
+	function add_condition() {
+		var dic=document.getElementById("SEARCHDDIC");
+		var tab_sign_sel = "";
+//		alert("1="+dic.selectedIndex+" tab");
+		if (dic.selectedIndex > 0) {
+			var dicValue = dic.options[dic.selectedIndex].value;
+			var dicTabSel = dicValue.split("|");
+			var dicText = dic.options[dic.selectedIndex].text;
+			var selectedArray = new Array();
+			var selObj = document.getElementById('tabname');
+			var i;
+			var count = 0;
+			for (i=0; i<selObj.options.length; i++) {
+				var selOption = selObj.options[i].value.split("|");
+//				alert("1.. selected("+i+")="+selOption[0]+"::"+myTabSel[0]);
+				if (selOption[0]==dicTabSel[0]) {
+					tab_sign_sel = selOption[1];
+					break;
+				}
+			}
+		}
+		if (tab_sign_sel.length == 0)  
+			alert("ต้องเลือก ข้อมูลใน Data Dictionary ก่อน..");
+		else {
+			var selcolumn = tab_sign_sel+"."+dic.options[dic.selectedIndex].value.split("|")[1];
+			var selOper = document.getElementById('Operator_lst');
+			if (!selOper.selectedIndex || selOper.selectedIndex < 0) 
+				alert("ต้องเลือก ตัวกลางสัมพันธ์ ก่อน เพิ่มเงื่อนไข");
+			else {
+				var thiscond = document.form1.Q_CONDITION.value;
+				var cursor_pos = document.form1.Q_CONDITION.selectionStart;
+				var const1 = document.form1.const1.value;
+				var varbuff = document.getElementById('varname');
+				var varname = "";
+//				alert("const1="+const1);
+				if (thiscond.length > 0) {
+					var logic_and = document.getElementById('opt_logic_and').checked;
+					var logic_or = document.getElementById('opt_logic_or').checked;
+					if (logic_and) logic_str = "AND"; else logic_str = "OR";
+//					alert("logic_val="+logic_and+":"+logic_or);
+					if (selOper.selectedIndex < 7) {
+						if (const1.length > 0)
+							varname = const1;
+						else if (varbuff.selectedIndex > -1)
+							varname = varbuff[varbuff.selectedIndex].value;
+						else {
+							varname = "@VAR"+(varbuff.length+1);
+							var option = document.createElement("option");
+							option.text = varname;
+							option.value = varname;
+							try {       
+								 varbuff.add(option, null); //Standard
+								 varbuff.selectedIndex = varbuff.length-1;
+							} catch(error) {        
+								varbuff.add(option); // IE only    
+							}
+						}
+						document.form1.Q_CONDITION.value += " "+logic_str+" "+selcolumn+" "+selOper.value+" "+varname;
+					} else
+						document.form1.Q_CONDITION.value += " "+logic_str+" "+selcolumn+" "+selOper.value;
+				} else {
+					if (selOper.selectedIndex < 7) {
+						if (const1.length > 0)
+							varname = const1;
+						else if (varbuff.selectedIndex > -1)
+							varname = varbuff[varbuff.selectedIndex].value;
+						else {
+							varname = "@VAR"+(varbuff.length+1);
+							var option = document.createElement("option");
+							option.text = varname;
+							option.value = varname;
+							try {       
+								 varbuff.add(option, null); //Standard
+								 varbuff.selectedIndex = varbuff.length-1;
+							} catch(error) {        
+								varbuff.add(option); // IE only    
+							}
+						}
+						document.form1.Q_CONDITION.value = selcolumn+" "+selOper[selOper.selectedIndex].value+" "+varname;
+					} else 
+						document.form1.Q_CONDITION.value = selcolumn+" "+selOper[selOper.selectedIndex].value;
+				}
+				document.form1.const1.value = "";
+				varbuff.selectedIndex = -1;
+			}
+		}
+	}
+
+	function checkDiffTab()
+	{
+		var dic = document.getElementById("SEARCHDDIC");
+		var dicValue = dic.options[dic.selectedIndex].value;
+		var ntab = dicValue.split("|");
+		var thistab = ntab[0];		// table select
+		var ch_tab = search_selected_tab(thistab);
+		if (!ch_tab) {
+			document.form1.chk_difftab.disabled = true;
+		} else {
+			document.form1.chk_difftab.disabled = false;
+		}
+	}
+
+	function checkDiffColumnSeled()
+	{
+		var sel = document.getElementById("select_column"); // tab sign|column name|data dic no
+		var selValue = sel.options[sel.selectedIndex].value;
+		var ntab = selValue.split("|");
+		var tab = document.getElementById("tabname"); // 
+		var thistab = "";		// table select
+		if (tab.length > 0) {
+			for(i=0; i < tab.length; i++) {
+				var stab = tab.options[i].value.split("|");
+//				alert("sel="+selValue+" tab="+tab.options[i].value);
+				if (stab[1] == ntab[0]) { // หาตัวที่ tab sign ตรงกัน
+					thistab = stab[0]+" "+stab[1];
+					break;
+				}
+			}
+		}
+		var ch_tab = search_selected_tab(thistab);
+	}
+	
+	function search_selected_tab(thistab)
+	{
+		var tabname = document.getElementById("tabname");
+		ch_tab = thistab.split(" ")[1];
+		tabname.selectedIndex = -1;
+		if (ch_tab) { // ถ้าส่งค่า tab sign เข้ามาด้วย
+			for(var i=0; i < tabname.length; i++) {
+					ntab = tabname.options[i].value.split("|");
+					chktab = ntab[0]+" "+ntab[1];
+//					alert("thistab("+thistab+")=tabselected("+tabname.options[i].value+")");
+					if (chktab==thistab) {
+						tabname.selectedIndex = i;
+						break;
+					}
+			}
+		} else { // ถ้าไม่ได้ส่งค่า tab sign เข้ามา หา tab sign ใหม่
+			for(var i=0; i < tabname.length; i++) {
+					ntab = tabname.options[i].value.split("|");
+//					alert("thistab("+thistab+")=tabselected("+tabname.options[i].value+")");
+					if (ntab[0]==thistab) {
+						ch_tab = ntab[1];
+						tabname.selectedIndex = i;
+						break;
+					}
+			}
+		}
+		return ch_tab;
+	}
+
+	function check_dup_column(thiscolumn)
+	{
+		var sel = document.getElementById("select_column");
+		var ret = false;
+		if (sel && sel.length > 0) {
+			for (var i=0; i < sel.length; i++) {
+//				alert("check dup column i="+i+", "+sel.options[i].value+"=="+thiscolumn);
+				if (sel.options[i].value==thiscolumn) {
+					ret = true;
+					break;
+				}
+			}
+		}
+		return ret;
+	}
+
+	function del_column()
+	{
+		var sel = document.getElementById("select_column");
+		if (sel && sel.length > 0) {
+			var del_val = sel.options[sel.selectedIndex].value;
+			var del_txt = sel.options[sel.selectedIndex].text;
+			var tab_sign = del_val.split("|")[0];
+			if (confirm("ต้องการลบข้อมูล "+del_txt+" ทิ้งแน่นอน?")) {
+				// delete table ถ้าไม่มี column ของ table นี้อีก
+				var founded = false;
+				if (sel.length > 0) {
+					for (var i=0; i < sel.length; i++) {
+						var tsign = sel.options[i].value.split(".")[0]
+						if (tsign==tab_sign) {
+							founded = true;
+							break;
+						}
+					}
+				}
+				if (!founded) {
+					var tab = document.getElementById("tabname");
+					if (tab && tab.length > 0) {
+						for (var i=0; i < tab.length; i++) {
+							var tsign = tab.options[i].value.split("|")[1];
+//							alert("tsign("+tsign+")==tab_sign("+tab_sign+")");
+							if (tsign==tab_sign) {
+								tab.remove(i);
+								break;
+							}
+						}
+					}
+					resign_table();
+				}
+				// delete group ที่ column นี้ ทำกลุ่มไว้
+				var mygrp = document.getElementById("group_column"); // selected_index|aggregate|data dic no
+				if (mygrp && mygrp.length > 0) {
+					mygrp.remove(sel.selectedIndex);
+				}
+				// delete order ที่ column นี้ ทำตัวเรียงลำดับไว้
+				var myord = document.getElementById("order_column"); // selected_index|aggregate|data dic no
+				if (myord && myord.length > 0) {
+					for(i=0; i < myord.length; i++) {
+						var sel_index = myord.options[i].value.split("|")[0];
+						if (sel_index == sel.selectedIndex)		myord.remove(sel_index);
+					}
+				}
+				// clear link ทำใหม่
+				do_clear_link();
+				// delete column ที่ต้องการ
+				sel.remove(sel.selectedIndex);
+			}
+		}
+	}
+	
+	function do_clear_link() {
+		document.form1.Q_LINK.value = "";
+	}
+
+	function resign_table()
+	{	// ทำการ running สัญญาลักษณ์ของตาราง a, b, c, d, .....
+		var arrTabOld = new Array();
+		var tab = document.getElementById("tabname");
+		var sel = document.getElementById("select_column");
+		if (tab && tab.length > 0) {
+			for (var i=0; i < tab.length; i++) {
+				var tnm = tab.options[i].value.split("|");
+				arrTabOld.push(tnm[1]+"."+tnm[0]);
+//				alert("1.."+tnm[1]+"."+tnm[0]);
+			}
+			arrTabOld.sort();
+			var ch_run="a";
+			for (var i=0; i < arrTabOld.length; i++) {
+				var tOldN = arrTabOld[i].split(".");
+//				alert("2.."+tOldN[1]+"=="+tOldN[0]+"..run.."+ch_run);
+				if (sel && sel.length > 0) {
+					for (var j=0; j < sel.length; j++) {
+						var seltsign = sel.options[j].value.split("|");
+						var seltext = sel.options[j].text.split("(");
+//						alert("3.."+tsign[1]+"=="+tsign[0]+"..run.."+ch_run);
+						if (seltsign[0]==tOldN[0]) {
+							sel.options[j].value = ch_run+"|"+seltsign[1]+"|"+seltsign[2];
+							sel.options[j].text = ch_run+"."+seltsign[1]+"("+seltext[1];
+//							alert("column("+j+") "+sel.options[j].value);
+						}
+					}
+					tab.options[i].value = tOldN[1]+"|"+ch_run;
+					tab.options[i].text = tOldN[1]+" "+ch_run;
+//					alert("table("+i+") "+tab.options[i].value);
+					document.form1.running_tab.value = ch_run;
+					ch_run = String.fromCharCode(ch_run.charCodeAt(0)+1);
+				}
+			}
+		} else {
+			document.form1.running_tab.value = "";
+		}
+	}
+	
+	function do_group_cond() {
+		var selectedText = document.selection.createRange().text
+//		alert(selectedText);
+		if (selectedText != "") { 
+            var newText = "(" + selectedText + ")"; 
+            document.selection.createRange().text = newText; 
+        } 
+	}
+
+	function do_delete_text() {
+		var selectedText = document.selection.createRange().text
+//		alert(selectedText);
+		if (selectedText != "") { 
+            document.selection.createRange().text = "" 
+        } 
+	}
+
+	function do_undo() {
+		document.form1.Q_CONDITION.value = document.form1.Q_OLD_CONDITION.value;
+	}
+
+	function do_group() {
+		ClearOptionsFast("group_column");
+		var mygrp = document.getElementById("group_column"); // selected_index|aggregate|data dic no
+		var mysel = document.getElementById("select_column"); // tab sign|column name|data dic no
+		if (mysel && mysel.length > 0) {
+			for (var i=0; i < mysel.length; i++) {
+				var selval = mysel.options[i].value.split("|");
+				newtext = mysel.options[i].text;
+//				newval = String(i)+"|"+selval[1]+"|"+selval[2]; // data_dic_no
+				newval = String(i)+"|GROUP|"+selval[2]; // data_dic_no
+				var option = document.createElement("option");
+				option.text = newtext;
+				option.value = newval;
+				try {       
+						mygrp.add(option, null); //Standard
+						mygrp.selectedIndex = mygrp.length-1;
+				} catch(error) {        
+						mygrp.add(option); // IE only
+				}
+//				alert("founded:"+founded+" new text:"+newtext+" value:"+newval);
+			} // end for i
+		}
+	}
+
+	function check_group() {
+		var mygrp = document.getElementById("group_column"); // selected_index|aggregate|data dic no
+		var mysel = document.getElementById("select_column"); // tab sign|column name|data dic no
+		if (mysel && mysel.length > 0 && mygrp && mygrp.length > 0 && mysel.length == mygrp.length) {
+			var err = false;
+			for (var i=0; i < mygrp.length; i++) {
+				var grpval = mygrp.options[i].value.split("|");
+				if (grpval[0] < mysel.length) {
+					if (mysel.options[grpval[0]].value.length < 0) { // ค่าที่ grp index map ได้ ถ้ามีไม่ค่า เกิด error
+						err = true;
+						break;
+					} else
+						buff = mysel.options[grpval[0]].value.split("|");
+						if (buff[2] != grpval[2]) { // ถ้า data dic no ไม่ตรงกัน เกิด error
+							err = true;
+							break;
+						}
+				} else {	// กลุ่มมีมากเกิน ข้อมูลที่เลือกไว้ไม่ได้ เกิด error
+					err = true;
+					break;					
+				}
+			} // end for i
+			if (!err) {	// ถ้า ไม่พบ err
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			// ถ้า จำนวน column ที่เลือกไม่เท่ากับ column ที่กำหนดค่ากลุ่ม ก็ไม่ผ่าน
+			return false;
+		}
+	}
+
+	function clear_group() {
+		if (confirm("ต้องการลบการจัดกลุ่มข้อมูลแน่นอน?")) {
+			ClearOptionsFast("group_column");
+		}
+	}
+	
+	function upd_group() {
+		var f_agg = document.getElementById("aggregate_f");
+		if (f_agg.selectedIndex < 0) {
+			alert("ต้องเลือกตัวแปรกลุ่มก่อน");
+		} else {
+			var mygrp = document.getElementById("group_column");
+			var grptext = mygrp.options[mygrp.selectedIndex].text.split("-->")[0].trim();
+			var arr_grpval = mygrp.options[mygrp.selectedIndex].value.split("|");
+//			alert("grp val="+grpval+", text="+grptext);
+			opttext = grptext+"-->"+f_agg.options[f_agg.selectedIndex].value+"";
+			optval = arr_grpval[0]+"|"+f_agg.options[f_agg.selectedIndex].value+"|"+arr_grpval[2];
+			mygrp.options[mygrp.selectedIndex].text = opttext;
+			mygrp.options[mygrp.selectedIndex].value = optval;
+		}
+	}
+	
+	function add_order() {
+		var sel = document.getElementById("select_column");
+//		alert("sel.selectedIndex="+sel.selectedIndex);
+		if (sel.selectedIndex >= 0) {
+			var ord = document.getElementById("order_column"); // column selected index|order
+			var founded = false;
+			if (ord && ord.length > 0) {
+				for (var i=0; i < ord.length; i++) {
+					var arr_ord = ord.options[i].value.split("|");
+					if (arr_ord[0] == sel.selectedIndex) {
+						founded = true;
+						break;
+					}
+				}
+			}
+			if (founded) {
+				alert("มีข้อมูล "+sel.options[sel.selectedIndex].text+" อยู่ในรายการข้อมูลจัดลำดับอยู่แล้ว");
+			} else {
+				var ord_asc = document.getElementById('opt_logic_and').checked;
+				var ord_dec = document.getElementById('opt_logic_or').checked;
+				if (ord_asc) ord_str = "ASC"; else ord_str = "DEC";
+				var option = document.createElement("option");
+				option.text = sel.options[sel.selectedIndex].text+" "+ord_str;
+				option.value = sel.selectedIndex+"|"+ord_str;
+				try {       
+					ord.add(option, null); //Standard
+					ord.selectedIndex = ord.length-1;
+				} catch(error) {        
+					ord.add(option); // IE only
+				}
+			}
+		} else {
+			alert("เลือกข้อมูลที่เลือกก่อนจะเพิ่มในการเรียงลำดับ");
+		}
+	}
+
+	function upd_order() {
+		var ord = document.getElementById("order_column"); // column selected index|order
+		if (ord.selectedIndex > -1) {
+			var otxt = ord.options[ord.selectedIndex].text.split(" ");
+			var oval = ord.options[ord.selectedIndex].value.split("|");
+			var ord_asc = document.getElementById('opt_ord_asc').checked;
+			var ord_dec = document.getElementById('opt_ord_dec').checked;
+			if (ord_asc) ord_str = "ASC"; else ord_str = "DEC";
+			ord.options[ord.selectedIndex].text = otxt[0]+" "+ord_str;
+			ord.options[ord.selectedIndex].value = oval[0]+"|"+ord_str;
+		} else {
+			alert("เลือกข้อมูลเรียงลำดับที่ก่อนกดแก้ไข");
+		}
+	}
+	
+	function ord_fill()
+	{
+		var ord = document.getElementById("order_column");
+		if (ord && ord.length > 0) {
+			var ord_val = ord.options[ord.selectedIndex].value;
+			var ordt = ord_val.split("|")[1];
+			if (ordt=="ASC")
+				document.getElementById('opt_ord_asc').checked=true;
+			else
+				document.getElementById('opt_ord_dec').checked=true;
+		}
+	}
+	
+	function del_order()
+	{
+		var ord = document.getElementById("order_column");
+		if (ord && ord.length > 0) {
+			var ord_txt = ord.options[ord.selectedIndex].text;
+			var sel_name = ord_txt.split(" ")[0];
+			if (confirm("ต้องการลบข้อมูลจัดลำดับ "+sel_name + " ทิ้งแน่นอน?")) {
+				ord.remove(ord.selectedIndex);
+			}
+		}
+	}
+	
+	function pack_data_for_save() {
+		var sel = document.getElementById("select_column");
+		var selsave = "";
+		if (sel && sel.length > 0) {
+			for(i=0; i < sel.length; i++) {
+				if (selsave)
+					selsave += ","+sel.options[i].value;
+				else
+					selsave = sel.options[i].value;
+			}
+		}
+		document.form1.SELECTED_COLUMNS.value = selsave;
+		var tab = document.getElementById("tabname");
+		var tabsave = "";
+		if (tab && tab.length > 0) {
+			for(i=0; i < tab.length; i++) {
+				if (tabsave)
+					tabsave += ","+tab.options[i].value;
+				else
+					tabsave = tab.options[i].value;
+			}
+		}
+//		alert("tabsave:"+tabsave);
+		document.form1.Q_TABLES.value = tabsave;
+		var grp = document.getElementById("group_column");
+		var grpsave = "";
+		if (grp && grp.length > 0) {
+			for(i=0; i < grp.length; i++) {
+				if (grpsave)
+					grpsave += ","+grp.options[i].value;
+				else
+					grpsave = grp.options[i].value;
+			}
+		}
+		document.form1.Q_GROUP.value = grpsave;
+		var ord = document.getElementById("order_column");
+		var ordsave = "";
+		if (ord && ord.length > 0) {
+			for(i=0; i < ord.length; i++) {
+				if (ordsave)
+					ordsave += ","+ord.options[i].value;
+				else
+					ordsave = ord.options[i].value;
+			}
+		}
+		document.form1.Q_ORDER.value = ordsave;
+	}
+	
+	function returnFrom(src, returnValue){
+//		alert("personal_message_form...src="+$( "#d_frame" )[0].src+"("+returnValue+")");
+		if  (src.indexOf("repgen_querylink") > -1) {
+			if(returnValue) {
+				arrValue = returnValue.split("<::>");
+//				form1.Q_LINK.value = arrValue[0];
+				if (arrValue[0] == 0) {
+					document.form1.Q_LINK.value=arrValue[1];
+//					document.form1.submit();
+				}
+			}
+		}
+	} // end if
+
+	function call_openDialog(src,w,h,title) {
+		if (src) {
+			if (!title) title = "";
+			if (!h) h = 400;
+			if (!w) w = 800;
+			$( "#dialog1" ).dialog( "option", "height", h );
+			$( "#dialog1" ).dialog( "option", "width", w );
+			$( "#d_frame" )[0].src=src;	//"search_train_group.html";
+			$( "#dialog1" ).dialog( "option", "title",  title );
+			$( "#opener" ).click();
+		}
+	}
+
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<?
+	if ($frame_f != 1) {
+?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+<?
+	}
+?>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="repgen_query.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+  &nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+			<td colspan="3" height="5"></td>
+		</tr>
+        <tr>
+			<td width="28%" align="right"><span class="label_alert"></span>&nbsp;เลขที่&nbsp;:&nbsp;</td>
+			<td width="72%" colspan="2"><input type="text" name="QUERY_ID" value="<?=$QUERY_ID?>" size="10" class="textbox" readonly>&nbsp;&nbsp;<span class="label_alert"><?=$err_text?></span></td>
+        </tr>
+        <tr>
+			<td width="28%" align="right"><span class="label_alert">*</span>&nbsp;ชื่อชุดข้อมูล&nbsp;:&nbsp;</td>
+			<td width="72%" colspan="2"><input type="text" name="QUERY_NAME" value="<?=$QUERY_NAME?>" style="width=70%" class="textbox" ></td>
+        </tr> 
+        <tr>
+			<td width="28%" align="right" valign="top"><span class="label_alert">*</span>&nbsp;ข้อมูลที่เลือก&nbsp;:&nbsp;</td>
+			<td width="50%" valign="top">
+			<select name="select_column" id="select_column" size="4" style="width:300px;" onClick="checkDiffColumnSeled();" onDblClick="del_column();">
+            <?
+            	// รูปแบบ $SELECTED_COLUMNS : 
+                // 		table_sign1|column_name1|data_dic_no1,table_sign2|column_name2|data_dic_no2, .............
+            	if (strlen(trim($SELECTED_COLUMNS)) > 0) {
+	            	$arr_col = explode(",", trim($SELECTED_COLUMNS));
+                    if ($arr_col && count($arr_col) > 0) {
+						for($i = 0; $i < count($arr_col); $i++) {
+                        	$arr_col_det = explode("|", $arr_col[$i]);
+                            $ddictxt = explode("(", $arr_ddic_thai_name[$arr_col_det[2]]);
+			?> 
+							<option value="<?=$arr_col[$i];?>"><?=$arr_col_det[0].".".$arr_col_det[1],"(".$ddictxt[0].")";?></option> 
+			<? 
+						} // end for $i loop
+					} // end if ($arr_col)
+            	} else {
+			?>
+<!--	            <option value=""><font color='#FF0000'>==== ยังไม่มีรายการข้อมูลที่เลือก ====</font></option>-->
+			<?
+				} // end if (strlen(trim($SELECTED_COLUMNS)) > 0)
+			?>
+			</select>&nbsp;&nbsp;ตาราง&nbsp;:&nbsp;
+        	<select name="tabname" id="tabname" size="4" style="width:250px;" multiple>
+			<? // $Q_TABLES : รูปแบบ : tablename1|tablesign1,tablename2|tablesign2,............................
+            	if (strlen($Q_TABLES) > 0) {
+	            	$arr_tab = explode(",", $Q_TABLES);
+                    if (count($arr_tab) > 0) {
+                    	$running_tab = "";
+						for($i=0; $i < count($arr_tab); $i++) {
+                        	$sub_arr_tab = explode("|", $arr_tab[$i]);
+			?> 
+							<option value="<?=$arr_tab[$i]?>"><?=$sub_arr_tab[0]." ".$sub_arr_tab[1]?></option> 
+			<? 
+            				if ($running_tab < $sub_arr_tab[1]) $running_tab = $sub_arr_tab[1];
+						}
+					} // end if ($arr_tab)
+				} // end if (strlen($Q_TABLES) > 0)
+			?> 
+			</select> 
+			<input type="hidden" name="running_tab" value="<?=$running_tab;?>">
+			<input type="hidden" name="Q_TABLES" value="<?=$Q_TABLES?>">
+			<input type="hidden" name="SELECTED_COLUMNS" value="<?=$SELECTED_COLUMNS?>">
+          </td>
+          <td>
+          <font color="#FF0000">Data Dictionary</font><br>
+          <select name="SEARCHDDIC" id="SEARCHDDIC" style="width:270px;" onChange="checkDiffTab();">
+         		<option value=''>== Data Dictionary ==</option>
+         <?	
+         		for($i=0; $i < count($arr_ddic_no); $i++) {
+					$data_dic_no = $arr_ddic_no[$i]
+//					$arr_ddic_thai_name[$data_dic_no];
+//					$arr_ddic_eng_name[$data_dic_no];
+//					$arr_ddic_thai_map[$data_dic_no];
+				//	echo "data_no:$data_dic_no, thai_name:".$arr_ddic_thai_name[$data_dic_no]."<br>";
+                //  value format : table name|column name|data dic no
+	?>
+				<option value='<?=$arr_ddic_thai_map[$data_dic_no]."|".$data_dic_no;?>' <?=$selected; ?>><?=$arr_ddic_thai_name[$data_dic_no];?></option>
+	<?				
+				} //end while
+	?>
+              </select>
+<!--			<br>&nbsp;เพิ่มตารางใหม่&nbsp;:&nbsp;
+				<input type="checkbox" name="chk_difftab">-->
+				<input name="Submit98" type="button" class="button" onClick="addColumns();" value="เพิ่มข้อมูล">
+          </td>
+        </tr>
+		<tr>
+			<td width="28%" align="right" valign="top"><span class="label_alert"></span>&nbsp;เชื่อมโยง&nbsp;:&nbsp;<br><font color="#FF0000">เลือก 2 ตาราง เพื่อทำการเชื่อมโยง</font></td>
+			<td width="50%">
+				<textarea id="Q_LINK" name="Q_LINK" cols="90" rows="5" onFocus="fieldFocus='Q_LINK'"; readonly><?=$Q_LINK?></textarea>
+			</td>
+			<td>
+				<input type="button" name="bt_colselect" value="เลือกข้อมูลที่ใช้เชื่อมต่อ" onClick="call_tab_sel();" class="button" ><br>
+                <input type="button" name="bt_linkcut" value=" ลบ " onClick="do_clear_link();" class="button" >
+			</td>
+		</tr>
+		<tr>
+			<td width="28%" align="right" valign="top"><span class="label_alert"></span>&nbsp;เงื่อนไข&nbsp;:&nbsp;<br><font color="#FF0000">เลือก ข้อมูลใน Data Dictionary ครั้งละ 1 ตัวเพื่อสร้างเงื่อนไข</font></td>
+			<td>
+				<textarea id="Q_CONDITION" name="Q_CONDITION" cols="90" rows="6" readonly><?=$Q_CONDITION?></textarea>
+				<input id="Q_OLD_CONDITION" name="Q_OLD_CONDITION" type="hidden">
+			</td>
+			<td>
+				<select name="Operator_lst" id="Operator_lst" style="width:90%">
+    	     		<option value=''>== ตัวกลางสัมพันธ์ (Operators) ==</option>
+					<option value='>' <?=$selected; ?>>มากกว่า (>)</option>
+					<option value='>=' <?=$selected; ?>>มากกว่าและเท่ากับ (>=)</option>
+					<option value='=' <?=$selected; ?>>เท่ากับ (=)</option>
+					<option value='!=' <?=$selected; ?>>ไม่เท่ากับ (!=)</option>
+					<option value='<' <?=$selected; ?>>น้อยกว่า (<)</option>
+					<option value='<=' <?=$selected; ?>>น้อยกว่าและเท่ากับ (<=)</option>
+					<option value='IS NULL' <?=$selected; ?>>ไม่มีค่า (IS NULL)</option>
+					<option value='IS NOT NULL' <?=$selected; ?>>มีค่า (IS NOT NULL)</option>
+				</select>&nbsp;<br>
+				ค่าคงที่&nbsp;:&nbsp;<input type="text" name="const1" value="<?=$const1?>" size="10" class="textbox">
+                <br>
+				ตัวแปร&nbsp;:&nbsp;<select name="varname" id="varname" style="width:90px;">
+				<? 
+                	// $Q_VAR : รูปแบบ : varname1, varname2, .................
+					if (strlen($Q_VAR) > 0) {
+						$arr_var = explode(",", $Q_VAR);
+						if ($arr_var) {
+							for($i=0; $i < count($arr_var); $i++) {
+				?> 
+								<option value="<?=$arr_var[$i]?>"><?=$arr_var[$i]?></option> 
+				<? 
+							}
+						} // end if ($arr_var)
+					} // end if (strlen($Q_VAR) > 0)
+				?> 
+				</select>
+				<input type="hidden" name="Q_VAR" value="<?=$Q_VAR?>">
+				<input type="button" name="bt_modcondition" value="ตัวแปรใหม่" onClick="add_newvar();" class="button" >
+				<br>
+                ตรรกะ&nbsp;:&nbsp;<input type="radio" id="opt_logic_and" name="opt_logic" value="And" checked>&nbsp;And&nbsp;&nbsp;<input type="radio" id="opt_logic_or" name="opt_logic" value="Or">&nbsp;Or&nbsp;<br>
+                <input type="button" name="bt_grp" value=" กลุ่ม " onClick="do_group_cond();" class="button" >
+				<input type="button" name="bt_cut" value=" ลบ " onClick="do_delete_text();" class="button" >&nbsp;&nbsp;
+				<input type="button" name="bt_undo" value=" ล้างค่า " onClick="do_undo();" class="button" >&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                <input type="button" name="bt_modcondition" value="เพิ่มเงื่อนไข" onClick="add_condition();" class="button" >
+          </td>
+		</tr>
+        <tr>
+			<td width="28%" align="right" valign="top"><span class="label_alert"></span>&nbsp;กลุ่ม&nbsp;:&nbsp;<br>
+	            <input type="button" name="bt_dogrp" value="สร้างกลุ่ม" onClick="do_group();" class="button" ><br>
+                <input type="button" name="bt_clsgrp" value="ลบกลุ่ม" onClick="clear_group();" class="button" >
+            </td>
+			<td width="50%" align="left" valign="top">
+            	<table width="100%"><tr><td>
+<!--				<select name="group_column" id="group_column" size="4" style="width:400px;" onDblClick="del_group();">-->
+				<select name="group_column" id="group_column" size="4" style="width:400px;">
+			<? 
+            		// $Q_GROUP : รูปแบบ : 
+                    //	data_selected_index1|aggreate_f1|data_dic_no1,data_selected_index2|aggreate_f2|data_dic_no2,...
+            		if (strlen($Q_GROUP) > 0) {
+	            		$arr_grp = explode(",", $Q_GROUP);
+                    	if ($arr_grp) {
+							for($i=0; $i < count($arr_grp); $i++) {
+                        		$sub_arr_grp = explode("|", $arr_grp[$i]);
+                                $selected_index = $sub_arr_grp[0];
+                                $atab = explode("|", $arr_col[$selected_index]);
+								$data_dic_no = $sub_arr_grp[2];
+                                $txt = explode("(", $arr_ddic_thai_name[$data_dic_no]); 
+			?> 
+							<option value="<?=$arr_grp[$i];?>"><?=$atab[0].".".$atab[1]."(".$txt[0].")-->".$sub_arr_grp[1];?></option> -->
+			<? 
+							}
+						} // end if ($arr_grp)
+					} // end if (strlen($Q_GROUP) > 0)
+			?> 
+				</select>
+				<input type="hidden" name="Q_GROUP" value="<?=$Q_GROUP?>"></td>
+                <td>
+                <font color="#FF0000" size="-1">กดปุ่ม "สร้างกลุ่ม" เพื่อนำ "ข้อมูลที่เลือก" เข้ามากำหนดค่าตัวแปรกลุ่ม โดยกดเลือกข้อมูลใน "กลุ่ม" แล้วเลือก "ตัวแปรกลุ่ม" แล้วกดปุ่ม "ปรับปรุงกลุ่ม" เพื่อแก้ไขตัวแปรกลุ่ม</font>
+                </td>
+                </tr></table>
+            </td>
+            <td>
+    	        <select name="aggregate_f" id="aggregate_f" style="width:200px;">
+    	     		<option value='GROUP' <?=$aggregate_f==0 ? "selected" : "" ?>>== ตัวแปรกลุ่ม ==</option>
+					<option value='COUNT' <?=$aggregate_f==1 ? "selected" : "" ?>>นับจำนวน (COUNT)</option>
+					<option value='SUM' <?=$aggregate_f==2 ? "selected" : "" ?>>ผลรวม (SUM)</option>
+					<option value='AVG' <?=$aggregate_f==3 ? "selected" : "" ?>>ค่าเฉลี่ย (AVG)</option>
+					<option value='MAX' <?=$aggregate_f==4 ? "selected" : "" ?>>ค่ามากสุด (MAX)</option>
+					<option value='MIN' <?=$aggregate_f==5 ? "selected" : "" ?>>ค่าน้อยสุด (MIN)</option>
+					<option value='STDDEV' <?=$aggregate_f==6 ? "selected" : "" ?>>ค่าเบี่ยงเบนมาตราฐาน (STDDEV)</option>
+					<option value='VARIANCE' <?=$aggregate_f==7 ? "selected" : "" ?>>ค่าแปรปรวน (VARIANCE)</option>
+				</select><br>
+                <input type="button" name="bt_updgrp" value="ปรับปรุงกลุ่ม" onClick="upd_group();" class="button" >
+			</td>
+		</tr>
+        <tr>
+			<td width="28%" align="right" valign="top"><span class="label_alert"></span>&nbsp;เรียงลำดับ&nbsp;:&nbsp;            </td>
+        	<td width="50%">
+            	<table width="100%"><tr><td>
+    	    	<select name="order_column" id="order_column" size="4" style="width:400px;" onClick="ord_fill();" onDblClick="del_order()">
+			<? 
+            		// $Q_ORDER : รูปแบบ : column index1|order1,column index2|order2,....
+                    // orderN คือ ASC กับ DEC
+            		if (strlen($Q_ORDER) > 0) {
+	            		$arr_ord = explode(",", $Q_ORDER);
+                    	if ($arr_ord) {
+							for($i=0; $i < count($arr_ord); $i++) {
+                        		$sub_arr_ord = explode("|", $arr_ord[$i]);
+								$col1 = explode("|",$arr_col[$sub_arr_ord[0]]);
+                                $colnm = $sub_arr_ord[0];
+								if (count($arr_col) > 0) {
+                                	$sel_col = explode("|", $arr_col[$sub_arr_ord[0]]);
+	                                $txt = explode("(", $arr_ddic_thai_name[$sel_col[2]]); // $sel_col[2] = data dic no
+	                                $colnm = $txt[0];
+            			        }
+			?> 
+							<option value="<?=$arr_ord[$i]?>" ><?=($col1[0].".".$col1[1]."(".$colnm.") ".$sub_arr_ord[1])?></option>
+			<? 
+							}
+						} // end if ($arr_ord)
+					} // end if (strlen($Q_ORDER) > 0)
+			?> 
+				</select> 
+				<input type="hidden" name="Q_ORDER" value="<?=$Q_ORDER?>">
+                </td>
+                <td>
+                <font color="#FF0000" size="-1">เลือก "ข้อมูลที่เลือก" เลือก "ลำดับ" ที่ต้องการ กด "เพิ่มข้อมูลเรียงลำดับ" หรือ เลือกข้อมูลใน "เรียงลำดับ" เลือก "ลำดับ" ที่ต้องการ กด "แก้ไขข้อมูลเรียงลำดับ"</font>
+                </td></tr></table>
+			</td>
+			<td>&nbsp;
+				ลำดับ&nbsp;:&nbsp;<input type="radio" id="opt_ord_asc" name="opt_order" value="ASC" checked>&nbsp;น้อยไปมาก&nbsp;&nbsp;<input type="radio" id="opt_ord_dec" name="opt_order" value="DEC">&nbsp;มากไปน้อย&nbsp;<br>		
+                <input type="button" name="bt_addorder" value="เพิ่มข้อมูลเรียงลำดับ" onClick="add_order();" class="button" >
+                <input type="button" name="bt_updorder" value="แก้ไขข้อมูลเรียงลำดับ" onClick="upd_order();" class="button" >
+			</td>
+		</tr>
+        <tr>
+        	<td colspan="3">&nbsp;</td>
+        </tr>
+        <tr align="center">
+          <td height="30" colspan="3">
+          	<? if ($UPD) { 
+					if ($BUTTON_DISPLAY==1) { ?>
+						<input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value=''; form1.QUERY_ID.value=''; form1.running_tab.value='';" class="button" >
+			<? 	} else { ?>
+            <input name="image" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+			<? 	} ?>
+            <? 	if ($PAGE_AUTH["edit"]=="Y"){
+			  			if ($BUTTON_DISPLAY==1) { ?>
+            				<input name="Submit22" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>">
+			<? 		} else { ?>
+							<input name="image" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+			<?		}?>
+						<input name="copy_bt" type="submit" class="button" value="บันทึกไปเป็น" onClick="return checkcopy(form1);">
+						<input name="test_bt" type="button" class="button" value="ทดสอบ Test" onClick="call_test();">
+			<?	}?>
+			<? } else { 
+					if ($BUTTON_DISPLAY==1) { ?>
+						<input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+			<? 	} else { ?>
+						<img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+			<?	} ?>
+			<?	if ($PAGE_AUTH["add"]=="Y"){
+						if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit2" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+			<?		} else { ?>
+							<input name="image" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+			<?		} ?>
+							<input name="Submit4" type="submit" class="button" value="ทดสอบ Test" onClick="call_test();">
+			<?	} ?>
+            <? } ?>
+            </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  <?
+  	if(trim($search_name)) $arr_search_condition[] = "(QUERY_NAME like '$search_name%')";
+  	if(trim($search_text)) $arr_search_condition[] = "(SELECTED_COLUMNS like '%$search_text%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+    if(trim($search_condition))  
+    	$cmd =" select count(QUERY_ID) as count_data from REPGEN_QUERY where $search_condition ";
+	else
+    	$cmd =" select count(QUERY_ID) as count_data from REPGEN_QUERY ";
+
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+//	echo "$count_data";
+  ?>
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="10%" align="right">ชื่อ&nbsp;:&nbsp;</td>
+              <td width="30%"><input type="text" name="search_name" value="<?=$search_name?>" size="50" class="textbox"></td>
+              <td width="5%" align="right">สูตร&nbsp;:&nbsp;</td>
+              <td width="30%"><input type="text" name="search_text" value="<?=$search_text?>" size="50" class="textbox"></td>
+              <td align="left">
+              <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+                <input name="Submit3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_name_thai.value=''; form1.search_name_eng.value=''; form1.current_page.value=0;">&nbsp;&nbsp;
+				<? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="javascript:form1.search_name_thai.value=''; form1.search_name_eng.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">&nbsp;&nbsp;
+              <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+		<tr>
+		  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="15%" height="22"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_report" type="button" class="button" value="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+                <?  } else { ?>
+                <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+                  <td align="center">พบข้อมูลทั้งสิ้น 
+                    <?=($count_data + 0)?>
+                    รายการ</td>
+              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_export" type="button" class="button" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+                <?  } else { ?>
+                <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+          </table></td>
+		</tr>
+  </table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record QUERY_ID from REPGEN_QUERY ".(trim($search_condition) ? "where	".$search_condition : "")." order by QUERY_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[QUERY_ID]."'";
+			$limit_data = " and QUERY_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="oci8"){		
+			$limit_data = " and QUERY_ID not in ( select * from (select QUERY_ID from REPGEN_QUERY where $search_condition order by QUERY) where rownum <= $start_record ) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = "	select  top $data_per_page 
+											QUERY_ID, QUERY_NAME, SELECTED_COLUMNS, Q_LINK
+							from		REPGEN_QUERY ".
+							(trim($search_condition) ? "where	".$search_condition : "").
+							" 	$limit_data
+							order by QUERY_ID
+					   ";
+	}elseif($DPISDB=="oci8"){
+		$cmd = "	select		*
+							from (
+								select  	QUERY_ID, QUERY_NAME, SELECTED_COLUMNS, Q_LINK
+								from		REPGEN_QUERY ".
+							(trim($search_condition) ? "where	".$search_condition : "").
+							" 	$limit_data
+								order by QUERY_ID
+							) where rownum <= $data_per_page
+					   ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = "	select		QUERY_ID, QUERY_NAME, SELECTED_COLUMNS, Q_LINK
+								from		REPGEN_QUERY "
+								.(trim($search_condition) ? "where	".$search_condition : "").
+							"	order by QUERY_ID
+								$limit_data
+					   ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "$cmd<br>";
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+?><br>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	<td nowrap width="6%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td nowrap width="5%" height="21"><strong>เลขที่</strong></td>
+      <td nowrap width="25%"><strong>ชื่อ</strong></td>
+      <td nowrap><strong>ข้อมูล</strong></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td width="5%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td width="5%"><?=$DEL_TITLE?></td>
+      <?}?>
+    </tr>
+    <?
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$temp_QUERY_ID = $data[QUERY_ID];
+		$current_list .= ((trim($current_list))?", ":"") . "'" . $temp_QUERY_ID ."'";
+		$temp_QUERY_NAME = $data[QUERY_NAME];
+		$temp_SELECTED_COLUMNS = stripslashes($data[SELECTED_COLUMNS]);
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($QUERY_ID==$temp_QUERY_ID) { 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+		<td height="25" align="center"><input name="ARR_ORDER[<?=$temp_QUERY_ID?>]" type="text" size="5" maxlength="3" value="<?=($TMP_SEQ_NO > 0)?$TMP_SEQ_NO:""?>" onKeyPress="NumOnly();"></td>
+		<td align="center"><?=$temp_QUERY_ID?></td>
+		<td>&nbsp;<?=$temp_QUERY_NAME?></td>      
+		<td>&nbsp;<?=$temp_SELECTED_COLUMNS?></td>      
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+		<td align="center">&nbsp;<a href="<?=("javascript:form1.action+='?UPD=1';form1.QUERY_ID.value='".$temp_QUERY_ID."';form1.submit()")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>
+	<?}?>
+	<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('".$temp_QUERY_ID."','".$temp_QUERY_NAME."')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a></td>
+	<?}?>
+    </tr>
+    <? } ?>
+	<? if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer">
+		<td>
+		<? if ($BUTTON_DISPLAY==1) { ?>
+			<input type="submit" name="Submit5" value="<?=$REORDER_TITLE?>" onClick="form1.command.value='REORDER'" class="button" style="width=98%">
+		<? } else { ?>
+      		<center>
+        	<input name="image4" type="image" onClick="form1.command.value='REORDER'" src="images/reorder.gif" alt="<?=$REORDER_TITLE?>" border="0">
+			</center>
+		<? } ?></td>
+		<td>&nbsp;</td>
+		<td>&nbsp;</td>
+		<td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>      
+		<td>&nbsp;</td>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+  			<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

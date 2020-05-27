@@ -1,0 +1,307 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	$menu_detail = "ด้านความเชี่ยวชาญพิเศษ";  //ส่งค่าให้ insert log
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim(TMP_SS_NAME)) $arr_search_condition[] = "(SS_NAME like '%$TMP_SS_NAME%')";
+        $search_data;
+                if ($search_data==1){
+                    $arr_search_condition[] = "(REF_CODE is null)";
+                }
+	$search_condition = "";
+        if ($search_ref_code){    $arr_search_condition[] = "(SS_CODE = '$search_ref_code' or REF_CODE = '$search_ref_code')";}
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+        
+
+        //$SPMIN_CODE = 12;
+  	
+        $cmd = "        SELECT  count(SS_CODE) as count_data
+                        FROM PER_SPECIAL_SKILLGRP grp
+                        WHERE SS_ACTIVE=1  $search_condition $limit_data AND grp.SS_CODE not in (SELECT SS_CODE FROM PER_MAPPING_SKILLMIN WHERE SS_CODE = grp.SS_CODE AND SPMIN_CODE= $SPMIN_CODE)
+                                        START WITH REF_CODE IS NULL
+                                        CONNECT BY NOCYCLE PRIOR TRIM(SS_CODE) = TRIM(REF_CODE)
+                        $search_condition 
+                        
+                        /*select 	count(SPMIN_CODE) as count_data 
+					 from 		PER_MAPPING_SKILLMIN
+					 where 	SPMIN_CODE = $SPMIN_CODE
+					 				$search_condition*/
+                                    ";
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+        
+        if ($command == "SETVALUE") {
+        
+            if($count_data>0){
+                for($idx=0;$idx<$count_data;$idx++){
+                    $tmp_txtcode=$_POST['TXTCODE_'.$idx];
+                  //echo"$tmp_txtcode";
+                    $txt_arr = explode("_",$tmp_txtcode);
+                  //echo $txt_arr[0].$txt_arr[1].$txt_arr[2];
+                    if($txt_arr[0] == 'Y'){
+                     $cmd = "insert into PER_MAPPING_SKILLMIN (SPMIN_CODE,SS_CODE) VALUES (trim('$SPMIN_CODE'),trim('$txt_arr[1]'))";
+                     $db_dpis->send_cmd($cmd); 
+                  //echo "=>".$cmd;
+                        $close = 1;
+                        $returnValue="$close";
+                        echo "<script language=\"JavaScript\">parent.refresh_opener('$returnValue')</script>";
+                    }
+                }
+            }
+	}
+
+        ?>
+<html>
+<head>
+<title>test</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function chksetvalues(idchk,idtxt,val){
+    
+    if(document.getElementById(idchk).checked==true){
+         document.getElementById(idtxt).value='Y'+val;
+    }else{
+        document.getElementById(idtxt).value='N'+val;
+    }
+    
+}
+
+function control_all(isChecked){
+		 
+                if(isChecked){
+                //var ln = checkbox.length
+                // alert(ln)
+                        var checkbox = document.getElementsByName('list_show_id[]');
+			for(var i=0; i<=checkbox.length; i++){
+                               checkbox[i].checked = true;
+                                //
+                                if(checkbox[i].checked == true){
+                                    //console.log(checkbox);
+                                    str = document.getElementById('TXTCODE_'+i).value;
+                                    document.getElementById('TXTCODE_'+i).value=str.replace("N", "Y");
+                                }
+                                
+			} // end for
+		}else{
+                    var checkbox = document.getElementsByName('list_show_id[]');
+			for(var i=0; i<=checkbox.length; i++){
+				checkbox[i].checked = false;
+                              if(checkbox[i].checked == false){
+                                    //console.log(checkbox);
+                                    str = document.getElementById('TXTCODE_'+i).value;
+                                    document.getElementById('TXTCODE_'+i).value=str.replace("Y", "N");
+                                }
+			} // end for
+		}
+	}    
+
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+</script>
+<body>
+<form action="add_special_skillmin.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="totss_page" value="<?=$totss_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="SPMIN_CODE" value="<?=$SPMIN_CODE?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+<?php 
+                    $cmd = "select SS_CODE, SS_NAME 
+			    from  PER_SPECIAL_SKILLGRP
+                            where REF_CODE is null 
+                            order by SS_SEQ_NO, SS_CODE";
+                    $db->send_cmd($cmd);
+                     
+                ?> 
+<?if($command != "ADD_FILED") {?>
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td>
+              <table width="14%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+              </table>
+          </td>
+	</tr>
+  </table>
+
+  <table width="100%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+<tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+          
+                   <tr><?=$err_text?>
+              <td width="20%" align="right">ด้านหลัก&nbsp;:&nbsp;</td>
+              
+              <td>
+              <select name="search_ref_code" style="width:25%">
+                                            <option value="0" <?=($search_ref_code==0)?"selected":""?>>เลือกด้านหลัก</option>
+                                            <?php while($data = $db->get_array()){
+                                                $SS_CODE = $data[SS_CODE];
+                                                $SS_NAME = $data[SS_NAME];
+                                            ?>
+                                            <option value="<?=$SS_CODE?>" <?=($search_ref_code==$SS_CODE)?"selected":""?>>&nbsp;<?=$SS_NAME?></option>
+                                            <?php }?>
+                                            </select>
+                                               &nbsp;&nbsp;&nbsp;  ด้าน:&nbsp;
+                                                 <input type="radio" name="search_data" value="0" <?=($search_data==0)?"checked":""?>>ทั้งหมด&nbsp;&nbsp;&nbsp;
+                                                 <input type="radio" name="search_data" value="1" <?=($search_data==1)?"checked":""?>>เฉพาะด้านหลัก
+                                         </td>
+                                        
+                                         </tr> <br> 
+                                         
+                                   
+                  <tr><?=$err_text?>
+                      
+                
+              <td width="20%" align="right">ความเชี่ยวชาญพิเศษ&nbsp;:&nbsp;</td>
+              
+              <td><input type="text" name="TMP_SS_NAME" value="<?=$TMP_SS_NAME?>" style="width:70%" class="textbox">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+              </tr>
+<tr>
+              <td width="20%" align="center" colspan="4">
+			  <? if ($BUTTON_DISPLAY==1) { ?><input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.TMP_SS_NAME.value=''; form1.current_page.value=0;form1.search_data.value=0;form1.search_ref_code.value=0;">
+			  <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_ss_code.value=''; form1.search_ss_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+  
+      </table></td>
+    </tr>
+     <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0"  align="center" class="label_normal">
+           <tr>
+           <td height="30"  align="center" class="table_footer"><span><font color="0000FF">พบข้อมูลทั้งสิ้น <?=($count_data + 0)?> รายการ</span></td>
+           </tr>
+    </table>
+  </table>
+  <?}else{?>
+   <table width="85%" align="center" border="1" cellpadding="1" cellspacing="1" > <!--เริ่ม-->
+	<? include("search_000_master.html"); ?>
+	</table> <!--เริ่มสิ้นสุด-->
+<?}?>
+<?
+		$totss_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($totss_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record SS_CODE from PER_SPECIAL_SKILLGRP where SS_ACTIVE=1 $search_condition order by SS_SEQ_NO, SS_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[SS_CODE]'";
+				$limit_data = " and SS_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and SS_CODE not in ( select * from (select SS_CODE from PER_SPECIAL_SKILLGRP where SS_ACTIVE=1 $search_condition order by SS_SEQ_NO, SS_CODE) where rownum <= $start_record ) ";
+                              	}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="oci8"){
+			$cmd = " select * from (
+                                        SELECT SS_CODE,CASE WHEN LEVEL=1 THEN SS_NAME 
+                                            ELSE SUBSTR(SYS_CONNECT_BY_PATH(ss_name, ' / '),3,LENGTH(SYS_CONNECT_BY_PATH(ss_name, ' / '))) END AS SS_NAME,
+                                            SS_ACTIVE, REF_CODE
+                                        FROM PER_SPECIAL_SKILLGRP grp 
+                                        WHERE SS_ACTIVE=1  $search_condition $limit_data AND grp.SS_CODE not in (SELECT SS_CODE FROM PER_MAPPING_SKILLMIN WHERE SS_CODE = grp.SS_CODE AND SPMIN_CODE= $SPMIN_CODE)
+                                        START WITH REF_CODE IS NULL
+                                        CONNECT BY NOCYCLE PRIOR TRIM(SS_CODE) = TRIM(REF_CODE)
+                                  ) where rownum <= $data_per_page ";                             
+                                  }
+		$count_page_data = $db_dpis->send_cmd($cmd);
+               //echo '<pre>'.$cmd;
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <td width="10%"  align="center">
+        <!--<input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETVALUE';form1.current_page.value=0;" class="button" style="width:98%">-->
+        </td>
+ <tr class="table_head">
+        <td width="10%"  align="center">
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETVALUE';form1.current_page.value=0;" class="button" style="width:98%">
+        <input onclick="control_all(this.checked)" type="checkbox" name="chk_all">
+                         
+
+        </td>
+         
+    <td height="25" align="center">ชื่อ</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+                        $idx=0;
+  			while($data = $db_dpis->get_array()) :
+                                
+				$data_count++;
+				if($data_count > $data_per_page) break;
+                                $TMP_SPMIN_CODE = $data[SPMIN_CODE];
+                                $TMP_SS_CODE = $data[SS_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_LE_CODE'";
+				$TMP_SS_NAME = $data[SS_NAME];
+                                $TMP_SS_CODE_MAP=$data[SSCODE_MAP];
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+                                $val='Y';
+                                if($TMP_SS_CODE){
+                                    $val='N';
+                                }
+  ?>
+  <tr class="<?=$class?>">
+      <td align="center"><input onclick="chksetvalues('listcheck_<?php echo $idx;?>','TXTCODE_<?php echo $idx;?>','<?=$TMP_SPMIN_CODE.'_'.$TMP_SS_CODE;?>')" type="checkbox" name="list_show_id[]" id="listcheck_<?php echo $idx;?>">
+                         <input type="hidden" name="TXTCODE_<?php echo $idx;?>" id="TXTCODE_<?php echo $idx;?>" value="<?=$val.'_'.$TMP_SS_CODE;?>">
+      </td>
+      <!--listcheck_<?php echo $idx;?>-->
+    <td>&nbsp;<?=$TMP_SS_NAME?></td>
+  </tr>
+  <? $idx++;	endwhile; ?>
+  <tr class="table_footer">
+      <td width="10%"  align="center">
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETVALUE';form1.current_page.value=0;" class="button" style="width:98%">
+        </td>
+      <td>&nbsp;</td>
+  </tr>
+</table>
+<? if($totss_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+<? include("jqModalDialog.html");?>
+	           
+</body>
+
+</html>

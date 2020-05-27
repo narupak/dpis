@@ -1,0 +1,139 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/function_list.php");		
+	
+	function load_default_en_code($per_id) {
+		global $db_dpis;
+		
+		$cmd = " select b.EN_CODE, b.EDU_TYPE from PER_EDUCNAME a, PER_EDUCATE b  
+						where 	EN_ACTIVE=1 and a.EN_CODE=b.EN_CODE and PER_ID=$per_id
+						order by	b.EDU_SEQ
+					   ";
+		$db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		$data_count = 0;
+		$ret_value = "";
+		while($data = $db_dpis->get_array()) {
+			$data_count++;
+			$TMP_EN_CODE = trim($data[EN_CODE]);
+			if (strpos($data[EDU_TYPE],"2") !== false) { // มีค่า 2 ใน EDU_TYPE
+				$ret_value = "$ret_value,$TMP_EN_CODE";
+			}
+		} // end loop while $data
+		$ret_value = substr($ret_value,1); // ตัด comma ตัวแรกออก
+		
+		return $ret_value;
+	}
+
+	if( trim($PER_ID) ) {
+		$cmd = "	select 	PER_CARDNO, PER_BIRTHDATE, PER_TYPE, POS_ID, POEM_ID, LEVEL_NO, PER_SALARY  
+						from 		PER_PERSONAL 
+						where 	PER_ID=$PER_ID  ";
+		$db_dpis->send_cmd($cmd);		
+		$data = $db_dpis->get_array();
+		$PER_CARDNO = trim($data[PER_CARDNO]);
+		$PER_TYPE = trim($data[PER_TYPE]);		
+		$PER_BIRTHDATE = show_date_format($data[PER_BIRTHDATE], 1);
+		$LEVEL_NO = $data[LEVEL_NO];
+//	  	$cmd = " select LEVEL_NAME from PER_LEVEL where LEVEL_NO = '$LEVEL_NO' ";
+//		$db_dpis->send_cmd($cmd);
+//		$data = $db_dpis->get_array();					
+//		$LEVEL_NAME = trim($data[LEVEL_NAME]);		
+		$CMD_OLD_SALARY = trim($data[PER_SALARY]);
+		
+		$EN_CODE = load_default_en_code($PER_ID);
+		
+		if ($PER_TYPE == 1) {
+			$POS_POEM_ID = trim($data[POS_ID]);
+			$cmd = "	select	POS_NO, PL_NAME, ORG_ID, ORG_ID_1, ORG_ID_2, ORG_ID_3, ORG_ID_4, ORG_ID_5, a.DEPARTMENT_ID 
+							from		PER_POSITION a, PER_LINE b 
+							where	POS_ID=$POS_POEM_ID and a.PL_CODE=b.PL_CODE ";
+							
+		} elseif ($PER_TYPE == 2) {
+			$POS_POEM_ID = trim($data[POEM_ID]);
+			$cmd = "	select	POEM_NO, PN_NAME, ORG_ID, ORG_ID_1, ORG_ID_2, ORG_ID_3, ORG_ID_4, ORG_ID_5, a.DEPARTMENT_ID 
+							from		PER_POS_EMP a, PER_POS_NAME b 
+							where	POEM_ID=$POS_POEM_ID and a.PN_CODE=b.PN_CODE";
+		}
+		$db_dpis->send_cmd($cmd);		
+		$data = $db_dpis->get_array();
+		$CMD_POSITION 			= ($PER_TYPE == 1)? 		trim($data[PL_NAME]) : trim($data[PN_NAME]);
+		$CMD_POSPOEM_NO 	= ($PER_TYPE == 1)?		trim($data[POS_NO]) : trim($data[POEM_NO]);
+
+		$tmp_ORG_ID[] = (trim($data[ORG_ID]))? trim($data[ORG_ID]) : 0;
+		$tmp_ORG_ID[] = (trim($data[ORG_ID_1]))? trim($data[ORG_ID_1]) : 0;
+		$tmp_ORG_ID[] = (trim($data[ORG_ID_2]))? trim($data[ORG_ID_2]) : 0;
+		$tmp_ORG_ID[] = (trim($data[ORG_ID_3]))? trim($data[ORG_ID_3]) : 0;
+		$tmp_ORG_ID[] = (trim($data[ORG_ID_4]))? trim($data[ORG_ID_4]) : 0;
+		$tmp_ORG_ID[] = (trim($data[ORG_ID_5]))? trim($data[ORG_ID_5]) : 0;	
+		
+		$tmp_ORG_ID[] = (trim($data[DEPARTMENT_ID]))? trim($data[DEPARTMENT_ID]) : 0;
+		$DEPARTMENT_ID = trim($data[DEPARTMENT_ID]);
+		
+		$search_ORG_ID = implode(", ", $tmp_ORG_ID);
+		$cmd = "	select		ORG_ID, ORG_NAME 
+						from			PER_ORG 
+						where		ORG_ID in ($search_ORG_ID) ";
+		$db_dpis->send_cmd($cmd);
+		while ( $data = $db_dpis->get_array() ) {
+			$ORG_NAME = ($tmp_ORG_ID[0] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME ;
+			$ORG_NAME_1 = ($tmp_ORG_ID[1] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_1 ;
+			$ORG_NAME_2 = ($tmp_ORG_ID[2] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_2 ;
+			$ORG_NAME_3 = ($tmp_ORG_ID[3] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_3 ;
+			$ORG_NAME_4 = ($tmp_ORG_ID[4] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_4 ;
+			$ORG_NAME_5 = ($tmp_ORG_ID[5] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_5 ;		
+			$DEPARTMENT_NAME = ($tmp_ORG_ID[3] == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $DEPARTMENT_NAME ;
+		}
+
+		$cmd = " select ORG_ID_REF from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_ID = $data[ORG_ID_REF];
+		
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_NAME = $data[ORG_NAME];
+	}
+	
+		$cmd="select LEVEL_NAME from PER_LEVEL where LEVEL_NO='$LEVEL_NO'";
+		$db_dpis->send_cmd($cmd);
+		$Level = $db_dpis->get_array();
+		$LEVEL_NAME=$Level[LEVEL_NAME];
+?>
+<script>
+	parent.document.form1.PER_CARDNO.value = '<?=$PER_CARDNO?>';
+	parent.document.form1.PER_BIRTHDATE.value = '<?=$PER_BIRTHDATE?>';
+	parent.document.form1.PER_TYPE.value = '<?=$PER_TYPE?>';
+	
+	parent.document.form1.EN_CODE.value = '<?=$EN_CODE?>';
+
+	parent.document.form1.CMD_POSITION.value = '<?=$CMD_POSITION?>';
+	parent.document.form1.CMD_POSPOEM_NO.value = '<?=$CMD_POSPOEM_NO?>';	
+	parent.document.form1.CMD_LEVEL.value = '<?=$LEVEL_NO?>';
+	parent.document.form1.CMD_LEVEL2.value = '<?=$LEVEL_NAME?>';	
+	parent.document.form1.CMD_OLD_SALARY.value = '<?=$CMD_OLD_SALARY?>';
+	parent.document.form1.CMD_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.CMD_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.CMD_ORG5.value = '<?=$ORG_NAME_2?>';
+	if(parent.document.form1.CMD_ORG6) parent.document.form1.CMD_ORG6.value = '<?=$ORG_NAME_3?>';
+	if(parent.document.form1.CMD_ORG7) parent.document.form1.CMD_ORG7.value = '<?=$ORG_NAME_4?>';
+	if(parent.document.form1.CMD_ORG8) parent.document.form1.CMD_ORG8.value = '<?=$ORG_NAME_5?>';
+	parent.document.form1.POS_POEM_ID.value = '<?=$POS_POEM_ID?>';
+	parent.document.form1.POS_POEM_NO.value = '<?=$CMD_POSPOEM_NO?>';	
+	parent.document.form1.POS_POEM_NAME.value = '<?=$CMD_POSITION?>';
+
+	parent.document.form1.POS_POEM_ORG1.value = '<?=$MINISTRY_NAME?>';
+	parent.document.form1.POS_POEM_ORG2.value = '<?=$DEPARTMENT_NAME?>';
+	parent.document.form1.POS_POEM_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.POS_POEM_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.POS_POEM_ORG5.value = '<?=$ORG_NAME_2?>';	
+	if(parent.document.form1.POS_POEM_ORG6) 	parent.document.form1.POS_POEM_ORG6.value = '<?=$ORG_NAME_3?>';
+	if(parent.document.form1.POS_POEM_ORG7) 	parent.document.form1.POS_POEM_ORG7.value = '<?=$ORG_NAME_4?>';
+	if(parent.document.form1.POS_POEM_ORG8) 	parent.document.form1.POS_POEM_ORG8.value = '<?=$ORG_NAME_5?>';	
+	<? if (!$RPT_N) { ?>
+	parent.change_salary_bylevel('<?=$LEVEL_NO?>', '<?=$PER_SALARY?>');
+	<? } ?>
+	parent.select_salary_inputtype('<?=$RPT_N?>', '<?=$PER_TYPE?>', '<?=$LEVEL_NO?>');
+</script>

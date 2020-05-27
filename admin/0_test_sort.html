@@ -1,0 +1,78 @@
+<? 
+	include("../php_scripts/connect_database.php");
+
+	if (!$text_search) $text_search = "PER_ID < 1000";
+    else $text_search = stripslashes($text_search);
+	if ($command=="SortSQL") {
+		$cmd = "			select		PER_ID, PER_NAME, PER_SURNAME
+								from 		PER_PERSONAL
+                                where 	$text_search
+                                order by PER_NAME, PER_SURNAME
+						";
+		$count_data = $db_dpis->send_cmd($cmd);
+//		echo "cmd=$cmd ($count_page_data)<br>";
+//		$db_dpis->show_error();
+
+		if ($count_data) {
+			$data_count = 0;
+            $a = "";
+        	while ($data = $db_dpis->get_array()) {
+            	$data_count++;
+            	$temp_PER_ID = $data[PER_ID];
+            	$temp_PER_NAME = $data[PER_NAME];
+            	$temp_PER_SURNAME = $data[PER_SURNAME];
+//				echo "SQL-$data_count-$temp_PER_NAME $temp_PER_SURNAME ($temp_PER_ID)<br>";
+				$a .= "SQL-$data_count-$temp_PER_NAME $temp_PER_SURNAME ($temp_PER_ID)\n";
+			} // end while
+		} // end if count_data
+	} else {
+		$cmd = "			select		PER_ID, PER_NAME, PER_SURNAME
+								from 		PER_PERSONAL
+                                where 	$text_search
+                                order by PER_ID
+						";
+		$count_data = $db_dpis->send_cmd($cmd);
+//		echo "cmd=$cmd ($count_page_data)<br>";
+//		$db_dpis->show_error();
+
+		$arr_name = (array) null;
+		$arr_surname = (array) null;
+   		$arr_per_id = (array) null;
+		if ($count_data) {
+        	while ($data = $db_dpis->get_array()) {
+            	$arr_per_id[] = $data[PER_ID];
+            	$arr_name[] = $data[PER_NAME];
+            	$arr_surname[] = $data[PER_SURNAME];
+			} // end while
+           array_multisort($arr_name, $arr_surname, $arr_per_id);
+           $a = "";
+           for($i=0; $i < count($arr_per_id); $i++) {
+//				echo "ARR-".($i+1)."-".$arr_name[$i]." ".$arr_surname[$i]." (".$arr_per_id[$i].")<br>";
+				$a .= "ARR-".($i+1)."-".$arr_name[$i]." ".$arr_surname[$i]." (".$arr_per_id[$i].")\n";
+           }
+		} // end if count_data
+	} // end if
+      $text1 = $a;
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script language="JavaScript">
+</script>
+<span id="defaultTheme"></span>
+<body>
+<form name="form1" method="post" action="0_test_sort.html" enctype="multipart/form-data">
+		<input type="hidden" name="command" value="">
+		<input type="text" name="text_search" value="<?=$text_search;?>" size="70"">
+		<input type="submit" name="bt_sortbysql" value="Sort By SQL" onClick="form1.command.value='SortSQL';">
+		<input type="submit" name="bt_sortbyarry" value="Sort By Array" onClick="form1.command.value='SortArry';"><br>
+        
+        <p><font color="red" size="-1">ค้นหาได้ <?=$count_data?> รายการ</font></p>
+        <textarea name="text1" cols="100" rows="25"><?=$text1?></textarea>
+</form>
+</body>
+</html>

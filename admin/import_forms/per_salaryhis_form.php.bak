@@ -1,0 +1,391 @@
+<?	
+//	map text data to table columns
+//ini_set('error_reporting', 30719); //ปิด warning
+ //ini_set('error_reporting', 30711); // บังคับให้แสดง warning
+	$table = "PER_SALARYHIS";
+	// ค่าข้างล่าง ถ้ามีมากกว่า 1 ตัวจะขั้นด้วย |
+	$dup_column = "0";	// เลขลำดับตามตารางในฐานข้อมูล
+	$prime = "0";		// เลขลำดับตามตารางในฐานข้อมูล
+	$running = "0";		// เลขลำดับตามตารางในฐานข้อมูล ถ้าไม่มี running ให้ = -1
+//echo "โปรแกรมฉบับชั่วคราว (beta 5.1.0.0 : 15 ต.ค. 2558)<br>";
+        echo "โปรแกรมฉบับชั่วคราว (beta 5.2.1.14 : 28 พ.ย. 2560)<br>";
+    if (!isset($FixColumn)) $FixColumn = count(explode("|",$dup_column));	// แสดง keycolumn ที่ fix ไว้ไม่เลื่อนไปไหน
+    if (!isset($showStartColumn)) $showStartColumn = $FixColumn; // เริ่มแสดงที่ column
+	if (!isset($NumShowColumn)) $NumShowColumn = 8;	// จำนวน column ที่แสดง
+	
+	// ===== กำหนดค่าเริ่มต้น และค่าแยกประเภทตัวแปรระหว่าง ข้อความ กับ ตัวเลข
+	$DIVIDE_TEXTFILE = "$";
+	
+	$column_map = (array) null;
+	
+	// ถ้า column map กันตรงตัว ใช้ ชุดนี้
+//	for($i = 0; $i < 79; $i++) {
+//		$column_map[] = "$i";	// 0-running number
+//	}
+	// จบชุด
+	
+	$impfile_head_map = array("PER_CARDNO", "NAME", "SAH_POS_NO", "SAH_POSITION", "POSITION_LEVEL", "SAH_OLD_SALARY", "LAYER_SALARY_MAX", "SAH_SALARY_MIDPOINT",	"SAH_TOTAL_SCORE", "SAH_PERCENT_UP", "", "SAH_SALARY_UP",	"SAH_SALARY_EXTRA", "SAH_SALARY_TOTAL", "SAH_SALARY", "AM_NAME", "SAH_REMARK");
+	$impfile_head_title = "(สำหรับลูกจ้างประจำ ในช่องผลการประเมิน ให้ป้อนข้อมูล 0.5 ขั้น, 1 ขั้น, 1.5 ขั้น, 2 ขั้น, เงินตอบแทนพิเศษ 2% ,เงินตอบแทนพิเศษ 4% หรือข้อมูลหลักประเภทการเคลื่อนไหว)";
+	$impfile_head_thai = array( "เลขประจำตัวประชาชน","ชื่อ-นามสกุล","เลขที่ตำแหน่ง", "ชื่อตำแหน่ง", "ระดับตำแหน่ง", "เงินเดือน", "เงินเดือนสูงสุด", "ฐานในการคำนวณ", "ร้อยละของการประเมิน",	"ร้อยละของการเลื่อน", "จำนวนเงินที่คำนวณได้", "จำนวนเงินที่ได้รับการเลื่อนจริง", "เงินตอบแทนฯ", "รวม", "เงินเดือนหลังเลื่อน", "ผลการประเมิน", "หมายเหตุ");
+	$impfile_exam_map = array( "1234567890123","นายสมชาย ใจดี","1", "นักบริหาร", "สูง<br>บ.2", "69350", "69810", "66460", "94.64", "3.9", "2600", "460", "2131.94", "2591.94", "69810", "ดีเด่น<br>0.5 ขั้น", "");
+
+//	$head_map = array("เลขที่","ชื่อ","นามสกุล","Email","สถานะ","เพศ","วันเกิด","","");
+        $head_map = array("0",
+            "PER_ID",
+            "วันที่มีผล", //SAH_EFFECTIVEDATE
+            "ประเภทการเคลื่อนไหว", //MOV_CODE
+            "อัตราเงินเดือน", //SAH_SALARY
+            "เลขที่คำสั่ง", //SAH_DOCNO
+            "วันที่ออกคำสั่ง", //SAH_DOCDATE
+            "วันที่สิ้นสุด", //SAH_ENDDATE
+            "รหัสผู้ใช้ที่เปลี่ยนแปลงข้อมูล", //UPDATE_USER
+            "วันเวลา เปลี่ยนแปลงข้อมูล", //UPDATE_DATE
+            "เลขประจำตัวประชาชน", //PER_CARDNO
+            "เปอร์เซ็นต์ที่เลื่อน", //SAH_PERCENT_UP
+            "เงินเดือนที่เลื่อน", //SAH_SALARY_UP
+            "เงินตอบแทนพิเศษ", //SAH_SALARY_EXTRA
+            "ลำดับที่", //SAH_SEQ_NO
+            "หมายเหตุ", //SAH_REMARK
+            "ระดับตำแหน่ง", //LEVEL_NO
+            "เลขที่ตำแหน่ง", //SAH_POS_NO
+            "ตำแหน่ง", //SAH_POSITION
+            "สังกัด", //SAH_ORG
+            "ประเภทเงิน", //EX_CODE
+            "เลขถือจ่าย", //SAH_PAY_NO
+            "ฐานในการคำนวณ", //SAH_SALARY_MIDPOINT
+            "ปีงบประมาณ", //SAH_KF_YEAR
+            "รอบการประเมิน", //SAH_KF_CYCLE
+            "ผลการประเมิน", //SAH_TOTAL_SCORE
+            "สถานะเงินเดือนล่าสุด", //SAH_LAST_SALARY
+            "จำนวนขั้นเงินเดือน", //SM_CODE
+            "ลำดับที่", //SAH_CMD_SEQ
+            "รหัสอื่น", //SAH_ORG_DOPA_CODE
+            "อัตราเงินเดือนเดิม", //SAH_OLD_SALARY
+            "ชื่อเลขที่ตำแหน่ง", //SAH_POS_NO_NAME
+            "AUDIT FLAG", //AUDIT_FLAG
+            "SPECIALIST", //SAH_SPECIALIST
+            "REF DOC", //SAH_REF_DOC
+            "DOCNO EDIT", //SAH_DOCNO_EDIT
+            "DOCDATE EDIT", //SAH_DOCDATE_EDIT
+            "REMARK1", //SAH_REMARK1
+            "REMARK1"); //SAH_REMARK2
+
+	$column_map[SAH_ID] = "running";	// 0-running number SAH_ID
+	$column_map[PER_ID] = "sql-n-d-select PER_ID from PER_PERSONAL where PER_CARDNO='@1' or '@2' like '%'||PER_NAME||' '||PER_SURNAME^NOTNULL";//"sql-n-d-select PER_ID from PER_PERSONAL where PER_ID=@17";		// 1- ดึงข้อมูลจาก sql เป็นข้อมูลประเภท s = string (หรือ n = number)
+																																											// 		field ที่แสดง ให้เป็นแบบ d = disabled หรือ e = enabled
+																																											// 		มีค่า = PER_ID ที่มี PER_CARDNO = ค่าใน text file column ที่ {1}
+	$column_map[SAH_EFFECTIVEDATE] = "screen-s-e-SAH_EFFECTIVEDATE|save_date";		// 2-map กับ column 2 ใน text หรือ excel  SAH_EFFECTIVEDATE
+	$column_map[MOV_CODE] = "php-s-e-MOV_CODE";		// 3-map กับ ตัวแปร ในส่วนของ php MOV_CODE
+	$column_map[SAH_SALARY] =  "15";                            // เดิม http://dpis.ocsc.go.th/Service/node/1605 "php-s-e-SAH_SALARY";                                       // 4-map กับ column 15 ใน text หรือ excel SAH_SALARY
+	$column_map[SAH_DOCNO] = "screen-s-e-SAH_DOCNO";		// 5-map กับ ตัวแปรในจอ SAH_DOCNO
+	$column_map[SAH_DOCDATE] = "screen-s-e-SAH_DOCDATE|save_date";	// 6-map กับ ตัวแปรในจอ  SAH_DOCDATE = save_date(SAH_DOCDATE)
+	$column_map[SAH_ENDDATE] = "screen-s-e-SAH_ENDDATE|save_date";	// 7-map กับ ตัวแปรในจอ SAH_ENDDATE = save_date(SAH_ENDDATE)
+	$column_map[UPDATE_USER] = "update_user";	// 8-map กับ UPDATE_USER จากระบบ
+	$column_map[UPDATE_DATE] = "update_date";	// 9-map กับ UPDATE_DATE จากระบบ
+	$column_map[PER_CARDNO] = "php-s-e-PER_CARDNO";		// 10-map กับ column 1 ใน text หรือ excel  PER_CARDNO
+	$column_map[SAH_PERCENT_UP] = "10";	// 11-map กับ column 10 ใน text หรือ excel  SAH_PERCENT_UP
+	$column_map[SAH_SALARY_UP] = "12";	// 12-map กับ column 12 ใน text หรือ excel  SAH_SALARY_UP
+	$column_map[SAH_SALARY_EXTRA] = "13";	// 13-map กับ column 13 ใน text หรือ excel  SAH_SALARY_EXTRA
+	$column_map[SAH_SEQ_NO] = "php-s-e-SAH_SEQ_NO";	// 14-map ตัวแปร ในส่วน php SAH_SEQ_NO
+	$column_map[SAH_REMARK] = "17";	// 15-map กับ column 17 ใน text หรือ excel  SAH_REMARK
+	$column_map[LEVEL_NO] = "php-s-e-LEVEL_NO";	// 16-map ตัวแปร ในส่วน php LEVEL_NO
+	$column_map[SAH_POS_NO] = "3";	// 17-map กับ column 3 ใน text หรือ excel  SAH_POS_NO
+	$column_map[SAH_POSITION] = "4";	// 18-map กับ column 4 ใน text หรือ excel  SAH_POSITION
+	$column_map[SAH_ORG] = "php-s-e-SAH_ORG";	// 19-map ตัวแปร ในส่วน php SAH_ORG
+	$column_map[EX_CODE] = "php-s-e-EX_CODE";	// 20-map ตัวแปร ในส่วน php EX_CODE
+	$column_map[SAH_PAY_NO] = "3";	// 21-map กับ column 3 (SAH_POS_NO) ใน text หรือ excel  SAH_PAY_NO
+	$column_map[SAH_SALARY_MIDPOINT] = "8";	// 22-map กับ column 8 ใน text หรือ excel SAH_SALARY_MIDPOINT
+	$column_map[SAH_KF_YEAR] = "php-s-e-SAH_KF_YEAR";	// 23-map ตัวแปร ในส่วน php SAH_KF_YEAR
+	$column_map[SAH_KF_CYCLE] = "php-s-e-SAH_KF_CYCLE";	// 24-map ตัวแปร ในส่วน php SAH_KF_CYCLE
+	$column_map[SAH_TOTAL_SCORE] = "9";	// 25-map กับ column 9 ใน text หรือ excel SAH_TOTAL_SCORE
+	$column_map[SAH_LAST_SALARY] = "php-s-e-SAH_LAST_SALARY";	// 26-map ตัวแปร ในส่วน php SAH_LAST_SALARY
+	$column_map[SM_CODE] = "php-s-e-SM_CODE";	// 27-map ตัวแปร ในส่วน php SM_CODE
+	$column_map[SAH_CMD_SEQ] = "php-s-e-SAH_CMD_SEQ";		// 28-map ตัวแปร ในส่วน php SAH_CMD_SEQ
+	$column_map[SAH_ORG_DOPA_CODE] = "";		// 29-map space SAH_ORG_DOPA_CODE
+	$column_map[SAH_OLD_SALARY] = "6";		// 30-map space SAH_OLD_SALARY
+	$column_map[SAH_POS_NO_NAME] = "";		// 31-map space SAH_POS_NO_NAME
+	$column_map[AUDIT_FLAG] = "";		// 32-map space AUDIT_FLAG
+	$column_map[SAH_SPECIALIST] = "";		// 33-map space SAH_SPECIALIST
+	$column_map[SAH_REF_DOC] = "";		// 34-map space SAH_REF_DOC
+	$column_map[SAH_DOCNO_EDIT] = "";		// 35-map space SAH_DOCNO_EDIT
+	$column_map[SAH_DOCDATE_EDIT] = "";		// 36-map space SAH_DOCDATE_EDIT
+	$column_map[SAH_REMARK1] = "";		// 37-map space SAH_REMARK1
+	$column_map[SAH_REMARK2] = "";		// 38-map space SAH_REMARK2
+
+	// เป็น function สำหรับ กำหนดค่าพิเศษ
+	function data_setting_extend($i_data_map, $var_d_in) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $search_kf_cycle, $search_budget_year;
+		global $PER_SALARY_CURRENT_UPDATE;
+
+		$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+                
+               
+//		echo "data=".implode(",",$i_data_map)."<br>";
+		// ข้อมูลที่ประมวลผลแล้วพร้อมลงฐานข้อมูล
+		for($i = 0; $i < count($i_data_map); $i++) {
+			$data_stru = explode("=",$i_data_map[$i]);
+			global $$data_stru[1];		// ชื่อตัวแปรเหมือนชื่อ column ในฐานข้อมูล
+			$$data_stru[1] = $data_stru[2];	// ค่าได้จากจัดการตาม column_map สำเร็จแล้ว
+		}
+                
+		// ข้อมูลดั้งเดิมที่ใช้นำเข้า
+		for($i = 0; $i < count($var_d_in); $i++) {
+			$data_org = explode("=",$var_d_in[$i]);
+			$$data_org[0] = $data_org[1];	// ค่าได้ข้อมูลดั้งเดิมลงในตัวแปลชื่อ varn
+		}
+		
+		/* v v v v v v v v v v ส่วนของโปรแกรมอิสระตามต้องการ v v v v v v v v v v*/
+			if(!isset($search_budget_year)){
+				if(date("Y-m-d") <= date("Y")."-10-01") $search_budget_year = date("Y") + 543;
+				else $search_budget_year = (date("Y") + 543) + 1;
+			} // end if
+			$PER_CARDNO = str_replace(" ","",$var1);
+			$PER_CARDNO = str_replace("-","",$var1);
+			$SAH_KF_CYCLE = $search_kf_cycle;
+			$SAH_KF_YEAR = $search_budget_year;
+			if($SAH_KF_CYCLE == 1) $SAH_EFFECTIVEDATE = ($search_budget_year-543) . "-04-01";
+			elseif($SAH_KF_CYCLE == 2) $SAH_EFFECTIVEDATE = ($search_budget_year-543) . "-10-01";
+		
+			$tmp_date = explode("-", $SAH_EFFECTIVEDATE);
+			// 86400 วินาที = 1 วัน
+                       
+			$before_cmd_date = (mktime(0, 0, 0, $tmp_date[1], substr($tmp_date[2],0,2), intval($tmp_date[0])) - 86400);
+			$before_cmd_date = date("Y-m-d", $before_cmd_date);
+                        
+//			$SAH_DOCDATE =  save_date($SAH_DOCDATE);
+//			$SAH_ENDDATE =  save_date($SAH_ENDDATE);
+
+				$SM_CODE = "";
+				$cmd = " select MOV_CODE from PER_MOVMENT where MOV_NAME = '$var16' ";
+				$count_data = $db_dpis2->send_cmd($cmd);
+				if ($count_data) {			
+					$data2 = $db_dpis2->get_array();
+					$MOV_CODE = $data2[MOV_CODE];
+				} else {
+					if ($var16=="ดีเด่น") $MOV_CODE = "21345";
+					elseif ($var16=="ดีมาก") $MOV_CODE = "21335";
+					elseif ($var16=="ดี") $MOV_CODE = "21325";
+					elseif ($var16=="พอใช้") $MOV_CODE = "21315";
+					elseif ($var16=="ขาดราชการ") $MOV_CODE = "22374";
+					elseif ($var16=="ควรปรับปรุง" || $var16=="ปรับปรุง" || $var16=="ต้องปรับปรุง") $MOV_CODE = "21375";
+					elseif ($var16=="ลาไปเข้ารับการอบรม") $MOV_CODE = "22384";
+					elseif ($var16=="ลาไปศึกษาและรับเงินเดือน") $MOV_CODE = "22383";
+					elseif ($var16=="ลาศึกษา") $MOV_CODE = "22383";
+					elseif ($var16=="อบรมต่างประเทศ") $MOV_CODE = "22384";
+					elseif ($var16=="สั่งพักราชการ") $MOV_CODE = "22377";
+					elseif ($var16=="ประเภทเลื่อนขั้นเงินเดือน") $MOV_CODE = "213";
+					elseif ($var16=="เลื่อนขั้นเงินเดือน 0.5 ขั้น" || $var16=="0.5 ขั้น" || $var16=="0.5" || $var16=="0.50" || $SAH_REMARK=="0.5 ขั้น") {
+						$MOV_CODE = "21310";
+						$SM_CODE = "1";
+					} elseif ($var16=="เลื่อนขั้นเงินเดือน 1 ขั้น" || $var16=="1 ขั้น" || $var16=="1" || $SAH_REMARK=="1 ขั้น") {
+						$MOV_CODE = "21320";
+						$SM_CODE = "2";
+					} elseif ($var16=="เลื่อนขั้นเงินเดือน 1.5 ขั้น" || $var16=="1.5 ขั้น" || $var16=="1.5" || $SAH_REMARK=="1.5 ขั้น") {
+						$MOV_CODE = "21330";
+						$SM_CODE = "3";
+					} elseif ($var16=="เลื่อนขั้นเงินเดือน 2 ขั้น" || $var16=="2 ขั้น" || $var16=="2" || $SAH_REMARK=="2 ขั้น") {
+						$MOV_CODE = "21340";
+						$SM_CODE = "4";
+					} elseif ($var16=="เงินค่าตอบแทนพิเศษร้อยละ 2" || $var16=="เงินตอบแทนพิเศษ 2%" || $var16=="2%" || $SAH_REMARK=="เงินตอบแทนพิเศษ 2%") {
+						$MOV_CODE = "21420";
+						$SM_CODE = "5";
+					} elseif ($var16=="เงินค่าตอบแทนพิเศษร้อยละ 2" || $var16=="เงินตอบแทนพิเศษ 4%" || $var16=="4%" || $SAH_REMARK=="เงินตอบแทนพิเศษ 4%") {
+						$MOV_CODE = "21430";
+						$SM_CODE = "17";
+					} else  $MOV_CODE = "21375";
+				}
+
+				$var5 = str_replace("บ 1", "บ1", $var5);
+				$var5 = str_replace("บ 2", "บ2", $var5);
+				$var5 = str_replace("ส 1", "ส1", $var5);
+				$var5 = str_replace("ส 2", "ส2", $var5);
+				$var5 = str_replace("ส 3", "ส3", $var5);
+				$var5 = str_replace("ส 4", "ส4", $var5);
+				$var5 = str_replace("ช 1", "ช1", $var5);
+				$var5 = str_replace("ช 2", "ช2", $var5);
+				$var5 = str_replace("ช 3", "ช3", $var5);
+				$var5 = str_replace("ช 4", "ช4", $var5);
+				$var5 = str_replace("ท 1", "ท1", $var5);
+				$var5 = str_replace("ท 2", "ท2", $var5);
+				$var5 = str_replace("ท 3", "ท3", $var5);
+
+				if ($var5=="ปฏิบัติงาน") $LEVEL_NO = "O1";
+				elseif ($var5=="ชำนาญงาน") $LEVEL_NO = "O2";
+				elseif ($var5=="อาวุโส") $LEVEL_NO = "O3";
+				elseif ($var5=="ทักษะพิเศษ") $LEVEL_NO = "O4";
+				elseif ($var5=="ปฏิบัติการ") $LEVEL_NO = "K1";
+				elseif ($var5=="ชำนาญการ") $LEVEL_NO = "K2";
+				elseif ($var5=="ชำนาญการพิเศษ") $LEVEL_NO = "K3";
+				elseif ($var5=="เชี่ยวชาญ") $LEVEL_NO = "K4";
+				elseif ($var5=="ทรงคุณวุฒิ") $LEVEL_NO = "K5";
+				elseif ($var5=="อำนวยการต้น") $LEVEL_NO = "D1";
+				elseif ($var5=="อำนวยการสูง") $LEVEL_NO = "D2";
+				elseif ($var5=="บริหารต้น") $LEVEL_NO = "M1";
+				elseif ($var5=="บริหารสูง") $LEVEL_NO = "M2";
+				elseif ($var5=="ต้น") {
+                                    // Release 5.0.0.43 Begin
+                                    if (strpos($SAH_POSITION,'อำนวยการ') !== false) {
+                                        $LEVEL_NO = "D1";
+                                    }else{
+                                        $LEVEL_NO = "M1"; //นักบริหาร
+                                    }
+                                    // Release 5.0.0.43 end.
+                                    
+                                    //เดิม
+					/*if (substr($SAH_POSITION,0,9)=="นักบริหาร") $LEVEL_NO = "M1";
+					else $LEVEL_NO = "D1"; */
+                                    
+				} elseif ($var5=="สูง") {
+                                    // Release 5.0.0.43 Begin
+                                    if (strpos($SAH_POSITION,'อำนวยการ') !== false) {
+                                        $LEVEL_NO = "D2";
+                                    }else{
+                                        $LEVEL_NO = "M2"; //นักบริหาร
+                                    }
+                                    // Release 5.0.0.43 end.
+                                    
+                                    //เดิม
+					/*if (substr($SAH_POSITION,0,9)=="นักบริหาร") $LEVEL_NO = "M2";
+					else $LEVEL_NO = "D2";*/
+				} else {
+					$cmd = " select LEVEL_NO from PER_LEVEL 
+									  where LEVEL_NAME = '$var5' or  LEVEL_SHORTNAME = '$var5' or  POSITION_LEVEL = '$var5' ";
+					$count_data = $db_dpis2->send_cmd($cmd);
+					if ($count_data) {			
+						$data2 = $db_dpis2->get_array();
+						$LEVEL_NO = $data2[LEVEL_NO];
+					}
+				}
+                                 
+				if (!$MOV_CODE) $MOV_CODE = "213";
+				if (!$EX_CODE) $EX_CODE = "024";
+				if (!$SAH_PERCENT_UP) $SAH_PERCENT_UP = "NULL";
+				if (!$SAH_SALARY_UP) $SAH_SALARY_UP = "NULL";
+				if (!$SAH_SALARY_EXTRA) $SAH_SALARY_EXTRA = "NULL";
+				if (!$SAH_SALARY_MIDPOINT) $SAH_SALARY_MIDPOINT = "NULL";
+				$SAH_SEQ_NO = (trim($SAH_SEQ_NO))? $SAH_SEQ_NO : 1;		
+				if (!$SAH_KF_CYCLE) $SAH_KF_CYCLE = "NULL";
+				if (!$SAH_TOTAL_SCORE) $SAH_TOTAL_SCORE = "NULL";
+				if (!$SAH_CMD_SEQ) $SAH_CMD_SEQ = "NULL";
+				if (!$SAH_OLD_SALARY) $SAH_OLD_SALARY = "NULL";
+				
+                                if (!$SAH_SALARY){ 
+                                    $SAH_SALARY = $SAH_OLD_SALARY + $SAH_SALARY_UP;
+                                }else { 
+                                    $SAH_SALARY = $SAH_SALARY;
+                                }
+                                //echo "=>>>[".$SAH_SALARY."]"."=[".$SAH_OLD_SALARY."]"."+[".$SAH_SALARY_UP."]<br>";
+
+				// mai edit 29 09 54
+				if (!$SAH_LAST_SALARY) $SAH_LAST_SALARY = "N";
+				if (!$PER_SALARY_CURRENT_UPDATE) $PER_SALARY_CURRENT_UPDATE = "N";
+                                
+                               
+				$cmd = " select PER_ID from PER_PERSONAL where PER_CARDNO = '$PER_CARDNO' or '$NAME' like '%'||PER_NAME||' '||PER_SURNAME ";
+				$count_data = $db_dpis1->send_cmd($cmd);
+				if ($count_data) {			
+					$data1 = $db_dpis1->get_array();
+					$PER_ID = $data1[PER_ID];
+				}
+//				$SAH_DOCDATE = show_date_format($SAH_DOCDATE, 1);
+//				$SAH_ENDDATE = show_date_format($SAH_ENDDATE, 1);
+				
+		/* ^ ^ ^ ^ ^ ^ ^  ส่วนของโปรแกรมอิสระตามต้องการ ^ ^ ^ ^ ^ ^ ^ ^*/
+		
+		for($i = 0; $i < count($i_data_map); $i++) {
+			$data_stru = explode("=",$i_data_map[$i]);
+			$i_data_map[$i] = $data_stru[0]."=".$data_stru[1]."=".$$data_stru[1];
+		}
+		
+		return $i_data_map;
+	}
+
+	// เป็น function สำหรับ กำหนดค่าพิเศษ
+	function data_save_extend($i_data_map, $var_d_in) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $search_kf_cycle, $search_budget_year;
+		global $PER_SALARY_CURRENT_UPDATE;
+
+		$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+
+//		echo "data=".implode(",",$i_data_map)."<br>";
+		// ข้อมูลที่ประมวลผลแล้วพร้อมลงฐานข้อมูล
+		for($i = 0; $i < count($i_data_map); $i++) {
+			$data_stru = explode("=",$i_data_map[$i]);
+			global $$data_stru[1];		// ชื่อตัวแปรเหมือนชื่อ column ในฐานข้อมูล
+			$$data_stru[1] = $data_stru[2];	// ค่าได้จากจัดการตาม column_map สำเร็จแล้ว
+		}
+		// ข้อมูลดั้งเดิมที่ใช้นำเข้า
+		for($i = 0; $i < count($var_d_in); $i++) {
+			$data_org = explode("=",$var_d_in[$i]);
+			$$data_org[0] = $data_org[1];	// ค่าได้ข้อมูลดั้งเดิมลงในตัวแปลชื่อ varn
+		}
+		
+		/* v v v v v v v v v v ส่วนของโปรแกรมอิสระตามต้องการ v v v v v v v v v v*/
+				$cmd = " select PER_ID from PER_PERSONAL where PER_CARDNO = '$PER_CARDNO' ";
+				$count_data = $db_dpis1->send_cmd($cmd);
+				if ($count_data) {			
+					$data1 = $db_dpis1->get_array();
+					$tmp_PER_ID = $data1[PER_ID];
+
+					// update and insert into PER_SALARYHIS 
+					$cmd = " select SAH_ID, SAH_EFFECTIVEDATE from PER_SALARYHIS where PER_ID=$tmp_PER_ID 
+									order by SAH_EFFECTIVEDATE desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$tmp_SAH_ID = trim($data2[SAH_ID]);
+					$tmp_SAH_EFFECTIVEDATE = trim($data2[SAH_EFFECTIVEDATE]);
+					$cmd = " update PER_SALARYHIS set SAH_ENDDATE='$before_cmd_date', 
+									UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE'			
+									where SAH_ID=$tmp_SAH_ID";
+					
+					$db_dpis2->send_cmd($cmd);	
+					//$db_dpis2->show_error();		
+
+					if ( $SAH_LAST_SALARY == "Y" ) { // ตรวจสอบว่าถ้ารายการที่นำเข้าเป็นรายการล่าสุดให้แก้ไขรายการที่แล้วเป็น SAH_LAST_SALARY ='N'
+					$cmd = " update PER_SALARYHIS set SAH_LAST_SALARY='N' 		
+									where PER_ID=$tmp_PER_ID";
+					$db_dpis2->send_cmd($cmd);	
+					//$db_dpis2->show_error();	
+					}
+					//echo "<br>";
+/*					echo "</br>ข้อมูล $NAME";
+					echo "</br>ให้เป็นประวัติเงินเดือนล่าสุด : ".$SAH_LAST_SALARY;
+					echo "</br>วันที่สิ้นสุด : ".$SAH_ENDDATE;
+					echo "</br>ให้ปรับปรุงเงินเดือนปัจจุบัน : ".$PER_SALARY_CURRENT_UPDATE;
+					echo "</br>XLS เงินเดือนก่อนเลื่อน : ".$PER_SALARY;
+					echo "</br>XLS เงินเดือนหลังเลื่อน : ".$SAH_SALARY;
+					$cmd = " insert into PER_SALARYHIS (SAH_ID, PER_ID, SAH_EFFECTIVEDATE, MOV_CODE, SAH_SALARY, 
+									SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, PER_CARDNO, UPDATE_USER, UPDATE_DATE, 
+									SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA, SAH_SEQ_NO, SAH_REMARK, 
+									LEVEL_NO, SAH_POS_NO, SAH_POSITION, SAH_ORG, EX_CODE, SAH_PAY_NO, SAH_SALARY_MIDPOINT, 
+									SAH_KF_YEAR, SAH_KF_CYCLE, SAH_TOTAL_SCORE, SAH_LAST_SALARY, SM_CODE, SAH_CMD_SEQ, SAH_OLD_SALARY)
+									values ($SAH_ID, $PER_ID, '$SAH_EFFECTIVEDATE', '$MOV_CODE', $SAH_SALARY, '$SAH_DOCNO', 
+									'$SAH_DOCDATE', '$SAH_ENDDATE', '$PER_CARDNO', $SESS_USERID, '$UPDATE_DATE', 
+									$SAH_PERCENT_UP, $SAH_SALARY_UP, $SAH_SALARY_EXTRA, $SAH_SEQ_NO, '$SAH_REMARK', 
+									'$LEVEL_NO', '$SAH_POS_NO', '$SAH_POSITION', '$SAH_ORG', '$EX_CODE', '$SAH_POS_NO', 
+									$SAH_SALARY_MIDPOINT, '$SAH_KF_YEAR', $SAH_KF_CYCLE, $SAH_TOTAL_SCORE, 
+									'$SAH_LAST_SALARY', '$SM_CODE', $SAH_CMD_SEQ, $PER_SALARY) ";
+					$db_dpis1->send_cmd($cmd);
+					//$db_dpis1->show_error();
+					//echo "$cmd<br>";
+*/	
+					if ($PER_SALARY_CURRENT_UPDATE=='Y' ){
+						$cmd = " update PER_PERSONAL set PER_SALARY = $SAH_SALARY , MOV_CODE = '$MOV_CODE' ,
+										PER_DOCNO = '$SAH_DOCNO' , PER_DOCDATE = '$SAH_DOCDATE' where PER_ID = $tmp_PER_ID ";
+						$db_dpis1->send_cmd($cmd);
+						//$db_dpis1->show_error();
+					}
+
+					$SAH_ID++;
+				} // else echo "$PER_CARDNO $NAME<br>";
+				//echo "<meta http-equiv=\"refresh\" content=\"0;URL=select_database_excel.html?excel_msg=".$excel_msg."\">";	
+			
+		/* ^ ^ ^ ^ ^ ^ ^  ส่วนของโปรแกรมอิสระตามต้องการ ^ ^ ^ ^ ^ ^ ^ ^*/
+		
+	}
+
+?>

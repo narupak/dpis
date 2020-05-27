@@ -1,0 +1,332 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_salaryslip.php");
+	include("php_scripts/load_per_control.php");
+		
+	if ($f_detail==""){
+		if($BKK_FLAG==1){	
+			 $f_detail = "1";
+		}else{		// 12/12/2012 คุณต่อ สำหรับ ก.พ.
+			$f_detail = "0";
+		}
+	}
+		
+	$cmd =" select count(SLIP_ID) as count_data 	from PER_SLIP where PER_ID=$PER_ID   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(slip_id, per_name){
+		if(confirm("ต้องการลบประวัติสลิปเงินเดือนนี้ ใช่หรือไม่ [ " + per_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.SLIP_ID.value = slip_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function print_form(slip_id) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_personal_salaryslip_rtf.php?SLIP_ID=" + slip_id + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "personal_salaryslip.html";
+	}
+	function print_form_pdf(slip_id,per_id) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		
+               //endcode url
+                var slip_id = window.btoa(slip_id+"_"+per_id);
+		<? if($MFA_FLAG == 1 || $SLIP_FORMAT == 2){ ?>
+		document.form1.target = "_blank";
+                document.form1.action = "report/rpt_personal_salaryslip_tab.php?SLIP_ID=" + slip_id + "&UTC" + rptDate;
+		<? }else{ ?>
+                document.form1.target = "_blank";
+		document.form1.action = "report/rpt_personal_salaryslip.php?SLIP_ID=" + slip_id + "&UTC" + rptDate;
+		<? } ?>
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "personal_salaryslip.html";
+	}
+	function call_detail_sah(f_detail) {	
+//		alert(f_detail);
+		if (f_detail=="0") {
+			form1.f_detail.value = "1";
+		} else {
+			form1.f_detail.value = "0";
+		}
+		form1.submit();
+	}
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><? if(!$HIDE_HEADER) include("header_menu.html"); ?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลสลิปเงินเดือน":"") ;
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_salaryslip.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="f_detail" value="<?=$f_detail?>">	   
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="SLIP_ID" value="<?=$SLIP_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+		<? if ($BUTTON_DISPLAY==1) { ?>
+          &nbsp;<input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salaryslip'"><!--history.back(); -->
+		  <?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salaryslip'">
+              <? } echo "&nbsp; &nbsp;"; ?>
+		  <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+  &nbsp;
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลสลิปเงินเดือนทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <td align="right">
+        <? 
+			if ($f_detail == "1") { 
+        		$det_text="ซ่อนรายละเอียด"; $det_alt="ซ่อนรายละเอียด"; 
+             } else { 
+             	$det_text="แสดงรายละเอียด";  $det_alt="แสดงรายละเอียด";
+             } ?>
+       <input type="button" name="button2" class="button" value="<?=$det_text?>" alt="<?=$det_alt?>" onClick="call_detail_sah('<?=$f_detail?>');">&nbsp;&nbsp;</td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+ 
+<?
+	if ($PER_ORDER_BY==1) $order_by = "SLIP_YEAR,  to_char(SLIP_MONTH,'00') "; 
+	else $order_by = "SLIP_YEAR desc,  to_char(SLIP_MONTH,'00') desc"; 
+	
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(SLIP_ID) as concat_pk from PER_SLIP where PER_ID=$PER_ID order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = $data[concat_pk];
+			$limit_data = " and trim(SLIP_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT 		top $data_per_page  	
+												SLIP_ID, SLIP_YEAR, SLIP_MONTH, TOTAL_INCOME, TOTAL_DEDUCT, NET_INCOME, APPROVE_DATE, UPDATE_DATE, AUDIT_FLAG
+						 FROM			PER_SLIP 
+						 WHERE		PER_ID=$PER_ID
+												$limit_data
+						ORDER BY	$order_by ";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		SLIP_ID, SLIP_YEAR, SLIP_MONTH, TOTAL_INCOME, TOTAL_DEDUCT, NET_INCOME, APPROVE_DATE, UPDATE_DATE, AUDIT_FLAG , PER_ID
+								  from 			PER_SLIP 
+								  where 		PER_ID=$PER_ID
+													$search_condition
+								  order by 	$order_by
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 
+	}elseif($DPISDB=="mysql"){
+		$cmd = " SELECT 		SLIP_ID, SLIP_YEAR, SLIP_MONTH, TOTAL_INCOME, TOTAL_DEDUCT, NET_INCOME, APPROVE_DATE, UPDATE_DATE, AUDIT_FLAG
+						 FROM			PER_SLIP  
+						 WHERE		PER_ID=$PER_ID 							
+						ORDER BY	$order_by
+								$limit_data ";	
+	} // end if
+	
+//echo "<pre>".$cmd;
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td width="15%">สลิปเงินเดือน เดือน/ปี</td>
+      <td width="18%">รวมรายการรับ</td>
+      <td width="18%">รวมรายการหัก</td>
+      <td width="18%">วันที่นำข้อมูลเข้า</td>
+      <td width="18%">จำนวนเงินที่โอน</td>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+      <td width="4%"><?=$PRINT_TITLE?></td>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all" value="1" onClick="set_check_all(this.checked,'list_audit_id',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_SLIP_ID = $data[SLIP_ID];
+                $TMP_PER_ID = $data[PER_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SLIP_ID;
+		$TMP_SLIP = $data[SLIP_MONTH] . ' / ' . $data[SLIP_YEAR];
+		$TMP_INCOME = number_format($data[TOTAL_INCOME], 2, '.', ',');
+		$TMP_DEDUCT = number_format($data[TOTAL_DEDUCT], 2, '.', ',');
+		$TMP_NET_INCOME = number_format($data[NET_INCOME], 2, '.', ',');
+		$TMP_UPDATE_DATE = show_date_format($data[UPDATE_DATE], $DATE_DISPLAY);
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+				
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($SLIP_ID==$TMP_SLIP_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+		$SLIP_ID_LAST[$f_detail]=$TMP_SLIP_ID;
+		 if ($f_detail == "1" || ($f_detail == "0" && $data_count == 1)) {
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td class="<?=$class?>" height="25" align="center"><?=$num_order?></td>
+      <td class="<?=$class?>" align="center">&nbsp;<?=$TMP_SLIP?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_INCOME?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_DEDUCT?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_UPDATE_DATE?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_NET_INCOME?></td>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td><?=$AUDITED_TITLE?></td>
+	  	<? } else { ?>
+		      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_SLIP_ID, '$TMP_SLIP')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติสลิปเงินเดือน"></a></td>
+	  	<?}?>
+	  <?}?>
+      <td align="center">
+	  <? if ($SLIP_DISPLAY==2 || $SLIP_DISPLAY==3) { ?>
+	  &nbsp;<a href="<?=("javascript:print_form(".$TMP_SLIP_ID.")")?>"><img src="images/doc_icon_word.jpg" border="0" alt="พิมพ์รายละเอียดสลิปเงินเดือน (RTF)" width="24" height="24"></a>
+	  <? } ?>
+	  <? if ($SLIP_DISPLAY==1 || $SLIP_DISPLAY==3) { ?>
+	  &nbsp;<a href="<?=("javascript:print_form_pdf(".$TMP_SLIP_ID.",".$TMP_PER_ID.")")?>"><img src="images/doc_icon_pdf.jpg" border="0" alt="พิมพ์รายละเอียดสลิปเงินเดือน (PDF)" width="24" height="24"></a>
+	  <? } ?>
+	  </td>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td align="center"><input type="checkbox"  id="list_audit_id<?=$data_count; ?>" name="list_audit_id[]"  onClick="set_uncheck_all(this.checked,form1.list_audit_all,this.id)" value="<?=$TMP_SLIP_ID?>" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>></td><? } ?>
+	  </tr>
+ <?} // f_detail ?>
+ 	<? } // end loop while ?>
+ 
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+	</tr>
+
+  </table>
+  <? if($total_page > 1 && ($f_detail == "1") ) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } // end if ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

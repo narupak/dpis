@@ -1,0 +1,261 @@
+f<?
+	$SUM_QTY_M += 0;
+	$SUM_QTY_F += 0;
+
+	if($command == "UPDATE" && trim($PL_CODE) && trim(EL_CODE)){
+		$cmd = " update PER_SUM_DTL9 set
+						 	SUM_QTY_M = $SUM_QTY_M,
+						 	SUM_QTY_F = $SUM_QTY_F,
+							UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE'
+						 where SUM_ID=$SUM_ID and trim(PL_CODE)='$PL_CODE' and trim(EL_CODE)='$EL_CODE'
+					   ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+	
+	if($command == "DELETE" && trim($PL_CODE) && trim(EL_CODE)){
+		$cmd = " delete from PER_SUM_DTL9 where SUM_ID=$SUM_ID and trim(PL_CODE)='$PL_CODE' and trim(EL_CODE)='$EL_CODE' ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+
+	if($UPD){
+		$cmd = " select		a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+						 from		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+						 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+						 				and trim(a.PL_CODE)='$PL_CODE' and trim(a.EL_CODE)='$EL_CODE'
+					   ";
+		$db_dpis->send_cmd($cmd);
+//		echo "$cmd<br>";
+//		$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		$PL_NAME = $data[PL_NAME];
+		$EL_NAME = $data[EL_NAME];
+		$SUM_QTY_M = $data[SUM_QTY_M];
+		$SUM_QTY_F = $data[SUM_QTY_F];
+	} // end if
+	
+	if(!$UPD){
+		$PL_CODE = "";
+		$PL_NAME = "";
+		$EL_CODE = "";
+		$EL_NAME = "";
+		$SUM_QTY_M = "";
+		$SUM_QTY_F = "";
+	} // end if
+	
+	$cmd = " select		a.SUM_ID
+					 from		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+					 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+				   ";
+	$count_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+
+	$total_page = ceil( $count_data / $data_per_page );
+	if($current_page > $total_page) $current_page = $total_page;
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<script>
+	function confirm_delete(data_id0, data_id1, data_label){
+		if(confirm("ต้องการลบข้อมูลสรุปจำนวนวุฒิข้าราชการตามสายงานนี้ใช่หรือไม่ [ " + data_label + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.PL_CODE.value = data_id0;
+			form1.EL_CODE.value = data_id1;
+			form1.submit();
+		} // end if
+	}
+</script>
+<input type="hidden" name="PL_CODE" value="<?=$PL_CODE?>">
+<input type="hidden" name="EL_CODE" value="<?=$EL_CODE?>">
+<? if($UPD){ ?>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  <tr>
+    <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td colspan="2" height="5"></td>
+      </tr>
+      <tr>
+        <td width="35%" height="22" align="right"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+        <td width="65%"><input type="text" name="PL_NAME" value="<?=$PL_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right"><?=$EL_TITLE?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="EL_NAME" value="<?=$EL_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right">จำนวนข้าราชการ (ชาย)&nbsp;:&nbsp;</td>
+        <td><input type="text" name="SUM_QTY_M" value="<?=$SUM_QTY_M?>" class="textbox"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right">จำนวนข้าราชการ (หญิง)&nbsp;:&nbsp;</td>
+        <td><input type="text" name="SUM_QTY_F" value="<?=$SUM_QTY_F?>" class="textbox"></td>
+      </tr>
+	  <tr>
+	  	<td colspan="2" height="5"></td>		
+	  </tr>
+      <tr align="center">
+        <td height="30" colspan="2"><? if ($UPD) { ?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'" class="button" >
+              <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" />
+              <? } echo "&nbsp; &nbsp;";?>
+              <?if($PAGE_AUTH["edit"]=="Y"){?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE'" value="<?=$EDIT_TITLE?>">
+              <?  } else { ?>
+              <input name="image22" type="image" onClick="form1.command.value='UPDATE'" src="images/save.png" alt="<?=$EDIT_TITLE?>" />
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?>
+              <? } else { ?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+              <?  } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onclick="form1.reset();" />&nbsp;
+              <? } echo "&nbsp; &nbsp;";?>
+              <?if($PAGE_AUTH["add"]=="Y"){?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD'" value="<?=$ADD_TITLE?>">
+              <?  } else { ?>
+              <input name="image23" type="image" onClick="form1.command.value='ADD'" src="images/save.png" alt="<?=$ADD_TITLE?>" />
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?>
+          <?}?>        </td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<? } // end if ?>
+ &nbsp;
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+      <tr height="22">
+        <!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+        <td align="center">พบข้อมูลสรุปจำนวนวุฒิข้าราชการตามสายงาน ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+      </tr>
+    </table></td>
+  </tr>
+</table>
+  
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record (trim(a.PL_CODE) + '|' trim(a.EL_CODE)) as concat_pk 
+							 from 		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+							 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+							 order by a.PL_CODE, a.EL_CODE ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." (trim(a.PL_CODE) + '|' trim(a.EL_CODE)) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " select		top $data_per_page
+										a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+						 from 		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+						 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+						$limit_data
+						order by	a.PL_CODE, a.EL_CODE "; 
+	}elseif($DPISDB=="oci8"){
+		$tmp1 = $current_page * $data_per_page;
+		$tmp2 = ($current_page - 1) * $data_per_page;
+		/***$cmd = "select * from (
+							select alist.*, rownum  rnum from (	
+								 select		a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+								 from		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+								 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+								 order by a.PL_CODE, a.EL_CODE
+							) alist
+							where rownum <= $tmp1
+						) where rnum > $tmp2   ";					***/
+		$cmd = "select * from (
+							select alist.*, rownum  rnum from (	
+								 select		distinct a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+								 from		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+								 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+								 group by a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+								 order by a.PL_CODE, a.EL_CODE desc
+							) alist
+							where rownum <= $tmp1
+						) where rnum > $tmp2   ";			
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select	a.PL_CODE, b.PL_NAME, a.EL_CODE, c.EL_NAME, a.SUM_QTY_M, a.SUM_QTY_F
+						 from 		PER_SUM_DTL9 a, PER_LINE b, PER_EDUCLEVEL c
+						 where	a.PL_CODE=b.PL_CODE and a.EL_CODE=c.EL_CODE and a.SUM_ID=$SUM_ID
+						order by	a.PL_CODE, a.EL_CODE
+						$limit_data "; 
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db_dpis->show_error();
+	if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head" align="center">
+    <td rowspan="2"><?=$PL_TITLE?></td>
+    <td width="30%" rowspan="2"><?=$EL_TITLE?></td>
+    <td colspan="2" height="22">จำนวนข้าราชการ</td>
+    <td width="5%" rowspan="2"><?=$EDIT_TITLE?>&nbsp;</td>
+    <td width="5%" rowspan="2"><?=$DEL_TITLE?>&nbsp;</td>
+  </tr>
+  <tr class="table_head" align="center">
+  	<td width="10%" height="22">ชาย</td>
+	<td width="10%">หญิง</td>
+  </tr>
+  <?
+		$current_list = "";
+		$data_count = 0;
+  		while($data = $db_dpis->get_array()) :
+			$data_count++;
+			if($data_count > $data_per_page) break;
+			$TMP_PL_CODE = trim($data[PL_CODE]);
+			$TMP_EL_CODE = trim($data[EL_CODE]);
+			$current_list .= ((trim($current_list))?",":"") . ($TMP_PL_CODE ."|". $TMP_EL_CODE);
+
+			$PL_NAME = $data[PL_NAME];
+			$EL_NAME = $data[EL_NAME];
+			$SUM_QTY_M = number_format($data[SUM_QTY_M]);
+			$SUM_QTY_F = number_format($data[SUM_QTY_F]);
+
+			$class = "table_body";
+			$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+			if($PL_CODE==$TMP_PL_CODE && $EL_CODE==$TMP_EL_CODE){ 
+				$class = "table_body_over";
+				$onmouse_event = "";
+			} // end if		
+  ?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+    <td height="22">&nbsp;<?=$PL_NAME?></td>
+    <td>&nbsp;<?=$EL_NAME?></td>
+    <td align="right"><?=$SUM_QTY_M?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td align="right"><?=$SUM_QTY_F?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:form1.action+='?UPD=1';form1.PL_CODE.value='$TMP_PL_CODE'; form1.EL_CODE.value='$TMP_EL_CODE'; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขสรุปจำนวนวุฒิข้าราชการตามสายงาน"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:confirm_delete('$TMP_PL_CODE','$TMP_EL_CODE','$PL_NAME : $TMP_EL_NAME : $SUM_QTY_M : $SUM_QTY_F')"?>"><img src="images/b_drop.png" border="0" alt="ลบสรุปจำนวนวุฒิข้าราชการตามสายงาน"></td>
+	  <?}?>
+  </tr>
+  <?
+  		endwhile;
+  ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+	} // end if
+?>

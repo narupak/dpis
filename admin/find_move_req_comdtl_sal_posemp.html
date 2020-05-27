@@ -1,0 +1,68 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	
+//	$db_dpis_n = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	// ==== use for testing phase =====
+	$db_dpis_n = new connect_db($db_host, $db_name, $db_user, $db_pwd);
+	// ==========================
+
+	if( trim($POEM_ID) ){
+		$cmd = " 	select 	ORG_ID, ORG_ID_1, ORG_ID_2, PN_CODE, DEPARTMENT_ID , POEM_MIN_SALARY
+							from  	PER_POS_EMP  
+							where POEM_ID=$POEM_ID ";
+		$db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		
+		$POEM_SALARY = trim($data[POEM_MIN_SALARY]);
+		
+		$DEPARTMENT_ID = trim($data[DEPARTMENT_ID]);
+		$ORG_ID = trim($data[ORG_ID]);
+		$ORG_ID_1 = trim($data[ORG_ID_1]);
+		$ORG_ID_2 = trim($data[ORG_ID_2]);
+		
+		if ($DEPARTMENT_ID) $tmp_ORG_ID[] =  $DEPARTMENT_ID;
+		if ($ORG_ID)			$tmp_ORG_ID[] =  $ORG_ID;
+		if ($ORG_ID_1)		$tmp_ORG_ID[] =  $ORG_ID_1;
+		if ($ORG_ID_2)		$tmp_ORG_ID[] =  $ORG_ID_2;
+		$search_org_id = implode(", ", $tmp_ORG_ID);
+		
+		$DEPARTMENT_NAME = $ORG_NAME = $ORG_NAME_1 = $ORG_NAME_2 = "";
+		$cmd = " select ORG_ID, ORG_NAME from PER_ORG where ORG_ID IN ($search_org_id) ";
+		$db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		while ( $data1 = $db_dpis->get_array() ) {
+			$DEPARTMENT_NAME = ($DEPARTMENT_ID == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$DEPARTMENT_NAME";
+			$ORG_NAME = 		($ORG_ID == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME";
+			$ORG_NAME_1 = 	($ORG_ID_1 == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME_1";
+			$ORG_NAME_2 = 	($ORG_ID_2 == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME_2";
+		}	// while		
+		
+		$cmd = " select ORG_ID_REF from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_ID = $data[ORG_ID_REF];
+		
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_NAME = $data[ORG_NAME];
+	} 		// if 
+?>
+<script>
+<? if(trim($FOR) && $FOR=='POS_OLD'){ ?>
+//	parent.document.form1.CMD_LEVEL2.value = '';
+	parent.document.form1.CMD_OLD_SALARY.value = '<?=$POS_SALARY?>';	//กรณีตำแหน่งว่างไม่มีคนครอง ไม่เข้า find_move_req_comdtl_personal_salary.html
+	parent.document.form1.CMD_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.CMD_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.CMD_ORG5.value = '<?=$ORG_NAME_2?>';		
+<? }else{ ?>
+	parent.document.form1.CMD_SALARY.value = '<?=$POEM_SALARY?>';
+	parent.document.form1.POS_POEM_ORG1.value = '<?=$MINISTRY_NAME?>';
+	parent.document.form1.POS_POEM_ORG2.value = '<?=$DEPARTMENT_NAME?>';
+	parent.document.form1.POS_POEM_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.POS_POEM_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.POS_POEM_ORG5.value = '<?=$ORG_NAME_2?>';		
+<? } ?>
+</script>

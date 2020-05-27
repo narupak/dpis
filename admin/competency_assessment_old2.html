@@ -1,0 +1,295 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/competency_assessment.php"); 
+//	echo "$VIEW : $CONTINUE : $ANSWER<br>";
+//	echo "$PAGE_ID : $CONTINUE_PAGE<br>";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style.css" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($command=="SAVE" && ($PAGE_ID > count($ARR_EVALUATE_QUESTION))){ ?>
+ 	parent.refresh_opener(<?=$KF_ID?>);
+<? } ?>
+<? if($VIEW && ($PAGE_ID > count($ARR_EVALUATE_QUESTION))){ ?>
+//parent.close();
+<? } ?>
+
+	function verify_data(command){		
+		var PAGE_ID = parseInt(document.form1.PAGE_ID.value, 10);
+		if(PAGE_ID > 0){
+			var ANSWER = "";
+			var objRadio = document.getElementsByName("ANSWER");
+//			alert(objRadio.length);
+			for(i=0; i<objRadio.length; i++){
+				if(objRadio[i].checked==true){
+					ANSWER = objRadio[i].value;
+					break;
+				} 
+			} 
+//			alert(ANSWER);
+
+			if( ANSWER=="" ){
+				alert("กรุณาเลือกคำตอบอย่างน้อย 1 คำตอบ");
+				return false;
+			} 
+
+			if( ANSWER == 1 && document.form1.DESCRIPTION.value.trim()=="" ){
+				alert("กรุณาระบุเหตุการณ์ประกอบของคำตอบที่ท่านเลือก");
+				return false;
+			}
+		} // เข้าสู่การประเมิน
+
+		if(confirm("ต้องการบันทึกคำตอบนี้ใช่หรือไม่?")){
+			document.form1.PAGE_ID.value = PAGE_ID + 1;
+			document.form1.command.value = command;
+			return true;
+		}else{
+			return false;
+		}
+	}
+	
+	function calculate_result(command){
+		var PAGE_ID = parseInt(document.form1.PAGE_ID.value, 10);
+		document.form1.PAGE_ID.value = PAGE_ID + 1;
+		document.form1.command.value = command;
+		return true;
+	}
+	
+	function show_next(){
+		var PAGE_ID = parseInt(document.form1.PAGE_ID.value, 10);
+		document.form1.PAGE_ID.value = PAGE_ID + 1;
+		return true;
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="competency_assessment.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="KF_ID" value="<?=$KF_ID?>">
+          <input type="hidden" name="PAGE_ID" value="<?=$PAGE_ID?>">
+          <input type="hidden" name="CF_ID" value="<?=$CF_ID?>">
+          <input type="hidden" name="CF_TYPE" value="<?=$CF_TYPE?>">
+          <input type="hidden" name="CF_PER_ID" value="<?=$CF_PER_ID?>">
+          <input type="hidden" name="ASS_PER_ID" value="<?=$ASS_PER_ID?>">
+
+		  <input type="hidden" name="VIEW" value="<?=$VIEW?>">
+		  <input type="hidden" name="CONTINUE" value="<?=$CONTINUE?>">
+		  <input type="hidden" name="CONTINUE_PAGE" value="<?=$CONTINUE_PAGE?>">
+&nbsp;
+<? if(!$PAGE_ID){ ?>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <td height="25" class="table_head">&nbsp;&nbsp;แบบฟอร์มการประเมินสมรรถนะ (Competency Assessment)&nbsp;&nbsp;<?=$CF_TYPE_NAME?><br>&nbsp;&nbsp;ผู้ประเมิน&nbsp;&nbsp;<?=$PER_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$PL_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$ORG_NAME?></td>
+        </tr>
+        <tr>
+          <td height="5"></td>
+        </tr>
+        <tr>
+          <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="black_normal">
+            <tr>
+              <td height="22" colspan="2" class="black_bold">&nbsp;&nbsp;ผู้รับการประเมิน : &nbsp;</td>
+              </tr>
+            <tr>
+              <td height="22" colspan="2" align="left">
+			  	<?
+//				$ASS_PER_ID="1,2,3,4,5";	//test
+
+			   //แปลง string เป็น array
+				$ARR_ASS_PER_ID = explode(",",$ASS_PER_ID);
+				for($i=0; $i < count($ARR_ASS_PER_ID); $i++){
+					$cmd = " select 	PN_CODE, PER_NAME, PER_SURNAME, LEVEL_NO, PER_TYPE, POS_ID, POEM_ID, POEMS_ID
+						 from		PER_PERSONAL
+						 where	PER_ID=$ARR_ASS_PER_ID[$i] ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$CF_PER_ID = $ARR_ASS_PER_ID[$i];
+	$ASS_PN_CODE = trim($data[PN_CODE]);
+	$ASS_PER_NAME = trim($data[PER_NAME]);
+	$ASS_PER_SURNAME = trim($data[PER_SURNAME]);
+	$ASS_LEVEL_NO = trim($data[LEVEL_NO]);
+	$ASS_PER_TYPE = trim($data[PER_TYPE]);
+	$ASS_POS_ID = trim($data[POS_ID]);
+	$ASS_POEM_ID = trim($data[POEM_ID]);
+	$ASS_POEMS_ID = trim($data[POEMS_ID]);
+		
+	$cmd = " select PN_NAME from PER_PRENAME where trim(PN_CODE)='$ASS_PN_CODE' ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$ASS_PN_NAME = trim($data[PN_NAME]);
+		
+	$ASS_PER_NAME = $ASS_PN_NAME . $ASS_PER_NAME . " " . $ASS_PER_SURNAME;
+		
+	$cmd = " select LEVEL_NAME from PER_LEVEL where trim(LEVEL_NO)='$ASS_LEVEL_NO' ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$ASS_LEVEL_NAME = trim($data[LEVEL_NAME]);
+
+	if($ASS_PER_TYPE==1){
+		$cmd = " select 	a.POS_NO, b.PL_NAME, c.ORG_NAME, a.PT_CODE, d.PT_NAME 
+						 from 		PER_POSITION a, PER_LINE b, PER_ORG c, PER_TYPE d
+						 where	a.POS_ID=$ASS_POS_ID and a.PL_CODE=b.PL_CODE and a.ORG_ID=c.ORG_ID and a.PT_CODE=d.PT_CODE ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$ASS_POS_NO = $data[POS_NO];
+		$ASS_PL_NAME = trim($data[PL_NAME]);
+		$ASS_ORG_NAME = trim($data[ORG_NAME]);
+		$ASS_PT_CODE = trim($data[PT_CODE]);
+		$ASS_PT_NAME = trim($data[PT_NAME]);
+		$ASS_PL_NAME = trim($ASS_PL_NAME)?($ASS_PL_NAME ." ". level_no_format($ASS_LEVEL_NAME) . (($ASS_PT_CODE != "11" && $ASS_LEVEL_NO >= 6)?"$ASS_PT_NAME":"")):" ".level_no_format($ASS_LEVEL_NAME);
+	}elseif($ASS_PER_TYPE==2){
+		$cmd = " select 	b.PN_NAME, c.ORG_NAME 
+						 from 		PER_POS_EMP a, PER_POS_NAME b, PER_ORG c
+						 where	a.POEM_ID=$ASS_POEM_ID and a.PN_CODE=b.PN_CODE and a.ORG_ID=c.ORG_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$ASS_PL_NAME = trim($data[PN_NAME]);
+		$ASS_ORG_NAME = trim($data[ORG_NAME]);
+	}elseif($ASS_PER_TYPE==3){
+		$cmd = " select 	b.EP_NAME, c.ORG_NAME 
+						 from 		PER_POS_EMPSER a, PER_EMPSER_POS_NAME b, PER_ORG c
+						 where	a.POEMS_ID=$ASS_POEMS_ID and a.EP_CODE=b.EP_CODE and a.ORG_ID=c.ORG_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$ASS_PL_NAME = trim($data[EP_NAME]);
+		$ASS_ORG_NAME = trim($data[ORG_NAME]);
+	} // end if
+
+			  	?>
+					<input name="CF_PER_ID" type="radio" value="<?=$CF_PER_ID; ?>">&nbsp;&nbsp;<?=$ASS_PER_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$ASS_PL_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$ASS_ORG_NAME?><br>
+				<?
+				} //end for
+				?>
+			  </td>
+              </tr>
+          </table></td>
+        </tr>
+        <tr>
+          <td height="5" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">หาประเภทตำแหน่งใหม่</iframe></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+		  	<? if ($KF_ID) { ?>              
+      		  <?if(!$VIEW && !$CONTINUE){?>
+			  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit22" type="submit" class="button" onClick="if(!verify_data('SAVE')){ return false; }" value="ประเมิน"><?}?> 			  
+			  <?}?>
+			  <?if($VIEW || $CONTINUE){?><input name="Submit22" type="submit" class="button" onClick="show_next();" value="ต่อไป"><?}?>
+			  <input type="submit" name="Reset2" value="ย้อนกลับ" onClick="self.close();" class="button" >
+            <?}?>		  </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+<? }else{ ?> 
+  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <td height="25" class="table_head">&nbsp;&nbsp;แบบฟอร์มการประเมินสมรรถนะ (Competency Assessment)&nbsp;&nbsp;<?=$CF_TYPE_NAME?>&nbsp;&nbsp;ข้อที่ <?="$PAGE_ID"?><br>&nbsp;&nbsp;ผู้รับการประเมิน&nbsp;&nbsp;<?=$CF_PER_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$CF_PL_NAME?>&nbsp;&nbsp;-&nbsp;&nbsp;<?=$CF_ORG_NAME?></td>
+        </tr>
+        <tr>
+          <td height="5"></td>
+        </tr>
+        <tr>
+          <td>
+          
+          <?             
+			//print_r($ARR_CP_CODE);
+            if(($PAGE_ID%5) == 1) {
+            	$xxx_array = explode(',',$CP_CODE_STR);
+            	$RAND_CP_CODE = array_pop($xxx_array);
+                $CP_CODE_STR = implode(',',$xxx_array);
+               //print_r($ARR_CP_CODE);
+            }
+            $CUR_CO_NO = $PAGE_ID%5;
+			if ($CUR_CO_NO==0) $CUR_CO_NO = 5;
+          ?>
+          <!--input type="text" name="CP_CODE_STR" id="CP_CODE_STR" value="<?=$CP_CODE_STR?>"-->
+          <table width="100%" border="0" cellpadding="0" cellspacing="0" class="black_normal">
+            <tr>
+              <td height="22" colspan="2" class="table_body_2 blue_bold">&nbsp;&nbsp;คำจำกัดความของแต่ละสมรรถนะ : <span class="black_normal"><?=$ARR_QUESTION[$RAND_CP_CODE][$CUR_CO_NO][NAME]?>
+                <input type="hidden" name="RAND_CP_CODE" id="RAND_CP_CODE" value="<?=$RAND_CP_CODE?>">
+                <input type="hidden" name="QS_ID" value="<?=$ARR_QUESTION[$RAND_CP_CODE][$CUR_CO_NO][ID]?>">
+              </span></td>
+              
+              </tr>
+			<? 
+            $cmd = "select CA_ANSWER , CA_DESCRIPTION FROM PER_COMPETENCY_ANSWER WHERE CF_ID = '$CF_ID' AND QS_ID = '".$ARR_QUESTION[$RAND_CP_CODE][$CUR_CO_NO][ID]."'";
+            $db_dpis->send_cmd($cmd);
+            $data= $db_dpis->get_array();
+            $c_answer = $data[CA_ANSWER];
+            $c_desc = $data[CA_DESCRIPTION];
+            //echo "$c_answer,$c_desc";
+			for($i=1; $i<=count($ARR_EVALUATE_ANSWER); $i++){ 
+					$ANSWER_ID = $ARR_EVALUATE_ANSWER[($i - 1)];
+					$ANSWER_SCORE = $ARR_ANSWER_SCORE[$i];
+			?>
+            <tr>
+              <td height="22" align="right" valign="top" width="3%">
+              <!--input type="radio" name="ANSWER" value="<?=$ANSWER_ID?>" <?=($VIEW || $CONTINUE || $ANSWER)?"disabled":""?> <?=(($VIEW || $CONTINUE) && ($ANSWER_ID==$ANSWER))?"checked":""?>-->
+              <input type="radio" name="ANSWER[<?=$ANSWER_ID?>]" id="ANSWER" value="<?=$ANSWER_SCORE?>"  <?=($c_answer == $i)?"checked":""?>></td>
+              <td><?="$i.&nbsp;"?><?=str_replace("greater", ($i + 1), str_replace("lower", ($i - 1), $ARR_ANSWER_INFO[$ANSWER_ID]))?></td>
+              </tr>
+			<? } // loop for ?>
+			<tr>
+			  <td height="5" colspan="2"></td>
+			</tr>
+            <tr>
+              <td height="22" colspan="2" class="table_body_2 blue_bold">&nbsp;&nbsp;เหตุการณ์ประกอบ : &nbsp;</td>
+              </tr>
+            <tr>
+              <td height="22" colspan="2" align="center">
+			  	<textarea name="DESCRIPTION" rows="5" class="selectbox" style="width=99%" <?=($VIEW || $CONTINUE || $ANSWER)?"readonly":""?>><?=$DESCRIPTION?><? echo "$c_answer"; ?></textarea>			  </td>
+              </tr>
+          </table>
+          </td>
+        </tr>
+        <tr>
+          <td height="5" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">หาประเภทตำแหน่งใหม่</iframe></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+		  	<? if ($KF_ID) { ?>              
+      		  <?if(!$VIEW && !$CONTINUE && !$ANSWER){?>
+			  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit22" type="submit" class="button" onClick="if(!verify_data('SAVE')){ return false; }" value="ส่งคำตอบ"><?}?> 
+			  <?}?>
+			  <?if($VIEW || $CONTINUE || $ANSWER){?>
+              	<?if($PAGE_ID < $CONTINUE_PAGE){?>
+              	<input name="Submit22" type="submit" class="button" onClick="show_next();" value="ต่อไป">
+              	<?}else{?>
+              	<input name="Submit22" type="submit" class="button" onClick="if(!calculate_result('SAVE')){ return false; }" value="ส่งคำตอบ">
+              	<?}?>
+              <?}?>
+            <?}?>		  </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+<? } // end if PAGE_ID ?>
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

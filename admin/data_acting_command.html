@@ -1,0 +1,525 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_acting_command.php");
+
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+
+	$COM_PER_TYPE = (trim($COM_PER_TYPE))? $COM_PER_TYPE : 1;	
+	if($PER_TYPE){	$search_per_type = $PER_TYPE;	}
+	$search_per_type = (trim($search_per_type))? $search_per_type : 1;	
+
+  	if(trim($search_per_type)) 				$arr_search_condition[] = "(COM_PER_TYPE=$search_per_type)";
+  	if(trim($search_com_type)) 			$arr_search_condition[] = "(a.COM_TYPE='$search_com_type')";
+  	if(trim($search_comno_start) && trim($search_comno_end)) {
+		$arr_search_condition[] = "(COM_NO >= '$search_comno_start' and COM_NO <= '$search_comno_end')";
+	} elseif(trim($search_comno_start) && !trim($search_comno_end)) {
+		$arr_search_condition[] = "(COM_NO >= '$search_comno_start')";
+	} elseif(!trim($search_comno_start) && trim($search_comno_end)) {
+		$arr_search_condition[] = "(COM_NO <= '$search_comno_end')";
+	}	
+  	if(trim($search_comdate_start) && trim($search_comdate_end)) { 
+		$temp_start = (substr($search_comdate_start, 6, 4) - 543) ."-". substr($search_comdate_start, 3, 2) ."-". substr($search_comdate_start, 0, 2);
+		$temp_end = (substr($search_comdate_end, 6, 4) - 543) ."-". substr($search_comdate_end, 3, 2) ."-". substr($search_comdate_end, 0, 2);
+		$arr_search_condition[] = "(COM_DATE >= '$temp_start' and COM_DATE <= '$temp_end')";
+	} elseif(trim($search_comdate_start) && !trim($search_comdate_end)) {
+		$temp_start = (substr($search_comdate_start, 6, 4) - 543) ."-". substr($search_comdate_start, 3, 2) ."-". substr($search_comdate_start, 0, 2);	
+		$arr_search_condition[] = "(COM_DATE >= '$temp_start')";
+	} elseif(!trim($search_comdate_start) && trim($search_comdate_end)) {
+		$temp_end = (substr($search_comdate_end, 6, 4) - 543) ."-". substr($search_comdate_end, 3, 2) ."-". substr($search_comdate_end, 0, 2);	
+		$arr_search_condition[] = "(COM_DATE <= '$temp_end')";
+	}	
+	
+	if($search_department_id){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	}elseif($PV_CODE){
+		$cmd  = " select distinct ORG_ID_REF from PER_ORG where OL_CODE='03' and PV_CODE='$PV_CODE' ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID_REF];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+  	if($search_org_id) $arr_search_condition[] = "(a.ORG_ID=$search_org_id)";
+
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+	$cmd = " select 	COM_ID from PER_COMMAND a, PER_COMTYPE b
+					where		COM_GROUP in ('07','509','510') and a.COM_TYPE=b.COM_TYPE
+									$search_condition
+					order by COM_DATE ";
+	$count_data = $db_dpis->send_cmd($cmd);
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";		
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if ($confirm_error) { // check result ของการตรวจสอบประวัติการศึกษา ?>
+	//alert ("ไม่สามารถยืนยันบัญชีแนบท้ายคำสั่งย้ายได้ เนื่องจากพบข้าราชการ/ลูกจ้างที่ไม่ระบุประวัติการศึกษา");
+<? } else { ?>
+	//<? //include("php_scripts/data_move_req_command_confirm.php") ?>
+<? } ?>
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+	}
+
+	function confirm_add() {
+		if (form1.COM_CONFIRM[0].checked == true) {
+			if (confirm("ต้องการยืนยันบัญชีแนบท้ายคำสั่งย้าย ใช่หรือไม่?")) {
+				form1.command.value = "ADD";
+				form1.current_page.value = 1;				
+				ProcessUploading();			
+			} else {
+				return false;
+			}
+		} else {
+			form1.command.value = "ADD";
+			form1.current_page.value = 1;
+			ProcessUploading();
+		}
+	}
+	
+	function confirm_update() {
+		if (form1.COM_CONFIRM[0].checked == true) {
+			if (confirm("ต้องการยืนยันบัญชีแนบท้ายคำสั่งย้าย ใช่หรือไม่?")) {
+				form1.command.value = "UPDATE";
+				form1.current_page.value = 1;				
+				ProcessUploading();			
+			} else {
+				return false;
+			}
+		} else {
+			form1.command.value = "UPDATE";
+			form1.current_page.value = 1;			
+			ProcessUploading();
+		}
+	}
+	
+	function confirm_delete(com_id , com_name){
+		if(confirm("ต้องการลบบัญชีแนบท้ายคำสั่งย้ายนี้ ใช่หรือไม่ [ " + com_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.COM_ID.value = com_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_comtype (code, name) {	
+		var type_code = eval("form1." + code);
+		var type_name = eval("form1." + name);		
+		parameter = "";
+		childReturn = window.showModalDialog("search_com_type_frame.html?COM_GROUP=07&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			type_code.value = arrValue[0];
+			type_name.value = arrValue[1];
+		} // end if
+	}
+	
+	function call_select_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_select_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_ministry_id.value = arrValue[0];
+			form1.search_ministry_name.value = arrValue[1];
+			form1.search_department_id.value = "";
+			form1.search_department_name.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_department_id.value = arrValue[0];
+				form1.search_department_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var search_department_id = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$search_department_id":"form1.search_department_id.value")?>;
+		if(search_department_id != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + search_department_id;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function show_all_command () {
+		form1.COM_ID.value = "";
+		form1.search_per_type[0].checked = true;
+		form1.search_com_type.value = "";
+		form1.search_com_typename.value = "";
+		form1.search_comno_start.value = "";
+		form1.search_comno_end.value = "";
+		form1.search_comdate_start.value = "";
+		form1.search_comdate_end.value = "";
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>	
+		form1.search_ministry_id.value = "";
+		form1.search_ministry_name.value = "";
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>	
+		form1.search_department_id.value = "";
+		form1.search_department_name.value = "";
+		<? } // end if ?>
+		form1.submit();
+	}
+	
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_acting_command.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	          <input type="hidden" name="command" value="">
+       	   <input type="hidden" name="COM_ID" value="<?=$COM_ID?>">
+
+  &nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+                      <tr>
+                        <td align="right">กระทรวง&nbsp;&nbsp;</td>
+                        <td>
+							<input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width=70%" class="textbox" readonly>&nbsp;&nbsp;
+							<input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+							<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?><input type="button" name="btn_search_ministry" class="button" value="...." alt="เลือกกระทรวง" onClick="call_search_ministry();"><? } // end if ?>
+						</td>
+                        <td align="right">กรม&nbsp;&nbsp;</td>
+                        <td>
+							<input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width=70%" class="textbox" readonly>&nbsp;&nbsp;
+							<input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+							<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?><input type="button" name="btn_search_department" class="button" value="...." alt="เลือกกรม" onClick="call_search_department();"><? } // end if ?>
+						</td>
+			   			<td rowspan="5" align="center" width="20%">
+			     			<input type="button" name="Submit" class="button" value="ค้นหา" alt="ค้นหาข้อมูลบัญชีแนบท้ายคำสั่ง" onClick="form1.command.value='SEARCH'; form1.submit();">
+                          	<input type="button" name="Submit" class="button" value="แสดงทั้งหมด" alt="ค้นหาข้อมูลบัญชีแนบท้ายคำสั่งทั้งหมด" onClick="show_all_command();">	</td>
+                      </tr>
+            <tr>
+              <td height="22" align="right">สำนัก/กอง&nbsp;&nbsp;</td>
+              <td><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width=75%" class="textbox"  readonly="true">
+                  <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                  <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                  <input type="button" name="btn_org" value="...." class="button" onClick="call_search_org()" >
+                  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="absbottom" alt="ล้างค่า">
+                  <? } // end if ?></td>
+                        <td align="right">&nbsp;</td>
+					<td>&nbsp;</td>
+            </tr>
+                      <tr> 
+                        <td colspan="2" align="center"> 
+			  	<? 
+				foreach($PERSON_TYPE as $key=>$value){ ?>
+						<input name="search_per_type" type="radio" value="<?=$key; ?>" <?=($search_per_type==$key)?"checked":""?>>&nbsp;<?=$value; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<? } ?>
+						</td>
+                        <td width="12%" align="right">ประเภทคำสั่ง&nbsp;&nbsp;</td>
+                        <td>
+							<input type="text" name="search_com_typename" value="<?=$search_com_typename?>" size="30" class="textbox" readonly>&nbsp;
+                                <input type="hidden" name="search_com_type" value="<?=$search_com_type?>">                                 
+                                <input type="button" name="Submit" class="button" value="...." alt="เลือกประเภทคำสั่ง" onClick="call_search_comtype('search_com_type', 'search_com_typename');">                        </td>
+                      </tr>
+                      <tr> 
+                        <td width="15%" align="right">คำสั่งเลขที่&nbsp;&nbsp;</td>
+                        <td width="25%"><input type="text" name="search_comno_start" value="<?=$search_comno_start?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td width="15%" align="right">ถึง&nbsp;&nbsp;</td>
+                        <td><input type="text" name="search_comno_end" value="<?=$search_comno_end?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                      </tr>
+                      <tr> 
+                        <td align="right">ลงวันที่&nbsp;&nbsp;</td>
+                        <td><input type="text" name="search_comdate_start" value="<?=$search_comdate_start?>" style="width=70%" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.search_comdate_start,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+								<input type="reset" class="button" onClick="return showCalendar('search_comdate_start', 'dd/mm/y');" value="....">			   </td>
+                        <td align="right">ถึง&nbsp;&nbsp;</td>
+                        <td><input type="text" name="search_comdate_end" value="<?=$search_comdate_end?>" style="width=70%" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.search_comdate_end,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+								<input type="reset" class="button" onClick="return showCalendar('search_comdate_end', 'dd/mm/y');" value="....">			   </td>
+                      </tr>
+                    </table></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+ &nbsp;
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center" colspan="3">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>        
+   </table>
+   </td>
+</tr>
+</table>   
+
+<? if (trim($error_move_personal)) { ?>
+<br>
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+
+	<tr><td colspan="3" align="center"><font color="#FF0000">พบข้าราชการที่ไม่สามารถยืนยันบัญชีแนบท้ายได้</font></td></tr>
+	<tr><td height="3" colspan="3"></td></tr>
+	<tr><td width="30%">&nbsp;</td>
+	      <td><?=$error_move_personal?></td></tr>
+</table></td></tr></table>
+<br>
+<? }  // end if ?>    
+   
+<?
+	if($DPISDB=="odbc"){
+		if($current_page > 1){
+				$limit_data = " and COM_ID not in (select top $start_record COM_ID from PER_COMMAND a, PER_COMTYPE b where COM_GROUP in ('07','509','510') and a.COM_TYPE=b.COM_TYPE order by COM_DATE) ";
+		} // end if 
+	
+		$cmd = "	select		top $data_per_page 
+								COM_ID, COM_NO, a.COM_NAME, COM_DATE, a.COM_TYPE, COM_CONFIRM 
+					from		PER_COMMAND a, PER_COMTYPE b 
+					where COM_GROUP in ('07','509','510') and a.COM_TYPE=b.COM_TYPE
+								$search_condition 
+								$limit_data
+					order by 	COM_DATE desc, COM_NO 	";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		COM_ID, COM_NO, a.COM_NAME, COM_DATE, a.COM_TYPE, COM_CONFIRM
+								  from 		PER_COMMAND a, PER_COMTYPE b 
+								  where 		COM_GROUP in ('07','509','510') and a.COM_TYPE=b.COM_TYPE
+												$search_condition
+								  order by 	COM_DATE desc, COM_NO 
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";	
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	select		COM_ID, COM_NO, a.COM_NAME, COM_DATE, a.COM_TYPE, COM_CONFIRM 
+					from		PER_COMMAND a, PER_COMTYPE b 
+					where COM_GROUP in ('07','509','510') and a.COM_TYPE=b.COM_TYPE
+								$search_condition 
+					order by 	COM_DATE desc, COM_NO
+								$limit_data 	";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong>ลำดับที่</strong></td>
+      <td width="12%"><strong>คำสั่งเลขที่</strong></td>
+      <td><strong>เรื่อง</strong></td>
+      <td width="12%"><strong>ลงวันที่</strong></td>
+      <td width="13%"><strong>ประเภทคำสั่ง</strong></td>
+	  <td width="7%"><strong>ยืนยัน</strong></td>
+	  <td width="4%">&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%">&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%">&nbsp;</td><?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_COM_ID = $data[COM_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_COM_ID;
+		$TMP_COM_NO = trim($data[COM_NO]);
+		$TMP_COM_NAME = trim($data[COM_NAME]);
+		$TMP_COM_DATE = substr(trim($data[COM_DATE]), 8, 2) ."/". substr(trim($data[COM_DATE]), 5, 2) . str_pad((trim($data[COM_DATE]) + 543), 5, "/", STR_PAD_LEFT);
+		$TMP_COM_CONFIRM = trim($data[COM_CONFIRM]);
+		
+		$TMP_COM_TYPE = trim($data[COM_TYPE]);
+		$TMP_COM_TYPE_NAME = "";
+		$cmd = "select COM_NAME from PER_COMTYPE where COM_TYPE='$TMP_COM_TYPE' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_COM_TYPE_NAME = trim($data2[COM_NAME]);
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($COM_ID==$TMP_COM_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+		
+		$returnValue = "$TMP_COM_ID<::>$TMP_COM_NAME";		
+?>
+    <tr  class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_num?></td>
+      <td>&nbsp;<?=$TMP_COM_NO?></td>
+      <td>&nbsp;<?=$TMP_COM_NAME?></td>
+      <td align="center">&nbsp;<?=$TMP_COM_DATE?></td>
+      <td>&nbsp;<?=$TMP_COM_TYPE_NAME?></td>
+	  <td onClick="parent.refresh_opener('<?=$returnValue?>');" align="center">
+	  		<? if ($TMP_COM_CONFIRM==1) { ?> <img src="images/true.gif" border="0"> 
+			<? } else { ?> <img src="images/false.gif" border="0"> <? } ?>
+	  </td>
+      <td align="center">&nbsp;
+	  	<? $returnValueA=""; $VIEW='?VIEW=1';	$returnValueA=$returnValue."<::>$VIEW"; ?>
+	  	<a href="<?="javascript:form1.action+='?VIEW=1';form1.COM_ID.value=$TMP_COM_ID; form1.submit();"?>"" onClick="parent.refresh_opener('<?=$returnValueA?>');"><img src="images/icon_eye.gif" alt="ดูบัญชีแนบท้ายคำสั่งย้าย" width="16" height="16" border="0"></a></td>
+		<?if($PAGE_AUTH["edit"]=="Y" && ($TMP_COM_CONFIRM==1)) {
+				echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+		} else { ?>
+      <td align="center">&nbsp;
+	 	 <? $returnValueA="";  $UPD='?UPD=1';	$returnValueA=$returnValue."<::>$UPD";  ?>
+	  	<a href="<?="javascript:form1.action+='?UPD=1';form1.COM_ID.value=$TMP_COM_ID; form1.submit();"?>""  onClick="parent.refresh_opener('<?=$returnValueA?>');"><img src="images/b_edit.png" border="0" alt="แก้ไขบัญชีแนบท้ายคำสั่งย้าย"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y" && ($TMP_COM_CONFIRM==1)) {
+      echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	 	} else {?>
+      <td align="center"><a href="<?="javascript:confirm_delete($TMP_COM_ID,'$TMP_COM_NO : $TMP_COM_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบบัญชีแนบท้ายคำสั่งย้าย"></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+    <tr class="table_footer"  height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>	  
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}	// while?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+
+<?=$alert_adding_command?>
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

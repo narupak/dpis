@@ -1,0 +1,523 @@
+<?
+	include("../../php_scripts/connect_database.php");
+	include("../php_scripts/pdf_wordarray_thaicut.php");
+	include("../../php_scripts/calendar_data.php");
+	include ("../php_scripts/function_share.php");
+
+	include ("rtf_setvar.php");	// กำหนดตัวแปรค่าสี set_of_colors
+	
+	require("../../RTF/rtf_class.php");
+
+	ini_set("max_execution_time", $max_execution_time);
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	
+	if($_GET[NUMBER_DISPLAY])	$NUMBER_DISPLAY = $_GET[NUMBER_DISPLAY];
+	if($search_per_type==1){ 
+		$position_table = "PER_POSITION";
+		$position_join = "a.POS_ID=b.POS_ID";
+	}elseif($search_per_type==2){ 
+		$position_table = "PER_POS_EMP";
+		$position_join = "a.POEM_ID=b.POEM_ID";
+	}elseif($search_per_type==3){ 
+		$position_table = "PER_POS_EMPSER";
+		$position_join = "a.POEMS_ID=b.POEMS_ID";
+	}elseif($search_per_type == 4){
+		$position_table = "PER_POS_TEMP";
+		$position_join = "a.POT_ID=b.POT_ID";
+	} // end if
+	
+	$cmd = "select LEVEL_NO, LEVEL_NAME, LEVEL_SHORTNAME from PER_LEVEL where (LEVEL_ACTIVE=1) and (PER_TYPE = $search_per_type) order by LEVEL_SEQ_NO,LEVEL_NO";
+	$db_dpis->send_cmd($cmd);
+	while($data = $db_dpis->get_array()){ 
+		$ARR_LEVEL_NO[] = $data[LEVEL_NO];		
+		$ARR_LEVEL_SHORTNAME[] = $data[LEVEL_SHORTNAME];
+	}
+	
+	if(!trim($RPTORD_LIST)){ 
+	if($select_org_structure==1){	//สำหรับมอบหมายงาน
+			if(trim($search_org_ass_id)){	$search_org_id=trim($search_org_ass_id);		}	
+			if(trim($search_org_ass_id_1)){	$search_org_id_1=trim($search_org_ass_id_1);		}
+			if(trim($search_org_ass_id_2)){	$search_org_id_2=trim($search_org_ass_id_2);		}
+		}
+		$RPTORD_LIST = "ORG|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)=="" && trim($search_org_id_2)=="") $RPTORD_LIST .= "ORG_1|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)!="" && trim($search_org_id_2)=="") $RPTORD_LIST .= "ORG_2|";
+		if(in_array("PER_ORG", $list_type) && trim($search_org_id_1)!="" && trim($search_org_id_2)!="") $RPTORD_LIST .= "LINE|";
+		if(in_array("PER_COUNTRY", $list_type) && trim($search_pv_code)!="") $RPTORD_LIST .= "PROVINCE|";
+	} // end if
+	$arr_rpt_order = explode("|", $RPTORD_LIST);
+//	$arr_rpt_order = array("ORG"); 
+
+	$select_list = "";
+	$order_by = "";
+	$heading_name = "";
+	for($rpt_order_index=0; $rpt_order_index<count($arr_rpt_order); $rpt_order_index++){
+		$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+		switch($REPORT_ORDER){
+			case "ORG" :
+				if($select_list) $select_list .= ", ";
+				if($select_org_structure == 0) $select_list .= "b.ORG_ID";
+				else if($select_org_structure == 1) $select_list .= "a.ORG_ID";
+
+				if($order_by) $order_by .= ", ";
+				if($select_org_structure == 0) $order_by .= "b.ORG_ID";
+				else if($select_org_structure == 1) $order_by .= "a.ORG_ID";
+
+				$heading_name .= " $ORG_TITLE";
+				break;
+		} // end switch case
+	} // end for
+	if(!trim($order_by)){
+		if($select_org_structure == 0) $order_by .= "b.ORG_ID";
+		else if($select_org_structure == 1) $order_by .= "a.ORG_ID";
+	}
+	if(!trim($select_list)){
+		if($select_org_structure == 0) $select_list .= "b.ORG_ID";
+		else if($select_org_structure == 1) $select_list .= "a.ORG_ID";
+	}
+
+	$search_per_status[] = 1;
+
+	$search_condition = "";
+//	$arr_search_condition[] = "(a.PER_TYPE in (". implode(", ", $search_per_type) .") and (b.POS_ID >= 0 or e.POEM_ID >= 0))";
+	$arr_search_condition[] = "(a.PER_TYPE = $search_per_type)";
+	$arr_search_condition[] = "(a.PER_STATUS in (". implode(", ", $search_per_status) ."))";
+
+	if($DPISDB=="odbc") $arr_search_condition[] = "(LEFT(trim(d.PUN_STARTDATE), 10) >= '".(($search_budget_year - 543) - 1)."-10-01' and LEFT(trim(d.PUN_STARTDATE), 10) < '".($search_budget_year - 543)."-10-01')";
+	elseif($DPISDB=="oci8") $arr_search_condition[] = "(SUBSTR(trim(d.PUN_STARTDATE), 1, 10) >= '".(($search_budget_year - 543) - 1)."-10-01' and SUBSTR(trim(d.PUN_STARTDATE), 1, 10) < '".($search_budget_year - 543)."-10-01')";
+	elseif($DPISDB=="mysql") $arr_search_condition[] = "(LEFT(trim(d.PUN_STARTDATE), 10) >= '".(($search_budget_year - 543) - 1)."-10-01' and LEFT(trim(d.PUN_STARTDATE), 10) < '".($search_budget_year - 543)."-10-01')";
+
+	$list_type_text = $ALL_REPORT_TITLE;
+
+	if($DEPARTMENT_ID){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $DEPARTMENT_ID)";
+		$list_type_text .= " - $MINISTRY_NAME - $DEPARTMENT_NAME";
+	}elseif($MINISTRY_ID){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$MINISTRY_ID ";
+		if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org_ref[] = $data[ORG_ID];
+
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode($arr_org_ref, ",") ."))";
+		$list_type_text .= " - $MINISTRY_NAME";
+	}elseif($PROVINCE_CODE){
+		$PROVINCE_CODE = trim($PROVINCE_CODE);
+		$arr_search_condition[] = "(trim(c.PV_CODE) = '$PROVINCE_CODE')";
+		$list_type_text .= " - $PROVINCE_NAME";
+	} // end if
+	if(count($arr_search_condition)) $search_condition = " where ". implode(" and ", $arr_search_condition);
+
+	include ("rpt_R008006_format.php");	// กำหนดหัวและตัวแปรสำหรับการเปลี่ยนรูปแบบรายงาน
+	$sum_w = array_sum($heading_width);
+	for($h = 0; $h < count($heading_width); $h++) {
+		$heading_width[$h] = $heading_width[$h] / $sum_w * 100;
+	}
+
+//	session_cache_limiter("nocache");
+	session_cache_limiter("private");
+	session_start();
+	
+	$fname= "rpt_R008006_rtf.rtf";
+
+//	RTF $papersize = "a4", $margl = 720, $margr = 720, $margt = 720, $margb = 720, $orient = "p", $u_color_tab="";
+	$paper_size="a4";
+	$orientation='L';
+	$RTF = new RTF($paper_size, ".7in", ".3in", ".5in", ".1in", $orientation, $set_of_colors);
+
+	$RTF->set_default_font($font, 14);
+//	echo "default font_id::".$RTF->dfl_FontID."<br>";	
+
+	$company_name = "รูปแบบการออกรายงาน : $list_type_text";
+	$report_title = "$DEPARTMENT_NAME||สถิติฐานความผิดทางวินัย จำแนกตามระดับตำแหน่ง||ในปีงบประมาณ $search_budget_year";
+	$report_code = "R0806";
+	$RTF->set_report_code($report_code);
+	$RTF->set_report_title($report_title);
+	$RTF->set_company_name($company_name);
+/*
+	if($search_per_type==2){  $heading_width[0] = "80"; } else { $heading_width[0] = "127"; }
+	$heading_width[1] = "10";
+	$heading_width[2] = "15";
+	$heading_width[3] = "15";
+
+	function print_header(){
+		global $pdf, $heading_width, $heading_name;
+		global $ARR_LEVEL_NO,$ARR_LEVEL_SHORTNAME;
+		
+		$pdf->SetFont($font,'',14);
+		$pdf->SetTextColor(hexdec("00"),hexdec("66"),hexdec("CC"));
+		$pdf->SetFillColor(hexdec("EE"),hexdec("EE"),hexdec("FF"));
+//		$pdf->Cell(100,2,"",0,1,'C');
+
+		$pdf->Cell($heading_width[0] ,7,$heading_name,'LTR',0,'C',1);
+		$pdf->Cell(($heading_width[1] * count($ARR_LEVEL_NO)) ,7,"ระดับ",'LTBR',0,'C',1);
+		$pdf->Cell(($heading_width[2] + $heading_width[3]) ,7,"รวม",'LTBR',1,'C',1);
+
+		$pdf->Cell($heading_width[0] ,7,"",'LBR',0,'C',1);
+		for($i=0; $i<count($ARR_LEVEL_SHORTNAME); $i++){ 
+			$tmp_level_shortname = $ARR_LEVEL_SHORTNAME[$i];
+			$pdf->Cell($heading_width[1] ,7,"$tmp_level_shortname",'LTBR',0,'C',1);
+		} // end for
+		$pdf->Cell($heading_width[2] ,7,"คน",'LTBR',0,'C',1);
+		$pdf->Cell($heading_width[3] ,7,"ร้อยละ",'LTBR',1,'C',1);
+	} // function		
+*/
+	function count_person($cr_code, $level_no, $search_condition, $addition_condition){
+		global $DPISDB, $db_dpis2;
+		global $arr_rpt_order, $search_per_type, $select_org_structure, $position_table, $position_join;
+		
+		if(trim($addition_condition)) $search_condition .= (trim($search_condition)?" and ":" where ") . $addition_condition;
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$level_no = str_pad($level_no, 2, "0", STR_PAD_LEFT);
+
+		
+			if($DPISDB=="odbc"){
+				$cmd = " select			count(a.PER_ID) as count_person
+								 from			(
+														(
+															(
+																PER_PERSONAL a 
+																inner join $position_table b on ($position_join) 
+															) inner join PER_ORG c on (b.ORG_ID=c.ORG_ID)
+														) left join PER_PUNISHMENT d on (a.PER_ID=d.PER_ID)
+													) left join PER_CRIME_DTL e on (d.CRD_CODE=e.CRD_CODE)
+								 where		trim(a.LEVEL_NO) = '$level_no' and trim(e.CR_CODE)='$cr_code'
+													$search_condition
+								 group by	a.PER_ID ";
+			}elseif($DPISDB=="oci8"){				
+				$cmd = " select			count(a.PER_ID) as count_person
+								 from			PER_PERSONAL a, $position_table b, PER_ORG c, PER_PUNISHMENT d, PER_CRIME_DTL e
+								 where		$position_join and b.ORG_ID=c.ORG_ID and a.PER_ID=d.PER_ID(+) and d.CRD_CODE=e.CRD_CODE(+)
+													and trim(a.LEVEL_NO) = '$level_no' and trim(e.CR_CODE)='$cr_code'
+													$search_condition
+								 group by	a.PER_ID ";
+			}elseif($DPISDB=="mysql"){
+				$cmd = " select			count(a.PER_ID) as count_person
+								 from			(
+														(
+															(
+																PER_PERSONAL a 
+																inner join $position_table b on ($position_join) 
+															) inner join PER_ORG c on (b.ORG_ID=c.ORG_ID)
+														) left join PER_PUNISHMENT d on (a.PER_ID=d.PER_ID)
+													) left join PER_CRIME_DTL e on (d.CRD_CODE=e.CRD_CODE)
+								 where		trim(a.LEVEL_NO) = '$level_no' and trim(e.CR_CODE)='$cr_code'
+													$search_condition
+								 group by	a.PER_ID ";
+			} // end if
+		
+		if($select_org_structure==1) { 
+			$cmd = str_replace("b.ORG_ID", "a.ORG_ID", $cmd);
+			$cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+		}
+		$count_person = $db_dpis2->send_cmd($cmd);
+//		$db_dpis2->show_error();
+		if($count_person==1){
+			$data = $db_dpis2->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+			if($data[count_person] == 0) $count_person = 0;
+		} // end if
+
+		return $count_person;
+	} // function
+	
+	function generate_condition($current_index){
+		global $DPISDB, $arr_rpt_order, $search_per_type, $select_org_structure;
+		global $ORG_ID;
+				
+		for($rpt_order_index=0; $rpt_order_index <= $current_index; $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "ORG" :	
+					if($select_org_structure==0){
+						if($ORG_ID) $arr_addition_condition[] = "(b.ORG_ID = $ORG_ID)";
+						else $arr_addition_condition[] = "(b.ORG_ID = 0 or b.ORG_ID is null)";
+					}elseif($select_org_structure==1){
+						if($ORG_ID) $arr_addition_condition[] = "(a.ORG_ID = $ORG_ID)";
+						else $arr_addition_condition[] = "(a.ORG_ID = 0 or a.ORG_ID is null)";
+					}
+				break;
+			} // end switch case
+		} // end for
+		
+		$addition_condition = "";
+		if(count($arr_addition_condition)) $addition_condition = implode(" and ", $arr_addition_condition);
+
+		return $addition_condition;
+	} // function
+	
+	function initialize_parameter($current_index){
+		global $arr_rpt_order;
+		global $ORG_ID;
+		for($rpt_order_index=$current_index; $rpt_order_index < count($arr_rpt_order); $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "ORG" :	
+					$ORG_ID = -1;
+				break;
+			} // end switch case
+		} // end for
+	} // function
+	
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select			distinct $select_list, e.CR_CODE, f.CR_NAME
+							 from			(
+													(
+														(
+															(
+																PER_PERSONAL a 
+																inner join $position_table b on ($position_join) 
+															) inner join PER_ORG c on (b.ORG_ID=c.ORG_ID)
+														) left join PER_PUNISHMENT d on (a.PER_ID=d.PER_ID)
+													) left join PER_CRIME_DTL e on (d.CRD_CODE=e.CRD_CODE)
+												) left join PER_CRIME f on (e.CR_CODE=f.CR_CODE)
+												$search_condition
+							 order by		$order_by, e.CR_CODE, f.CR_NAME ";
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$cmd = " select			distinct $select_list, e.CR_CODE, f.CR_NAME
+							 from			PER_PERSONAL a, $position_table b, PER_ORG c, PER_PUNISHMENT d, PER_CRIME_DTL e, PER_CRIME f
+							 where		$position_join and b.ORG_ID=c.ORG_ID and a.PER_ID=d.PER_ID(+) 
+							 					and d.CRD_CODE=e.CRD_CODE(+) and e.CR_CODE=f.CR_CODE(+)
+												$search_condition
+							 order by		$order_by, e.CR_CODE, f.CR_NAME ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select			distinct $select_list, e.CR_CODE, f.CR_NAME
+							 from			(
+													(
+														(
+															(
+																PER_PERSONAL a 
+																inner join $position_table b on ($position_join) 
+															) inner join PER_ORG c on (b.ORG_ID=c.ORG_ID)
+														) left join PER_PUNISHMENT d on (a.PER_ID=d.PER_ID)
+													) left join PER_CRIME_DTL e on (d.CRD_CODE=e.CRD_CODE)
+												) left join PER_CRIME f on (e.CR_CODE=f.CR_CODE)
+												$search_condition
+							 order by		$order_by, e.CR_CODE, f.CR_NAME ";
+		} // end if
+	
+	if($select_org_structure==1) { 
+		$cmd = str_replace("b.ORG_ID", "a.ORG_ID", $cmd);
+		$cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+	}
+	$count_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data_count = 0;
+	unset($LEVEL_TOTAL);
+	$GRAND_TOTAL = 0;
+	initialize_parameter(0);
+	while($data = $db_dpis->get_array()){
+		for($rpt_order_index=0; $rpt_order_index < count($arr_rpt_order); $rpt_order_index++){
+			$REPORT_ORDER = $arr_rpt_order[$rpt_order_index];
+			switch($REPORT_ORDER){
+				case "ORG" :
+					if($ORG_ID != trim($data[ORG_ID])){
+						$ORG_ID = trim($data[ORG_ID]);
+						if($ORG_ID != ""){
+							$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$ORG_ID ";
+							if($select_org_structure==1) $cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+							$db_dpis2->send_cmd($cmd);
+//							$db_dpis2->show_error();
+							$data2 = $db_dpis2->get_array();
+							$ORG_NAME = $data2[ORG_NAME];
+						} // end if
+
+						$addition_condition = generate_condition($rpt_order_index);
+
+						$arr_content[$data_count][type] = "ORG";
+						$arr_content[$data_count][name] = str_repeat(" ", ($rpt_order_index * 5)) . $ORG_NAME;
+
+						if($rpt_order_index < (count($arr_rpt_order) - 1)) initialize_parameter($rpt_order_index + 1);
+						$data_count++;
+						
+						if($rpt_order_index == (count($arr_rpt_order) - 1)){
+							if($CR_CODE != trim($data[CR_CODE])){
+								$CR_CODE = trim($data[CR_CODE]);
+								$CR_NAME = trim($data[CR_NAME]);
+								
+								$arr_content[$data_count][type] = "CONTENT";
+								$arr_content[$data_count][name] = str_repeat(" ", (($rpt_order_index + 1) * 5)) . $CR_NAME;
+								for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+									$tmp_level_no = $ARR_LEVEL_NO[$i];
+									$arr_content[$data_count]["level_".$tmp_level_no] = count_person("$CR_CODE",$tmp_level_no, $search_condition, $addition_condition);
+									if($rpt_order_index == 0) $LEVEL_TOTAL[$tmp_level_no] += $arr_content[$data_count]["level_".$tmp_level_no];
+								} // end for
+								$data_count++;
+							} // end if
+						} // end if
+					} // end if
+				break;		
+			} // end switch case
+		} // end for
+	} // end while
+	
+	$GRAND_TOTAL = array_sum($LEVEL_TOTAL);
+//	echo "<pre>"; print_r($arr_content); echo "</pre>";
+//	$RTF->open_section(1); 
+//	$RTF->set_font($font, 20);
+//	$RTF->color("0");	// 0=BLACK
+		
+	$RTF->add_header("", 0, false);	// header default
+	$RTF->add_footer("", 0, false);		// footer default
+	$RTF->paragraph();
+		
+	$head_text1 = implode(",", $heading_text);
+	$head_width1 = implode(",", $heading_width);
+	$head_align1 = implode(",", $heading_align);
+	$col_function = implode(",", $column_function);
+//	echo "$head_text1<br>";
+	$tab_align = "center";
+	$result = $RTF->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "14", "b", $fmtTableHeader_col_idx, $fmtTableHeader_bgcol_idx, $COLUMN_FORMAT, $col_function, false, $tab_align);
+	if (!$result) echo "****** error ****** on open table for $table<br>";
+
+	if($count_data){
+		for($data_count=0; $data_count<count($arr_content); $data_count++){
+			$REPORT_ORDER = $arr_content[$data_count][type];
+			$NAME = $arr_content[$data_count][name];
+			unset($COUNT_LEVEL);
+			for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+				$tmp_level_no = $ARR_LEVEL_NO[$i];
+				$COUNT_LEVEL[$tmp_level_no] = $arr_content[$data_count]["level_".$tmp_level_no];
+			}
+			$COUNT_TOTAL = array_sum($COUNT_LEVEL);
+			
+			if($GRAND_TOTAL) $PERCENT_TOTAL = ($COUNT_TOTAL / $GRAND_TOTAL) * 100;
+
+			$arr_data = (array) null;
+			if($REPORT_ORDER == "ORG"){
+				$arr_data[] = $NAME;
+				for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+//					$tmp_level_no = $ARR_LEVEL_NO[$i];
+					$arr_data[] = "";
+				} // end for
+				$arr_data[] = "";
+				$arr_data[] = "";
+			}elseif($REPORT_ORDER == "CONTENT"){
+				$arr_data[] = $NAME;
+				for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+					$tmp_level_no = $ARR_LEVEL_NO[$i];
+					$arr_data[] = ($COUNT_LEVEL[$tmp_level_no]?number_format($COUNT_LEVEL[$tmp_level_no]):"-");
+				} // end if
+				$arr_data[] = ($COUNT_TOTAL?number_format($COUNT_TOTAL):"-");
+				$arr_data[] = ($PERCENT_TOTAL?number_format($PERCENT_TOTAL, 2):"-");
+			} // end if
+		
+			if(array_search($REPORT_ORDER, $arr_rpt_order) !== false  && array_search($REPORT_ORDER, $arr_rpt_order) == 0)
+				$result = $RTF->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "14", "b", $fmtTableDetail_col_idx, $fmtTableDetail_bgcol_idx);
+			else
+				$result = $RTF->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "14", "", $fmtTableDetail_col_idx, $fmtTableDetail_bgcol_idx);
+			if (!$result) echo "****** error ****** add data to table at record count = $data_count <br>";
+/*
+			$border = "";
+			if(array_search($REPORT_ORDER, $arr_rpt_order) !== false  && array_search($REPORT_ORDER, $arr_rpt_order) == 0){
+				$pdf->SetFont($font,'b',14);
+				$pdf->SetTextColor(hexdec("00"),hexdec("00"),hexdec("00"));
+			}else{
+				$pdf->SetFont($font,'',14);
+				$pdf->SetTextColor(hexdec("00"),hexdec("00"),hexdec("00"));
+			} // end if
+
+			$start_x = $pdf->x;			$start_y = $pdf->y;				$max_y = $pdf->y;
+
+			if($REPORT_ORDER == "ORG"){
+				$pdf->MultiCell($heading_width[0], 7, "$NAME", $border, "L");
+				if($pdf->y > $max_y) $max_y = $pdf->y;
+				$pdf->x = $start_x + $heading_width[0];
+				$pdf->y = $start_y;
+				for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+					$tmp_level_no = $ARR_LEVEL_NO[$i];
+					$pdf->Cell($heading_width[1], 7, "", $border, 0, 'R', 0);
+					$pdf->x = $start_x + $heading_width[0] + ($heading_width[1] * $tmp_level_no);
+				} // end for
+				$pdf->Cell($heading_width[2], 7, "", $border, 0, 'R', 0);
+				$pdf->Cell($heading_width[3], 7, "", $border, 0, 'R', 0);
+			}elseif($REPORT_ORDER == "CONTENT"){
+				$pdf->MultiCell($heading_width[0], 7, "$NAME", $border, "L");
+				if($pdf->y > $max_y) $max_y = $pdf->y;
+				$pdf->x = $start_x + $heading_width[0];
+				$pdf->y = $start_y;
+				for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+					$tmp_level_no = $ARR_LEVEL_NO[$i];
+					$pdf->Cell($heading_width[1], 7, ($COUNT_LEVEL[$tmp_level_no]?number_format($COUNT_LEVEL[$tmp_level_no]):"-"), $border, 0, 'R', 0);
+					$pdf->x = $start_x + $heading_width[0] + ($heading_width[1] * $tmp_level_no);
+				} // end if
+				$pdf->Cell($heading_width[2], 7, ($COUNT_TOTAL?number_format($COUNT_TOTAL):"-"), $border, 0, 'R', 0);
+				$pdf->Cell($heading_width[3], 7, ($PERCENT_TOTAL?number_format($PERCENT_TOTAL, 2):"-"), $border, 0, 'R', 0);
+			} // end if
+
+			//================= Draw Border Line ====================
+			$line_start_y = $start_y;		$line_start_x = $start_x;
+			$line_end_y = $max_y;		$line_end_x = $start_x;
+			$pdf->Line($line_start_x, $line_start_y, $line_end_x, $line_end_y);
+			
+			for($i=0; $i<=(count($ARR_LEVEL_NO)+2); $i++){
+				if($i>=1 && $i<=count($ARR_LEVEL_NO)){
+					$line_start_y = $start_y;		$line_start_x += $heading_width[1];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[1];
+				}elseif($i > count($ARR_LEVEL_NO)){
+					$line_start_y = $start_y;		$line_start_x += $heading_width[$i - (count($ARR_LEVEL_NO)-1)];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[$i - (count($ARR_LEVEL_NO)-1)];
+				}else{
+					$line_start_y = $start_y;		$line_start_x += $heading_width[$i];
+					$line_end_y = $max_y;		$line_end_x += $heading_width[$i];
+				} // end if
+				$pdf->Line($line_start_x, $line_start_y, $line_end_x, $line_end_y);
+			} // end for
+			//====================================================
+
+			if(($pdf->h - $max_y - 10) < 15){ 
+				$pdf->Line($start_x, $max_y, $pdf->x, $max_y);
+				if($data_count < (count($arr_content) - 1)){
+					$pdf->AddPage();
+					print_header();
+					$max_y = $pdf->y;
+				} // end if
+			}else{
+				if($data_count == (count($arr_content) - 1)) $pdf->Line($start_x, $max_y, $pdf->x, $max_y);		
+			} // end if
+			$pdf->x = $start_x;			$pdf->y = $max_y;
+			*/
+		} // end for
+				
+		$PERCENT_TOTAL = ($GRAND_TOTAL / $GRAND_TOTAL) * 100;
+
+		$arr_data[] = "รวม";
+		for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+			$tmp_level_no = $ARR_LEVEL_NO[$i];
+			$arr_data[] = ($LEVEL_TOTAL[$tmp_level_no]?number_format($LEVEL_TOTAL[$tmp_level_no]):"-");
+		} // end if
+		$arr_data[] = ($GRAND_TOTAL?number_format($GRAND_TOTAL):"-");
+		$arr_data[] = ($PERCENT_TOTAL?number_format($PERCENT_TOTAL, 2):"-");
+
+		$result = $RTF->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "14", "b", $fmtTableDetail_col_idx, $fmtTableDetail_bgcol_idx);
+		if (!$result) echo "****** error ****** add data to table at record count = $data_count <br>";
+/*				
+		$border = "LTBR";
+		$pdf->SetFont($font,'b',14);
+		$pdf->SetTextColor(hexdec("00"),hexdec("00"),hexdec("00"));
+
+		$start_x = $pdf->x;			$start_y = $pdf->y;				$max_y = $pdf->y;
+
+		$pdf->MultiCell($heading_width[0], 7, "รวม", $border, "L");
+		if($pdf->y > $max_y) $max_y = $pdf->y;
+		$pdf->x = $start_x + $heading_width[0];
+		$pdf->y = $start_y;
+		for($i=0; $i<count($ARR_LEVEL_NO); $i++){ 
+			$tmp_level_no = $ARR_LEVEL_NO[$i];
+			$pdf->Cell($heading_width[1], 7, ($LEVEL_TOTAL[$tmp_level_no]?number_format($LEVEL_TOTAL[$tmp_level_no]):"-"), $border, 0, 'R', 0);
+		}
+		$pdf->Cell($heading_width[2], 7, ($GRAND_TOTAL?number_format($GRAND_TOTAL):"-"), $border, 0, 'R', 0);
+		$pdf->Cell($heading_width[3], 7, ($PERCENT_TOTAL?number_format($PERCENT_TOTAL, 2):"-"), $border, 1, 'R', 0);
+*/
+	}else{
+		$result = $RTF->add_text_line("********** ไม่มีข้อมูล **********", 7, "", "C", "", "14", "b", 0, 0);
+		if (!$result) echo "****** error ****** add text line to table at record count = $data_count <br>";
+	} // end if
+	$RTF->close_tab(); 
+//	$RTF->close_section(); 
+	
+	$RTF->display($fname);
+
+?>

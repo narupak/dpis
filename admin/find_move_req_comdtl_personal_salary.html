@@ -1,0 +1,168 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if( trim($PER_ID) ) {
+		$cmd = "	select 	a.PER_CARDNO, a.PER_BIRTHDATE, a.PER_TYPE, a.POS_ID, a.POEM_ID, a.LEVEL_NO, a.PER_SALARY,
+										b.PN_NAME, a.PER_NAME, a.PER_SURNAME
+					from 	PER_PERSONAL a
+					inner join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+					where 	a.PER_ID=$PER_ID  ";
+		$db_dpis->send_cmd($cmd);	
+//		echo $cmd;	
+		$data = $db_dpis->get_array();
+		$PER_CARDNO = trim($data[PER_CARDNO]);
+		$PER_TYPE = trim($data[PER_TYPE]);	
+		
+		$TMP_PN_NAME = $data[PN_NAME];
+		$TMP_PER_NAME = $data[PER_NAME];
+		$TMP_PER_SURNAME = $data[PER_SURNAME];
+		$TMP_PER_FULLNAME = $data[PN_NAME] . $data[PER_NAME] . " " . $data[PER_SURNAME];
+		
+		$PER_BIRTHDATE = show_date_format($data[PER_BIRTHDATE], 1);
+		$POS_ID = trim($data[POS_ID]);
+		$POEM_ID = trim($data[POEM_ID]);
+		$CMD_OLD_SALARY = trim($data[PER_SALARY]);		
+	
+		$LEVEL_NO = trim($data[LEVEL_NO]);
+	  	$cmd = " select LEVEL_NAME from PER_LEVEL where LEVEL_NO = '$LEVEL_NO' ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();					
+		$LEVEL_NAME = trim($data[LEVEL_NAME]);		
+		if ($LEVEL_NO) {
+			$cmd = " select LEVEL_NO, LEVEL_NAME from PER_LEVEL where LEVEL_NO < '$LEVEL_NO' order by LEVEL_NO desc ";
+			$db_dpis1->send_cmd($cmd);
+			$data1 = $db_dpis1->get_array();
+			$LEVEL_NO_prev = trim($data1[LEVEL_NO]);
+			$LEVEL_NAME_prev = trim($data1[LEVEL_NAME]);	
+		}
+				
+		if ($PER_TYPE == 1) {
+			$cmd = "	select	POS_NO, a.PL_CODE, PL_NAME, ORG_ID, ORG_ID_1, ORG_ID_2 
+							from		PER_POSITION a, PER_LINE b 
+							where	POS_ID=$POS_ID and a.PL_CODE=b.PL_CODE ";
+							
+		} elseif ($PER_TYPE == 2) {
+			$cmd = "	select	POEM_NO, a.PN_CODE, PN_NAME, ORG_ID, ORG_ID_1, ORG_ID_2 
+							from		PER_POS_EMP a, PER_POS_NAME b 
+							where	POEM_ID=$POEM_ID and a.PN_CODE=b.PN_CODE";
+		}
+		$db_dpis->send_cmd($cmd);		
+		$data = $db_dpis->get_array();
+		$CMD_POSITION 			= ($PER_TYPE == 1)? 		trim($data[PL_NAME]) : trim($data[PN_NAME]);
+		$CMD_POSPOEM_NO 	= ($PER_TYPE == 1)?		trim($data[POS_NO]) : trim($data[POEM_NO]);
+		$POS_POEM_ID 	= ($PER_TYPE == 1)?		trim($data[POS_ID]) : trim($data[POEM_ID]);
+		$POS_POEM_NO 	= ($PER_TYPE == 1)?		trim($data[POS_NO]) : trim($data[POEM_NO]);
+		$PL_PN_CODE_ASSIGN 			= ($PER_TYPE == 1)? 		trim($data[PL_CODE]) : trim($data[PN_CODE]);
+		$PL_PN_NAME_ASSIGN 			= ($PER_TYPE == 1)? 		trim($data[PL_NAME]) : trim($data[PN_NAME]);
+		$POS_ORG_ID = trim($data[ORG_ID]);
+		$POS_ORG_ID_1 = trim($data[ORG_ID_1]);
+		$POS_ORG_ID_2 = trim($data[ORG_ID_2]);	
+		
+		if ($POS_ORG_ID)			$tmp_ORG_ID[] =  $POS_ORG_ID;
+		if ($POS_ORG_ID_1)		$tmp_ORG_ID[] =  $POS_ORG_ID_1;
+		if ($POS_ORG_ID_2)		$tmp_ORG_ID[] =  $POS_ORG_ID_2;
+		$search_org_id = implode(", ", $tmp_ORG_ID);
+		
+		$cmd = " select ORG_ID, ORG_NAME from PER_ORG 	where ORG_ID in ($search_org_id) ";
+		$db_dpis->send_cmd($cmd);		
+		while ( $data = $db_dpis->get_array() ) {
+			$ORG_NAME = ($POS_ORG_ID == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME ;
+			$ORG_NAME_1 = ($POS_ORG_ID_1 == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_1 ;
+			$ORG_NAME_2 = ($POS_ORG_ID_2 == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_2 ;						
+		}
+	}
+	
+	$cmd = "select LEVEL_NAME from PER_LEVEL where LEVEL_NO='$LEVEL_NO'";
+	$db_dpis->send_cmd($cmd);
+	$Level = $db_dpis->get_array();
+	$LEVEL_NAME=$Level[LEVEL_NAME];
+?>
+<script>
+	parent.document.form1.PER_TYPE.value = '<?=$PER_TYPE?>';
+	//parent.document.form1.PER_ID.value = '<?=$PER_ID?>';
+	<?
+	if(trim($PER_ID) && trim($LEVEL_NAME) && trim($LEVEL_NO)){ //มีค่า PER_ID และ LEVEL
+			if(trim($FOR) && $FOR=='POS_OLD'){ //เดิม 	
+	?>
+					parent.document.form1.PER_NAME.value = '<?=$TMP_PER_FULLNAME?>';
+					parent.document.form1.PER_CARDNO.value = '<?=$PER_CARDNO?>';
+					parent.document.form1.PER_BIRTHDATE.value = '<?=$PER_BIRTHDATE?>';
+					parent.document.form1.CMD_POSITION.value = '<?=$CMD_POSITION?>';
+					parent.document.form1.CMD_POSPOEM_NO.value = '<?=$CMD_POSPOEM_NO?>';	
+					
+					parent.document.form1.CMD_OLD_SALARY.value = '<?=$CMD_OLD_SALARY?>';
+					parent.document.form1.CMD_ORG3.value = '<?=$ORG_NAME?>';
+					parent.document.form1.CMD_ORG4.value = '<?=$ORG_NAME_1?>';
+					parent.document.form1.CMD_ORG5.value = '<?=$ORG_NAME_2?>';
+					
+					//เปิด ZZZ = text input
+					parent.document.getElementById("ZZZ").style.display = "block";
+					parent.document.getElementById("ZZZ").style.visibility = "visible";
+					parent.document.getElementById("ZZZ").value = '<?=$LEVEL_NAME?>';	
+					parent.document.form1.CMD_LEVEL2.value = '<?=$LEVEL_NAME?>';		//เดิม
+					parent.document.form1.CMD_LEVEL.value = '<?=$LEVEL_NO?>';	
+					parent.document.form1.CMD_LEVEL_full.value = '<?=$LEVEL_NO?>';
+					//ปิด AAA = select
+					parent.document.getElementById("AAA").style.display = "none";
+					parent.document.getElementById("AAA").style.visibility = "hidden";
+<?				
+			}else{	//ใหม่
+?>
+					//parent.document.form1.POS_POEM_NO.value = '<?=$POS_POEM_NO?>';	
+					//parent.document.form1.CMD_SALARY.value = '<?=$CMD_OLD_SALARY?>';	
+					//เปิด ZZZ = text input
+					parent.document.getElementById("ZZZ1").style.display = "block";
+					parent.document.getElementById("ZZZ1").style.visibility = "visible";
+					parent.document.getElementById("ZZZ1").value = '<?=$LEVEL_NAME?>';	
+					parent.document.form1.LEVEL_NO.value = '<?=$LEVEL_NAME?>';	//ใหม่
+					parent.document.form1.LEVEL_NO2.value = '<?=$LEVEL_NO?>';	
+					parent.document.form1.LEVEL_NO_full.value = '<?=$LEVEL_NO?>';
+					//ปิด AAA = select
+					parent.document.getElementById("AAA1").style.display = "none";
+					parent.document.getElementById("AAA1").style.visibility = "hidden";
+<?				
+			}
+	}else{	//ไม่มีค่า PER_ID/LEVEL
+		if(trim($FOR) && $FOR=='POS_OLD'){ //เดิม 
+?>
+			//เปิด AAA = select เพื่อให้เลือก
+			parent.document.getElementById("AAA").style.display = "block";
+			parent.document.getElementById("AAA").style.visibility = "visible";
+			//ปิด ZZZ = text input
+			parent.document.getElementById("ZZZ").style.display = "none";
+			parent.document.getElementById("ZZZ").style.visibility = "hidden";
+<?	
+		}else{	//ใหม่
+?>
+			//เปิด AAA = select  เพื่อให้เลือก
+			parent.document.getElementById("AAA1").style.display = "block";
+			parent.document.getElementById("AAA1").style.visibility = "visible";
+			//ปิด ZZZ = text input
+			parent.document.getElementById("ZZZ1").style.display = "none";
+			parent.document.getElementById("ZZZ1").style.visibility = "hidden";
+<?	
+		}
+	} //end else
+?>
+	//parent.document.form1.PL_PN_CODE_ASSIGN.value = '<?=$PL_PN_CODE_ASSIGN?>';
+	//parent.document.form1.PL_PN_NAME_ASSIGN.value = '<?=$PL_PN_NAME_ASSIGN?>';
+
+/*	<? if(! trim($flgLEVEL) ) { ?>
+	<? if (trim($LEVEL_NO_prev)) { ?>
+		parent.document.form1.LEVEL_NO.options.length = 0;
+		parent.document.form1.LEVEL_NO.options[0] = new Option("== Level ==","");	
+		parent.document.form1.LEVEL_NO.options[1] = new Option("<?=$LEVEL_NAME_prev?>","<?=$LEVEL_NO_prev?>");
+		parent.document.form1.LEVEL_NO.options[2] = new Option("<?=$LEVEL_NAME?>","<?=$LEVEL_NO?>");	
+		parent.document.form1.LEVEL_NO.selectedIndex = 2;
+	<? } elseif (!trim($LEVEL_NO_prev)) { ?>
+		parent.document.form1.LEVEL_NO.options.length = 0;
+		parent.document.form1.LEVEL_NO.options[0] = new Option("== Level ==","");	
+		parent.document.form1.LEVEL_NO.options[1] = new Option("<?=$LEVEL_NO_show?>","<?=$LEVEL_NO?>");	
+		parent.document.form1.LEVEL_NO.selectedIndex = 1;
+	<? } ?>
+	<? } ?> */
+	parent.document.form1.CMD_SALARY.readOnly = true;	
+</script>

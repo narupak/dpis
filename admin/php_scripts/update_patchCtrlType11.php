@@ -1,0 +1,477 @@
+<?php
+$cmd = " SELECT NC_ID FROM PER_NAMECARD ";
+			$count_data = $db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+			if (!$count_data) {
+				if($DPISDB=="odbc") 
+					$cmd = " CREATE TABLE PER_NAMECARD(
+					NC_ID INTEGER NOT NULL,
+					NC_NAME VARCHAR(100) NOT NULL,
+					NC_UNIT VARCHAR(2) NOT NULL,	
+					NC_W INTEGER2 NULL,
+					NC_H INTEGER2 NULL,
+					NC_FORM MEMO NOT NULL,
+					UPDATE_USER INTEGER NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_NAMECARD PRIMARY KEY (NC_ID)) ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " CREATE TABLE PER_NAMECARD(
+					NC_ID NUMBER(10) NOT NULL,
+					NC_NAME VARCHAR2(100) NOT NULL,
+					NC_UNIT VARCHAR2(2) NOT NULL,	
+					NC_W NUMBER(5) NULL,
+					NC_H NUMBER(5) NULL,
+					NC_FORM VARCHAR2(4000) NOT NULL,
+					UPDATE_USER NUMBER(11) NOT NULL,
+					UPDATE_DATE VARCHAR2(19) NOT NULL,		
+					CONSTRAINT PK_PER_NAMECARD PRIMARY KEY (NC_ID)) ";
+				elseif($DPISDB=="mysql")
+					$cmd = " CREATE TABLE PER_NAMECARD(
+					NC_ID INTEGER(10) NOT NULL,
+					NC_NAME VARCHAR(100) NOT NULL,
+					NC_UNIT VARCHAR(2) NOT NULL,	
+					NC_W SMALLINT(5) NULL,
+					NC_H SMALLINT(5) NULL,
+					NC_FORM TEXT NOT NULL,
+					UPDATE_USER INTEGER(11) NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_NAMECARD PRIMARY KEY (NC_ID)) ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				$cmd = " INSERT INTO PER_NAMECARD (NC_ID, NC_NAME, NC_UNIT, NC_W, NC_H, NC_FORM, UPDATE_USER, UPDATE_DATE)
+								VALUES (1, 'นามบัตรแบบที่ 1', 'mm', 89, 55, 'variable,pername1,2,3,30,angsa,,16,L,45,3D,AB,|variable,perposline,2,9,30,angsa,,12,L,88,83,F3,|variable,org,2,14,30,angsa,,12,L,EC,5D,5D,|image,images/top_left_new.jpg,69,1,18,18|variable,allphone,2,45,86,angsa,,10,C,FA,05,05,|variable,email,2,49,86,angsa,,10,C,16,0C,EA,|rect,box1,1,1,88,54,F8,A5,F1,.1,|variable,address2,2,41,86,angsa,,10,C,00,00,00,', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				$cmd = " INSERT INTO PER_NAMECARD (NC_ID, NC_NAME, NC_UNIT, NC_W, NC_H, NC_FORM, UPDATE_USER, UPDATE_DATE)
+								VALUES (2, 'นามบัตรแบบที่ 2', 'mm', 89, 55, 'variable,pername1,45,2,43,angsa,,16,R,00,00,00,|variable,perposline,45,8,43,angsa,,11,R,00,00,00,|variable,org,45,13,43,angsa,,10,R,00,00,00,|image,images/top_left_new.jpg,2,2,16,16|variable,address2,58,41,30,angsa,,11,R,00,00,00,lines|text,Office :,2,41,10,angsa,,11,L,7C,7C,E9|variable,officephone,10,41,30,angsa,,11,L,07,07,91,|text,Mobile :,2,45,30,angsa,,11,L,7C,7C,E9|variable,mobilephone,10,45,30,angsa,,11,L,07,07,91,|text,Email :,2,49,30,angsa,,11,L,7C,7C,E9|variable,email,10,49,30,angsa,,11,L,07,07,91,', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				$cmd = " INSERT INTO PER_NAMECARD (NC_ID, NC_NAME, NC_UNIT, NC_W, NC_H, NC_FORM, UPDATE_USER, UPDATE_DATE)
+								VALUES (3, 'นามบัตรแบบที่ 3', 'mm', 89, 55, 'variable,pername1,2,5,30,angsa,,14,L,00,00,00,|image,images/top_left_new.jpg,73,2,15,15|variable,org,50,17,38,angsa,,12,R,06,B8,99,|variable,address2,2,40,35,angsa,,12,L,00,00,00,lines|variable,allphone,50,50,38,angsa,,10,R,66,8B,36,|variable,email,50,46,38,angsa,,12,R,16,67,06,|variable,perposline,2,10,30,angsa,,12,L,16,67,06,|line,line1,2,10,70,10,F8,AA,AA,.1|rect,box1,10,20,35,32,5C,F6,6E,0,|rect,box2,27,28,65,37,CA,F0,18,0,', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				$cmd = " INSERT INTO PER_NAMECARD (NC_ID, NC_NAME, NC_UNIT, NC_W, NC_H, NC_FORM, UPDATE_USER, UPDATE_DATE)
+								VALUES (4, 'นามบัตรแบบที่ 4', 'mm', 89, 55, 'variable,pername1,17,4,30,angsa,,16,L,00,00,00,|image,images/top_left_new.jpg,2,2,15,15|variable,perposline,17,10,40,angsa,,12,L,00,00,00,|variable,org,48,38,40,angsa,,11,R,00,00,00,|variable,email,48,42,40,angsa,,11,R,00,00,00,|variable,allphone,48,46,40,angsa,,11,R,00,00,00,|variable,address2,48,50,40,angsa,,11,R,00,00,00,', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				$cmd = " INSERT INTO PER_NAMECARD (NC_ID, NC_NAME, NC_UNIT, NC_W, NC_H, NC_FORM, UPDATE_USER, UPDATE_DATE)
+								VALUES (5, 'นามบัตรแบบที่ 5', 'mm', 89, 55, 'variable,pername1,2,22,87,angsa,,16,C,00,00,00,|variable,perposline,2,27,87,angsa,,12,C,00,00,00,|variable,org,48,7,40,angsa,,12,R,00,00,00,|image,images/top_left_new.jpg,2,2,12,12|text,สำนักงาน ก.พ.,48,3,40,angsa,,12,R,00,00,00|variable,address2,2,45,87,angsa,,11,C,00,00,00,|variable,allphone,2,49,87,angsa,,11,C,00,00,00,|variable,email,2,31,87,angsa,,11,C,00,00,00,|rect,box1,2,44,87,53,FE,E4,89,0,', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+
+				if($DPISDB=="odbc") 
+					$cmd = " CREATE TABLE PER_PERSONAL_NAMECARD(
+					PER_ID INTEGER NOT NULL,
+					NC_ID INTEGER NOT NULL,
+					NC_PER_FORM MEMO NOT NULL,
+					UPDATE_USER INTEGER NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_PERSONAL_NAMECARD PRIMARY KEY (PER_ID, NC_ID)) ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " CREATE TABLE PER_PERSONAL_NAMECARD(
+					PER_ID NUMBER(10) NOT NULL,
+					NC_ID NUMBER(10) NOT NULL,
+					NC_PER_FORM VARCHAR2(4000) NOT NULL,
+					UPDATE_USER NUMBER(11) NOT NULL,
+					UPDATE_DATE VARCHAR2(19) NOT NULL,		
+					CONSTRAINT PK_PER_PERSONAL_NAMECARD PRIMARY KEY (PER_ID, NC_ID)) ";
+				elseif($DPISDB=="mysql")
+					$cmd = " CREATE TABLE PER_PERSONAL_NAMECARD(
+					PER_ID INTEGER(10) NOT NULL,
+					NC_ID INTEGER(10) NOT NULL,
+					NC_PER_FORM TEXT NOT NULL,
+					UPDATE_USER INTEGER(11) NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_PERSONAL_NAMECARD PRIMARY KEY (PER_ID, NC_ID)) ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+			}
+
+			$cmd = " CREATE INDEX IDX_PER_FAMILY ON PER_FAMILY (PER_ID, FML_TYPE) ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+
+			$cmd = " SELECT max(FML_ID) as MAX_ID FROM PER_FAMILY ";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$MAX_ID = $data[MAX_ID] + 1;
+
+			$cmd = " SELECT PER_ID, PN_CODE_F, PER_FATHERNAME, PER_FATHERSURNAME, 
+							PN_CODE_M, PER_MOTHERNAME, PER_MOTHERSURNAME  
+							FROM PER_PERSONAL ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+			while($data = $db_dpis->get_array()){
+				$PER_ID = $data[PER_ID];
+				$PN_CODE_F = trim($data[PN_CODE_F]);
+				$PER_FATHERNAME = trim($data[PER_FATHERNAME]);
+				$PER_FATHERSURNAME = trim($data[PER_FATHERSURNAME]);
+				$PN_CODE_M = trim($data[PN_CODE_M]);
+				$PER_MOTHERNAME = trim($data[PER_MOTHERNAME]);
+				$PER_MOTHERSURNAME = trim($data[PER_MOTHERSURNAME]);
+
+				$cmd = " SELECT FML_ID FROM PER_FAMILY WHERE PER_ID = $PER_ID AND FML_TYPE = 1 ";
+				$count_data = $db_dpis1->send_cmd($cmd);
+				//$db_dpis1->show_error();
+				if (!$count_data && $PER_FATHERNAME) {
+					$cmd = " INSERT INTO PER_FAMILY (FML_ID, PER_ID, FML_TYPE, PN_CODE, FML_NAME, FML_SURNAME, 
+									FML_GENDER, FML_ALIVE, RE_CODE, MR_CODE, UPDATE_USER, UPDATE_DATE) 
+									VALUES ($MAX_ID, $PER_ID, 1, '$PN_CODE_F', '$PER_FATHERNAME', '$PER_FATHERSURNAME', 
+									1, 1, '00', 2, $SESS_USERID, '$UPDATE_DATE') ";
+					$db_dpis1->send_cmd($cmd);
+					//$db_dpis1->show_error();
+					$MAX_ID++;
+				} // end if
+
+				$cmd = " SELECT FML_ID FROM PER_FAMILY WHERE PER_ID = $PER_ID AND FML_TYPE = 2 ";
+				$count_data = $db_dpis1->send_cmd($cmd);
+				//$db_dpis1->show_error();
+				if (!$count_data && $PER_MOTHERNAME) {
+					$cmd = " INSERT INTO PER_FAMILY (FML_ID, PER_ID, FML_TYPE, PN_CODE, FML_NAME, FML_SURNAME, 
+									FML_GENDER, FML_ALIVE, RE_CODE, MR_CODE, UPDATE_USER, UPDATE_DATE) 
+									VALUES ($MAX_ID, $PER_ID, 2, '$PN_CODE_M', '$PER_MOTHERNAME', '$PER_MOTHERSURNAME', 
+									2, 1, '00', 2, $SESS_USERID, '$UPDATE_DATE') ";
+					$db_dpis1->send_cmd($cmd);
+					//$db_dpis1->show_error();
+					$MAX_ID++;
+				} // end if
+			} // end while
+
+			if($DPISDB=="odbc") 
+				$cmd = " ALTER TABLE PER_HEIR ALTER HEIR_BIRTHDAY NULL ";
+			elseif($DPISDB=="oci8") 
+				$cmd = " ALTER TABLE PER_HEIR MODIFY HEIR_BIRTHDAY NULL ";
+			elseif($DPISDB=="mysql") 
+				$cmd = " ALTER TABLE PER_HEIR MODIFY HEIR_BIRTHDAY NULL ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+
+			$cmd = " ALTER TABLE PER_SERVICEHIS DROP CONSTRAINT FK6_PER_SERVICEHIS ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+
+			if($DPISDB=="odbc") 
+				$cmd = " ALTER TABLE PER_COMMAND ALTER COM_NO VARCHAR(200) ";
+			elseif($DPISDB=="oci8") 
+				$cmd = " ALTER TABLE PER_COMMAND MODIFY COM_NO VARCHAR2(200) ";
+			elseif($DPISDB=="mysql")
+				$cmd = " ALTER TABLE PER_COMMAND MODIFY COM_NO VARCHAR(200) ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+
+			$cmd = " SELECT PV_CODE, PV_NAME FROM PER_PROVINCE WHERE PV_ACTIVE = 1 ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+			while ( $data = $db_dpis->get_array() ) {
+				$PV_CODE = trim($data[PV_CODE]);
+				$PV_NAME = trim($data[PV_NAME]);
+
+				$cmd = " SELECT ORG_ID FROM PER_ORG WHERE ORG_NAME LIKE '%$PV_NAME%' AND PV_CODE IS NULL ";
+				$db_dpis1->send_cmd($cmd);
+				//$db_dpis1->show_error();
+				while ( $data1 = $db_dpis1->get_array() ) {
+					$data1 = $db_dpis1->get_array();
+					$ORG_ID = $data1[ORG_ID];
+					$cmd = " UPDATE PER_ORG SET PV_CODE = '$PV_CODE' WHERE ORG_ID = $ORG_ID OR ORG_ID_REF = $ORG_ID ";
+					$db_dpis2->send_cmd($cmd);
+				} // end while
+
+				$cmd = " SELECT ORG_ID FROM PER_ORG_ASS WHERE ORG_NAME LIKE '%$PV_NAME%' AND PV_CODE IS NULL ";
+				$db_dpis1->send_cmd($cmd);
+				//$db_dpis1->show_error();
+				while ( $data1 = $db_dpis1->get_array() ) {
+					$data1 = $db_dpis1->get_array();
+					$ORG_ID = $data1[ORG_ID];
+					$cmd = " UPDATE PER_ORG_ASS SET PV_CODE = '$PV_CODE' WHERE ORG_ID = $ORG_ID OR ORG_ID_REF = $ORG_ID ";
+					$db_dpis2->send_cmd($cmd);
+				} // end while
+			} // end while
+
+			$cmd = " SELECT SLIP_ID FROM PER_SLIP ";
+			$count_data = $db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+			if (!$count_data) {
+				if($DPISDB=="odbc") 
+					$cmd = " CREATE TABLE PER_SLIP(
+					SLIP_ID INTEGER NOT NULL,
+					PER_ID INTEGER NULL,
+					SLIP_YEAR VARCHAR(4) NOT NULL,
+					SLIP_MONTH VARCHAR(2) NOT NULL,	
+					PER_CARDNO VARCHAR(13) NOT NULL,
+					PN_NAME VARCHAR(50) NULL,	
+					PER_NAME VARCHAR(30) NULL,	
+					PER_SURNAME VARCHAR(40) NULL,	
+					DEPARTMENT_NAME VARCHAR(80) NULL,	
+					ORG_NAME VARCHAR(80) NULL,	
+					BANK_CODE VARCHAR(10) NULL,	
+					BANK_NAME VARCHAR(50) NULL,	
+					BRANCH_CODE VARCHAR(4) NULL,	
+					BRANCH_NAME VARCHAR(50) NULL,	
+					PER_BANK_ACCOUNT VARCHAR(15) NULL,	
+					INCOME_01 NUMBER NULL,
+					INCOME_02 NUMBER NULL,
+					INCOME_03 NUMBER NULL,
+					INCOME_04 NUMBER NULL,
+					INCOME_05 NUMBER NULL,
+					INCOME_06 NUMBER NULL,
+					INCOME_07 NUMBER NULL,
+					INCOME_08 NUMBER NULL,
+					INCOME_09 NUMBER NULL,
+					INCOME_10 NUMBER NULL,
+					INCOME_11 NUMBER NULL,
+					INCOME_12 NUMBER NULL,
+					INCOME_13 NUMBER NULL,
+					INCOME_14 NUMBER NULL,
+					INCOME_15 NUMBER NULL,
+					INCOME_16 NUMBER NULL,
+					INCOME_17 NUMBER NULL,
+					INCOME_18 NUMBER NULL,
+					INCOME_19 NUMBER NULL,
+					INCOME_20 NUMBER NULL,
+					INCOME_NAME_01 VARCHAR(20) NULL,	
+					EXTRA_INCOME_01 NUMBER NULL,
+					INCOME_NAME_02 VARCHAR(20) NULL,	
+					EXTRA_INCOME_02 NUMBER NULL,
+					INCOME_NAME_03 VARCHAR(20) NULL,	
+					EXTRA_INCOME_03 NUMBER NULL,
+					INCOME_NAME_04 VARCHAR(20) NULL,	
+					EXTRA_INCOME_04 NUMBER NULL,
+					OTHER_INCOME NUMBER NULL,
+					TOTAL_INCOME NUMBER NULL,
+					DEDUCT_01 NUMBER NULL,
+					DEDUCT_02 NUMBER NULL,
+					DEDUCT_03 NUMBER NULL,
+					DEDUCT_04 NUMBER NULL,
+					DEDUCT_05 NUMBER NULL,
+					DEDUCT_06 NUMBER NULL,
+					DEDUCT_07 NUMBER NULL,
+					DEDUCT_08 NUMBER NULL,
+					DEDUCT_09 NUMBER NULL,
+					DEDUCT_10 NUMBER NULL,
+					DEDUCT_11 NUMBER NULL,
+					DEDUCT_12 NUMBER NULL,
+					DEDUCT_13 NUMBER NULL,
+					DEDUCT_14 NUMBER NULL,
+					DEDUCT_15 NUMBER NULL,
+					DEDUCT_16 NUMBER NULL,
+					DEDUCT_NAME_01 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_01 NUMBER NULL,
+					DEDUCT_NAME_02 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_02 NUMBER NULL,
+					DEDUCT_NAME_03 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_03 NUMBER NULL,
+					DEDUCT_NAME_04 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_04 NUMBER NULL,
+					DEDUCT_NAME_05 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_05 NUMBER NULL,
+					DEDUCT_NAME_06 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_06 NUMBER NULL,
+					DEDUCT_NAME_07 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_07 NUMBER NULL,
+					DEDUCT_NAME_08 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_08 NUMBER NULL,
+					OTHER_DEDUCT NUMBER NULL,
+					TOTAL_DEDUCT NUMBER NULL,
+					NET_INCOME NUMBER NULL,
+					APPROVE_DATE VARCHAR(19) NULL,		
+					UPDATE_USER INTEGER NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_SLIP PRIMARY KEY (SLIP_ID)) ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " CREATE TABLE PER_SLIP(
+					SLIP_ID NUMBER(10) NOT NULL,
+					PER_ID NUMBER(10) NULL,
+					SLIP_YEAR VARCHAR2(4) NOT NULL,
+					SLIP_MONTH VARCHAR2(2) NOT NULL,	
+					PER_CARDNO VARCHAR2(13) NOT NULL,
+					PN_NAME VARCHAR2(50) NULL,	
+					PER_NAME VARCHAR2(30) NULL,	
+					PER_SURNAME VARCHAR2(40) NULL,	
+					DEPARTMENT_NAME VARCHAR2(80) NULL,	
+					ORG_NAME VARCHAR2(80) NULL,	
+					BANK_CODE VARCHAR2(10) NULL,	
+					BANK_NAME VARCHAR2(50) NULL,	
+					BRANCH_CODE VARCHAR2(4) NULL,	
+					BRANCH_NAME VARCHAR2(50) NULL,	
+					PER_BANK_ACCOUNT VARCHAR2(15) NULL,	
+					INCOME_01 NUMBER(8,2) NULL,
+					INCOME_02 NUMBER(8,2) NULL,
+					INCOME_03 NUMBER(8,2) NULL,
+					INCOME_04 NUMBER(8,2) NULL,
+					INCOME_05 NUMBER(8,2) NULL,
+					INCOME_06 NUMBER(8,2) NULL,
+					INCOME_07 NUMBER(8,2) NULL,
+					INCOME_08 NUMBER(8,2) NULL,
+					INCOME_09 NUMBER(8,2) NULL,
+					INCOME_10 NUMBER(8,2) NULL,
+					INCOME_11 NUMBER(8,2) NULL,
+					INCOME_12 NUMBER(8,2) NULL,
+					INCOME_13 NUMBER(8,2) NULL,
+					INCOME_14 NUMBER(8,2) NULL,
+					INCOME_15 NUMBER(8,2) NULL,
+					INCOME_16 NUMBER(8,2) NULL,
+					INCOME_17 NUMBER(8,2) NULL,
+					INCOME_18 NUMBER(8,2) NULL,
+					INCOME_19 NUMBER(8,2) NULL,
+					INCOME_20 NUMBER(8,2) NULL,
+					INCOME_NAME_01 VARCHAR2(20) NULL,	
+					EXTRA_INCOME_01 NUMBER(8,2) NULL,
+					INCOME_NAME_02 VARCHAR2(20) NULL,	
+					EXTRA_INCOME_02 NUMBER(8,2) NULL,
+					INCOME_NAME_03 VARCHAR2(20) NULL,	
+					EXTRA_INCOME_03 NUMBER(8,2) NULL,
+					INCOME_NAME_04 VARCHAR2(20) NULL,	
+					EXTRA_INCOME_04 NUMBER(8,2) NULL,
+					OTHER_INCOME NUMBER(8,2) NULL,
+					TOTAL_INCOME NUMBER(10,2) NULL,
+					DEDUCT_01 NUMBER(8,2) NULL,
+					DEDUCT_02 NUMBER(8,2) NULL,
+					DEDUCT_03 NUMBER(8,2) NULL,
+					DEDUCT_04 NUMBER(8,2) NULL,
+					DEDUCT_05 NUMBER(8,2) NULL,
+					DEDUCT_06 NUMBER(8,2) NULL,
+					DEDUCT_07 NUMBER(8,2) NULL,
+					DEDUCT_08 NUMBER(8,2) NULL,
+					DEDUCT_09 NUMBER(8,2) NULL,
+					DEDUCT_10 NUMBER(8,2) NULL,
+					DEDUCT_11 NUMBER(8,2) NULL,
+					DEDUCT_12 NUMBER(8,2) NULL,
+					DEDUCT_13 NUMBER(8,2) NULL,
+					DEDUCT_14 NUMBER(8,2) NULL,
+					DEDUCT_15 NUMBER(8,2) NULL,
+					DEDUCT_16 NUMBER(8,2) NULL,
+					DEDUCT_NAME_01 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_01 NUMBER(8,2) NULL,
+					DEDUCT_NAME_02 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_02 NUMBER(8,2) NULL,
+					DEDUCT_NAME_03 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_03 NUMBER(8,2) NULL,
+					DEDUCT_NAME_04 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_04 NUMBER(8,2) NULL,
+					DEDUCT_NAME_05 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_05 NUMBER(8,2) NULL,
+					DEDUCT_NAME_06 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_06 NUMBER(8,2) NULL,
+					DEDUCT_NAME_07 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_07 NUMBER(8,2) NULL,
+					DEDUCT_NAME_08 VARCHAR2(20) NULL,	
+					EXTRA_DEDUCT_08 NUMBER(8,2) NULL,
+					OTHER_DEDUCT NUMBER(8,2) NULL,
+					TOTAL_DEDUCT NUMBER(10,2) NULL,
+					NET_INCOME NUMBER(10,2) NULL,
+					APPROVE_DATE VARCHAR2(19) NULL,		
+					UPDATE_USER NUMBER(11) NOT NULL,
+					UPDATE_DATE VARCHAR2(19) NOT NULL,		
+					CONSTRAINT PK_PER_SLIP PRIMARY KEY (SLIP_ID)) ";
+				elseif($DPISDB=="mysql")
+					$cmd = " CREATE TABLE PER_SLIP(
+					SLIP_ID INTEGER(10) NOT NULL,
+					PER_ID INTEGER(10) NULL,
+					SLIP_YEAR VARCHAR(4) NOT NULL,
+					SLIP_MONTH VARCHAR(2) NOT NULL,	
+					PER_CARDNO VARCHAR(13) NOT NULL,
+					PN_NAME VARCHAR(50) NULL,	
+					PER_NAME VARCHAR(30) NULL,	
+					PER_SURNAME VARCHAR(40) NULL,	
+					DEPARTMENT_NAME VARCHAR(80) NULL,	
+					ORG_NAME VARCHAR(80) NULL,	
+					BANK_CODE VARCHAR(10) NULL,	
+					BANK_NAME VARCHAR(50) NULL,	
+					BRANCH_CODE VARCHAR(4) NULL,	
+					BRANCH_NAME VARCHAR(50) NULL,	
+					PER_BANK_ACCOUNT VARCHAR(15) NULL,	
+					INCOME_01 DECIMAL(8,2) NULL,
+					INCOME_02 DECIMAL(8,2) NULL,
+					INCOME_03 DECIMAL(8,2) NULL,
+					INCOME_04 DECIMAL(8,2) NULL,
+					INCOME_05 DECIMAL(8,2) NULL,
+					INCOME_06 DECIMAL(8,2) NULL,
+					INCOME_07 DECIMAL(8,2) NULL,
+					INCOME_08 DECIMAL(8,2) NULL,
+					INCOME_09 DECIMAL(8,2) NULL,
+					INCOME_10 DECIMAL(8,2) NULL,
+					INCOME_11 DECIMAL(8,2) NULL,
+					INCOME_12 DECIMAL(8,2) NULL,
+					INCOME_13 DECIMAL(8,2) NULL,
+					INCOME_14 DECIMAL(8,2) NULL,
+					INCOME_15 DECIMAL(8,2) NULL,
+					INCOME_16 DECIMAL(8,2) NULL,
+					INCOME_17 DECIMAL(8,2) NULL,
+					INCOME_18 DECIMAL(8,2) NULL,
+					INCOME_19 DECIMAL(8,2) NULL,
+					INCOME_20 DECIMAL(8,2) NULL,
+					INCOME_NAME_01 VARCHAR(20) NULL,	
+					EXTRA_INCOME_01 DECIMAL(8,2) NULL,
+					INCOME_NAME_02 VARCHAR(20) NULL,	
+					EXTRA_INCOME_02 DECIMAL(8,2) NULL,
+					INCOME_NAME_03 VARCHAR(20) NULL,	
+					EXTRA_INCOME_03 DECIMAL(8,2) NULL,
+					INCOME_NAME_04 VARCHAR(20) NULL,	
+					EXTRA_INCOME_04 DECIMAL(8,2) NULL,
+					OTHER_INCOME DECIMAL(8,2) NULL,
+					TOTAL_INCOME DECIMAL(10,2) NULL,
+					DEDUCT_01 DECIMAL(8,2) NULL,
+					DEDUCT_02 DECIMAL(8,2) NULL,
+					DEDUCT_03 DECIMAL(8,2) NULL,
+					DEDUCT_04 DECIMAL(8,2) NULL,
+					DEDUCT_05 DECIMAL(8,2) NULL,
+					DEDUCT_06 DECIMAL(8,2) NULL,
+					DEDUCT_07 DECIMAL(8,2) NULL,
+					DEDUCT_08 DECIMAL(8,2) NULL,
+					DEDUCT_09 DECIMAL(8,2) NULL,
+					DEDUCT_10 DECIMAL(8,2) NULL,
+					DEDUCT_11 DECIMAL(8,2) NULL,
+					DEDUCT_12 DECIMAL(8,2) NULL,
+					DEDUCT_13 DECIMAL(8,2) NULL,
+					DEDUCT_14 DECIMAL(8,2) NULL,
+					DEDUCT_15 DECIMAL(8,2) NULL,
+					DEDUCT_16 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_01 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_01 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_02 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_02 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_03 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_03 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_04 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_04 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_05 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_05 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_06 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_06 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_07 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_07 DECIMAL(8,2) NULL,
+					DEDUCT_NAME_08 VARCHAR(20) NULL,	
+					EXTRA_DEDUCT_08 DECIMAL(8,2) NULL,
+					OTHER_DEDUCT DECIMAL(8,2) NULL,
+					TOTAL_DEDUCT DECIMAL(10,2) NULL,
+					NET_INCOME DECIMAL(10,2) NULL,
+					APPROVE_DATE VARCHAR(19) NULL,		
+					UPDATE_USER INTEGER(11) NOT NULL,
+					UPDATE_DATE VARCHAR(19) NOT NULL,		
+					CONSTRAINT PK_PER_SLIP PRIMARY KEY (SLIP_ID)) ";
+				$db_dpis->send_cmd($cmd);
+				//$db_dpis->show_error();
+			}
+
+			add_field("PER_REQ1_DTL1", "LEVEL_NO","VARCHAR", "10", "NULL");
+			add_field("PER_REQ2_DTL", "LEVEL_NO","VARCHAR", "10", "NULL");
+			add_field("PER_REQ3_DTL", "LEVEL_NO","VARCHAR", "10", "NULL");
+			add_field("PER_PERSONAL", "POT_ID","INTEGER", "10", "NULL");
+			add_field("PER_COMDTL", "POT_ID","INTEGER", "10", "NULL");
+			add_field("PER_COMDTL", "TP_CODE","VARCHAR", "10", "NULL");
+			add_field("PER_COMDTL", "TP_CODE_ASSIGN","VARCHAR", "10", "NULL");
+			add_field("PER_POSITIONHIS", "TP_CODE","VARCHAR", "10", "NULL");
+
+			$cmd = " UPDATE PER_PERSONAL SET POS_ID = NULL WHERE PER_TYPE != 1 ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+
+			$cmd = " update PER_CONTROL set CTRL_ALTER = 11 ";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+?>

@@ -1,0 +1,390 @@
+<?
+include("../php_scripts/connect_database.php");
+include("php_scripts/session_start.php");
+
+$arr_css = (array) null;
+
+$current_dir = $_SERVER['DOCUMENT_ROOT']."/admin/stylesheets";
+$dir = opendir($current_dir);
+$file = "";
+while (($file = readdir($dir)) == true) {
+	if (!is_dir($file) && $file) {
+		$arr_css[] = "$file";
+	}
+}
+closedir($dir);
+if (!$css_selected) {
+	$css_selected = $arr_css[0];
+}
+$content_str = "";
+$cssfileselected1 = $current_dir . "/" . $css_selected;
+$fp = fopen($cssfileselected1, "r");
+while (!feof($fp))
+{
+	$st = trim(fgets($fp));
+	if ($st) {
+//		echo "st***$st [$len]<br>";
+		$content_str = $content_str.$st;
+	}	// end if ($st)
+}	// end while loop
+fclose($fp);
+
+$content_str = cut_remark($content_str);
+
+function cut_remark($st) {
+	$f_end = false;
+    $c1 = 0;
+	while (!$f_end) {
+    	$c = strpos($st, "/*title", $c1);
+        if ($c !== false) {
+        	$c2 = strpos($st, "*/", $c+1);
+	        if ($c2 !== false) $c1 = $c2+1;
+        } else {
+	    	$c = strpos($st, "/*", $c1);
+    	    if ($c !== false) {
+        		$c2 = strpos($st, "*/", $c+1);
+	        	if ($c2 !== false) {
+                	$st = substr($st, 0, $c).substr($st, $c2+2);
+//					echo "first-".substr($st, 0, $c)."<br>mid-".substr($st, $c, $c2-$c)."<br>last-".substr($st, $c2+2)."<br>";
+                    $c1 = $c;	// ตัดช่วง remark ออก เริ่มตำแหน่งเดิมที่ขยับมาต่อใหม่
+				} else {
+	                $st = substr($st, $c);
+					$f_end = true;
+                }
+			} else {
+				$f_end = true;				
+			}
+		}
+    } // end while loop
+    return $st;
+} // end function
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected1?>" type="text/css">
+</head>
+<script language="JavaScript">
+function refresh_rtn(flag) {
+//	alert("flag="+flag);
+	document.form1.command.value="";
+	document.form1.cssnewname.value="";
+	document.form1.submit();
+}
+
+function onSelected() {
+	document.form1.css_selected.value = document.form1.selcss.options[document.form1.selcss.selectedIndex].value; 
+//	alert("index="+document.form1.selcss.selectedIndex+"->"+document.form1.css_selected.value);
+	document.form1.cssnewname.value = document.form1.css_selected.value
+	form1.submit();
+}
+
+function call_style_upd(o) {
+//	alert(document.form1.style_selected.value);
+	var sname = escape(document.form1.sname_selected.value);
+	var style = escape(document.form1.style_selected.value);
+	parameter = "&sname=" + sname + "&style=" + style;
+//	alert(parameter);
+    call_openDialog("setscreen_sub_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1000,600,"แก้ไข Style");		
+}
+
+function call_copy() {
+	if (document.form1.cssnewname.value=="") {
+		alert("โปรดป้อนชื่อที่ต้องการ Copy ลงไป");
+	} else if (document.form1.cssnewname.value==document.form1.css_selected.value) {
+		alert("ชื่อที่ต้องการ Copy ซ้ำเดิมกับชื่อเก่า โปรดแก้ไขใหม่");
+	} else {
+		document.form1.command.value = "COPY";
+		document.form1.submit();		
+	}
+}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("setscreen_sub_form") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+//				alert("stat="+arrValue[0]+","+arrValue[1]);
+				if (arrValue[0]=="0") {
+					document.form1.command.value = "SAVE";
+					document.form1.style_selected.value = arrValue[1];
+//					alert(document.form1.style_selected.value);
+					document.form1.submit();
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+//		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+        <link rel="stylesheet" href="<?=$cssfileselected1?>" type="text/css">
+  	</tr>
+	<? } ?>
+</table>
+<table width="100%" align="left" border="0" cellpadding="0" cellspacing="0">
+	<tr><td>
+    	<table width="100%" align="left" cellpadding="0" cellspacing="0">
+    		<tr>
+            	<td>	
+    			<form name="form1" method="post" action="setscreen_form.html" enctype="multipart/form-data">
+					<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+					<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+					<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+					<input type="hidden" name="command" value="">
+					<input type="hidden" name="current_dir" value="<?=$current_dir?>">
+					<input type="hidden" name="css_selected" value="<?=$css_selected?>">
+					<input type="hidden" name="sname_selected" value="">
+					<input type="hidden" name="style_selected" value="">
+		<table width="90%" align="left" cellpadding="0" cellspacing="0">
+        <tr height="7"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+		<tr><td width="1%"></td><td align="left">เลือก CSS ที่ต้องการ&nbsp;:&nbsp;
+        	<select name = "selcss" onChange="onSelected()" class="selectbox">
+			<?
+				for($i=0; $i < count($arr_css); $i++) {
+					if (trim($arr_css[$i]) == $css_selected) {
+						echo "<OPTION VALUE=\"".trim($arr_css[$i])."\" SELECTED>".trim($arr_css[$i])."";
+					} else {
+						echo "<OPTION VALUE=\"".trim($arr_css[$i])."\" >".trim($arr_css[$i])."";
+					}
+				} // end for loop $i
+			?>
+			</select></td>
+            <td>ป้อนชื่อ CSS ที่จะ Copy&nbsp;:&nbsp;
+            	<input type="text" name="cssnewname" size="50" value="<?=$cssnewname?>">&nbsp;
+                <input type="button" name="btnCopy" class="button" value=" Copy " onClick="call_copy();">
+            </td>
+        </tr>
+        <tr height="7"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+		</table>
+			<?
+			$arr_html_elem_name = array ("header", "layout", "label", "text", "radio", "checkbox", "select", "button", "table", "menu", "othclass", "id", "elem");
+			$arr_html_elem_text = array ("Header-หัวจอภาพระบบ", "Layout-คำอธิบายส่วนต่าง ๆ ในจอภาพ", "Label-คำอธิบายหน้า/หลังข้อมูล", "Text-ช่องแสดง ป้อนหรือแก้ไข ข้อมูล", "Radio-ช่องเลือก 1 จากกลุ่มข้อมูล", "CheckBox-ช่องเลือก/ไม่เลือกข้อมูล", "Select-เลือก 1 ในกลุ่มข้อมูลแบบซ่อนหรือเลื่อนได้", "Button-ปุ่มคำสั่งต่าง ๆ", "Table-ตาราง", "Menu-เมนู", "Class อื่น ๆ", "Class ตาม id", "Class ตามชื่อ tag");
+			$arr_content_css = (array) null;
+			$arr_content_css = explode("}",$content_str);
+			$arr_st = (array) null;
+			$arr_style = (array) null;
+			$arr_title = (array) null;
+			$arr_name = (array) null;
+
+			if ($command=="COPY") { // Copyแฟ้ม
+				$destcssname = $current_dir."/".$cssnewname;
+				if (copy($cssfileselected1, $destcssname)) {
+			    ?>
+					<script language="JavaScript">refresh_rtn(1);</script>
+			    <?
+			    } else {
+					alert("Copy ไม่สำเร็จโปรดตรวจสอบ");
+				}
+			}
+			if ($command=="SAVE") { // บันทึกลงแฟ้ม
+//				echo "cssfileselected1=$cssfileselected1<br>";
+				$filePointer = fopen($cssfileselected1,"w+");
+				$buffname=""; $buffstyle=""; $sssname=""; $bufftitle="";
+			}
+			for($i=0; $i < count($arr_content_css); $i++) {
+            	$buff = trim($arr_content_css[$i]);
+//				echo "buff=$buff<br>";
+				if ($buff) {
+					$c = strpos($buff, "/*title");
+					$c1 = strpos($buff, "*/");
+					if ($c !== false) {
+                    	$title1 = trim(substr($buff, $c+7, $c1-$c-8)); 
+                        $buff = trim(substr($buff, 0, $c).substr($buff, $c1+2));
+					} else $title1 = "";
+					$arrbuff = explode("{", $buff); // แยกส่วนชื่อ กับ style
+					$arr_st = explode(",",trim($arrbuff[0])); // แยกชื่อหลาย ๆ ชื่อออกมา
+//					echo "style $i name $arrbuff[0]=$arrbuff[1] $title1<br>";
+					for ($j=0; $j < count($arr_st); $j++) {
+//						echo "j=$j , style=".$arr_st[$j]."<br>";
+						$st = strtolower(trim($arr_st[$j]));
+						$firstchk=substr($st,0,1);
+						if ($firstchk == ".") {		// กรณี class
+							$sname1 = substr($st,1);
+			               	$style1 = trim($arrbuff[1]);
+//							echo "style1=".$style1."<br>";
+        				    if ($command=="SAVE" && $sname_selected==$sname1) {
+		        	        	$style_selected = urldecode($style_selected);
+								$style1 = str_replace("\"","'",$style_selected);
+								$style1 = stripslashes($style1);
+//								echo "1 sname1=$sname1,style1=$style1<br>";
+							}
+							$f_found=false;
+                            for($k=0; $k < count($arr_html_elem_name); $k++) {
+								if (strpos($st,$arr_html_elem_name[$k])!==false) {
+									$arr_name[$arr_html_elem_name[$k]][] = $sname1; // เก็บชื่อ class
+									$arr_style[$arr_html_elem_name[$k]][] = $style1; // เอา style ทั้งหมดมาเก็บ
+									$arr_title[$arr_html_elem_name[$k]][] = $title1; // เก็บ title
+	                                $f_found=true;
+                                    break;
+								}
+							} // end for $k loop'
+                            if (!$f_found) {
+								$arr_name[$arr_html_elem_name[10]][] = $sname1; // เก็บชื่อ class อื่น ๆ
+								$arr_style[$arr_html_elem_name[10]][] = $style1; // เอา style ทั้งหมดมาเก็บ
+								$arr_title[$arr_html_elem_name[10]][] = $title1; // เก็บ title
+							}
+						} else if ($firstchk == "#") {		// กรณี id
+							$sname1 = substr($st,1);
+			               	$style1 = trim($arrbuff[1]);
+        				    if ($command=="SAVE" && $sname_selected==$sname1) {
+		    	            	$style_selected = urldecode($style_selected);
+								$style1 = str_replace("\"","'",$style_selected);
+								$style1 = stripslashes($style1);
+//								echo "2 sname1=$sname1,style1=$style1<br />";
+							}
+							$arr_name[$arr_html_elem_name[11]][] = $sname1; // เก็บชื่อ id
+							$arr_style[$arr_html_elem_name[11]][] = $style1; // เอา style ทั้งหมดมาเก็บ
+							$arr_title[$arr_html_elem_name[11]][] = $title1; // เก็บ title
+						} else { // element
+							$sname1 = substr($st,0);
+		               		$style1 = trim($arrbuff[1]);
+	        			    if ($command=="SAVE" && $sname_selected==$sname1) {
+			                	$style_selected = urldecode($style_selected);
+								$style1 = str_replace("\"","'",$style_selected);
+								$style1 = stripslashes($style1);
+//								echo "4 sname1=$sname1,style1=$style1<br>";
+							}
+							$arr_name[$arr_html_elem_name[12]][] = $sname1; // เก็บชื่อ element
+							$arr_style[$arr_html_elem_name[12]][] = $style1; // เอา style ทั้งหมดมาเก็บ
+							$arr_title[$arr_html_elem_name[12]][] = $title1; // เก็บ title
+						} // end if $firstchk
+//						echo "$st:$title1<br>";
+						if ($command=="SAVE") { // บันทึกลงแฟ้ม
+//							echo "$i $j -$st:$title1<br>";
+							if (trim($arr_st[$j])) { // ถ้ามีค่า ชื่อของ style
+								$stname = trim($arr_st[$j]);
+								if ($stname != $buffname && $buffname != "") {
+//									echo "sssname=$sssname, style=$buffstyle, title=$bufftitle<br>";
+									$rec1 = $sssname."{		/*title $bufftitle */\n";
+									fputs($filePointer, $rec1);
+									$a_style = explode(";",$buffstyle);
+									for($ii=0; $ii < count($a_style);$ii++) {
+										if ($a_style[$ii]) {
+											$rec2 = "\t".$a_style[$ii].";\n";
+											fputs($filePointer,$rec2);
+										}
+									} // end loop for $ii
+									$rec3 = "}\n";
+									fputs($filePointer,$rec3);
+       		    	    		    $buffname=$stname;
+									$buffstyle=$style1;
+									$bufftitle=$title1;
+	                    			$sssname=$stname;
+								} else {
+   		    			        	if (trim($buffname) == "") { 
+										$buffname=$stname;
+										$buffstyle=$style1;
+                                        $bufftitle=$title1;
+										$sssname=$stname;
+									} else {
+										if (trim($stname))  { 
+//											echo "stname=$stname<br>";
+											$sssname = $sssname.",".$stname; 
+										}
+									} // end if (trim($buffname) == "")
+								} // end if
+							} // end if (trim($arr_st[$j]))
+						} // end // บันทึกลงแฟ้ม
+					} // end loop for $j
+				} // end if (trim($arr_content_css[$i]))
+			} // end loop for $i
+			if ($command=="SAVE") { // บันทึกลงแฟ้ม
+				///// ช่วงทำรายการสุดท้าย
+				if ($command=="SAVE") { // บันทึกลงแฟ้ม
+					if (trim($sssname)) { // ถ้ามีค่า ชื่อของ style
+//						echo "sssname=$sssname, style=$buffstyle<br>";
+						$rec1 = $sssname."{		/*title $bufftitle */\n";
+						fputs($filePointer,$rec1);
+						$a_style = explode(";",$buffstyle);
+						for($ii=0; $ii < count($a_style);$ii++) {
+							if ($a_style[$ii]) {
+								$rec2 = "\t".$a_style[$ii].";\n";
+								fputs($filePointer,$rec2);
+							}
+						} // end loop for $ii
+						$rec3 = "}\n";
+						fputs($filePointer,$rec3);
+					} // end if (trim($sssname))
+				} // end // บันทึกลงแฟ้ม
+				///// จบช่วงทำรายการสุดท้าย
+                
+				fclose($filePointer);
+			} // end SAVE
+			echo "<tr align=\"center\"><td><font color=\"#33FF00\">&nbsp;</font></td></tr>";
+			echo "<tr><td><table width=\"98%\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" >";
+            $first_tab = "25%"; $second_tab = "25%"; $third_tab = "40%";
+			for ($i = 0; $i < count($arr_html_elem_name); $i++) {
+            	if (count($arr_name[$arr_html_elem_name[$i]]) > 0) {
+					echo "<tr><td colspan=\"2\"> >><font color=\"red\"><B>".$arr_html_elem_text[$i]."</font></B></td></tr>";
+                    echo "<tr><td colspan=\"2\">&nbsp;</td></tr>";
+				}
+				echo "<tr><td width=\"5%\"></td><td><table width=\"100%\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\">";
+				for ($j = 0; $j < count($arr_name[$arr_html_elem_name[$i]]); $j++) {
+                	// table ช่อง 1,2
+                	if ($arr_html_elem_name[$i]=="header")
+						echo "<tr><td width=\"$first_tab\"  class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+                	elseif ($arr_html_elem_name[$i]=="layout")
+						echo "<tr><td width=\"$first_tab\"><p  class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</p></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="label")
+						echo "<tr><td width=\"$first_tab\"><table><tr><td width\"50%\"><p  class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" onclick=\"\">".$arr_name[$arr_html_elem_name[$i]][$j]."</p></td><td>&nbsp;</td></tr></table></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="text")
+						echo "<tr><td width=\"$first_tab\"><input type=\"text\" name=\"testtext".$j."\" value=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\"></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="radio")
+						echo "<tr><td width=\"$first_tab\"><input name=\"radio_test\" type=\"radio\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" value=\"$j\" checked><font class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</font></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>"; 
+					elseif ($arr_html_elem_name[$i]=="checkbox")
+						echo "<tr><td width=\"$first_tab\"><input type=\"checkbox\" name=\"check$i$j\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" value=\"$j\"><font class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</font></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="select") {
+						echo "<tr><td width=\"$first_tab\">".$arr_name[$arr_html_elem_name[$i]][$j]."&nbsp;<select name = \"selcss$j\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" >";
+							echo "<OPTION VALUE=\"1\" SELECTED>ทางเลือกที่ 1";
+							echo "<OPTION VALUE=\"2\">ทางเลือกที่ 2";
+							echo "<OPTION VALUE=\"3\">ทางเลือกที่ 3";
+							echo "<OPTION VALUE=\"4\">ทางเลือกที่ 4";
+         				echo "</select></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					} elseif ($arr_html_elem_name[$i]=="button")
+						echo "<tr><td width=\"$first_tab\"><input type=\"button\" name=\"testbtn".$j."\" value=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\"></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+                	elseif ($arr_html_elem_name[$i]=="table")
+						echo "<tr><td width=\"$first_tab\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="menu")
+						echo "<tr><td width=\"$first_tab\"><table><tr><td class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\" onclick=\"\" width\"50%\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td>&nbsp;</td></tr></table></td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="othclass")
+						echo "<tr><td width=\"$first_tab\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					elseif ($arr_html_elem_name[$i]=="id")
+						echo "<tr><td width=\"$first_tab\" class=\"".$arr_name[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+					else	// elem
+						echo "<tr><td width=\"$first_tab\" style=\"".$arr_style[$arr_html_elem_name[$i]][$j]."\">".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"$second_tab\">&nbsp;".$arr_name[$arr_html_elem_name[$i]][$j]."</td>";
+
+	                // table ช่อง 3
+					if ($arr_title[$arr_html_elem_name[$i]][$j])
+						echo "<td width=\"$third_tab\">".$arr_title[$arr_html_elem_name[$i]][$j]."</td><td width=\"1%\">&nbsp;</td>";
+					else
+						echo "<td width=\"$third_tab\">class=".$arr_name[$arr_html_elem_name[$i]][$j]."</td><td width=\"1%\">&nbsp;</td>";
+//					echo "".urlencode($arr_style[$arr_html_elem_name[$i]][$j])."";
+//					echo "style=".$arr_style[$arr_html_elem_name[$i]][$j]."<br>";
+
+	                // table ช่อง 4 button
+					echo "<td><input type=\"button\" name=\"btn$i-$j\" style=\"cursor:hand\" value=\" ... \" onClick=\"document.form1.style_selected.value='".urlencode($arr_style[$arr_html_elem_name[$i]][$j])."'; document.form1.sname_selected.value='".$arr_name[$arr_html_elem_name[$i]][$j]."'; call_style_upd(this);\"></td></tr>";
+				}	// end for $j
+				echo "</table></td></tr><tr height=\"7\"><td>&nbsp;</td></tr>";
+			}	// end for $i
+            echo "</table></td></tr>";
+			?>
+			<tr align="center"><td><font color="#33FF00">&nbsp;...........................................................................................................................................................................................</font></td></tr><tr><td>&nbsp;</td></tr>
+			</form></td></tr></table>
+		</td>
+    </tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

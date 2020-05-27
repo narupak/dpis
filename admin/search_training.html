@@ -1,0 +1,205 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_tr_code)) $arr_search_condition[] = "(TR_CODE like '$search_tr_code%')";
+  	if(trim($search_tr_name)) 
+		if($DPISDB=="odbc") 
+			$arr_search_condition[] = "(TR_NAME like '%$search_tr_name%' )";
+		else
+			$arr_search_condition[] = "(UPPER(TR_NAME) like UPPER('%$search_tr_name%'))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(TR_CODE) as count_data 
+					 from 		PER_TRAIN
+					 where 		TR_ACTIVE=1
+					 				$search_condition
+					 group by TR_CODE ";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	if($count_data == 1){
+		$data = $db_dpis->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		if($data[count_data] == 0) $count_data = 0;
+	} // end if
+?>
+<html>
+<head>
+<title>หลักสูตรการฝึกอบรม/ดูงาน</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+</script>
+<body>
+<form action="search_training.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>  
+		  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_tr_code" value="<?=$search_tr_code?>" style="width:98%" class="textbox"></td>
+              <td width="22%" align="right">ชื่อหลักสูตรการฝึกอบรม/ดูงาน&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_tr_name" value="<?=$search_tr_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;"><input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_tr_code.value=''; form1.search_tr_name.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_tr_code.value=''; form1.search_tr_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลหลักสูตรการฝึกอบรม/ดูงานทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($DPISDB=="odbc"){					   
+		/*	$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		*
+						from		(
+										select		top $select_top *
+										from		(
+														select		top ". ($data_per_page * $current_page) ."
+																		a.TR_CODE, b.TR_NAME, b.TR_TYPE 
+														from 			PER_TRAINING a, PER_TRAIN b
+														where		a.TR_CODE=b.TR_CODE
+																		$search_condition 
+														order by 	a.TR_CODE 
+													) 
+										order by	a.TR_CODE desc 
+									)
+						order by	a.TR_CODE   	";						  */
+						
+						
+						$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		*
+						from		(
+										select		top $select_top *
+										from		(
+														select		top ". ($data_per_page * $current_page) ."
+																		TR_CODE, TR_NAME, TR_TYPE 
+														from 			PER_TRAIN
+														where		TR_ACTIVE=1
+																		$search_condition 
+														order by 	TR_SEQ_NO, TR_CODE 
+													) 
+							
+									)
+						   	";			
+								   
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		TR_CODE, TR_NAME, TR_TYPE 
+									from 			PER_TRAIN
+									where 		TR_ACTIVE=1
+													$search_condition	
+									order by	TR_SEQ_NO, TR_CODE 
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";												
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	select		a.TR_CODE, b.TR_NAME, b.TR_TYPE 
+														from 			PER_TRAINING a, PER_TRAIN b
+														where		a.TR_CODE=b.TR_CODE
+																		$search_condition 
+														order by 	a.TR_CODE 
+													";								   
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+//		echo $cmd;
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">หลักสูตรการฝึกอบรม/ดูงาน</td>
+    <td width="15%" align="center">ประเภท</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_TR_CODE = $data[TR_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_TR_CODE'";
+				$TMP_TR_NAME = trim($data[TR_NAME]);
+				if ($data[TR_TYPE] == 1) 	 $TMP_TR_TYPE = "อบรม";
+				elseif ($data[TR_TYPE] == 2) 	 $TMP_TR_TYPE = "ดูงาน";
+				elseif ($data[TR_TYPE] == 3) 	 $TMP_TR_TYPE = "สัมมนา";
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_TR_CODE<::>$TMP_TR_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_TR_CODE?></td>
+    <td>&nbsp;<?=$TMP_TR_NAME?></td>
+    <td align="center"><?=$TMP_TR_TYPE?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

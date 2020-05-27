@@ -1,0 +1,1018 @@
+	if ($command=='POSITIONHIS'){
+// การดำรงตำแหน่ง 571904
+
+// delete from HR_POSITION_OFFICER where ID not in (select ID from HR_PERSONAL_OFFICER)
+// update HR_POSITION_OFFICER set WORK_LINE_CODE = NULL where WORK_LINE_CODE not in (select WORK_LINE_CODE from HR_WORK_LINE_CODE)
+// update HR_POSITION_OFFICER set ADMIN_CODE = NULL where ADMIN_CODE not in (select ADMIN_CODE from HR_ADMIN_CODE)
+// update HR_POSITION_OFFICER set FLAG_TO_NAME_CODE = NULL where FLAG_TO_NAME_CODE not in (select FLAG_TO_NAME_CODE from HR_FLAG_TO_NAME)
+// select  distinct WORK_LINE_CODE, WORK_LINE_NAME from HR_POSITION_OFFICER minus
+// select WORK_LINE_CODE, WORK_LINE_NAME from HR_WORK_LINE_CODE
+
+// select FLAG_TO_NAME_CODE, count(*) from hr_position_officer group by FLAG_TO_NAME_CODE order by to_number(FLAG_TO_NAME_CODE)
+
+		$cmd = " truncate table per_positionhis ";
+		$db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+
+		$cmd = " truncate table per_salaryhis ";
+		$db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+
+		$cmd = " select count(PER_ID) as CNT_POH_ID from PER_POSITIONHIS ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$CNT_POH_ID = $data2[CNT_POH_ID] + 0;
+
+		$cmd = " select count(PER_ID) as CNT_SAH_ID from PER_SALARYHIS ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$CNT_SAH_ID = $data2[CNT_SAH_ID] + 0;
+
+		$cmd = " select max(POH_ID) as MAX_ID from PER_POSITIONHIS ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MAX_POH_ID = $data[MAX_ID] + 1;
+
+		$cmd = " select max(SAH_ID) as MAX_ID from PER_SALARYHIS ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MAX_SAH_ID = $data[MAX_ID] + 1;
+
+		$cmd = " SELECT a.ID, GOVPOS_ORDER, GOVPOS_C, GOVPOS_STEP, GOVPOS_HISSALARY, GOVPOS_PST_NO, WPOS_CODE, 
+                        MPOS_CODE, GOVPOS_DATE, GOVPOS_REFF, GOVPOS_DET, GOVPOS_YEAR, GOVPOS_EVER, 
+                        GOVPOS_COMCODE, GOVPOS_LASTFLAG, GOVPOS_WKSTATUS, SECTION_CODE, 
+                        DEPT_CODE, TYPE_POS, WPOS_NAME, MPOS_NAME, SECTION_NAME, 
+                        DEPT_NAME, FLAG_WKSTATUS_OLDNEW, PO_UPD_C, PO_DEP, 
+                        PO_MIN, GOVPOS_PRAMEAUN_LAYER, GOVPOS_PRAMEAUN_PERCENT, GOVPOS_MONEY_UP, GOVPOS_MONEY_SPEC, PERSON_ID
+                        FROM GOVPOSITION_HISTORY a, COMMON_HISTORY b
+			 			WHERE a.ID = b.ID AND a.ID != '0'  
+                        ORDER BY a.ID, GOVPOS_ORDER ";
+//			 			WHERE a.ID = '000005737'  
+//			 			WHERE a.ID < '000003%' AND a.ID != '0'  
+
+//	00 01 02 03 04 06 *07* 08 09 10 11 12 13 *14* 15 16 17 18 19 20 2122 23 24 50 xx					  
+//						  WHERE FLAG_TO_NAME_CODE in ('1', '58', '55', '3', '50', '13', '17', '28', '6', '12', '18', '11', '59', '21', '33', '29', '22', '31', '10', '32', '54', '36', '56', '38', '15', '5', '7', '37', '40', '27', '64', '57' ,'65', '23', '4', '2', '34', '30', '35', '62') 
+// 39 อบรม 45 ดูงาน 47 ขยายเวลาฝึกอบรม 46 ศึกษาต่อ 49 ขยายเวลาศึกษาต่อ 26 รักษาราชการแทน 16 รักษาการ 19 ยกเลิกคำสั่ง 63 มอบหมาย 0 อื่นๆ 9 ช่วยราชการ 68 มอบหมาย
+// 61 ลดขั้นเงินเดือน 66 ปรับเงินเดือน 44 ปรับ 20 ตอบแทนพิเศษ 67 ให้เงินเดือนตามวุฒิ 8 ปรับเงินเดือนตามวุฒิ 43 ปรับเงินเดือน 51 ไม่ได้เลื่อนขั้น 56 เลื่อนเงินเดือนและระดับ (2 รายการ) 25 กรณีพิเศษ 14 เลื่อนขั้นเงินเดือน 52, 53 เลื่อนขั้น 24 ค่าครองชีพ
+		$db_dpis35->send_cmd($cmd);
+//						  WHERE FLAG_TO_NAME_CODE in ('1', '58', '55', '3', '50', '13', '17', '28', '6', '12', '18', '11', '59', '21', '33', '29', '22', '31', '10', '32', '54', '36', '56', '38', '15', '5', '7', '37', '40', '27', '64', '57' ,'65', '23', '4', '2', '34', '30', '35', '62') 
+//						  WHERE FLAG_TO_NAME_CODE in ('61', '66', '44', '20', '67', '8', '43', '51', '56', '25', '14', '52', '53', '24')  เงินเดือน
+//		$db_dpis35->show_error();
+//		echo "<br>";
+		while($data = $db_dpis35->get_array()){
+			$PER_ID = trim($data[ID]);
+			$GOVPOS_DATE = trim($data[GOVPOS_DATE]);
+			$EFFECTIVEDATE = ($GOVPOS_DATE)? ((substr($GOVPOS_DATE, 4, 4) - 543) ."-". substr($GOVPOS_DATE, 2, 2) ."-". substr($GOVPOS_DATE, 0, 2)) : "-";
+			$DOCNO = trim($data[GOVPOS_REFF]);
+			$DOCNO = str_replace("'", "", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$DOCNO = str_replace("  ", " ", $DOCNO);
+			$REMARK2 = $DOCNO;
+			$DOCDATE = $DOCNO_EDIT = $DOCDATE_EDIT = "";
+			if ($DOCNO=="จ.1.5/ 21 /2544 - 72/54/4" || $DOCNO=="จ.1.5/ - 0/0/0") {
+				$DOCDATE = "";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง- 8 ก.พ.2551" || $DOCNO=="ปะรกาศกรมทางหลวง - 8 ก.พ.2551" || $DOCNO=="ประกาศกรมทางหลวง ลงวันที่ 8 ก.พ.2551") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "8 ก.พ.2551";
+			} elseif ($DOCNO=="จ. 3.3/41/2545 - ลงวันที่ 19 พฤศจิกายน 2545") {
+				$DOCNO = "จ. 3.3/41/2545";
+				$DOCDATE = "19 พฤศจิกายน 2545";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง 30 ม.ค.50") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "30 ม.ค.50";
+			} elseif ($DOCNO=="คค 201/2552 - ลง 1 มิ.ย.2552") {
+				$DOCNO = "คค 201/2552";
+				$DOCDATE = "1 มิ.ย.2552";
+			} elseif ($DOCNO=="ที่ 315/2552 ลวง 12 ต.ค.2552") {
+				$DOCNO = "ที่ 315/2552";
+				$DOCDATE = "12 ต.ค.2552";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง ลงวันท่ 25 กุมภาพันธ์ 2543") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "25 กุมภาพันธ์ 2543";
+			} elseif ($DOCNO=="จ.1.6/14/1/2550 02/02/2550") {
+				$DOCNO = "จ.1.6/14/1/2550";
+				$DOCDATE = "02/02/2550";
+			} elseif ($DOCNO=="จ.1.5/20/35 - 20 มึ.ค.35") {
+				$DOCNO = "จ.1.5/20/35";
+				$DOCDATE = "20 มึ.ค.35";
+			} elseif ($DOCNO=="จ.1.5/178/2551 ลว . 27 ต.ค. 2551") {
+				$DOCNO = "จ.1.5/178/2551";
+				$DOCDATE = "27 ต.ค. 2551";
+			} elseif ($DOCNO=="จ.1.6/67/51 -ก 9 ธ.ค.51") {
+				$DOCNO = "จ.1.6/67/51";
+				$DOCDATE = "9 ธ.ค.51";
+			} elseif ($DOCNO=="จ.1.3/30/2546 ลว. 21 มี.ค. 2546จ.1.1/1/2546 ลว. 8 มกราคม 2546") {
+				$DOCNO = "จ.1.3/30/2546 ลว. 21 มี.ค. 2546จ.1.1/1/2546";
+				$DOCDATE = "8 มกราคม 2546";
+			} elseif ($DOCNO=="จ.1.6/5/2555 - 19ม.ค. 55") {
+				$DOCNO = "จ.1.6/5/2555";
+				$DOCDATE = "19 ม.ค. 55";
+			} elseif ($DOCNO=="ที่ จ.1.1/70/2554 ลว เม.ย. 54") {
+				$DOCNO = "ที่ จ.1.1/70/2554";
+				$DOCDATE = "12 เม.ย. 54";
+			} elseif ($DOCNO=="จ.1.5/ 115/2551 ลว.25 สิงหาคม2551") {
+				$DOCNO = "จ.1.5/ 115/2551";
+				$DOCDATE = "25 สิงหาคม 2551";
+			} elseif ($DOCNO=="จ.1.1/76/53 - 2 มิ.ย.53 แก้ไขคำสั่ง จ.1.1/17/53 - 23 ก.พ.53") {
+				$DOCNO = "จ.1.1/76/53";
+				$DOCDATE = "2 มิ.ย.53";
+				$DOCNO_EDIT = "จ.1.1/17/53";
+				$DOCDATE_EDIT = "2010-02-23";
+			} elseif ($DOCNO=="จ.1.6/สทล.13/1/2553 ลว.1/8 มกราคม 2553") {
+				$DOCNO = "จ.1.6/สทล.13/1/2553";
+				$DOCDATE = "18 มกราคม 2553";
+			} elseif ($DOCNO=="จ.1.6/สทล.10 ขท.กาญจนบุรี-สุพรรณบุรี(ที่ 2).1/1496/2556 - 25 ธ.ค.56") {
+				$DOCNO = "จ.1.6/สทล.10 ขท.กาญจนบุรี-สุพรรณบุรี(ที่ 2).1/1496/2556";
+				$DOCDATE = "25 ธ.ค.56";
+			} elseif ($DOCNO=="จ.1.1/32/2552 ลว . 23 ก.พ.2552") {
+				$DOCNO = "จ.1.1/32/2552";
+				$DOCDATE = "23 ก.พ.2552";
+			} elseif ($DOCNO=="คำสั่งย้ายข้าราชการ ที่ จ.1.1/ 32 / 2555 ลวงวันที่ 15 มีนาคม 2555") {
+				$DOCNO = "คำสั่งย้ายข้าราชการ ที่ จ.1.1/ 32 / 2555";
+				$DOCDATE = "15 มีนาคม 2555";
+			} elseif ($DOCNO=="จ.1.6/8/2556 - 26 ก.พ2556.") {
+				$DOCNO = "จ.1.6/8/2556";
+				$DOCDATE = "26 ก.พ2556";
+			} elseif ($DOCNO=="จ.1.6/สทล.10 ขท.กาญจนบุรี-สุพรรณบุรี(ที่2).1/1496/2556 - 25 ธ.ค.56") {
+				$DOCNO = "จ.1.6/สทล.10 ขท.กาญจนบุรี-สุพรรณบุรี(ที่2).1/1496/2556";
+				$DOCDATE = "25 ธ.ค.56";
+			} elseif ($DOCNO=="จ. 1.1/2/5/2545 ลว. 1พ.ค. 2545จ. 1.1/ 2/9 /2545 ลว. 6 ก.ย. 2545") {
+				$DOCNO = "จ. 1.1/2/5/2545 ลว. 1พ.ค. 2545จ. 1.1/ 2/9 /2545";
+				$DOCDATE = "6 ก.ย. 2545";
+			} elseif ($DOCNO=="จ.1.3/80/255 -ลว 17 เม.ย. 2555") {
+				$DOCNO = "จ.1.3/80/255";
+				$DOCDATE = "17 เม.ย. 2555";
+			} elseif ($DOCNO=="คค 0603/3919 -ลงวันที่ 25 เม.ย.2543") {
+				$DOCNO = "คค 0603/3919";
+				$DOCDATE = "25 เม.ย.2543";
+			} elseif ($DOCNO=="จ.1.3/3/2550 -ลว. 4 ม.ค.2550") {
+				$DOCNO = "จ.1.3/3/2550";
+				$DOCDATE = "4 ม.ค.2550";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง 3 พ.ย.43") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "3 พ.ย.43";
+			} elseif ($DOCNO=="จ.1.6/39/2551  27 ต.ค.2551") {
+				$DOCNO = "จ.1.6/39/2551";
+				$DOCDATE = "27 ต.ค.2551";
+			} elseif ($DOCNO=="จ.1.5/162/2551 ลว . 13 ต.ค. 2551") {
+				$DOCNO = "จ.1.5/162/2551";
+				$DOCDATE = "13 ต.ค. 2551";
+			} elseif ($DOCNO=="จ.1.5/159/2551 ลว . 10 ต.ค. 2551") {
+				$DOCNO = "จ.1.5/159/2551";
+				$DOCDATE = "10 ต.ค. 2551";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง 3 มี.ค.2549") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "3 มี.ค.2549";
+			} elseif ($DOCNO=="จ.1.5/105/2551ลว . 30 ก.ค. 2551") {
+				$DOCNO = "จ.1.5/105/2551";
+				$DOCDATE = "30 ก.ค. 2551";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง 3 มี.ค.2549") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "3 มี.ค.2549";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวงชลบท 8 มิ.ย.52") {
+				$DOCNO = "ประกาศกรมทางหลวงชนบท";
+				$DOCDATE = "8 มิ.ย.52";
+			} elseif ($DOCNO=="ศย.ที่ 540/51 - 14 พค.51 (ตามแผนอัตรากำลัง 3 ปี)") {
+				$DOCNO = "ศย.ที่ 540/51 (ตามแผนอัตรากำลัง 3 ปี)";
+				$DOCDATE = "14 พค.51";
+			} elseif ($DOCNO=="ที่ จ.1.5/ /2557 ลว เม.ย. 57") {
+				$DOCNO = "ที่ จ.1.5/ /2557";
+				$DOCDATE = "00 เม.ย. 57";
+			} elseif ($DOCNO=="ที่ จ.2.1/ /2555 ลว มี.ค. 55") {
+				$DOCNO = "ที่ จ.2.1/ /2555";
+				$DOCDATE = "00 มี.ค. 55";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง 8 ก.พ.2551") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "8 ก.พ.2551";
+			} elseif ($DOCNO=="คำสั่งที่ จ.1.6/1/2543 ลว. 0 0") {
+				$DOCNO = "คำสั่งที่ จ.1.6/1/2543";
+				$DOCDATE = "";
+			} elseif ($DOCNO=="คำสั่งที่ จ.2.1/ 186 /2542 ลว. 0 0") {
+				$DOCNO = "คำสั่งที่ จ.2.1/ 186 /2542";
+				$DOCDATE = "";
+			} elseif ($DOCNO=="คำสั่งที่ จ.2.1/198/2542 ลว. 0 0") {
+				$DOCNO = "คำสั่งที่ จ.2.1/198/2542";
+				$DOCDATE = "";
+			} elseif ($DOCNO=="ที่ จ.1.5/159/2555 ลว 6 ธ .ค. 55") {
+				$DOCNO = "ที่ จ.1.5/159/2555";
+				$DOCDATE = "6 ธ.ค. 55";
+			} elseif ($DOCNO=="จ.1.6/สทล.4/2/2553-8 ก.พ25.53") {
+				$DOCNO = "จ.1.6/สทล.4/2/2553";
+				$DOCDATE = "8 ก.พ2553";
+			} elseif ($DOCNO=="ศก.ที่ 185/54 - 9 มี.ค. 54 เพิกถอน ศก.ที่ 820/53 - 30 ธ.ค. 53") {
+				$DOCNO = "ศก.ที่ 185/54 - 9 มี.ค. 54 เพิกถอน ศก.ที่ 820/53";
+				$DOCDATE = "30 ธ.ค. 53";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง ณ วันที่ ท 27 มกราคม 2553") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "27 มกราคม 2553";
+			} elseif ($DOCNO=="ประกาศกรมทางหลวง ณ วันที่ 15 มีนาคม 2553") {
+				$DOCNO = "ประกาศกรมทางหลวง";
+				$DOCDATE = "15 มีนาคม 2553";
+			} elseif (strpos($DOCNO,"- ลว.") !== false) {
+				$arr_temp = explode("- ลว.", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"- ลว") !== false) {
+				$arr_temp = explode("- ลว", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"-ลว") !== false) {
+				$arr_temp = explode("-ลว", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"- ลงวันที่") !== false) {
+				$arr_temp = explode("- ลงวันที่", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"-") !== false) {
+				$arr_temp = explode("-", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ลงวันที่") !== false) {
+				$arr_temp = explode("ลงวันที่", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ลว.") !== false) {
+				$arr_temp = explode("ลว.", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ลว .") !== false) {
+				$arr_temp = explode("ลว .", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ลว") !== false) {
+				$arr_temp = explode("ลว", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ณ วันที่ ท") !== false) {
+				$arr_temp = explode("ณ วันที่ ท", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			} elseif (strpos($DOCNO,"ณ วันที่") !== false) {
+				$arr_temp = explode("ณ วันที่", $DOCNO);
+				$DOCNO = $arr_temp[0];
+				$DOCDATE = trim($arr_temp[1]);
+			}
+			if ($DOCDATE) {
+				$dd = $mm = $yy = "";
+				if (strpos($DOCDATE,"/") !== false) {
+					$arr_temp = explode("/", $DOCDATE);
+					$dd = str_pad(trim($arr_temp[0]), 2, "0", STR_PAD_LEFT);
+					$mm = str_pad(trim($arr_temp[1]), 2, "0", STR_PAD_LEFT);
+					$yy = trim($arr_temp[2]);
+					if (strlen($yy)==2) $yy = "25".$yy;
+					if ($yy+0 < 543) {
+						if ($mm < substr($GOVPOS_DATE, 2, 2))
+							$yy = substr($GOVPOS_DATE, 4, 4) + 1;
+						else
+							$yy = substr($GOVPOS_DATE, 4, 4);
+					}
+					$yy = $yy - 543;
+					$DOCDATE = $yy."-".$mm."-".$dd;
+				} else	if (strpos($DOCDATE," ") !== false) {
+					$arr_temp = explode(" ", $DOCDATE);
+					$dd = str_pad(trim($arr_temp[0]), 2, "0", STR_PAD_LEFT);
+					if (trim($arr_temp[1])=="มกราคม" || trim($arr_temp[1])=="ม.ค." || trim($arr_temp[1])=="ม.ค" || trim($arr_temp[1])=="ม.คง" || trim($arr_temp[1])=="ม,ค,") $mm = "01";
+					elseif (trim($arr_temp[1])=="กุมภาพันธ์" || trim($arr_temp[1])=="กุมภาภันธ์" || trim($arr_temp[1])=="กุมหภาพันธ์" || trim($arr_temp[1])=="กุมภาพันธฺ์" || trim($arr_temp[1])=="ก.พ." || 
+						trim($arr_temp[1])=="กพ." || trim($arr_temp[1])=="กพ" || trim($arr_temp[1])=="ก.พ" || trim($arr_temp[1])=="กุมภารพันธ์" || trim($arr_temp[1])=="กกุมภาพันธ์") $mm = "02";
+					elseif (trim($arr_temp[1])=="มีนาคม" || trim($arr_temp[1])=="มี.ค." || trim($arr_temp[1])=="มี.คง" || trim($arr_temp[1])=="มี.ค" || trim($arr_temp[1])=="มี.ต." || trim($arr_temp[1])=="มึ.ค.") $mm = "03";
+					elseif (trim($arr_temp[1])=="เมษายน" || trim($arr_temp[1])=="เม.ย." || trim($arr_temp[1])=="เม.ย" || trim($arr_temp[1])=="เม.ยง") $mm = "04";
+					elseif (trim($arr_temp[1])=="พฤษภาคม" || trim($arr_temp[1])=="พ.ค." || trim($arr_temp[1])=="พค." || trim($arr_temp[1])=="พ.ต." || trim($arr_temp[1])=="พ.ค") $mm = "05";
+					elseif (trim($arr_temp[1])=="มิถุนายน" || trim($arr_temp[1])=="มิ.ย." || trim($arr_temp[1])=="มิ.ยง" || trim($arr_temp[1])=="มิ.ย") $mm = "06";
+					elseif (trim($arr_temp[1])=="กรกฎาคม" || trim($arr_temp[1])=="กรกฏาคม" || trim($arr_temp[1])=="ก.ค." || trim($arr_temp[1])=="ก.คง" || trim($arr_temp[1])=="ก.ต." || trim($arr_temp[1])=="กค.") $mm = "07";
+					elseif (trim($arr_temp[1])=="สิงหาคม" || trim($arr_temp[1])=="สิงหาค" || trim($arr_temp[1])=="ส.ค." || trim($arr_temp[1])=="ส.ค" || trim($arr_temp[1])=="ส.คง" || trim($arr_temp[1])=="สค.") $mm = "08";
+					elseif (trim($arr_temp[1])=="กันยายน" || trim($arr_temp[1])=="ก.ย." || trim($arr_temp[1])=="ก.ย" || trim($arr_temp[1])=="ก.ยง") $mm = "09";
+					elseif (trim($arr_temp[1])=="ตุลาคม" || trim($arr_temp[1])=="ต.ค." || trim($arr_temp[1])=="ต.คย." || trim($arr_temp[1])=="ตค" || trim($arr_temp[1])=="ต.ค" || 
+						trim($arr_temp[1])=="ต.คง" || trim($arr_temp[1])=="าต.ค." || trim($arr_temp[1])=="ตงค.") $mm = "10";
+					elseif (trim($arr_temp[1])=="พฤศจิกายน" || trim($arr_temp[1])=="พ.ย." || trim($arr_temp[1])=="พย" || trim($arr_temp[1])=="พย." || trim($arr_temp[1])=="พ.ย" || 
+						trim($arr_temp[1])=="พ.ยง" || trim($arr_temp[1])=="พ..ย") $mm = "11";
+					elseif (trim($arr_temp[1])=="ธันวาคม" || trim($arr_temp[1])=="ธันวาคา" || trim($arr_temp[1])=="ธ.ค." || trim($arr_temp[1])=="ธ.คง" || trim($arr_temp[1])=="ธ.ค" || trim($arr_temp[1])=="ธ .ค.") $mm = "12";
+					elseif (substr($arr_temp[1],0,4)=="ม.ค.") {
+						$mm = "01";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="มค." || substr($arr_temp[1],0,3)=="ม.ค") {
+						$mm = "01";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,4)=="ก.พ." || substr($arr_temp[1],0,4)=="กงพ.") {
+						$mm = "02";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="กพ." || substr($arr_temp[1],0,3)=="ก.พ") {
+						$mm = "02";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,5)=="มี.ค." || substr($arr_temp[1],0,5)=="ม๊.ค." || substr($arr_temp[1],0,5)=="มึ.ค." || substr($arr_temp[1],0,5)=="มี.คง") {
+						$mm = "03";
+						$yy = trim(substr($arr_temp[1],5));
+					} elseif (substr($arr_temp[1],0,4)=="มีค.") {
+						$mm = "03";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,5)=="เม.ย." || substr($arr_temp[1],0,5)=="เม.ยง") {
+						$mm = "04";
+						$yy = trim(substr($arr_temp[1],5));
+					} elseif (substr($arr_temp[1],0,4)=="เมย." || substr($arr_temp[1],0,4)=="เมษ." || substr($arr_temp[1],0,4)=="เม.ย") {
+						$mm = "04";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,4)=="พ.ค." || substr($arr_temp[1],0,4)=="พ.คง" || substr($arr_temp[1],0,4)=="พงค." || substr($arr_temp[1],0,4)=="พ.ต.") {
+						$mm = "05";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="พค.") {
+						$mm = "05";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,5)=="มิ.ย." || substr($arr_temp[1],0,5)=="มิ.ยง") {
+						$mm = "06";
+						$yy = trim(substr($arr_temp[1],5));
+					} elseif (substr($arr_temp[1],0,4)=="มิย.") {
+						$mm = "06";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,4)=="ก.ค." || substr($arr_temp[1],0,4)=="ก.คง" || substr($arr_temp[1],0,4)=="ก.ต.") {
+						$mm = "07";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="กค.") {
+						$mm = "07";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,4)=="ส.ค.") {
+						$mm = "08";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="สค.") {
+						$mm = "08";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,4)=="ก.ย." || substr($arr_temp[1],0,4)=="ก.ยง" || substr($arr_temp[1],0,4)=="กซนซ" || substr($arr_temp[1],0,4)=="ก.ยซ") {
+						$mm = "09";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="กย." || substr($arr_temp[1],0,2)=="กย") {
+						$mm = "09";
+						$yy = trim(substr($arr_temp[1],2));
+					} elseif (substr($arr_temp[1],0,4)=="ต.ค." || substr($arr_temp[1],0,4)=="ต.คง" || substr($arr_temp[1],0,4)=="ตงค.") {
+						$mm = "10";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="ตค." || substr($arr_temp[1],0,3)=="ต.ต") {
+						$mm = "10";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,3)=="ต.ค") {
+						$mm = "10";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,4)=="พ.ย.") {
+						$mm = "11";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="พย.") {
+						$mm = "11";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif (substr($arr_temp[1],0,4)=="ธ.ค." || substr($arr_temp[1],0,4)=="ธ.คง") {
+						$mm = "12";
+						$yy = trim(substr($arr_temp[1],4));
+					} elseif (substr($arr_temp[1],0,3)=="ธค.") {
+						$mm = "12";
+						$yy = trim(substr($arr_temp[1],3));
+					} elseif ($arr_temp[0]=="21ธ.ค." && $arr_temp[1]=="2542") {
+						$dd = "21";
+						$mm = "12";
+						$yy = "2542";
+					} elseif ($arr_temp[0]=="25กุมภาพันธ์" && $arr_temp[1]=="2543") {
+						$dd = "25";
+						$mm = "02";
+						$yy = "2543";
+					} elseif ($arr_temp[0]=="27ต.ค." && $arr_temp[1]=="2543") {
+						$dd = "27";
+						$mm = "10";
+						$yy = "2543";
+					} elseif ($arr_temp[0]=="22พ.ค." && $arr_temp[1]=="2545") {
+						$dd = "22";
+						$mm = "05";
+						$yy = "2545";
+					} elseif ($arr_temp[0]=="1พ.ย." && $arr_temp[1]=="2545") {
+						$dd = "01";
+						$mm = "11";
+						$yy = "2545";
+					} elseif ($arr_temp[0]=="4ธันวาคม" && $arr_temp[1]=="2545") {
+						$dd = "04";
+						$mm = "12";
+						$yy = "2545";
+					} elseif ($arr_temp[0]=="28ม.ค." && $arr_temp[1]=="2546") {
+						$dd = "28";
+						$mm = "01";
+						$yy = "2546";
+					} elseif ($arr_temp[0]=="11สิงหาคม" && $arr_temp[1]=="2546") {
+						$dd = "11";
+						$mm = "08";
+						$yy = "2546";
+					} elseif ($arr_temp[0]=="17มกราคม" && $arr_temp[1]=="2550") {
+						$dd = "17";
+						$mm = "01";
+						$yy = "2550";
+					} elseif ($arr_temp[0]=="1ก.พ." && $arr_temp[1]=="2551") {
+						$dd = "01";
+						$mm = "02";
+						$yy = "2551";
+					} elseif ($arr_temp[0]=="27ก.พ." && $arr_temp[1]=="2551") {
+						$dd = "27";
+						$mm = "02";
+						$yy = "2551";
+					} elseif ($arr_temp[0]=="7ต.ค." && $arr_temp[1]=="2551") {
+						$dd = "07";
+						$mm = "10";
+						$yy = "2551";
+					} elseif ($arr_temp[0]=="27ก.พ." && $arr_temp[1]=="52") {
+						$dd = "27";
+						$mm = "02";
+						$yy = "2552";
+					} elseif ($arr_temp[0]=="11ก.ย." && $arr_temp[1]=="52") {
+						$dd = "11";
+						$mm = "09";
+						$yy = "2552";
+					} elseif ($arr_temp[0]=="30พ.ค." && $arr_temp[1]=="2555") {
+						$dd = "30";
+						$mm = "05";
+						$yy = "2555";
+					} elseif ($arr_temp[0]=="28" && $arr_temp[1]=="กรกฎาคม2547") {
+						$dd = "28";
+						$mm = "07";
+						$yy = "2547";
+					} elseif ($arr_temp[0]=="6" && $arr_temp[1]=="ธันวาคม2550") {
+						$dd = "06";
+						$mm = "12";
+						$yy = "2550";
+					} elseif ($arr_temp[0]=="11" && $arr_temp[1]=="ธันวาคม2552") {
+						$dd = "11";
+						$mm = "12";
+						$yy = "2552";
+					} elseif ($arr_temp[0]=="16" && $arr_temp[1]=="ธ.ค2556.") {
+						$dd = "16";
+						$mm = "12";
+						$yy = "2556";
+					} elseif ($arr_temp[0]=="7" && $arr_temp[1]=="ก." && $arr_temp[2]=="ย.53") {
+						$dd = "07";
+						$mm = "09";
+						$yy = "2553";
+					} else echo "$arr_temp[0]**$arr_temp[1]**$arr_temp[2]**$REMARK2<br>";
+					if (!$yy) $yy = trim($arr_temp[2]);
+					if (strlen($yy)==2) $yy = "25".$yy;
+					if ($yy+0 < 543) {
+						if ($mm < substr($GOVPOS_DATE, 2, 2))
+							$yy = substr($GOVPOS_DATE, 4, 4) + 1;
+						else
+							$yy = substr($GOVPOS_DATE, 4, 4);
+					}
+					$yy = $yy - 543;
+					$DOCDATE = $yy."-".$mm."-".$dd; 
+				} else	if ($DOCDATE=="31ตค.09") {
+					$DOCDATE = "1966-10-31";
+				} else	if ($DOCDATE=="15พค.10") {
+					$DOCDATE = "1967-05-15";
+				} else	if ($DOCDATE=="16มิย.10") {
+					$DOCDATE = "1967-06-16";
+				} else	if ($DOCDATE=="5กค.10") {
+					$DOCDATE = "1967-07-05";
+				} else	if ($DOCDATE=="13มิย.11") {
+					$DOCDATE = "1968-06-13";
+				} else	if ($DOCDATE=="26กย.11") {
+					$DOCDATE = "1968-09-26";
+				} else	if ($DOCDATE=="12พค.12") {
+					$DOCDATE = "1969-05-12";
+				} else	if ($DOCDATE=="27เมย.13") {
+					$DOCDATE = "1970-04-27";
+				} else	if ($DOCDATE=="29มิย.14") {
+					$DOCDATE = "1971-06-29";
+				} else	if ($DOCDATE=="20ตค.14") {
+					$DOCDATE = "1971-10-20";
+				} else	if ($DOCDATE=="30มิย.15") {
+					$DOCDATE = "1972-06-30";
+				} else	if ($DOCDATE=="21พค.16)") {
+					$DOCDATE = "1973-05-21";
+				} else	if ($DOCDATE=="25052516" || $DOCDATE=="25พค.16") {
+					$DOCDATE = "1973-05-16";
+				} else	if ($DOCDATE=="07052517" || $DOCDATE=="7พค.17") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="17พค.17") {
+					$DOCDATE = "1974-05-17";
+				} else	if ($DOCDATE=="21มีค.18") {
+					$DOCDATE = "1975-03-21";
+				} else	if ($DOCDATE=="14พค.18") {
+					$DOCDATE = "1975-05-14";
+				} else	if ($DOCDATE=="5กย.18") {
+					$DOCDATE = "1975-09-05";
+				} else	if ($DOCDATE=="18กย.18") {
+					$DOCDATE = "1975-09-18";
+				} else	if ($DOCDATE=="18ธค.18") {
+					$DOCDATE = "1975-12-18";
+				} else	if ($DOCDATE=="27กพ.19") {
+					$DOCDATE = "1976-02-27";
+				} else	if ($DOCDATE=="01102519") {
+					$DOCDATE = "1976-10-01";
+				} else	if ($DOCDATE=="13มค.20") {
+					$DOCDATE = "1977-01-13";
+				} else	if ($DOCDATE=="2กพ.20") {
+					$DOCDATE = "1977-02-02";
+				} else	if ($DOCDATE=="13มิย.20") {
+					$DOCDATE = "1977-06-13";
+				} else	if ($DOCDATE=="14มิย.20") {
+					$DOCDATE = "1977-06-14";
+				} else	if ($DOCDATE=="23กย.20") {
+					$DOCDATE = "1977-09-23";
+				} else	if ($DOCDATE=="20ก.ย.21" || $DOCDATE=="20กย.21") {
+					$DOCDATE = "1978-09-20";
+				} else	if ($DOCDATE=="11ตค.21") {
+					$DOCDATE = "1978-10-11";
+				} else	if ($DOCDATE=="27เมย.22") {
+					$DOCDATE = "1979-04-27";
+				} else	if ($DOCDATE=="17กย.23") {
+					$DOCDATE = "1980-09-17";
+				} else	if ($DOCDATE=="2ตค.23") {
+					$DOCDATE = "1980-10-02";
+				} else	if ($DOCDATE=="3ตค.23") {
+					$DOCDATE = "1980-10-03";
+				} else	if ($DOCDATE=="18กพ.24") {
+					$DOCDATE = "1981-02-18";
+				} else	if ($DOCDATE=="27มค.25") {
+					$DOCDATE = "1982-01-27";
+				} else	if ($DOCDATE=="15กพ.25") {
+					$DOCDATE = "1982-02-15";
+				} else	if ($DOCDATE=="2ธค.25") {
+					$DOCDATE = "1982-12-02";
+				} else	if ($DOCDATE=="21กย.26") {
+					$DOCDATE = "1983-09-21";
+				} else	if ($DOCDATE=="30พย.26") {
+					$DOCDATE = "1983-11-26";
+				} else	if ($DOCDATE=="11กย.27") {
+					$DOCDATE = "1984-09-11";
+				} else	if ($DOCDATE=="18กย.27") {
+					$DOCDATE = "1984-09-18";
+				} else	if ($DOCDATE=="31ตค.27") {
+					$DOCDATE = "1984-10-31";
+				} else	if ($DOCDATE=="5เมย.28") {
+					$DOCDATE = "1985-04-05";
+				} else	if ($DOCDATE=="12กย.28") {
+					$DOCDATE = "1985-09-28";
+				} else	if ($DOCDATE=="31ตค.28") {
+					$DOCDATE = "1985-10-31";
+				} else	if ($DOCDATE=="23กย.29") {
+					$DOCDATE = "1986-09-23";
+				} else	if ($DOCDATE=="28กย29") {
+					$DOCDATE = "1986-09-28";
+				} else	if ($DOCDATE=="29062536") {
+					$DOCDATE = "1993-06-29";
+				} else	if ($DOCDATE=="23มี.ค.38") {
+					$DOCDATE = "1995-03-23";
+				} else	if ($DOCDATE=="26มี.ค.2541") {
+					$DOCDATE = "1998-03-26";
+				} else	if ($DOCDATE=="21ธ.ค. 2542") {
+					$DOCDATE = "1999-12-21";
+				} else	if ($DOCDATE=="27ต.ค. 2543") {
+					$DOCDATE = "2000-10-27";
+				} else	if ($DOCDATE=="20ก.ย.2544") {
+					$DOCDATE = "2001-09-20";
+				} else	if ($DOCDATE=="7พ.ย.2544") {
+					$DOCDATE = "2001-11-07";
+				} else	if ($DOCDATE=="22พ.ค. 2545") {
+					$DOCDATE = "2002-05-22";
+				} else	if ($DOCDATE=="1พ.ย. 2545") {
+					$DOCDATE = "2002-11-01";
+				} else	if ($DOCDATE=="4ธันวาคม 2545") {
+					$DOCDATE = "2002-12-04";
+				} else	if ($DOCDATE=="28ม.ค. 2546") {
+					$DOCDATE = "2003-01-28";
+				} else	if ($DOCDATE=="17ก.ค.46") {
+					$DOCDATE = "2003-07-17";
+				} else	if ($DOCDATE=="11สิงหาคม 2546") {
+					$DOCDATE = "2003-08-11";
+				} else	if ($DOCDATE=="28  กรกฎาคม2547") {
+					$DOCDATE = "2004-07-28";
+				} else	if ($DOCDATE=="11ม.ค.2548") {
+					$DOCDATE = "2005-01-11";
+				} else	if ($DOCDATE=="17ม.ค.2548") {
+					$DOCDATE = "2005-01-17";
+				} else	if ($DOCDATE=="13ต.ค.2548") {
+					$DOCDATE = "2005-10-13";
+				} else	if ($DOCDATE=="23ม.ค.49") {
+					$DOCDATE = "2006-01-23";
+				} else	if ($DOCDATE=="18พ.ค.2549") {
+					$DOCDATE = "2006-05-18";
+				} else	if ($DOCDATE=="25พ.ค.2549") {
+					$DOCDATE = "2006-05-25";
+				} else	if ($DOCDATE=="8ส.ค.2549") {
+					$DOCDATE = "2006-08-08";
+				} else	if ($DOCDATE=="14ก.ย.2549") {
+					$DOCDATE = "2006-09-14";
+				} else	if ($DOCDATE=="24ต.ค.2549") {
+					$DOCDATE = "2006-10-24";
+				} else	if ($DOCDATE=="22มี.ค.2550") {
+					$DOCDATE = "2007-03-22";
+				} else	if ($DOCDATE=="18เม.ย.2550") {
+					$DOCDATE = "2007-04-18";
+				} else	if ($DOCDATE=="7ส.ค.2550") {
+					$DOCDATE = "2007-08-07";
+				} else	if ($DOCDATE=="22ส.ค.2550") {
+					$DOCDATE = "2007-08-22";
+				} else	if ($DOCDATE=="6 ธันวาคม2550") {
+					$DOCDATE = "2007-12-06";
+				} else	if ($DOCDATE=="1ก.พ. 2551") {
+					$DOCDATE = "2008-02-01";
+				} else	if ($DOCDATE=="12พ.ค2551") {
+					$DOCDATE = "2008-05-12";
+				} else	if ($DOCDATE=="7ต.ค. 2551") {
+					$DOCDATE = "2008-10-07";
+				} else	if ($DOCDATE=="1-12-51") {
+					$DOCDATE = "2008-12-01";
+				} else	if ($DOCDATE=="27ก.พ. 52") {
+					$DOCDATE = "2009-02-27";
+				} else	if ($DOCDATE=="11ก.ย. 52") {
+					$DOCDATE = "2009-09-11";
+				} else	if ($DOCDATE=="3พ.ย.2552") {
+					$DOCDATE = "2009-11-03";
+				} else	if ($DOCDATE=="6พ.ย.2552") {
+					$DOCDATE = "2009-11-06";
+				} else	if ($DOCDATE=="11พ.ย.2552") {
+					$DOCDATE = "2009-11-11";
+				} else	if ($DOCDATE=="12พ.ย.2552") {
+					$DOCDATE = "2009-11-12";
+				} else	if ($DOCDATE=="8 ก.พ25.53") {
+					$DOCDATE = "2010-02-08";
+				} else	if ($DOCDATE=="03032553") {
+					$DOCDATE = "2010-03-03";
+				} else	if ($DOCDATE=="01012554") {
+					$DOCDATE = "2011-01-01";
+				} else	if ($DOCDATE=="12ม.ค.2555") {
+					$DOCDATE = "2012-01-12";
+				} else	if ($DOCDATE=="4พ.ค.55") {
+					$DOCDATE = "2012-05-04";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				} else	if ($DOCDATE=="07052517") {
+					$DOCDATE = "1974-05-07";
+				}
+			}
+			$GOVPOS_YEAR = trim($data[GOVPOS_YEAR]);
+
+			if (substr($DOCDATE,0,4)=="0425") $DOCDATE = "1984".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="0009") $DOCDATE = "1991".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="0008") $DOCDATE = "1992".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="0383") $DOCDATE = "1993".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="1822") $DOCDATE = "1993".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="0006" && $CUR_YEAR=="2537") $DOCDATE = "1994".substr($DOCDATE,4);
+			elseif (substr($DOCDATE,0,4)=="0286" && $CUR_YEAR=="2537") $DOCDATE = "1994".substr($DOCDATE,4);
+
+			if (substr($EFFECTIVEDATE,0,4)=="0494") $EFFECTIVEDATE = "2006".substr($EFFECTIVEDATE,4);
+			elseif (substr($EFFECTIVEDATE,0,4)=="0291") $EFFECTIVEDATE = "1977".substr($EFFECTIVEDATE,4);
+			elseif (substr($EFFECTIVEDATE,0,4)=="1857" && $CUR_YEAR=="2533") $EFFECTIVEDATE = "1990".substr($EFFECTIVEDATE,4);
+
+			$POS_NO = trim($data[GOVPOS_PST_NO]);
+			$WPOS_CODE = trim($data[WPOS_CODE]);
+			$WPOS_NAME = trim($data[WPOS_NAME]);
+			if ($WPOS_NAME=="'") $WPOS_NAME = "";
+			$cmd = " select PL_CODE from PER_LINE where PL_NAME = '$WPOS_NAME' or PL_SHORTNAME = '$WPOS_NAME' ";
+			$db_dpis->send_cmd($cmd);
+			$data_dpis = $db_dpis->get_array();
+			$PL_CODE = trim($data_dpis[PL_CODE]);
+
+			$MPOS_CODE = trim($data[MPOS_CODE]);
+			$MPOS_NAME = trim($data[MPOS_NAME]);
+			$PM_CODE = "";
+			if ($MPOS_NAME) { 
+				$cmd = " select PM_CODE from PER_MGT where PM_NAME = '$MPOS_NAME' or PM_SHORTNAME = '$MPOS_NAME' ";
+				$db_dpis->send_cmd($cmd);
+				$data_dpis = $db_dpis->get_array();
+				$PM_CODE = trim($data_dpis[PM_CODE]);
+			} 
+
+			$POH_ORG1 = "กระทรวงคมนาคม";
+			$POH_ORG2 = "กรมทางหลวง";
+			$POH_ORG3 = trim($data[DEPT_NAME]);
+			$POH_ORG3 = str_replace('"', "&quot;", str_replace("'", "&rsquo;", trim($POH_ORG3)));
+			$POH_ORG3 = str_replace("'", "", trim($POH_ORG3));
+			if ($POH_ORG3=="กองประมวลผลสถิติ") {
+				$POH_ORG1 = "สำนักนายกรัฐมนตรี";
+				$POH_ORG2 = "สำนักงานสถิติแห่งชาติ";
+			}
+			$POH_UNDER_ORG1 = trim($data[SECTION_NAME]);
+			$POH_UNDER_ORG1 = str_replace('"', "&quot;", str_replace("'", "&rsquo;", trim($POH_UNDER_ORG1)));
+			$POH_UNDER_ORG1 = str_replace("'", "", trim($POH_UNDER_ORG1));
+			$POH_UNDER_ORG2 = trim($data[JOB_NAME]);
+			$POH_UNDER_ORG2 = str_replace('"', "&quot;", str_replace("'", "&rsquo;", trim($POH_UNDER_ORG2)));
+			$POH_UNDER_ORG2 = str_replace("'", "", trim($POH_UNDER_ORG2));
+			$POH_ORG = trim((($POH_UNDER_ORG2=="-") ? "":$POH_UNDER_ORG2)." ".(($POH_UNDER_ORG1=="-") ? "":$POH_UNDER_ORG1)." ".
+											(($POH_ORG3=="-") ? "":$POH_ORG3)." ".$POH_ORG2);
+			$SALARY = $data[GOVPOS_HISSALARY];
+			$SAH_SALARY_UP = $data[GOVPOS_MONEY_UP];
+			$SAH_SALARY_EXTRA = $data[GOVPOS_MONEY_SPEC];
+			$SAH_PERCENT_UP = $data[GOVPOS_PRAMEAUN_PERCENT];
+			$FLAG_TO_NAME = trim($data[FLAG_TO_NAME]);
+			$SPECIALIST_NAME = trim($data[SPECIALIST_NAME]);
+			$REMARK = trim($data[GOVPOS_DET]);
+			$REMARK = str_replace("'", "", $REMARK);
+			$REMARK1 = trim($data[GOVPOS_PRAMEAUN_LAYER]);
+			$FLAG_TO_NAME_CODE = trim($data[FLAG_TO_NAME_CODE]);
+			$POH_SALARY_POS = 0;
+			$GOVPOS_COMCODE = trim($data[GOVPOS_COMCODE]);
+
+			if ($GOVPOS_COMCODE=="0") $MOV_CODE = "6"; // ผิด **********************
+			elseif ($GOVPOS_COMCODE=="1") $MOV_CODE = "102"; // ทดลองปฏิบัติราชการ
+			elseif ($GOVPOS_COMCODE=="10") $MOV_CODE = "21310"; // 0.5 ขั้น
+			elseif ($GOVPOS_COMCODE=="11") $MOV_CODE = "21330"; // 1.5 ขั้น
+			elseif ($GOVPOS_COMCODE=="12") $MOV_CODE = "213"; // เลื่อนขั้นเงินเดือน
+			elseif ($GOVPOS_COMCODE=="13") $MOV_CODE = "11010"; // รักษาราชการแทน
+			elseif ($GOVPOS_COMCODE=="14") $MOV_CODE = "106"; // โอนไป ******************
+			elseif ($GOVPOS_COMCODE=="15") $MOV_CODE = "11810"; // ลาออก
+			elseif ($GOVPOS_COMCODE=="16") $MOV_CODE = "11020"; // รักษาการในตำแหน่ง
+			elseif ($GOVPOS_COMCODE=="17") $MOV_CODE = "21370"; // งดขั้นเงินเดือน ************************
+			elseif ($GOVPOS_COMCODE=="18") $MOV_CODE = "103"; // ย้ายข้าราชการ
+			elseif ($GOVPOS_COMCODE=="19") $MOV_CODE = "99999"; // แต่งตั้งเจ้าหน้าที่พัสดุประจำโครงการ *************
+			elseif ($GOVPOS_COMCODE=="2") $MOV_CODE = "10210"; // พ้นทดลองปฏิบัติราชการ
+			elseif ($GOVPOS_COMCODE=="21") $MOV_CODE = "105"; // โอนมา
+			elseif ($GOVPOS_COMCODE=="22") $MOV_CODE = "10140"; // กลับเข้ารับราชการใหม่
+			elseif ($GOVPOS_COMCODE=="23") $MOV_CODE = "216"; // ลดขั้นเงินเดือน
+			elseif ($GOVPOS_COMCODE=="24") $MOV_CODE = "21510"; // ปรับเงินเดือนตามวุฒิ
+			elseif ($GOVPOS_COMCODE=="25") $MOV_CODE = "12410"; // ลดระดับ
+			elseif ($GOVPOS_COMCODE=="26") $MOV_CODE = "12310"; // ตาย
+			elseif ($GOVPOS_COMCODE=="27") $MOV_CODE = "11910"; // เกษียณ
+			elseif ($GOVPOS_COMCODE=="28") $MOV_CODE = "12210"; // ไล่ออก
+			elseif ($GOVPOS_COMCODE=="29") $MOV_CODE = "106"; // ให้โอน
+			elseif ($GOVPOS_COMCODE=="3") $MOV_CODE = "21520"; // ปรับอัตราเงินเดือน
+			elseif ($GOVPOS_COMCODE=="30") $MOV_CODE = "11420"; // แก้ไขคำสั่ง
+			elseif ($GOVPOS_COMCODE=="31") $MOV_CODE = "21540"; // ปรับเงินพิเศษสำหรับการสู้รบ 
+			elseif ($GOVPOS_COMCODE=="32") $MOV_CODE = "21380"; // เลื่อนขั้นเงินเดือนข้าราชการผู้เกษียณอายุ ***************************
+			elseif ($GOVPOS_COMCODE=="33") $MOV_CODE = "11410"; // ยกเลิกการบรรจุ ***********************
+			elseif ($GOVPOS_COMCODE=="34") $MOV_CODE = "21370"; // ไม่ได้เลื่อนขั้น
+			elseif ($GOVPOS_COMCODE=="35") $MOV_CODE = "21320"; // 1 ขั้น
+			elseif ($GOVPOS_COMCODE=="36") $MOV_CODE = "21420"; // 2%
+			elseif ($GOVPOS_COMCODE=="37") $MOV_CODE = "21430"; // 4%
+			elseif ($GOVPOS_COMCODE=="38") $MOV_CODE = "11410"; // ยกเลิกการรับโอน *******************
+			elseif ($GOVPOS_COMCODE=="39") $MOV_CODE = "120"; // ให้ออก
+			elseif ($GOVPOS_COMCODE=="4") $MOV_CODE = "99999"; // ตัดโอนตำแหน่ง ********************
+			elseif ($GOVPOS_COMCODE=="40") $MOV_CODE = "12110"; // ปลดออก
+			elseif ($GOVPOS_COMCODE=="41") $MOV_CODE = "104"; // เลื่อนข้าราชการ
+			elseif ($GOVPOS_COMCODE=="42") $MOV_CODE = "11830"; // เกษียณอายุก่อนกำหนด
+			elseif ($GOVPOS_COMCODE=="43") $MOV_CODE = "99999"; // แก้ไขตัดโอนตำแหน่ง
+			elseif ($GOVPOS_COMCODE=="5") $MOV_CODE = "21410"; // เต็มขั้น
+			elseif ($GOVPOS_COMCODE=="6") $MOV_CODE = "21350"; // เลื่อนขั้นเงินเดือนข้าราชการกรณีพิเศษ
+			elseif ($GOVPOS_COMCODE=="7") $MOV_CODE = "11310"; // ปฏิบัติราชการ *****************
+			elseif ($GOVPOS_COMCODE=="8") $MOV_CODE = "21340"; // 2 ขั้น
+			elseif ($GOVPOS_COMCODE=="9") $MOV_CODE = "21305"; // เลื่อนเงินเดือน
+			elseif ($GOVPOS_COMCODE=="99") $MOV_CODE = "99999"; // 
+			elseif ($GOVPOS_COMCODE=="999") $MOV_CODE = "99999"; // 
+			else { 
+				$MOV_CODE = "99999"; 
+				if ($FLAG_TO_NAME) echo "ประเภทการเคลื่อนไหว->$GOVPOS_COMCODE<br>"; 
+			}
+
+			$cmd = " select MOV_TYPE from PER_MOVMENT where MOV_CODE = '$MOV_CODE' ";
+			$db_dpis->send_cmd($cmd);
+//				$db_dpis->show_error();
+			$data_dpis = $db_dpis->get_array();
+			$MOV_TYPE = trim($data_dpis[MOV_TYPE]);
+
+			$SM_CODE = "";
+			if (strpos($REMARK,"0.5 ขั้น") !== false || $REMARK==".5 ขั้น" || $REMARK=="0.5   จ.1.5/  21   /2546 - 7/7/2546") {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21310";
+				$SM_CODE = "1";
+			} elseif (strpos($REMARK,"1.5 ขั้น") !== false || strpos($REMARK,"1 ขั้นครึ่ง") !== false || strpos($REMARK,"1ขั้นครึ่ง") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21330";
+				$SM_CODE = "3";
+			} elseif (strpos($REMARK,"ลดขั้นเงินเดือน1") !== false || $REMARK=="ลดขั้น 1 ขั้น") {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21620";
+				$SM_CODE = "7";
+			} elseif (strpos($REMARK,"1 ขั้น") !== false || strpos($REMARK,"1ขั้น") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21320";
+				$SM_CODE = "2";
+			} elseif (strpos($REMARK,"2 ขั้น") !== false || strpos($REMARK,"2ขั้น") !== false || strpos($REMARK,"2  ขั้น") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21340";
+				$SM_CODE = "4";
+			} elseif (strpos($REMARK,"งดขั้น") !== false || strpos($REMARK,"เงินเดือนไม่ขึ้น") !== false || strpos($REMARK,"ไม่ขึ้นขั้น") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21370";
+				$SM_CODE = "10";
+			} elseif (strpos($REMARK,"เต็มขั้น") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21410";
+			} elseif (strpos($REMARK,"ลดขั้นเงินเดือน") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "216";
+			} elseif (strpos($REMARK,"เงินเพิ่มพิเศษ 2%") !== false || $REMARK=="เงินตอบแทนพิเศษ 2 %") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21420";
+				$SM_CODE = "5"; 
+				$EX_CODE = "015"; 
+			} elseif (strpos($REMARK,"เงินเพิ่มพิเศษ 4%") !== false || $REMARK=="เงินตอบแทนพิเศษ 4 %") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21430";
+				$SM_CODE = "17";  
+				$EX_CODE = "016"; 
+			} elseif (strpos($REMARK,"ตัดเงินเดือน 10 %") !== false || strpos($REMARK,"ตัดเงินเดือน 10%") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21720";
+				$SM_CODE = "8";
+			} elseif (strpos($REMARK,"ถูกตัดเงิน 5% (ตั้งแต่เดือน มิ.ย.37-ส.ค") !== false) {
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21710";
+				$SM_CODE = "8";
+			} elseif (strpos($REMARK,"ปรับอัตราเงินเดือนตามคุณวุฒิ") !== false || strpos($REMARK,"ปรับอัตราเงินเดือนตามวุฒิ") !== false) { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21510";
+				$SM_CODE = "14";
+			} elseif (strpos($REMARK,"ปรับอัตราเงินเดือน") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21520";
+				$SM_CODE = "12";
+			} elseif (strpos($REMARK,"เลื่อนเงินเดือน") !== false && $REMARK1=="พอใช้") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21315";
+			} elseif (strpos($REMARK,"เลื่อนเงินเดือน") !== false && $REMARK1=="ดี") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21325";
+			} elseif (strpos($REMARK,"เลื่อนเงินเดือน") !== false && $REMARK1=="ดีมาก") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21335";
+			} elseif (strpos($REMARK,"เลื่อนเงินเดือน") !== false && $REMARK1=="ดีเด่น") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "21345";
+			} elseif (strpos($REMARK,"แก้ไขคำสั่งเงินเดือน") !== false || strpos($REMARK,"แก้ไขคำสั่งเลื่อนขั้น") !== false || strpos($REMARK,"แก้ไขเงินเดือน") !== false || strpos($REMARK,"แก้ไขอัตราเงินเดือน") !== false || strpos($REMARK,"แก้ไขเลื่อนขั้น") !== false) { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "11420";
+			} elseif (strpos($REMARK,"เลื่อนขั้นเงินเดือน") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 2;
+				$MOV_CODE = "213";
+			} elseif (strpos($REMARK,"พ้นจากการทดลอง") !== false || strpos($REMARK,"พ้นทดลอง") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10210";
+			} elseif (strpos($REMARK,"ทดลองปฎิบัติราชการ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "102";
+			} elseif (strpos($REMARK,"รับโอน") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10510";
+			} elseif (strpos($REMARK,"โอนไป") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10610";
+			} elseif (strpos($REMARK,"ไปรับราชการทหาร") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "11820";
+			} elseif (strpos($REMARK,"เกษียณก่อนกำหนด") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10830";
+			} elseif (strpos($REMARK,"ลาออกจากราชการ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10810";
+			} elseif (strpos($REMARK,"เลื่อนข้าราชการ") !== false || strpos($REMARK,"เลื่อนระดับ") !== false || strpos($REMARK,"ปรับระดับ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "104";
+			} elseif ($REMARK=="(แต่งตั้งตาม พ.ร.บ.ระเบียบข้าราชการพลเรือน พ.ศ.2551)") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "103"; // *********************
+			} elseif (strpos($REMARK,"กลับเข้ารับราชการ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10140";
+			} elseif (strpos($REMARK,"แก้ไขคำสั่งเลื่อนระดับ") !== false || strpos($REMARK,"แก้ไขตำแหน่ง") !== false) { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "11420";
+			} elseif (strpos($REMARK,"ตัดโอนตำแหน่ง") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "10140"; // ยังไม่มีรหัส
+			} elseif (strpos($REMARK,"ปฏิบัติราชการ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "11310"; 
+			} elseif (strpos($REMARK,"รักษาราชการ") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "11010"; 
+			} elseif (strpos($REMARK,"ลาศึกษา") !== false || $REMARK=="xx") { 
+				$MOV_TYPE = 1;
+				$MOV_CODE = "11210"; 
+			}
+
+			$SALARYHIS = $POSITIONHIS = "";		
+			$EX_CODE = "024";
+			if ($MOV_TYPE==1 || $MOV_TYPE==3)	$POSITIONHIS = 1;		
+			if ($MOV_TYPE==2 || $MOV_TYPE==3)	$SALARYHIS = 1;
+
+			$LEVEL_NO = str_pad(trim($data[GOVPOS_C]), 2, "0", STR_PAD_LEFT);
+			if ($LEVEL_NO=="21") $LEVEL_NO = "O1";
+			if ($LEVEL_NO=="22") $LEVEL_NO = "O2";
+			if ($LEVEL_NO=="23") $LEVEL_NO = "O3";
+			if ($LEVEL_NO=="24") $LEVEL_NO = "O4";
+			if ($LEVEL_NO=="31") $LEVEL_NO = "K1";
+			if ($LEVEL_NO=="32") $LEVEL_NO = "K2";
+			if ($LEVEL_NO=="33") $LEVEL_NO = "K3";
+			if ($LEVEL_NO=="34") $LEVEL_NO = "K4";
+			if ($LEVEL_NO=="35") $LEVEL_NO = "K5";
+			if ($LEVEL_NO=="41") $LEVEL_NO = "D1";
+			if ($LEVEL_NO=="42") $LEVEL_NO = "D2";
+			if ($LEVEL_NO=="51") $LEVEL_NO = "M1";
+			if ($LEVEL_NO=="52") $LEVEL_NO = "M2";
+			if ($LEVEL_NO!="01" && $LEVEL_NO!="02" && $LEVEL_NO!="03" && $LEVEL_NO!="04" && $LEVEL_NO!="05" && $LEVEL_NO!="06" && 
+				$LEVEL_NO!="07" && $LEVEL_NO!="08" && $LEVEL_NO!="09" && $LEVEL_NO!="10" && $LEVEL_NO!="11" && $LEVEL_NO!="O1" && 
+				$LEVEL_NO!="O2" && $LEVEL_NO!="O3" && $LEVEL_NO!="K1" && $LEVEL_NO!="K2" && $LEVEL_NO!="K3" && $LEVEL_NO!="K4" && 
+				$LEVEL_NO!="K5" && $LEVEL_NO!="D1" && $LEVEL_NO!="D2" && $LEVEL_NO!="M1" && $LEVEL_NO!="M2" && $LEVEL_NO!="90" && 
+				$LEVEL_NO!="91" && $LEVEL_NO!="92" && $LEVEL_NO!="93" && $LEVEL_NO!="94") {
+				$LEVEL_NO = "NULL";
+				if ($LEVEL_NO!="96" && $LEVEL_NO!="97" && $LEVEL_NO!="98" && $LEVEL_NO!="99" && $LEVEL_NO!="NULL") echo "$LEVEL_NO<br>";
+			} else $LEVEL_NO = trim($LEVEL_NO)? "'".$LEVEL_NO."'" : "NULL";
+			$MP_FLAG_CURRENT = trim($data[MP_FLAG_CURRENT]);
+			if ($MP_FLAG_CURRENT=="1") $LAST_TRANSACTION = "Y"; 
+			else $LAST_TRANSACTION = "N";
+
+			$POH_ISREAL = "Y";
+			$ORDERID = $data[ORDERID];
+			$ES_CODE = "02";
+			$POH_SEQ_NO = $data[GOVPOS_ORDER];
+			$POH_CMD_SEQ = $data[ORDERTH]; 
+
+			$STATUS = trim($data[STATUS]);
+
+			if (!$ORG_NAME) $ORG_NAME = "-";
+			if (!$POS_NO) $POS_NO = "-";
+			if (!$SALARY) $SALARY = 0;
+			if (!$SEQ_NO) $SEQ_NO = 1;
+			if (!$CMD_SEQ || $CMD_SEQ > 20000) $CMD_SEQ = "NULL";
+			if (!$SAH_PERCENT_UP) $SAH_PERCENT_UP = "NULL";
+			if (!$SAH_SALARY_UP) $SAH_SALARY_UP = "NULL";
+			if (!$SAH_SALARY_EXTRA) $SAH_SALARY_EXTRA = "NULL";
+
+			$ORG_ID_1 = "NULL";
+			$ORG_ID_2 = "NULL";
+			$ORG_ID_3 = "NULL";
+
+			if ($POSITIONHIS) {
+				$PER_POSITIONHIS++;
+				$cmd = " INSERT INTO PER_POSITIONHIS(POH_ID, PER_ID, POH_EFFECTIVEDATE, MOV_CODE, POH_ENDDATE, POH_DOCNO, 
+								POH_DOCDATE, POH_POS_NO_NAME, POH_POS_NO, PM_CODE, LEVEL_NO, PL_CODE, PN_CODE, PT_CODE, CT_CODE, PV_CODE, AP_CODE, 
+								POH_ORGMGT, ORG_ID_1, ORG_ID_2, ORG_ID_3, POH_UNDER_ORG1, POH_UNDER_ORG2, POH_SALARY, 
+								POH_SALARY_POS, POH_REMARK, UPDATE_USER, UPDATE_DATE, PER_CARDNO, POH_ORG1, POH_ORG2, POH_ORG3, POH_ORG, 
+								POH_PM_NAME, POH_PL_NAME, POH_SEQ_NO, POH_LAST_POSITION, POH_CMD_SEQ, POH_ISREAL, 
+								POH_ORG_DOPA_CODE, ES_CODE, POH_LEVEL_NO, POH_REMARK1, POH_REMARK2, POH_DOCNO_EDIT, POH_DOCDATE_EDIT)
+								VALUES ($MAX_POH_ID, $PER_ID, '$EFFECTIVEDATE', '$MOV_CODE', NULL, '$DOCNO', 
+								'$DOCDATE', '$POS_NO_NAME', '$POS_NO', '$PM_CODE', $LEVEL_NO, '$PL_CODE', NULL, NULL, '140', NULL, NULL, 2, NULL, NULL, NULL, 
+								'$POH_UNDER_ORG1', '$POH_UNDER_ORG2', $SALARY, $POH_SALARY_POS, '$REMARK', $UPDATE_USER, '$UPDATE_DATE', 
+								'$PER_CARDNO', '$POH_ORG1', '$POH_ORG2', '$POH_ORG3', '$POH_ORG', '$MPOS_NAME', '$WPOS_NAME', $SEQ_NO, 
+								'$LAST_TRANSACTION', $CMD_SEQ, '$POH_ISREAL', '$POH_ORG_DOPA_CODE', '$ES_CODE', $LEVEL_NO, '$REMARK1', 
+								'$REMARK2', '$DOCNO_EDIT', '$DOCDATE_EDIT') ";
+				$db_dpis->send_cmd($cmd);
+
+				$cmd1 = " SELECT POH_ID FROM PER_POSITIONHIS WHERE POH_ID = $MAX_POH_ID "; 
+				$count_data = $db_dpis1->send_cmd($cmd1);
+				if (!$count_data) {
+					echo "$cmd<br>==================<br>";
+					$db_dpis->show_error();
+					echo "<br>end ". ++$i  ."=======================<br>";
+				}
+				$MAX_POH_ID++;
+			} // end if						
+			if ($SALARYHIS) {
+				$PER_SALARYHIS++;
+				$cmd = " INSERT INTO PER_SALARYHIS(SAH_ID, PER_ID, SAH_EFFECTIVEDATE, MOV_CODE, SAH_SALARY, 
+								SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, UPDATE_USER, UPDATE_DATE, PER_CARDNO, SAH_PERCENT_UP, 
+								SAH_SALARY_UP, SAH_SALARY_EXTRA, SAH_SEQ_NO, SAH_REMARK, LEVEL_NO, SAH_POS_NO_NAME, SAH_POS_NO, 
+								SAH_POSITION, SAH_ORG, EX_CODE, SAH_PAY_NO, SAH_KF_YEAR, SAH_LAST_SALARY, SM_CODE, SAH_CMD_SEQ, SAH_REMARK1, SAH_REMARK2)
+								VALUES ($MAX_SAH_ID, $PER_ID, '$EFFECTIVEDATE', '$MOV_CODE', $SALARY, '$DOCNO', 
+								'$DOCDATE', NULL, $UPDATE_USER, '$UPDATE_DATE', '$PER_CARDNO', $SAH_PERCENT_UP, $SAH_SALARY_UP, 
+								$SAH_SALARY_EXTRA, $SEQ_NO, '$REMARK', $LEVEL_NO, '$POS_NO_NAME', '$POS_NO', 
+								'$WPOS_NAME', '$POH_ORG', '$EX_CODE', '$SAH_PAY_NO', '$GOVPOS_YEAR', '$LAST_TRANSACTION', '$SM_CODE', $CMD_SEQ, '$REMARK1', '$REMARK2') ";
+				$db_dpis->send_cmd($cmd);
+
+				$cmd1 = " SELECT SAH_ID FROM PER_SALARYHIS WHERE SAH_ID = $MAX_SAH_ID "; 
+				$count_data = $db_dpis1->send_cmd($cmd1);
+				if (!$count_data) {
+					echo "$cmd<br>==================<br>";
+					$db_dpis->show_error();
+					echo "<br>end ". ++$j  ."=======================<br>";
+				}
+				$MAX_SAH_ID++;
+			} // end if		
+		} // end while						
+
+		$cmd = " select count(PER_ID) as COUNT_NEW from PER_POSITIONHIS ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$COUNT_NEW = $data2[COUNT_NEW] - $CNT_POH_ID;
+		echo "PER_POSITIONHIS - $PER_POSITIONHIS - $COUNT_NEW<br>";
+
+		$cmd = " select count(PER_ID) as COUNT_NEW from PER_SALARYHIS ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$COUNT_NEW = $data2[COUNT_NEW] - $CNT_SAH_ID;
+		echo "PER_SALARYHIS - $PER_SALARYHIS - $COUNT_NEW<br>";
+
+		$db_dpis->free_result();
+		$db_dpis1->free_result();
+		$db_dpis2->free_result();
+		$db_dpis35->free_result();
+		$db_dpis351->free_result();
+	} // end if

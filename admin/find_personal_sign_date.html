@@ -1,0 +1,32 @@
+<?
+	include("../php_scripts/connect_database.php");
+
+	$db_dpis3 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);			
+
+	if($PER_ID && $SIGN_TYPE && $SIGN_STARTDATE){
+		$SIGN_STARTDATE_DISPLAY = show_date_format($SIGN_STARTDATE,$DATE_DISPLAY);
+		if (!$SIGN_ENDDATE) $SIGN_ENDDATE = '2999-12-31';
+		
+		// หาวันที่ วันสิ้นสุด ไม่ได้ระบุ ถ้ามรตัวที่ระบุมาใหม่ให้ อัพเดทค่าวันสิ้นสุด เป็นวันก่อนหน้าวันเริ่มต้น
+		// --- UPDATE ---//
+		
+		$cmd2 = " select SIGN_ID from PER_SIGN 
+					where SIGN_TYPE ='$SIGN_TYPE' and ((SIGN_ENDDATE IS NOT NULL and ('$SIGN_STARTDATE' between SIGN_STARTDATE and SIGN_ENDDATE or '$SIGN_ENDDATE' between SIGN_STARTDATE and SIGN_ENDDATE)) or (SIGN_ENDDATE IS NULL and '$SIGN_STARTDATE' >= SIGN_STARTDATE))
+					order by SIGN_STARTDATE desc, SIGN_ENDDATE desc ";	
+		$db_dpis3 ->send_cmd($cmd2);
+		$data2 = $db_dpis3 ->get_array();
+		$SIGN_ID=$data2[SIGN_ID];
+		$c_duplicate=0;
+	
+		if($SIGN_ID) {  //ซ้ำ
+			$c_duplicate=1; 
+			$err_text = "ช่วงวันที่ $SIGN_STARTDATE_DISPLAY มีในระบบแล้ว";
+		}
+	}	// end if 
+?>
+<script>
+ 	<? if($err_text){ ?>
+		alert('<?=$err_text?>'); 
+		parent.document.form1.SIGN_STARTDATE.focus();
+	<? }  ?>
+</script>

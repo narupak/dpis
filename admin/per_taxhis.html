@@ -1,0 +1,332 @@
+<? 
+	include("../php_scripts/connect_database.php");
+        	
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/per_taxhis.php");
+	include("php_scripts/load_per_control.php");
+        //echo "=>".$PAGE_AUTH["del"];
+            if($TEMP_ORG_ID == 224){//เฉพาะ วช $TEMP_ORG_ID ตัวแปรได้มาจากconnect_database.php
+            $PAGE_AUTH["del"]=Y;
+            }
+        
+	if ($f_detail==""){
+		if($BKK_FLAG==1){	
+			 $f_detail = "1";
+		}else{		// 12/12/2012 คุณต่อ สำหรับ ก.พ.
+			$f_detail = "0";
+		}
+	}
+        
+        $debug = 0; /* 1 คือ open , 0 คือ close*/
+	
+        $cmd =" select  * from PER_PERSONAL where PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$search_per_type = $data[per_type];	
+        
+	$cmd =" select count(STAX_ID) as count_data  FROM PER_TAXHIS  where  PER_ID=$PER_ID   ";
+	$db_dpis->send_cmd($cmd);
+        if($debug==1){
+            echo $cmd;
+        }
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(stax_id, per_name){
+		if(confirm("ต้องการลบประวัติใบกำกับภาษีนี้ ใช่หรือไม่ [ " + per_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.STAX_ID.value = stax_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	
+	function call_detail_sah(f_detail) {	
+//		alert(f_detail);
+		if (f_detail=="0") {
+			form1.f_detail.value = "1";
+		} else {
+			form1.f_detail.value = "0";
+		}
+		form1.submit();
+	}
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+        function print_slip(per_id,stax_ids,tax_year){
+            parameter = "?PER_ID="+per_id+"&STAX_IDS="+stax_ids+"&TAX_YEAR="+tax_year;
+            document.form1.action = "report/with_hold.php"+parameter;
+            //window.open("report/with_hold.php"+parameter,',type=fullWindow,fullscreen,scrollbars=yes'); 
+            document.form1.submit();
+	    document.form1.target = "_self";
+	    document.form1.action = "per_taxhis.html";
+        }
+       
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><? if(!$HIDE_HEADER) include("header_menu.html"); ?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลหักภาษี ณ ที่จ่าย":"") ;
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="per_taxhis.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="search_per_type" value="<?=$search_per_type?>">       
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="f_detail" value="<?=$f_detail?>">	   
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+		<? if ($BUTTON_DISPLAY==1) { ?>
+          &nbsp;<input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=per_taxhis'"><!--history.back(); -->
+		  <?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=per_taxhis'">
+              <? } echo "&nbsp; &nbsp;"; ?>
+		  <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+  &nbsp;
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <td align="right" width="12%">
+        <? 
+        if ($f_detail == "1") { 
+        		$det_text="ซ่อนรายละเอียด"; $det_alt="ซ่อนรายละเอียด"; 
+             } else { 
+             	$det_text="แสดงรายละเอียด";  $det_alt="แสดงรายละเอียด";
+             } ?>
+       <input type="button" name="button2" class="button" value="<?=$det_text?>" alt="<?=$det_alt?>" onClick="call_detail_sah('<?=$f_detail?>');">&nbsp;&nbsp;
+        </td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+ 
+<?
+	
+         
+        
+        if ($PER_ORDER_BY==1) 
+            $order_by = "STAX_ID ,SEQ_NO ASC"; 
+	else 
+            $order_by = "STAX_ID DESC ,SEQ_NO DESC"; 
+	//if($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  SELECT STAX_ID,PER_ID,SEQ_NO,FORMTAX_TYPE,TAX_YEAR,INCOME,TAX_DATE,NET_INCOME,NETTAX_INCOME
+                                                                  FROM PER_TAXHIS 
+								  where 		PER_ID=$PER_ID
+													$search_condition
+								  order by 	$order_by
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 
+	//}
+if($debug==1){
+echo "<pre>".$cmd;
+}	
+
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+         
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td width="15%">ปีภาษีที่จ่าย</td>
+      <td width="15%">วันที่ออกหนังสือฯ</td>
+      <td width="18%">จำนวนเงินที่จ่าย</td>
+      <td width="18%">จำนวนเงินที่หัก</td>
+<!--      <td width="18%">วันที่นำข้อมูลเข้า</td>
+      <td width="18%">จำนวนเงินที่โอน</td>-->
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td width="4%"><?=$DEL_TITLE?></td>
+      <?}?>
+      <td width="4%"><?=$PRINT_TITLE?></td>
+     
+     
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+               
+		$TMP_SEQ_NO = $data[SEQ_NO];
+                
+                $TMP_STAX_ID =  $data[STAX_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SEQ_NO;
+		$FORMTAX_TYPE = $data[FORMTAX_TYPE];
+		$TMP_TAX_YEAR = $data[TAX_YEAR];
+		$TMP_NET_INCOME = number_format($data[NET_INCOME],2);
+                $TMP_PER_ID = $data[PER_ID];
+                $TMP_STAX_ID = $data[STAX_ID];
+                $TMP_TAX_DATE_OR = $data[TAX_DATE];
+                $day = substr($TMP_TAX_DATE_OR,0,2);
+                $mounth = substr($TMP_TAX_DATE_OR,2,2);
+                $year = substr($TMP_TAX_DATE_OR,4,4);
+                $year_c = $year-543;
+                $TMP_TAX_DATE_P = $year_c."-".$mounth."-".$day;
+                $TMP_TAX_DATE = show_date_format($TMP_TAX_DATE_P, $DATE_DISPLAY);
+                $TMP_NETTAX_INCOME = number_format($data[NETTAX_INCOME],2);
+                
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		
+                if($FORMTAX_TYPE == "1"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.1ก";}
+                else if($FORMTAX_TYPE == "2"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.1ก พิเศษ";}
+                else if($FORMTAX_TYPE == "3"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.2";}
+                else if($FORMTAX_TYPE == "4"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.3";}
+                else if($FORMTAX_TYPE == "5"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.2ก";}
+                else if($FORMTAX_TYPE == "6"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.3ก";}
+                else if($FORMTAX_TYPE == "7"){ $FORMTAX_TYPE_TEXT = "ภ.ง.ด.53";}
+                
+                
+                if($SLIP_ID==$TMP_SLIP_ID){ 
+			//$class = "table_body_over";
+			//$onmouse_event = "";
+		} // end if		
+		$SLIP_ID_LAST[$f_detail]=$TMP_SLIP_ID;
+		 if ($f_detail == "1" || ($f_detail == "0" && $data_count == 1)) {
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+        
+      <td class="<?=$class?>" height="25" align="center"><?=$num_order?></td>
+      <td class="<?=$class?>" align="center">&nbsp;<?=$TMP_TAX_YEAR?><input type="hidden" name="STAX_ID" value="<?=$TMP_STAX_ID?>"></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_TAX_DATE?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_NET_INCOME?></td>
+      <td class="<?=$class?>" align="center"><?=$TMP_NETTAX_INCOME?></td>
+  <!--    <td class="<?=$class?>" align="center"><?=$TMP_NET_INCOME?></td>-->
+	  <? 
+          if($PAGE_AUTH["del"]=="Y"){?>
+	  
+		      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_STAX_ID, '$TMP_TAX_YEAR')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติสลิปเงินเดือน"></a></td>
+	  	
+	  <?}?>
+      <td align="center">
+	  <? if ($SLIP_DISPLAY==1 || $SLIP_DISPLAY==3) { ?>
+          &nbsp;<a href="javascript:print_slip('<?=$TMP_PER_ID?>','<?=$TMP_STAX_ID?>','<?=$TMP_TAX_YEAR?>')"><img src="images/doc_icon_pdf.jpg" border="0" alt="พิมพ์รายละเอียดสลิปเงินเดือน (PDF)" width="24" height="24"></a>
+	  <? } ?>
+      </td>
+      
+      
+	  </tr>
+      <?} // f_detail ?>
+ 	<? } // end loop while ?>
+ 
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+<!--      <td>&nbsp;</td>
+      <td>&nbsp;</td>-->
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+      
+	</tr>
+
+  </table>
+  <? if($total_page > 1 && ($f_detail == "1") ) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } // end if ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

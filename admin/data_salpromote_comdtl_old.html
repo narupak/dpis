@@ -1,0 +1,904 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_salpromote_comdtl.php");
+
+	if (trim($search_per_name))		$arr_search_condition[] = "b.PER_NAME like '%$search_per_name%'";
+	if (trim($search_per_surname))	$arr_search_condition[] = "b.PER_SURNAME like '%$search_per_surname%'";	
+	if(count($arr_search_condition)) 	{
+		$search_condition = " and ". implode(" and ", $arr_search_condition); 
+
+		if ($DPISDB == "odbc")
+			$cmd =" 	select 	a.PER_ID 
+					from 	PER_COMDTL a 
+							left join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+					where 	COM_ID=$COM_ID $search_condition  ";
+		elseif ($DPISDB == "oci8")
+			$cmd =" 	select 	a.PER_ID from PER_COMDTL a, PER_PERSONAL b 
+					where COM_ID=$COM_ID $search_condition and a.PER_ID=b.PER_ID(+) ";
+		elseif($DPISDB=="mysql")
+			$cmd =" 	select 	a.PER_ID 
+					from 	PER_COMDTL a 
+							left join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+					where 	COM_ID=$COM_ID $search_condition  ";
+	} else {
+		$cmd =" 	select PER_ID from PER_COMDTL where COM_ID=$COM_ID  ";		
+	} // end if (count($arr_search_condition))
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";		
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_add() {
+	if(form1.COM_NO.value=="") {
+		alert("กรุณาระบุ คำสั่งเลขที่");
+		form1.COM_NO.focus();
+		return false;
+		} else if(form1.COM_TYPE_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทคำสั่ง");
+		form1.COM_TYPE_NAME.focus();
+		return false;
+		} else  {	
+			form1.command.value = "ADD";
+			form1.current_page.value = 1;			
+			ProcessUploading();			
+			return true;
+		}
+	}
+	
+	function confirm_update() {
+	
+		if(form1.COM_NO.value=="") {
+		alert("กรุณาระบุ คำสั่งเลขที่");
+		form1.COM_NO.focus();
+		return false;
+		} else if(form1.COM_TYPE_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทคำสั่ง");
+		form1.COM_TYPE_NAME.focus();
+		return false;
+		} else  {	
+			form1.command.value = "UPDATE";
+			form1.current_page.value = 1;			
+			ProcessUploading();			
+			return true;
+		}
+	}
+
+	function confirm_command() {
+		if (confirm("ต้องการยืนยันบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน ใช่หรือไม่?")) {
+			form1.command.value = "COMMAND";
+			form1.current_page.value = 1;				
+			ProcessUploading();			
+			return true;			
+		} else {
+			return false;
+		}
+	}
+
+	function confirm_delete(com_id , com_name){
+		if(confirm("ต้องการลบบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือนนี้ ใช่หรือไม่ [ " + com_name + " ]?")){
+			form1.command.value = "DELETE_COMMAND";
+			form1.COM_ID.value = com_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function confirm_delete_per(per_id , per_name){
+		if(confirm("ต้องการลบข้าราชการ/ลูกจ้างแนบท้ายบัญชีคำสั่งเลื่อนขั้นเงินเดือนนี้ ใช่หรือไม่ [ " + per_name + " ]?")){
+			form1.command.value = "DELETE_COMDTL";
+			form1.PER_ID.value = per_id;
+			form1.submit();
+		} // end if
+	}		
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+
+	function call_search_comtype (code, name) {	
+		var type_code = eval("form1." + code);
+		var type_name = eval("form1." + name);		
+		parameter = "";
+		childReturn = window.showModalDialog("search_com_type_frame.html?COM_GROUP=05&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.COM_TYPE.value = arrValue[0];
+			form1.COM_TYPE_NAME.value = arrValue[1];
+		} // end if
+	}
+
+	function call_data_command() {	
+		for(var i=0; i < form1.COM_PER_TYPE.length; i++){
+			if(form1.COM_PER_TYPE[i].selected == true){
+				var PER_TYPE=form1.COM_PER_TYPE[i].value;
+			}
+		}
+		//alert(PER_TYPE);
+		parameter = "";
+		if(PER_TYPE){	parameter += "&PER_TYPE="+PER_TYPE; 
+			if(PER_TYPE==1){
+				var COM_TYPE_NM="เลื่อนขั้นเงินเดือนข้าราชการ";
+			}else if(PER_TYPE==2){
+				var COM_TYPE_NM="เลื่อนขั้นเงินเดือนลูกจ้างประจำ";
+			}else if(PER_TYPE==3){
+				var COM_TYPE_NM="เลื่อนขั้นเงินเดือนพนักงานราชการ";
+			}
+		}
+		var COM_SITE = "data_salpromote_comdtl";
+		var COM_GROUP_IN  = "'05'";
+		if(COM_SITE){	parameter += "&COM_SITE="+COM_SITE; }
+		if(COM_TYPE_NM){	parameter += "&COM_TYPE_NM="+COM_TYPE_NM; }
+		if(COM_GROUP_IN){	parameter += "&COM_GROUP_IN="+COM_GROUP_IN; }
+		childReturn = window.showModalDialog("data_req_command_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 680px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");				
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.COM_ID.value = arrValue[0];
+			form1.COM_NAME.value = arrValue[1];
+			form1.current_page.value = 1;
+			buff="";
+			if (arrValue[2]){
+				buff="&ORG_ID="+arrValue[2];
+			}
+			buff1=form1.action;
+			if(arrValue[3]){
+				form1.action=form1.action+arrValue[3]+buff;
+			}
+			//---------------
+			form1.submit();
+			form1.action=buff1;
+		} // end if 
+	}
+
+	function send_command() {
+		if (confirm("ต้องการส่งบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือนลูกจ้างประจำ ใช่หรือไม่?")) {
+			form1.command.value = "SEND";
+			form1.current_page.value = 1;				
+			ProcessUploading();
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	function call_edit_data_comdtl_form(com_id, per_id) {
+		for(var i=0; i < form1.COM_PER_TYPE.length; i++){
+			if(form1.COM_PER_TYPE[i].selected == true){
+				var PER_TYPE=form1.COM_PER_TYPE[i].value;
+			}
+		}
+		parameter = "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		if(PER_TYPE){	parameter += "&PER_TYPE="+PER_TYPE; }
+		childReturn = window.showModalDialog("data_salpromote_comdtl_form_frame.html?UPD=1&COM_ID=" + com_id + "&PER_ID=" + per_id + "&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			form1.submit();
+		} // end if 
+	}
+	
+	function call_view_data_comdtl_form(com_id, per_id) {	
+		parameter = "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		childReturn = window.showModalDialog("data_salpromote_comdtl_form_frame.html?VIEW=1&COM_ID=" + com_id + "&PER_ID=" + per_id + "&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			form1.submit();
+		} // end if 
+	}	
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+			form1.search_org_id.value = "";
+			form1.search_org_name.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+				form1.search_org_id.value = "";
+				form1.search_org_name.value = "";
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.DEPARTMENT_ID.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_country () {	
+		parameter = "";
+		childReturn = window.showModalDialog("search_country_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.CT_CODE.value = arrValue[0];
+			form1.CT_NAME.value = arrValue[1];			
+		} // end if
+	}	
+
+	function call_search_province () {	
+		parameter = "&CT_CODE=140";
+		childReturn = window.showModalDialog("search_province_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.PV_CODE.value = arrValue[0];
+			form1.PV_NAME.value = arrValue[1];
+		} // end if
+	}
+
+	function check_salary_type( VAR_TYPE, VALUE ){
+		if(VAR_TYPE==1){
+			var LEVEL_NO = VALUE;
+			var objPerType = document.getElementsByName("PER_TYPE");
+			for(var i=0; i<objPerType.length; i++)	if(form1.PER_TYPE[i].checked) PER_TYPE = form1.PER_TYPE[i].value;
+		}else{
+			var PER_TYPE = VALUE;
+			var LEVEL_NO = form1.LEVEL_NO.value;
+			form1.submit();
+		} 
+
+		if(PER_TYPE==2){
+			form1.PER_SALARY.readOnly = true;
+		}else{
+			if(LEVEL_NO == ""){
+				form1.PER_SALARY.readOnly = true;
+			}else{			
+				document.all.PROCESS_IFRAME.src = "find_salary_type.html?PER_TYPE=" + PER_TYPE + "&LEVEL_NO=" + LEVEL_NO;
+			} 
+		} // end if
+	} 
+		
+	function call_pdf_report() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_salpromote_comdtl<?=$RPT_N ?>.php?report_title=" + report_title;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_salpromote_comdtl.html";
+	} 
+	
+	function call_export_file() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_salpromote_comdtl_xls<?=$RPT_N ?>.php?report_title=" + report_title;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_salpromote_comdtl.html";
+	}
+	
+	function check_list_type(s_list_type){
+		if(s_list_type==2){ //จังหวัด
+			if(document.getElementById("ContryZone").style.display=="block"){
+				document.getElementById("ContryZone").style.display = "none";
+			}
+			document.getElementById("ProvinceZone").style.display = "block";
+			
+			if(document.getElementById("ContryZone").style.visibility = "visible"){
+				document.getElementById("ContryZone").style.visibility = "hidden";
+			}
+			document.getElementById("ProvinceZone").style.visibility = "visible";
+		}else if(s_list_type==3){ //ประเทศ
+			document.getElementById("ContryZone").style.display = "block";
+			if(document.getElementById("ProvinceZone").style.display=="block"){
+				document.getElementById("ProvinceZone").style.display = "none";
+			}
+
+			document.getElementById("ContryZone").style.visibility="visible";
+			if(document.getElementById("ProvinceZone").style.visibility = "visible"){
+				document.getElementById("ProvinceZone").style.visibility = "hidden";
+			}
+		}else{
+			if(document.getElementById('ContryZone').style.display="block"){
+				document.getElementById('ContryZone').style.display="none";
+			}
+			if(document.getElementById('ProvinceZone').style.display="block"){
+				document.getElementById('ProvinceZone').style.display="none";
+			}
+			
+			if(document.getElementById('ContryZone').style.visibility="visible"){
+				document.getElementById('ContryZone').style.visibility="hidden";
+			}
+			if(document.getElementById('ProvinceZone').style.visibility="visible"){
+				document.getElementById('ProvinceZone').style.visibility="hidden";
+			}
+		}
+	return true;
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?//include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top"><? //$OPTIONAL_TITLE=""; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_salpromote_comdtl.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="COM_ID" value="<?=$COM_ID?>">		  
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="PER_TYPE" value="<?=$PER_TYPE?>">
+          <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">		  
+		  <input type="hidden" name="SALQ_YEAR" value="<?=$SALQ_YEAR?>">
+		  <input type="hidden" name="SALQ_TYPE" value="<?=$SALQ_TYPE?>">		  
+          <input type="hidden" name="COM_CONFIRM" value="<?=$COM_CONFIRM?>">
+       	  <input type="hidden" name="COM_GROUP_IN" value="<?=$COM_GROUP_IN?>">
+       	  <input type="hidden" name="COM_SITE" value="<?=$COM_SITE?>">
+       	  <input type="hidden" name="COM_TYPE_NM" value="<?=$COM_TYPE_NM?>">
+        &nbsp;&nbsp; 
+		<table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr>
+                        <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width=75%" class="textbox" readonly>
+						&nbsp;&nbsp;
+							<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+							<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+							<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกระทรวง" onClick="call_search_ministry();">
+							<? } // end if ?>						</td>
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width=75%" class="textbox" readonly>
+						&nbsp;&nbsp;
+							<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+							<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+							<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกรม" onClick="call_search_department();">
+							<? } // end if ?>						</td>
+                      </tr>
+            <tr>
+              <td height="22" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+			  	  <input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width=75%" class="textbox"  readonly="true">
+                  <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                  <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                  <input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()" >
+                  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+                  <? } // end if ?>			</td>
+              <td align="right"><?=$COM_ORDER_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+			  	<input name="order_by" type="radio" value="1" <?=($order_by==1)?"checked":""?>>&nbsp;<?=$SEQ_NO_TITLE?>&nbsp;&nbsp;
+				<input name="order_by" type="radio" value="2" <?=($order_by==2)?"checked":""?>>&nbsp;<?=$COM_ORDER2_TITLE?>				</td>
+            </tr>
+                      <tr> 
+                        <td width="15%" height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$COM_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="35%"><input type="text" name="COM_NO" value="<?=$COM_NO?>"  style="width=85%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td width="15%" align="right"><?=$COM_DATE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="COM_DATE" value="<?=$COM_DATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.COM_DATE,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;
+							<input type="reset" class="button" onClick="return showCalendar('COM_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>"></td>
+                      </tr>
+                      <tr> 
+                        <td height="22" align="right"><?=$COM_NAME_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="COM_NAME" value="<?=$COM_NAME?>" style="width=85%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$COM_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="COM_TYPE_NAME" value="<?=$COM_TYPE_NAME?>" style="width=85%" class="textbox" readonly>
+								<input type="hidden" name="COM_TYPE" value="<?=$COM_TYPE?>">
+                                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                                <input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทคำสั่ง" onClick="call_search_comtype('COM_TYPE', 'COM_TYPE_NAME');"> 
+                                <? endif; ?>						</td>
+                      </tr>
+                      <tr> 
+                        <td height="22" align="right"  nowrap="nowrap"><?=$COM_NOTE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><textarea name="COM_NOTE" rows="3" class="selectbox" style="width=65%" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$COM_NOTE?></textarea></td>
+                       <td>&nbsp;</td>
+					   <td>&nbsp;</td>
+					  </tr>
+						<tr> 
+						  <td height="22" align="right" nowrap="nowrap">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+							<td nowrap="nowrap">
+							<select name="COM_PER_TYPE">
+								<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($COM_PER_TYPE==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+							</select>
+							</td>
+						  <? if($RPT_N){ ?>
+						  <td>&nbsp;</td>
+						  <td nowrap="nowrap">
+							<? $arrListType=array(1=>"ส่วนกลาง",2=>"ส่วนภูมิภาค",3=>"ต่างประเทศ",4=>"ทั้งหมด"); ?>
+							<select name="list_type"  onChange="check_list_type(this.value)">
+								<?  foreach($arrListType as $key=>$value){  ?><option value="<?=$key; ?>"<?=($list_type==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+							</select>
+							</td>
+						</tr>
+						
+			<? ///if($CTRL_TYPE != 2){ ?>	
+			  <tr id="ContryZone" style=" visibility:hidden; display:none;"> 
+             
+			  <!-- <tr> 
+			   <div id="ContryZone" style=" visibility:hidden; display:none;">-->
+				<td height="22" align="right"><?=$CT_TITLE?>&nbsp;:&nbsp;</td>
+				<td>
+					<input type="text" name="CT_NAME" value="<?=$CT_NAME?>" style="width=85%" class="textbox" readonly="true">
+					<?// if($CTRL_TYPE < 2 && $SESS_USERGROUP_LEVEL < 2){ ?>
+					<input type="button" name="btn_country" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_country()">
+					<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.CT_NAME.value=''; form1.CT_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+					<? //}else{ echo "&nbsp;"; } // end if ?>
+					<input name="CT_CODE" type="hidden" id="CT_CODE" value="<?=$CT_CODE?>">				</td>
+				  <td>&nbsp;</td>
+				  <td>&nbsp;</td>
+			<!--</div>-->
+            </tr>
+			
+			<!--<div id="ProvinceZone" style=" visibility:hidden; display:none;">
+			<tr> -->
+			<tr id="ProvinceZone" style=" visibility:hidden; display:none;">
+                <td height="22" align="right"><?=$PV_TITLE?>&nbsp;:&nbsp;</td>
+				<td> 
+					<input type="text" name="PV_NAME" value="<?=$PV_NAME?>" style="width=85%" class="textbox" readonly="true">
+					<? //if($CTRL_TYPE < 2 && $SESS_USERGROUP_LEVEL < 2){ ?>
+					<input type="button" name="btn_province" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_province()">
+					<input name="image" type="image" onClick="form1.PV_NAME.value=''; form1.PV_CODE.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+					<?//}else{ echo "&nbsp;"; } // end if ?>
+					<input name="PV_CODE" type="hidden" id="PV_CODE" value="<?=$PV_CODE?>">				</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+            </tr>
+			<!--</div>--->
+			<? ///} // end if($CTRL_TYPE != 2) ?>		
+		  <? } // end if $RPT_N?>
+<? if (!$UPD && !$VIEW && !$COM_ID) : 
+	if ($COM_PER_TYPE==1) : 			// ข้าราชการ
+?>
+<? if ($RPT_N) { ?>
+			<tr>
+				<td>&nbsp;</td>
+				<td colspan="3"> 
+					<input name="COM_LEVEL_SALP" type="radio" value="1" <?=($COM_LEVEL_SALP==1)?"checked":""?>>&nbsp;ระดับปฏิบัติงาน ชำนาญงาน อาวุโส ปฏิบัติการ ชำนาญการ ชำนาญการพิเศษ อำนวยการระดับต้น&nbsp;&nbsp;<br>
+					<input name="COM_LEVEL_SALP" type="radio" value="2" <?=($COM_LEVEL_SALP==2)?"checked":""?>>&nbsp;ระดับทักษะพิเศษ เชี่ยวชาญ ทรงคุณวุฒิ อำนวยการระดับสูง บริหารระดับต้น บริหารระดับสูง&nbsp;&nbsp;<br>
+					<input name="COM_LEVEL_SALP" type="radio" value="3" <?=($COM_LEVEL_SALP==3)?"checked":""?>>&nbsp;เงินตอบแทนพิเศษ ระดับปฏิบัติงาน ชำนาญงาน อาวุโส ปฏิบัติการ ชำนาญการ ชำนาญการพิเศษ อำนวยการระดับต้น&nbsp;&nbsp;<br>
+					<input name="COM_LEVEL_SALP" type="radio" value="4" <?=($COM_LEVEL_SALP==4)?"checked":""?>>&nbsp;เงินตอบแทนพิเศษ ระดับทักษะพิเศษ เชี่ยวชาญ ทรงคุณวุฒิ อำนวยการระดับสูง บริหารระดับต้น บริหารระดับสูง&nbsp;&nbsp;<br>
+					<input name="COM_LEVEL_SALP" type="radio" value="5" <?=($COM_LEVEL_SALP==5)?"checked":""?>>&nbsp;เกษียณ
+					<input name="COM_LEVEL_SALP" type="radio" value="6" <?=($COM_LEVEL_SALP==6)?"checked":""?>>&nbsp;ทั้งหมด				</td>
+			</tr>
+<? } else { ?>
+			<tr>
+				<td></td>
+				<td colspan="3"> 
+					<input name="COM_LEVEL_SALP" type="radio" value="1" <?=($COM_LEVEL_SALP==1)?"checked":""?>>&nbsp;ระดับ 8 ลงมา&nbsp;&nbsp;
+					<input name="COM_LEVEL_SALP" type="radio" value="2" <?=($COM_LEVEL_SALP==2)?"checked":""?>>&nbsp;ระดับ 9 ขึ้นไป&nbsp;&nbsp;
+					<input name="COM_LEVEL_SALP" type="radio" value="3" <?=($COM_LEVEL_SALP==3)?"checked":""?>>&nbsp;เงินเพิ่มพิเศษ ระดับ 8 ลงมา
+					<input name="COM_LEVEL_SALP" type="radio" value="4" <?=($COM_LEVEL_SALP==4)?"checked":""?>>&nbsp;เงินเพิ่มพิเศษ ระดับ 9 ขึ้นไป					
+					<input name="COM_LEVEL_SALP" type="radio" value="5" <?=($COM_LEVEL_SALP==5)?"checked":""?>>&nbsp;เกษียณ
+					<input name="COM_LEVEL_SALP" type="radio" value="6" <?=($COM_LEVEL_SALP==6)?"checked":""?>>&nbsp;ทั้งหมด				</td>
+			</tr>
+<? } ?>
+<?	elseif ( ($COM_PER_TYPE==2) || ($COM_PER_TYPE==3) ) : 	// ลูกจ้างประจำ หรือ พนักงานราชการ?>
+			<tr>
+				<td></td>
+				<td colspan="3"> 
+					<input name="COM_LEVEL_SALP" type="radio" value="7" <?=($COM_LEVEL_SALP==7)?"checked":""?>>&nbsp;ปกติ&nbsp;&nbsp;
+					<input name="COM_LEVEL_SALP" type="radio" value="8" <?=($COM_LEVEL_SALP==8)?"checked":""?>>&nbsp;เงินตอบแทนพิเศษ
+					<input name="COM_LEVEL_SALP" type="radio" value="9" <?=($COM_LEVEL_SALP==9)?"checked":""?>>&nbsp;เกษียณ
+					<input name="COM_LEVEL_SALP" type="radio" value="10" <?=($COM_LEVEL_SALP==10)?"checked":""?>>&nbsp;ทั้งหมด				</td>
+			</tr>
+<? endif; endif; ?>
+                    </table></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="button" style="width=70" name="butt_close" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="window.close();" class="button" >
+              <? } else { ?>
+              <img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="window.close();">
+              <?}  echo "&nbsp; &nbsp;"; ?>		  
+<? if ($COM_ID) { ?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" style="width=70" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; var ret_page = (form1.COM_CONFIRM.value=='1'?'1':'2'); parent.refresh_opener(ret_page+'<::><::><::><::><::><::><::><::>');" class="button" ><? } else { ?>
+              <input type="image" src="images/cancel.gif" border="0" alt="<?=$CANCEL_TITLE?>" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; var ret_page = (form1.COM_CONFIRM.value=='1'?'1':'2'); parent.refresh_opener(ret_page+'<::><::><::><::><::><::><::><::>');">
+              <? } echo "&nbsp; &nbsp;";?>
+	<?if( ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $COM_CONFIRM == 0 && !$VIEW && ($SESS_USERGROUP_LEVEL < 5 || ($SESS_USERGROUP_LEVEL >= 5 && $COM_STATUS != "S"))){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit8" style="width=70" type="button" class="button" onClick="confirm_delete('<?=$COM_ID?>', '<?="$COM_NO : $COM_NAME"?>');" value="<?=$COM_DEL_TITLE?>" title="ลบบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน">
+			  <?  } else { ?>
+              <img src="images/delete.gif" alt="<?=$COM_DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete('<?=$COM_ID; ?>', '<?="$COM_NO : $COM_NAME"; ?>');">
+              <? } echo "&nbsp; &nbsp;";?>	
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit7" style="width=70" type="submit" class="button" onClick="return confirm_update();" value="<?=$COM_EDIT_TITLE?>" alt="ปรับปรุงบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน" title="ปรับปรุงบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน">
+			  <?  } else { ?>
+              <input name="image22" type="image" onClick="return confirm_update();"  src="images/save.png" alt="<?=$COM_EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>
+			  <!---<? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="button" class="button" onClick="call_edit_data_comdtl_form(<?=$COM_ID?>, '');" value="<?=$ADD_PERSON_TITLE?>" alt="เพิ่มข้าราชการ/ลูกจ้าง แนบท้ายคำสั่งเลื่อนขั้นเงินเดือน">
+			  <? } else { ?>
+              <img src="images/select_person.png" alt="<?=$ADD_PERSON_TITLE?>" width="32" height="32" border="0" onClick="call_edit_data_comdtl_form(<?=$COM_ID?>, '');">&nbsp;
+              <?}?>-->
+		<?if ($SESS_USERGROUP_LEVEL >= 5 && $COM_STATUS != "S") { ?>
+				<input name="Submit9" type="submit" class="button" onClick="return send_command(<?=$COM_ID?>, '');" value="<?=$COM_SEND_TITLE?>" alt="เพื่อส่งคำสั่งที่สมบูรณ์แล้วไปส่วนกลาง">
+		<? } ?>
+		<?if($PAGE_AUTH["confirm"]=="Y"){?>
+        <? if ($BUTTON_DISPLAY==1) { ?>
+        <input name="Submit8" style="width=70" type="submit" class="button" onClick="return confirm_command();" value="<?=$COM_CONFIRM_TITLE?>" alt="<?=$COM_CONFIRM_TITLE?>" title="<?=$COM_CONFIRM_TITLE?>">
+        <?  } else { ?>
+        <input name="image222" type="image" onClick="return confirm_command();" src="images/ok.gif" alt="<?=$COM_CONFIRM_TITLE?>">
+        <? } echo "&nbsp; &nbsp;"; ?>	
+		<?}?>
+	<?}?>  
+<? } else { ?>
+    <? if ($BUTTON_DISPLAY==1) { ?>
+    <input name="Reset2" style="width=70" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+    <? } else { ?>
+    <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+    <?} echo "&nbsp; &nbsp;"; ?>
+	<? if ($BUTTON_DISPLAY==1) { ?>
+	<input name="Submit2" type="submit" class="button" onClick="return confirm_add();" value="<?=$COM_ADD_TITLE?>" title="เพิ่มบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน" alt="เพิ่มบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน">
+	<?  } else { ?>
+    <input name="image23" type="image" onClick="return confirm_add();" src="images/save.png" alt="<?=$COM_ADD_TITLE?>">
+    <? } echo "&nbsp; &nbsp;"; ?>
+	<!--<? if ($BUTTON_DISPLAY==1) { ?>
+	<input type="button" name="btn3" class="button" value="<?=$COM_SEARCH_TITLE?>" title="ค้นหาบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน" alt="ค้นหาบัญชีแนบท้ายคำสั่งเลื่อนขั้นเงินเดือน" onClick="call_data_command();">
+	<?  } else { ?>
+    <img src="images/query.png" alt="<?=$COM_SEARCH_TITLE?>" width="32" height="32" border="0" onClick="call_data_command();">
+    <? } echo "&nbsp; &nbsp;"; ?>-->
+	<? if ($SESS_USERGROUP_LEVEL >= 5  && $COM_STATUS=="S") { ?>
+		<font color="#FF0000"><B>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		<? echo "ส่งคำสั่งไปแล้ว"; ?>
+		</B></font>
+	<? } ?>
+<? } ?>          </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  &nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+<table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr>
+                        <td width="15%" height="22" align="right">&nbsp;<?=$NAME_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="25%">
+							<input type="text" name="search_per_name" value="<?=$search_per_name?>" style="width=80%" class="textbox">&nbsp;</td>
+                        <td width="12%" align="right">&nbsp;<?=$SURNAME_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="25%">
+							<input type="text" name="search_per_surname" value="<?=$search_per_surname?>" style="width=80%" class="textbox">&nbsp;</td>
+			   <td align="center">
+			   	 <? if ($BUTTON_DISPLAY==1) { ?>
+			   	 <input type="button" name="Submit2" class="button" value="<?=$SEARCH_TITLE?>" title="ค้นหาบุคคลแนบท้ายบัญชี" alt="ค้นหาบุคคลแนบท้ายบัญชี" onClick="form1.current_page.value='';form1.submit();">
+			   	<input type="button" name="Submit3" class="button" value="<?=$SHOW_ALL_TITLE?>" title="แสดงบุคคลแนบท้ายบัญชีทั้งหมด" alt="แสดงบุคคลแนบท้ายบัญชีทั้งหมด" onClick="form1.search_per_name.value='';form1.search_per_surname.value='';form1.current_page.value='';form1.submit();">
+			   	<? } else { ?>
+                <input name="image24" type="image" onClick="form1.current_page.value='';" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image24" type="image" onClick="form1.search_per_name.value='';form1.search_per_surname.value='';form1.current_page.value='';" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?>				</td>
+                      </tr>
+                    </table>
+            </td>
+        </tr>
+        <tr>
+          <td height="5"></td>
+          </tr>	 
+      </table></td>
+    </tr>
+  </table>  
+  &nbsp;
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<? if($COM_ID){ ?>
+	<!--td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงานรูปแบบ PDF" onClick="call_pdf_report(1);">
+	<? }else{ echo "&nbsp;"; } ?></td-->
+	<? } // end if ?>
+	<td align="center" rowspan="2">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<? if($COM_ID){ ?>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_export" type="button" class="button" value="<?=$EXCEL_TITLE?>" onClick="call_export_file(1);">
+      <?  } else { ?>
+      <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file(1);">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td>
+	<? } // end if ?>
+     </tr>
+   </table></td>
+	</tr>
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+   </table></td>
+	</tr>
+</table>  
+<?
+	if($COM_ID){
+		if($DPISDB=="odbc"){
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;			
+			$cmd = "	select * from 
+				(
+					select top $select_top * from 
+					(
+						select		top ".($data_per_page * $current_page)." 
+									a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, CMD_POSITION, CMD_ORG3, a.CMD_LEVEL, CMD_SEQ, 
+									d.ORG_SEQ_NO, e.ORG_SEQ_NO,  CMD_OLD_SALARY, CMD_SALARY, a.MOV_CODE  
+						from			(((  PER_COMDTL a 
+										 inner join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+									) left join $position_table c on ($position_join)
+									) left join PER_ORG d on (c.ORG_ID=d.ORG_ID)
+									) left join PER_ORG e on (c.ORG_ID_1=e.ORG_ID)
+						where		a.COM_ID=$COM_ID
+									$search_condition
+						order by 		d.ORG_SEQ_NO, e.ORG_SEQ_NO, IIf(IsNull(a.CMD_POSITION), 0, CLng(LEFT(a.CMD_POSITION, (InStr(a.CMD_POSITION, '\|') - 1)))) 	
+					) order by d.ORG_SEQ_NO desc, e.ORG_SEQ_NO desc, IIf(IsNull(a.CMD_POSITION), 0, CLng(LEFT(a.CMD_POSITION, (InStr(a.CMD_POSITION, '\|') - 1)))) desc 
+				) order by d.ORG_SEQ_NO, e.ORG_SEQ_NO, IIf(IsNull(a.CMD_POSITION), 0, CLng(LEFT(a.CMD_POSITION, (InStr(a.CMD_POSITION, '\|') - 1)))) ";	
+		}elseif($DPISDB=="oci8"){
+			$tmp1 = $current_page * $data_per_page;
+			$tmp2 = ($current_page - 1) * $data_per_page;
+			$cmd = "select * from (
+					select alist.*, rownum  rnum from (	
+						select		a.PER_ID, b.PN_CODE, b.PER_NAME, b.PER_SURNAME, a.CMD_POSITION, a.CMD_ORG3, a.CMD_LEVEL,  a.CMD_OLD_SALARY, a.CMD_SALARY, a.MOV_CODE 
+						from			PER_COMDTL a, PER_PERSONAL b, $position_table c, PER_ORG d, PER_ORG e
+						where		a.COM_ID=$COM_ID and a.PER_ID=b.PER_ID and $position_join(+) and c.ORG_ID=d.ORG_ID(+) and c.ORG_ID_1=e.ORG_ID(+) 
+									$search_condition 
+						order by 		d.ORG_SEQ_NO, e.ORG_SEQ_NO, TO_NUMBER(SUBSTR(a.CMD_POSITION, 1, (INSTR(a.CMD_POSITION, '\|') - 1)))
+						) alist
+					where rownum <= $tmp1
+				) where rnum > $tmp2   ";						
+		}elseif($DPISDB=="mysql"){
+			$cmd = "	select * from 
+									a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, CMD_POSITION, CMD_ORG3, a.CMD_LEVEL, CMD_SEQ, 
+									d.ORG_SEQ_NO, e.ORG_SEQ_NO,  CMD_OLD_SALARY, CMD_SALARY, a.MOV_CODE  
+						from			PER_COMDTL a 
+										 inner join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+									 left join $position_table c on ($position_join)
+									left join PER_ORG d on (c.ORG_ID=d.ORG_ID)
+									left join PER_ORG e on (c.ORG_ID_1=e.ORG_ID)
+						where		a.COM_ID=$COM_ID
+									$search_condition
+						order by 	d.ORG_SEQ_NO, e.ORG_SEQ_NO, a.CMD_POSITION
+						 ";	
+		} // end if
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+	} //end if($COM_ID)
+
+	if ($count_page_data) {
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="5%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td height="25"><?=$FULLNAME_TITLE?></td>
+      <td width="18%"><?=$CMD_POSITION_TITLE?></td>
+      <td width="15%"><strong><?=$ORG_TITLE?></strong></td>      
+      <td width="8%"><?=$SALARY_TITLE?>เดิม</td>
+      <td width="8%"><?=$SALARY_TITLE?>ที่เลื่อน</td>      
+      <td height="12"><?=$MOV_TITLE?></td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td width="4%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td width="4%"><?=$DEL_TITLE?></td>
+      <?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = ($current_page - 1) * $data_per_page;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_PER_ID= $data[PER_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PER_ID;
+		$TMP_CMD_SEQ = $data[CMD_SEQ];
+		$TMP_PER_NAME = $data[PER_NAME] ." ". $data[PER_SURNAME];
+		if($DPISDB=="mysql"){
+			$temp_pos = explode("|", trim($data[CMD_POSITION]));
+		}else{
+			$temp_pos = explode("\|", trim($data[CMD_POSITION]));
+		}
+		$TMP_PL_NAME = $temp_pos[1];
+		$TMP_CMD_LEVEL = trim($data[CMD_LEVEL]);
+		$cmd = " select LEVEL_NAME, POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$TMP_CMD_LEVEL' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$LEVEL_NAME = $data2[LEVEL_NAME];
+		$POSITION_LEVEL = $data2[POSITION_LEVEL];
+		if (!$POSITION_LEVEL) $POSITION_LEVEL = $LEVEL_NAME;
+		
+		if ($RPT_N)
+		    $TMP_POSITION = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)? "$TMP_PL_NAME$POSITION_LEVEL" : "") . (trim($TMP_PM_NAME) ?")":"");
+		else
+		    $TMP_POSITION = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)?($TMP_PL_NAME ." ". level_no_format($TMP_CMD_LEVEL) . (($TMP_PT_CODE != "11" && $TMP_CMD_LEVEL >= 6)?"$TMP_PT_NAME":"")):"") . (trim($TMP_PM_NAME) ?")":"");
+//		$TMP_POSITION = ($temp_pos[1])? "$temp_pos[1] ".level_no_format($data[CMD_LEVEL]) : "-";
+		$TMP_ORG = (trim($data[CMD_ORG3]))? $data[CMD_ORG3] : "-" ;
+	
+		$PN_CODE = trim($data[PN_CODE]);
+		$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$PN_CODE' ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$PN_NAME = trim($data1[PN_NAME]);
+		
+		$TMP_OLD_SALARY = number_format($data[CMD_OLD_SALARY], 2, '.', ',');
+		$TMP_SALARY = number_format($data[CMD_SALARY], 2, '.', ',');
+		$MOV_CODE = trim($data[MOV_CODE]);
+		$cmd = " select MOV_NAME from PER_MOVMENT where MOV_CODE='$MOV_CODE' ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$TMP_MOV_NAME = trim($data1[MOV_NAME]);
+		
+		$returnValue = "!<::>!<::>!<::>!<::>$TMP_CMD_SEQ<::>$count_data<::>!";
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PER_ID==$TMP_PER_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_num?></td>
+      <td>&nbsp;<?="$PN_NAME$TMP_PER_NAME"?></td>
+      <td>&nbsp;<?=$TMP_POSITION?></td>
+      <td>&nbsp;<?=$TMP_ORG?></td>
+      <td>&nbsp;<?=$TMP_OLD_SALARY?></td>
+      <td>&nbsp;<?=$TMP_SALARY?></td>
+      <td>&nbsp;<?=$TMP_MOV_NAME?></td>
+	  <? $returnValueA=""; $VIEW='?VIEW=1';	$returnValueA="3<::>".$returnValue."<::>!<::>$VIEW"; ?>
+      <td align="center">&nbsp;<a href="<?="javascript:parent.refresh_opener('$returnValueA');"?>"><img src="images/icon_eye.gif" alt="ดูข้าราชการ/ลูกจ้างแนบท้ายบัญชีคำสั่งเลื่อนขั้นเงินเดือน" width="16" height="16" border="0"></a></td><!--<?="javascript:call_view_data_comdtl_form($COM_ID, $TMP_PER_ID)"?>-->
+<?if($PAGE_AUTH["edit"]=="Y") {
+	 if($COM_CONFIRM==1 || ($COM_STATUS=="S" && $SESS_USERGROUP_LEVEL >= 5)) {
+      echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	} else {?>
+		<? $returnValueA="";  $UPD='?UPD=1';	$returnValueA="3<::>".$returnValue."<::>!<::>$UPD";  ?>
+      <td align="center">&nbsp;<a href="<?="javascript:parent.refresh_opener('$returnValueA');"?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้าราชการ/ลูกจ้างแนบท้ายบัญชีคำสั่งเลื่อนขั้นเงินเดือน"></a></td><!--<?="javascript:call_edit_data_comdtl_form($COM_ID, $TMP_PER_ID)"?>-->
+	<?}
+	}?>
+<?if($PAGE_AUTH["del"]=="Y") {
+	if($COM_CONFIRM==1 || ($COM_STATUS=="S" && $SESS_USERGROUP_LEVEL >= 5)) {
+      echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	} else {?>
+      <td align="center"><a href="<?="javascript:confirm_delete_per($TMP_PER_ID,'$PN_NAME$TMP_PER_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้าราชการ/ลูกจ้างแนบท้ายบัญชีคำสั่งเลื่อนขั้นเงินเดือน"></td>
+	<?}
+	}?>  
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+
+<?=$alert_adding_command?>
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

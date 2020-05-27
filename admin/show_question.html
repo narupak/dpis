@@ -1,0 +1,172 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	$arr_search_condition[] = "(a.QS_ID in ($SELECTED_LIST))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+  	if($DPISDB=="odbc"){
+		$cmd = " select 	count(PER_ID) as count_data 
+						 from 		(
+						 					PER_PERSONAL a
+						 					left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+										) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+						$search_condition
+					   ";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$cmd = " select 	count(PER_ID) as count_data 
+						 from 		PER_PERSONAL a, PER_POSITION c, PER_POS_EMP d
+						where		a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+)
+										$search_condition
+					   ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	count(QS_ID) as count_data 
+						 from PER_QUESTION_STOCK  a left join PER_COMPETENCE b on (a.CP_CODE=b.CP_CODE) 
+						$search_condition
+					   ";
+	} 
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>คำถามทดสอบสมรรถนะ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+</script>
+<body>
+<form action="show_question.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบคำถาม ทั้งสิ้น
+      <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		*
+								from		(
+												select		top $select_top *
+												from		(
+																select		top ". ($data_per_page * $current_page) ."
+																			a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO,
+																			b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE
+																from 		(
+																				(
+																					PER_PERSONAL a
+																					inner join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+																				) left join PER_POSITION c on (a.POS_ID = c.POS_ID)
+																			) left join PER_POS_EMP d on (a.POEM_ID = d.POEM_ID)
+																$search_condition 
+																order by 	PER_NAME, PER_SURNAME
+																) 
+												order by	PER_NAME desc, PER_SURNAME desc
+												)
+								order by	PER_NAME, PER_SURNAME
+						  ";	
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO,
+												b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE
+									from 		PER_PERSONAL a, PER_PRENAME b, PER_POSITION c, PER_POS_EMP d, PER_POS_EMPSER e
+									where 		a.PN_CODE=b.PN_CODE and
+												a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+) and a.POEMS_ID=e.POEMS_ID(+)
+												$search_condition
+												$limit_data
+									order by	PER_NAME, PER_SURNAME
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = "	select a.QS_ID,a.CP_CODE, QS_NAME, a.QS_SCORE1, CP_NAME 
+				 			from PER_QUESTION_STOCK  a left join PER_COMPETENCE b on (a.CP_CODE=b.CP_CODE) 
+							$search_condition
+						  ";	
+		} // end if
+//		echo "$cmd<br>";
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="27%" height="25" align="center">สมรรถนะ</td>
+    <td align="center">รายละเอียดคำถาม</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_QS_ID = $data[QS_ID];
+				$current_list .= ((trim($current_list))?",":"") . $TMP_QS_ID;
+				$TMP_CP_CODE = $data[CP_CODE];
+				$TMP_QS_NAME = $data[QS_NAME];
+				$TMP_CP_NAME = $data[CP_NAME];
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+				
+				$checked = "";
+				if(in_array($TMP_QS_ID, $ARR_SELECTED) ){ 
+					$count_selected++;
+					$checked = "checked";
+				} // end if
+				
+				$disabled = "";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="left" valign="top">&nbsp;<?=$TMP_CP_NAME?></td>
+    <td valign="top"><?=$TMP_QS_NAME?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

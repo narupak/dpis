@@ -1,0 +1,552 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+   $db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);	
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	$PER_TYPE = (trim($PER_TYPE))? $PER_TYPE : 1;	
+	if ($PER_TYPE==1) {
+		$search_from = ", PER_POSITION c";
+		$arr_search_condition[] = "b.POS_ID=c.POS_ID";
+	} elseif ($PER_TYPE==2) { 
+		$search_from = ", PER_POS_EMP c";
+		$arr_search_condition[] = "b.POEM_ID=c.POEM_ID";
+	} elseif ($PER_TYPE==3) { 
+		$search_from = ", PER_POS_EMPSER c";
+		$arr_search_condition[] = "b.POEMS_ID=c.POEMS_ID"; 
+	} elseif ($PER_TYPE==4) { 
+		$search_from = ", PER_POS_TEMP  c";
+		$arr_search_condition[] = "b.POT_ID=c.POT_ID"; 
+	}
+	
+	if ($ABS_STARTDATE) {
+		$temp_date = explode("/", $ABS_STARTDATE);
+		$temp_start = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];
+		$arr_search_condition[] = "(ABS_STARTDATE >= '$temp_start')";
+	} // end if
+	
+	if ($ABS_ENDDATE) {
+		$temp_date = explode("/", $ABS_ENDDATE);
+		$temp_end = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];
+		$arr_search_condition[] = "(ABS_ENDDATE <= '$temp_end')";
+	} // end if
+
+	if ($ORG_ID){ 
+		if($SESS_ORG_STRUCTURE==1){
+			$arr_search_condition[] = "(b.ORG_ID = $ORG_ID)";		
+		}else{
+			$arr_search_condition[] = "(c.ORG_ID = $ORG_ID)";			
+		}
+	}elseif($DEPARTMENT_ID){
+			$arr_search_condition[] = "(b.DEPARTMENT_ID = $DEPARTMENT_ID)";		
+	}elseif($MINISTRY_ID){
+		$cmd = " select 	b.ORG_ID
+						 from   	PER_ORG a, PER_ORG b
+						 where  	a.OL_CODE='02' and b.OL_CODE='03' and a.ORG_ID_REF=$MINISTRY_ID and b.ORG_ID_REF=a.ORG_ID
+						 order by a.ORG_ID, b.ORG_ID ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(c.ORG_ID in (". implode(",", $arr_org) ."))";
+	}elseif($PV_CODE){
+		$cmd = " select 	ORG_ID
+						 from   	PER_ORG
+						 where  	OL_CODE='03' and PV_CODE='$PV_CODE'
+						 order by ORG_ID ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(c.ORG_ID in (". implode(",", $arr_org) ."))";
+	}
+		
+	$search_condition = "";
+	if ($arr_search_condition)		$search_condition = " and " . implode(" and ", $arr_search_condition);
+	
+	$cmd =" 	select 		a.PER_ID 
+						from 		PER_ABSENT a, PER_PERSONAL b
+										$search_from
+						where		b.PER_TYPE=$PER_TYPE and PER_STATUS=1 and a.PER_ID=b.PER_ID and ABS_LETTER in (1, 3) 
+										$search_condition 
+						order by 	ABS_STARTDATE desc		   ";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.DEPARTMENT_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"<?=$ORG_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}	
+	
+	function clear_form () {
+		form1.PER_TYPE[0].selected = true;
+		form1.ORG_NAME.value = "";
+		form1.ORG_ID.value = "";
+		form1.ABS_STARTDATE.value = "";
+		form1.ABS_ENDDATE.value = "";
+	}
+	
+      function call_rtf_pdf_report(report_type) {
+	   var  report_type
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		if (report_type==1){
+		document.form1.action = "report/rpt_data_absent_paper_inquire.php?report_title=" + report_title + "&UTC" + rptDate+"&FLAG_RTF=1";
+	    }else if (report_type==0){ 
+		document.form1.action = "report/rpt_data_absent_paper_inquire.php?report_title=" + report_title + "&UTC" + rptDate+"&FLAG_RTF=0";
+		}
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent_paper_inquire.html";
+	} 
+	
+	function call_export_file() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent_paper_inquire_xls.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent_paper_inquire.html";
+	}				
+	
+	function check_valid_date() {
+		if(form1.ABS_STARTDATE.value && form1.ABS_ENDDATE.value){
+			intMinDate = Date.parse(form1.ABS_STARTDATE.value);
+			intMaxDate = Date.parse(form1.ABS_ENDDATE.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ลา ไม่ถูกต้อง");
+				form1.ABS_ENDDATE.focus();
+				return false;
+			} else  			
+		form1.command.value='SEARCH';
+		return true; 
+		}
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort	
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+					form1.ORG_ID.value = "";
+					form1.ORG_NAME.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+					form1.ORG_ID.value = "";
+					form1.ORG_NAME.value = "";
+				} else if (arrValue[7]=="search_org") {
+					form1.ORG_ID.value = arrValue[0];
+					form1.ORG_NAME.value = arrValue[1];
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>	
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_absent_paper_inquire.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+        &nbsp;&nbsp; 
+		<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr> 
+                        <td width="18%" align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="32%"> 
+			  	<?  if($SESS_PER_TYPE==0){ $PER_TYPE = (isset($PER_TYPE))?  $PER_TYPE : 1;	} ?>
+					<select name="PER_TYPE" onKeyPress="return keyEnter(event,document.form1.Submit2);">
+					<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($PER_TYPE==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+					</select>
+</td>
+                        <td width="15%" height="22" align="right"><?=$MINISTRY_TITLE; ?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:70%" class="textbox" readonly>&nbsp;&nbsp;
+					<input type="hidden" name="MINISTRY_ID"  value="<?=$MINISTRY_ID?>">
+					<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+					<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry();">
+					<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.MINISTRY_ID.value=''; form1.MINISTRY_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; form1.ORG_ID.value=''; form1.ORG_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+					<? } // end if ?>			   </td>
+                      </tr>
+                      <tr>
+                        <td height="22" align="right"><?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:70%" class="textbox" readonly>&nbsp;&nbsp;
+					<input type="hidden" name="DEPARTMENT_ID"  value="<?=$DEPARTMENT_ID?>">
+					<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+					<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();">
+					<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; form1.ORG_ID.value=''; form1.ORG_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+					<? } // end if ?>			   </td>
+                        <td align="right"><?=$ORG_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>" style="width:70%" class="textbox" readonly> 
+                                <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">&nbsp;&nbsp;
+                              <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+							  <input type="button" name="btn_org" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_org();">	
+							  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.ORG_ID.value=''; form1.ORG_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+							  <? } // end if ?>						</td>
+                      </tr>
+                      <tr> 
+                        <td height="22" align="right">ระหว่างวันที่&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="ABS_STARTDATE" id="ABS_STARTDATE" value="<?=$ABS_STARTDATE?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.ABS_STARTDATE,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+				<input type="reset" class="button" onClick="return showCalendar('ABS_STARTDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">			   </td>
+                        <td align="right">ถึง&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="ABS_ENDDATE" id="ABS_ENDDATE" value="<?=$ABS_ENDDATE?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.ABS_ENDDATE,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+				<input type="reset" class="button" onClick="return showCalendar('ABS_ENDDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">			   </td>
+                      </tr>
+                    </table></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+				  <? if ($BUTTON_DISPLAY==1) { ?>
+                  <input name="Submit2" type="submit" class="button" onClick="return check_valid_date();" value="<?=$SEARCH_TITLE?>"> 
+				  <? } else { ?>
+                <input name="image2" type="image" onClick="return check_valid_date();" src="images/search.png" alt="<?=$SEARCH_TITLE?>">&nbsp; 
+				<? } ?>         
+		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Butt1" type="button" class="button" value="<?=$CLEAR_TITLE?>" onClick="clear_form()">   
+			  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="clear_form()">
+                  <? } echo "&nbsp; &nbsp;";?>
+				</td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//ชื่อ - สกุล
+		$order_str = "ORDER BY PER_NAME ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//ประเภท
+		$order_str = "ORDER BY AB_CODE  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ตั้งแต่วันที่
+		$order_str = "ORDER BY ABS_STARTDATE ".$SortType[$order_by];
+	} elseif($order_by==4) {	//ถึงวันที่
+		$order_str =  "ORDER BY ABS_ENDDATE  ".$SortType[$order_by];
+	}elseif($order_by==5) {	//จำนวนวัน
+		$order_str = "ORDER BY ABS_DAY ".$SortType[$order_by];
+	}elseif($order_by==6) {	//การส่งใบลา
+		$order_str = "ORDER BY ABS_LETTER ".$SortType[$order_by];
+	}
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and PER_ID not in (select top $start_record PER_ID from PER_ABSENT where PER_ID=$PER_ID order by ABS_STARTDATE desc) ";
+		}elseif($DPISDB=="mysql"){
+		  $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	select			top $data_per_page 
+												a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, AB_CODE, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+												b.POS_ID, b.POEM_ID, b.POEMS_ID, b.POT_ID, c.ORG_ID
+							from			PER_ABSENT a, PER_PERSONAL b
+												$search_from 
+							where			b.PER_TYPE=$PER_TYPE and PER_STATUS=1 and a.PER_ID=b.PER_ID and ABS_LETTER in (1, 3) 
+												$search_condition
+												$limit_data
+							$order_str 	";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, AB_CODE, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER, 
+													b.POS_ID, b.POEM_ID, b.POEMS_ID, b.POT_ID, c.ORG_ID 
+								  from 			PER_ABSENT a, PER_PERSONAL b  
+													$search_from
+								  where 		b.PER_TYPE=$PER_TYPE and PER_STATUS=1 and a.PER_ID=b.PER_ID and ABS_LETTER in (1, 3) 
+													$search_condition 
+								  $order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	select		a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, AB_CODE, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,	
+												b.POS_ID, b.POEM_ID, b.POEMS_ID,b.POT_ID, c.ORG_ID
+							from			PER_ABSENT a, PER_PERSONAL b
+												$search_from 
+							where		b.PER_TYPE=$PER_TYPE and PER_STATUS=1 and a.PER_ID=b.PER_ID and ABS_LETTER in (1, 3) 
+												$search_condition
+							$order_str
+												$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo "<pre>".$cmd;
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<? if ($count_data) { ?>
+	<td width="26%"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+      <? if ($BUTTON_DISPLAY==1) { ?>
+	  <input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE?>" onClick="call_rtf_pdf_report(0);">
+	  <? if ($RTF_FLAG==1) { ?>
+     <input name="btn21" type="button" class="button" style="width:150" value="<?=$RTF_TITLE?>" onClick="call_rtf_pdf_report(1);">    
+	    <? } ?>
+      <?  } else { ?>
+	  <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_rtf_pdf_report(0);">
+	   <? if ($RTF_FLAG==1) { ?>
+       <img src="images/doc_icon_word.jpg" border="0" alt="<?=$RTF_TITLE?>" onClick="call_rtf_pdf_report(1);"> 
+	  <? } ?>
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td> 
+	<td width="59%" align="center">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <?  } else { ?>
+      <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td> 
+	<? } ?>			  
+     </tr>
+   </table></td>
+	</tr>
+</table>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td height="25" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$FULLNAME_TITLE;?></strong></td>
+      <td width="18%" onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        ประเภท</strong></td>
+      <td width="12%" onClick="call_sort(3);"><strong>
+        <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$FROM_DATE_TITLE;?></strong></td>
+      <td width="12%" onClick="call_sort(4);"><strong>
+        <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$TO_DATE_TITLE;?></strong></td>
+      <td width="8%" onClick="call_sort(5);"><strong>
+        <? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        จำนวนวัน</strong></td>
+	  <td width="18%" onClick="call_sort(6);"><strong>
+	    <? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  </strong>การส่งใบลา</td>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_PER_ID = $data[PER_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PER_ID;
+		$TMP_PN_CODE = $data[PN_CODE];
+		$TMP_PER_NAME = $data[PER_NAME];
+		$TMP_PER_SURNAME = $data[PER_SURNAME];
+		$TMP_ABS_STARTDATE = show_date_format($data[ABS_STARTDATE], 1);
+		$TMP_ABS_DAY = trim($data[ABS_DAY]);		
+		
+		$TMP_ABS_ENDDATE = show_date_format($data[ABS_ENDDATE], 1);
+
+		$TMP_PN_CODE = trim($data[PN_CODE]);
+		if($TMP_PN_CODE){
+			$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$TMP_PN_CODE' ";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_PN_NAME = $data2[PN_NAME];
+		} // end if
+		
+		$TMP_AB_CODE = trim($data[AB_CODE]);
+		if($TMP_AB_CODE){
+			$cmd = " select AB_NAME from PER_ABSENTTYPE where AB_CODE='$TMP_AB_CODE' ";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_AB_NAME = $data2[AB_NAME];
+		} // end if
+
+		if ($TMP_AB_CODE == "10") {
+			$ABS_LETTER_STR = "-";
+		} else {
+			$TMP_ABS_LETTER = trim($data[ABS_LETTER]);
+			if ($TMP_ABS_LETTER == 1) 			$ABS_LETTER_STR = "ยังไม่ได้ส่ง";
+			elseif ($TMP_ABS_LETTER == 3) 		$ABS_LETTER_STR = "ไม่ถูกต้อง";		
+		}
+				
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PER_ID==$TMP_PER_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_num?></td>
+      <td>&nbsp;<?="$TMP_PN_NAME$TMP_PER_NAME $TMP_PER_SURNAME"?></td>
+      <td>&nbsp;<?=$TMP_AB_NAME?></td>
+      <td align="center"><?=$TMP_ABS_STARTDATE?></td>
+      <td align="center"><?=$TMP_ABS_ENDDATE?></td>
+      <td align="center"><?=$TMP_ABS_DAY?></td>
+      <td>&nbsp;<?=$ABS_LETTER_STR?></td>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+  		  <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

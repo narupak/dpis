@@ -1,0 +1,307 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	switch($CTRL_TYPE){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if($isLock){
+		$search_ministry_id = $MINISTRY_ID;
+		$search_ministry_name = $MINISTRY_NAME;
+		$search_department_id = $DEPARTMENT_ID;
+		$search_department_name = $DEPARTMENT_NAME;
+	} // end if
+
+	if( !$current_page ) $current_page = 1;
+	//echo("current_page - ".$current_page);
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	//echo("<BR>start_record - ".$start_record);
+	
+	$search_per_status = (isset($search_per_status))?  $search_per_status : 1;
+	$search_per_type = (isset($search_per_type))?  $search_per_type : 1;
+
+	if(trim($SELECTED_LIST)) $ARR_SELECTED = explode(",", $SELECTED_LIST);
+//	echo "$SELECTED_LIST<br>";
+	$search_condition = "";
+
+  	if($DPISDB=="odbc"){
+		$cmd = " select 	count(PER_ID) as count_data 
+				   from 		(
+								(
+									PER_PERSONAL a
+									left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+								) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+							) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+				   $search_condition
+			   	";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$cmd = " select 	count(PER_ID) as count_data 
+				   from 		PER_PERSONAL a, PER_POSITION c, PER_POS_EMP d, PER_POS_EMPSER e
+				   where	a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+) and a.POEMS_ID=e.POEMS_ID(+)
+							$search_condition
+			   	";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select count(QS_ID) as count_data
+						from PER_QUESTION_STOCK a, PER_COMPETENCE b 
+						where a.CP_CODE=b.CP_CODE 
+						AND a.CP_CODE='$CP_CODE'
+						order by a.CP_CODE, a.QS_NAME
+			   	";
+	} 
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>คำถามทดสอบสมรรถนะ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.isSubmit.value = true;
+		form1.submit();
+		}
+
+	function control_all(isChecked){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "SELECT_QS";
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+//			alert(objName);
+			if( search_str == objName ){ 
+				if(getObj[i].disabled == false) getObj[i].checked = isChecked;
+				PER_ID = getObj[i].name.substr(getObj[i].name.lastIndexOf( "_" ) + 1);
+//				alert(PER_ID);
+				if(isChecked && getObj[i].disabled == false){
+					if(SELECTED_LIST.indexOf("," + PER_ID + ",") == -1){
+//						SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+//						if(SELECTED_LIST==",") SELECTED_LIST = "";
+
+						if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+						else SELECTED_LIST += (PER_ID + ",");
+					} // end if
+				}else{
+					SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+					if(SELECTED_LIST==",") SELECTED_LIST = "";
+				} // end if
+			} // end if
+		}	// end for
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+		//alert(form1.SELECTED_LIST.value);
+	} 
+	
+	function update_list(isChecked, PER_ID, dataCount){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		if(isChecked){
+			var countChecked = 0;
+			if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+			else SELECTED_LIST += (PER_ID + ",");
+			
+			getObj = document.getElementsByTagName("input");
+			search_str = "SELECT_QS";
+			for(i=0; i<getObj.length; i++){
+				if(getObj[i].type != "checkbox") continue;
+				objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+				if( search_str == objName && getObj[i].checked ) countChecked++;
+				if( countChecked == dataCount ) form1.CHECKALL.checked = true;
+			} // end for
+		}else{
+			SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+			if(SELECTED_LIST==",") SELECTED_LIST = "";
+			if(form1.CHECKALL.checked) form1.CHECKALL.checked = false;
+		} // end if
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+//		alert(form1.SELECTED_LIST.value);
+	}
+</script>
+<body onUnload="if(!form1.isSubmit.value){ parent.refresh_opener(form1.SELECTED_LIST.value); }">
+<form id="form1" name="form1" action="select_question.html" method="post" enctype="multipart/form-data" >
+<input type="hidden" name="current_page" value="<?=$current_page?>">
+<input type="hidden" name="total_page" value="<?=$total_page?>">
+<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+<input type="hidden" name="command">
+<input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+<input type="hidden" name="EXCEPT_LIST" value="<?=$EXCEPT_LIST?>">
+<input type="hidden" name="CP_CODE" value="<?=$CP_CODE?>">
+<input type="hidden" name="isSubmit">
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight" nowrap="nowrap">พบคำถาม ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and PER_ID not in (select top $start_record PER_ID from PER_PERSONAL $search_condition order by PER_NAME, PER_SURNAME) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+		$total_page = ceil( $count_data / $data_per_page );	
+		$page_link = create_link_page($total_page, $current_page);
+		//$limit_data = "";
+	
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		top ". ($data_per_page * $current_page) ."
+																	a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO,
+																	b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE
+														from 		(
+																		(
+																			(
+																				PER_PERSONAL a
+																				inner join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+																			) left join PER_POSITION c on (a.POS_ID = c.POS_ID)
+																		) left join PER_POS_EMP d on (a.POEM_ID = d.POEM_ID)
+																	) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+														$search_condition 
+								$limit_data
+														order by 	PER_NAME, PER_SURNAME
+				  	";	
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO,
+												b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE
+									from 		PER_PERSONAL a, PER_PRENAME b, PER_POSITION c, PER_POS_EMP d, PER_POS_EMPSER e
+									where 		a.PN_CODE=b.PN_CODE and
+												a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+) and a.POEMS_ID=e.POEMS_ID(+)
+												$search_condition
+												$limit_data
+									order by	PER_NAME, PER_SURNAME
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = "select a.QS_ID,a.CP_CODE, QS_NAME, a.QS_SCORE1, CP_NAME 
+						from PER_QUESTION_STOCK a, PER_COMPETENCE b 
+						where a.CP_CODE=b.CP_CODE 
+						AND a.CP_CODE='$CP_CODE'
+						order by a.CP_CODE, a.QS_NAME
+						$limit_data
+				  	";	
+		} // end if
+		//echo "$cmd<br>";
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+		if($count_page_data){
+?><!--<textarea name="" cols="20" rows="2"><?=$cmd?></textarea>-->
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="3%" align="center"><input type="checkbox" name="CHECKALL" value="" onClick="control_all(this.checked);"></td>
+    <td width="27%" height="25" align="center">สมรรถนะ</td>
+    <td width="70%" align="center">รายละเอียดคำถาม</td>
+    </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_QS_ID = $data[QS_ID];
+				$current_list .= ((trim($current_list))?",":"") . $TMP_QS_ID;
+				$TMP_CP_CODE = $data[CP_CODE];
+				$TMP_QS_NAME = $data[QS_NAME];
+				$TMP_CP_NAME = $data[CP_NAME];
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+				
+				$checked = "";
+				if(in_array($TMP_QS_ID, $ARR_SELECTED) ){ 
+					$count_selected++;
+					$checked = "checked";
+				} // end if
+				
+				$disabled = "";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+	<td align="center" valign="top"><input type="checkbox" name="SELECT_QS_<?=$TMP_QS_ID?>" value="<?=$TMP_QS_ID?>" onClick="update_list(this.checked, <?=$TMP_QS_ID?>, <?=$count_page_data?>);" <?=$checked?> <?=$disabled?>></td>
+    <td height="22" align="left" valign="top">
+    <?//=$data_count?><?=$TMP_CP_NAME?></td>
+    <td valign="top">&nbsp;<?=$TMP_QS_NAME?></td>
+    </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>
+&nbsp;
+<?
+		} // end if
+?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>
+<script>
+<? if($count_selected==$count_page_data && $count_selected){ ?>form1.CHECKALL.checked=true;<? } ?>
+</script>

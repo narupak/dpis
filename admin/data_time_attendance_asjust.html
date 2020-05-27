@@ -1,0 +1,1031 @@
+<? 
+	include("php_scripts/data_time_attendance_asjust.php");
+    $db_dpis_AB = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	if(!$sort_by) $sort_by=1;
+    if(!$sort_type) $sort_type="1:asc";
+    $arrSort=explode(":",$sort_type);
+    $SortType[$arrSort[0]]	=$arrSort[1];
+    if(!$order_by) $order_by=1;
+    
+
+    switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+//echo $SESS_USERGROUP_LEVEL;
+
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+    
+    
+
+    
+    //หาว่าอยู่กลุ่ม กจ. กรม หรือไม่--------------------------------รหัส HRD
+    $cmd4 = "	select	 b.CODE from	user_detail a, user_group b
+					where a.group_id=b.id AND a.ID=".$SESS_USERID;
+    $db_dpis2->send_cmd($cmd4);
+    $data4 = $db_dpis2->get_array();
+    if ($data4[CODE]) {
+        $NAME_GROUP_HRD = $data4[CODE];
+    }else{
+        $NAME_GROUP_HRD = "";
+    }
+    
+?>
+<html>
+<head>
+<title><?=$webpage_title;?> - <?=$MENU_TITLE_LV0;?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1;?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+		function call_search_person() {	
+		parameter = "";
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>" + parameter,950,600,"รายชื่อ<?=$PERSON_TITLE;?>");		
+	}
+	
+	function clear_form() {
+		form1.search_name.value = "";
+		form1.search_surname.value = "";
+		form1.search_date_min.value = "";
+		form1.search_date_max.value = "";
+		form1.search_wc_code.value = "";
+		form1.SEARCH_WORK_FLAG.value = "";
+		form1.SEARCH_ABSENT_FLAG.value = "";
+		
+		
+	}
+	
+	function call_search_ministry() {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":"";?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>" + parameter,800,600,"<?=$MINISTRY_TITLE;?>");		
+	}
+
+	function call_search_department() {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.search_ministry_id.value");?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":"";?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE;?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT;?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT;?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+	
+	function call_search_work_cycle_search(code, name) {	
+		parameter = "&send_by=work_cycle_search";
+		WC_CODE = eval("form1." + code);
+		WC_NAME = eval("form1." + name);
+	    call_openDialog("search_work_cycle.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>" + parameter,800,600,"<?=$WC_TITLE;?>");		
+	}
+
+	function call_search_org() {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.search_department_id.value");?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>" + parameter,800,600,"<?=$ORG_TITLE;?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT;?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT;?>');
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function returnFrom(src, returnValue){
+
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+					form1.search_org_id.value = "";
+					form1.search_org_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+					form1.search_org_id.value = "";
+					form1.search_org_name.value = "";
+				} else if (arrValue[7]=="search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PER_ID.value = arrValue[0];
+				form1.PER_NAME.value = arrValue[1];
+			} // end if
+			
+		}else if(src.indexOf("search_work_cycle") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[2]=="work_cycle_search") {
+					form1.search_WC_CODE.value = arrValue[0];
+					form1.search_WC_NAME.value = arrValue[1];	
+				}else{
+					form1.WC_CODE.value = arrValue[0];
+					form1.WC_NAME.value = arrValue[1];	
+				}
+			} // end if
+		}
+		tt.value = returnValue;
+	} // end if
+	
+	
+	
+	
+	function SaveData(f) {
+	     
+		if(f.WORK_FLAG.value==f.HID_WORK_FLAG.value) {
+			if(confirm("สถานะการมาปฏิบัติราชการปัจจุบัน คือ '"+f.TEXT_WORK_FLAG.value + "' กรุณาตรวจสอบข้อมูลก่อนบันทึก\nคลิกปุ่ม OK เพื่อยืนยันบันทึก\nคลิกปุ่ม CANCLE ไขเพื่อกลับไปเปลี่ยนแปลงข้อมูล")){
+			}else{
+			 		f.WORK_FLAG.focus();
+			   		return false;
+			}
+		} 
+		
+		if(f.NEXTDAY_ENDSCAN.checked==false){
+			var START3 = f.APV_ENTTIME_HH.value+''+f.APV_ENTTIME_II.value;
+			var END3 = f.APV_EXITTIME_HH.value+''+f.APV_EXITTIME_II.value;
+			if( parseInt(START3) > parseInt(END3)){
+				alert("เวลาออกของวันปัจจุบันต้อง  มากกว่า เวลาเข้า กรุณาตรวจสอบข้อมูล");
+				f.APV_EXITTIME_HH.focus();
+				return false;
+			}
+		}else{
+			
+			var START3 = f.APV_ENTTIME_HH.value+''+f.APV_ENTTIME_II.value;
+			var END3 = f.APV_EXITTIME_HH.value+''+f.APV_EXITTIME_II.value;
+			if( parseInt(START3) < parseInt(END3)){
+				alert("เวลาออกของวันถัดไปต้อง น้อยกว่า เวลาเข้า กรุณาตรวจสอบข้อมูล");
+				f.APV_EXITTIME_HH.focus();
+				return false;
+			}
+			
+		}
+			
+	}
+	
+	
+	
+	
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_time_attendance_asjust.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page;?>">
+          <input type="hidden" name="total_page" value="<?=$total_page;?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="CONTROL_ID" value="<?=$CONTROL_ID;?>">
+          <input type="hidden" name="HID_PER_ID" value="<?=$HID_PER_ID;?>">
+          <input type="hidden" name="HID_WORK_DATE" value="<?=$HID_WORK_DATE;?>">
+          <input type="hidden" name="HID_CLOSE_FLAG" value="<?=$HID_CLOSE_FLAG;?>">
+          
+        <? if ($UPD) { ?>
+        <table width="100%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">แก้ไขข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  
+  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+  onKeyPress="return keyEnter(event,document.form1.<?=$Submit;?>);" >
+    <tr>
+      <td>
+      <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+        <tr height="5">
+          <td width="18%"></td>
+          <td width="30%"></td>
+          <td width="16%"></td>
+          <td width="31%"></td>
+          </tr>
+        	
+        	
+        	<tr>
+        	  <td align="right" height="25">ชื่อ-สกุล&nbsp;:&nbsp;</td>
+        	  <td >&nbsp;<?=$FULLNAME_SHOW;?></td>
+        	  <td  align="right">ตำแหน่งในสายงาน&nbsp;:&nbsp;</td>
+        	  <td  height="25">&nbsp;<?=$PL_NAME;?>
+        	    
+        	    </td>
+      	  </tr>
+               <tr>
+                 <td align="right" height="25">สังกัดสำนัก/กอง&nbsp;:&nbsp;</td>
+                 <td >&nbsp;<?=$ORG_NAME;?></td>
+                 <td  align="right">ประเภทและระดับตำแหน่ง&nbsp;:&nbsp;</td>
+                 <td  height="25">&nbsp;<?=$LEVEL_NAME;?></td>
+               </tr>
+               <tr>
+                 <td height="25" colspan="4" align="right"><hr size="1"></td>
+               </tr>
+             </table>
+      <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+        <tr>
+          <td colspan="4" height="5"></td>
+          </tr>
+          
+         
+               <tr>
+                 <td align="right" height="25">วันที่ปฏิบัติราชการ&nbsp;:&nbsp;</td>
+                 <td width="30%">&nbsp;<?=$WORK_DATE_SHOW;?>&nbsp;&nbsp;เวลาเข้า : <?=$SCAN_ENTTIME_SHOW;?> เวลาออก : <?=$SCAN_EXITTIME_SHOW;?> </td>
+                 <td width="20%" align="right">รอบการมาปฏิบัติราชการ&nbsp;:&nbsp;</td>
+                 <td width="28%" height="25">&nbsp;<?=$WC_NAME_SHOW;?></td>
+               </tr>
+               <tr>
+                 <td align="right" height="25"><span class="label_alert">*</span>&nbsp;สถานะการมาปฏิบัติราชการ&nbsp;:&nbsp;</td>
+                 <td height="25" colspan="3">
+                   <select name="WORK_FLAG" id="WORK_FLAG" class="selectbox" >
+                     <option value="0" <?=($WORK_FLAG==0)?"selected":""?>>&nbsp;ปกติ</option>
+                     <option value="1" <?=($WORK_FLAG==1)?"selected":""?>>&nbsp;สาย</option>
+                     <option value="2" <?=($WORK_FLAG==2)?"selected":""?>>&nbsp;ขาดราชการ</option>
+                     <option value="3" <?=($WORK_FLAG==3)?"selected":""?>>&nbsp;ออกก่อน</option>
+                     <option value="4" <?=($WORK_FLAG==4)?"selected":""?>>&nbsp;ไม่ได้ลงเวลา</option>
+                   </select>
+                   <input type="hidden" name="HID_WORK_FLAG" value="<?=$HID_WORK_FLAG;?>">                
+                   <input type="hidden" name="HID_HOLIDAY_FLAG" value="<?=$HID_HOLIDAY_FLAG;?>"> 
+                   <input type="hidden" name="TEXT_WORK_FLAG" value="<?=$TEXT_WORK_FLAG;?>">      
+                    </td>
+                </tr>
+               <tr>
+               
+          <td width="22%" align="right" height="25"><span class="label_alert">*</span>&nbsp;เวลาเข้า&nbsp;:&nbsp;</td>
+            <td height="25" colspan="3">
+              <select name="APV_ENTTIME_HH" id="APV_ENTTIME_HH">
+                <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                <option value="<?=$ii;?>" <? if($ii==$APV_ENTTIME_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                <? } ?>
+                </select>
+              :
+              <select name="APV_ENTTIME_II" id="APV_ENTTIME_II">
+                <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                <option value="<?=$ii;?>" <? if($ii==$APV_ENTTIME_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                <? } ?>
+                </select>
+              น.
+              &nbsp;&nbsp;&nbsp;	เวลาออก :&nbsp;   	  
+              
+              <select name="APV_EXITTIME_HH" id="APV_EXITTIME_HH" >
+                <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                <option value="<?=$ii;?>" <? if($ii==$APV_EXITTIME_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                <? } ?>
+                </select>
+              :
+              <select name="APV_EXITTIME_II" id="APV_EXITTIME_II" >
+                <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                <option value="<?=$ii;?>" <? if($ii==$APV_EXITTIME_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                <? } ?>
+                </select>
+              น.
+              <input type="checkbox" name="NEXTDAY_ENDSCAN" id="NEXTDAY_ENDSCAN" value="1"<? if($NEXTDAY_ENDSCAN==1){ echo 'checked';}?>>
+                    ของวันถัดไป
+              </td>
+          </tr>
+        
+               
+               <tr valign="top">
+          <td width="22%" align="right" height="25">หมายเหตุ&nbsp;:&nbsp;</td>
+          <td height="25" colspan="3">
+            <textarea name="REMARK" id="REMARK" rows="3" class="selectbox" style="width:70%"><?=$REMARK;?></textarea>          </td>
+          </tr>
+
+               <tr>
+                 <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+                 <td height="30" colspan="3"><input name="SHOW_UPDATE_USER" type="text" style="width:40%" class="textbox" value="<?=$SHOW_UPDATE_USER;?>" readonly></td>
+               </tr>
+               <tr>
+                 <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+                 <td height="30" colspan="3"><input name="SHOW_UPDATE_DATE" style="width:25%" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE;?>" readonly></td>
+               </tr>
+               <tr>
+        	<td align="right">&nbsp;</td>
+        	<td height="30" colspan="3"><? 
+            
+			 if ($BUTTON_DISPLAY==1) { ?>
+        	  <input name="Submit_edit" type="submit" class="button" onClick="form1.command.value='UPDATE';  return SaveData(form1);" value="<?=$EDIT_TITLE;?>">
+        	  <input type="submit" name="Reset2" value="  <?=$CANCEL_TITLE;?>  " onClick="form1.command.value='CANCEL'" class="button" >
+        	  <? } else { ?>
+        	  <input name="image" type="image" onClick="form1.command.value='UPDATE';  return SaveData(form1);" src="images/save.png" alt="<?=$EDIT_TITLE;?>" border="0">
+        	  <input name="image" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE;?>" border="0">
+                    
+        	  <?}?>      	  </td>
+        	</tr>
+      </table></td>
+    </tr>
+  </table> 
+  <? }?>
+  
+		<table width="100%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE;?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">  
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="1" cellspacing="1" class="label_normal">
+		  				<tr><td height="3"></td></tr>
+                
+                <?
+                $cmd = " select 	org.ORG_NAME,col.CLOSE_YEAR,col.CLOSE_MONTH,orghead.ORG_NAME AS  DEPARTMENT_NAME
+                            from  PER_WORK_TIME_CONTROL col  
+                            left join  PER_ORG_ASS org on(org.ORG_ID=col.DEPARTMENT_ID)
+                            left join  PER_ORG_ASS orghead on(orghead.ORG_ID=org.ORG_ID_REF)
+                            WHERE col.CONTROL_ID=$CONTROL_ID
+                             ";
+                   	$db_dpis2->send_cmd($cmd);
+                    $data2 = $db_dpis2->get_array();
+                    $ASS_ORG_NAME = $data2[ORG_NAME];
+					$ASS_CLOSE_YEAR = $month_full[($data2[CLOSE_MONTH] + 0)][TH]." ".$data2[CLOSE_YEAR];
+                    $ASS_DEPARTMENT_NAME = $data2[DEPARTMENT_NAME];
+                
+                ?>      
+              <tr>
+              <td width="16%" height="22" align="right"><?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;</td>
+              <td width="33%"><?=$search_ministry_name;?>  </td>
+              <td width="15%" align="right"><?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+              <td width="36%"><? if($search_department_name){ echo $search_department_name;}else{ echo $ASS_DEPARTMENT_NAME;}?></td>
+            </tr>
+              
+              <tr>
+                          <td height="22" align="right"><?=$ORG_TITLE;?>
+                          &nbsp;:</td>
+                          <td><?=$ASS_ORG_NAME;?></td>
+                        <td align="right">ประจำเดือน&nbsp;:&nbsp;</td>
+                        <td><?=$ASS_CLOSE_YEAR;?></td>
+                      </tr>
+                      
+                      
+                      <tr>
+             <tr>
+              <td height="22" align="right"><?=$NAME_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_name"  value="<?=$search_name;?>" style="width:75%" class="textbox" ></td>
+              <td align="right"><?=$SURNAME_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_surname" value="<?=$search_surname;?>" style="width:75%" class="textbox" ></td>
+		      </tr>
+        		
+        		<tr>
+                        <td align="right">ช่วงวันที่ปฏิบัติราชการ&nbsp;:&nbsp;</td>
+                        <td><input style="width:32%" type="text" name="search_date_min" id="search_date_min" value="<?=$search_date_min;?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIME_STAMP_DATE,this.value)"> 
+                          <input type="reset" class="button" onClick="return showCalendar('search_date_min', 'dd/mm/y', '<?=$SESS_HOLIDAY;?>');" value="<?=$SELECT_TITLE;?>">
+                          &nbsp;&nbsp;
+                          -&nbsp;
+                          <input type="text" style="width:32%" name="search_date_max" id="search_date_max" value="<?=$search_date_max;?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.search_date_max,this.value)"> 
+                          <input type="reset" class="button" onClick="return showCalendar('search_date_max', 'dd/mm/y', '<?=$SESS_HOLIDAY;?>');" value="<?=$SELECT_TITLE;?>"></td>
+                        <td class="label_hilight" align="right">สถานะการลงเวลา&nbsp;:&nbsp;</td>
+                        <td>
+                        <select class="selectbox" name="SEARCH_WORK_FLAG">
+                        <option value="" <? if($SEARCH_WORK_FLAG==""){ echo "selected";}?>>== ทั้งหมด ==</option>
+                        <option value="0" <? if($SEARCH_WORK_FLAG=="0"){ echo "selected";}?>>&nbsp;ปกติ</option>
+                        <option value="1" <? if($SEARCH_WORK_FLAG=="1"){ echo "selected";}?>>&nbsp;สาย</option>
+                        <option value="2" <? if($SEARCH_WORK_FLAG=="2"){ echo "selected";}?>>&nbsp;ขาดราชการ</option>
+                        <option value="3" <? if($SEARCH_WORK_FLAG=="3"){ echo "selected";}?>>&nbsp;ออกก่อน</option>
+        				<option value="4" <? if($SEARCH_WORK_FLAG=="4"){ echo "selected";}?>>&nbsp;ไม่ได้ลงเวลา</option>
+                    </select>
+                  </td>
+                      </tr>
+                      
+                      <tr>
+                      <td align="right">รอบการมาปฏิบัติราชการ&nbsp;:&nbsp;</td>
+                      <td><select class="selectbox" name="search_wc_code">
+                        <option value="" <?=($search_wc_code=="")?"selected":"";?>>== ทั้งหมด ==</option>
+                        <?
+                            $cmd = " select WC_CODE, WC_NAME from PER_WORK_CYCLE where WC_ACTIVE = 1 order by WC_SEQ_NO ASC, WC_CODE ASC  ";
+                            $db_dpis->send_cmd($cmd);
+                            while($data = $db_dpis->get_array()){					
+                                $DB_WC_CODE = $data[WC_CODE];
+                                $DB_WC_NAME = $data[WC_NAME];
+                          ?>
+                        <option value="<?=$DB_WC_CODE;?>" <?=(trim($DB_WC_CODE)==trim($search_wc_code))?"selected":"";?>><?=$DB_WC_NAME;?></option>
+                        <?
+                            } // end while
+                          ?>
+                    </select></td>
+                      <td class="label_hilight" align="right">สถานะการลา&nbsp;:&nbsp;</td>
+                      <td><select class="selectbox" name="SEARCH_ABSENT_FLAG">
+                        <option value="" <? if($SEARCH_ABSENT_FLAG==""){ echo "selected";}?>>== ทั้งหมด ==</option>
+                        <option value="1" <? if($SEARCH_ABSENT_FLAG=="1"){ echo "selected";}?>>&nbsp;ครึ่งเช้า</option>
+                        <option value="2" <? if($SEARCH_ABSENT_FLAG=="2"){ echo "selected";}?>>&nbsp;ครึ่งบ่าย</option>
+                        <option value="3" <? if($SEARCH_ABSENT_FLAG=="3"){ echo "selected";}?>>&nbsp;ทั้งวัน</option>
+                    </select></td>
+                  </tr>
+                  
+                  <tr>
+                      <td align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+                      <td><select class="selectbox" name="search_per_type">
+					<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($search_per_type==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+					<option value="0"<?=($search_per_type==0)?"selected":""?>>ทั้งหมด</option>
+				</select></td>
+                      <td align="right">&nbsp;</td>
+                      <td>&nbsp;</td>
+                  </tr>
+                      
+                      <tr>
+			   <td height="30" colspan="4" align="left">
+               <table width="100%" align="center" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="38%">&nbsp;
+                  
+                  </td>
+                  <td width="62%"><? if ($BUTTON_DISPLAY==1) { ?>
+                    <input name="Submit2" type="submit" class="button" onClick="form1.command.value='SEARCH'; call_SEARCH();" value="<?=$SEARCH_TITLE;?>">
+                    <?  } else { ?>
+                    <input name="image2" type="image" onClick="form1.command.value='SEARCH'; call_SEARCH();" src="images/search.png" alt="<?=$SEARCH_TITLE;?>">
+                    <? } echo "&nbsp;";?>
+                    <? if ($BUTTON_DISPLAY==1) { ?>
+                    <input name="Reset" type="button" class="button" value="<?=$CLEAR_TITLE;?>" onClick="clear_form();">
+                    <?  } else { ?>
+                    <img src="images/default.jpg" alt="<?=$CLEAR_TITLE;?>" width="32" height="32" border="0" onClick="clear_form();">
+                    <? } echo "&nbsp;";?>
+
+                 
+                 <!--<input type="button" name="btn_ADDPERSON" value=" บันทึกลงเวลาของบุคคลที่ไม่ต้องลงเวลาฯ " class="button" onClick="call_add_person();" >--></td>
+                 </tr>
+                  </table></td>
+			   </tr>			 			 			 
+		      </table></td>
+	 </tr>
+      </table></td>
+    </tr>
+  </table> 
+<?
+
+	 if(trim($search_name)) $arr_search_condition[] = "(psn.PER_NAME like '".trim($search_name)."%' or UPPER(psn.PER_ENG_NAME) like UPPER('".trim($search_name)."%'))";
+   	 if(trim($search_surname)) $arr_search_condition[] = "(psn.PER_SURNAME like '".trim($search_surname)."%' or UPPER(psn.PER_ENG_SURNAME) like UPPER('".trim($search_surname)."%'))";
+	
+    if($search_date_min && $search_date_max){ 
+         $tmpsearch_date_min =  save_date($search_date_min);
+         $tmpsearch_date_max =  save_date($search_date_max);
+         $arr_search_condition[] = " ( wt.WORK_DATE BETWEEN  to_date('$tmpsearch_date_min 00:00:00','yyyy-mm-dd hh24:mi:ss')  and to_date('$tmpsearch_date_max  23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+    }else if($search_date_min && empty($search_date_max)){ 
+         $tmpsearch_date_min =  save_date($search_date_min);
+         $arr_search_condition[] = " ( wt.WORK_DATE BETWEEN  to_date('$tmpsearch_date_min 00:00:00','yyyy-mm-dd hh24:mi:ss') and to_date('$tmpsearch_date_min  23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+    }else if(empty($search_date_min) && $search_date_max){ 
+         $tmpsearch_date_max =  save_date($search_date_max);
+         $arr_search_condition[] = " ( wt.WORK_DATE BETWEEN  to_date('$tmpsearch_date_max 00:00:00','yyyy-mm-dd hh24:mi:ss') and to_date('$tmpsearch_date_max  23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+    }
+    
+     if(trim($search_wc_code)) $arr_search_condition[] = "(wt.WC_CODE ='".trim($search_wc_code)."')";
+     if($SEARCH_WORK_FLAG!=""){
+     	if($SEARCH_WORK_FLAG=="0"){
+     		$arr_search_condition[] = "(wt.WORK_FLAG =$SEARCH_WORK_FLAG OR wt.WORK_FLAG =5)";
+        }else if($SEARCH_WORK_FLAG=="2"){
+     		$arr_search_condition[] = "(wt.WORK_FLAG =$SEARCH_WORK_FLAG AND wt.ABSENT_FLAG = 0 AND wt.ABSENT_FLAG !=10 AND  wt.ABSENT_FLAG !=12 AND wt.ABSENT_FLAG !=2 AND wt.ABSENT_FLAG !=30)";
+         }else if($SEARCH_WORK_FLAG=="4"){
+            // kittiphat 19/02/2563
+     		//$arr_search_condition[] = "(wt.WORK_FLAG =$SEARCH_WORK_FLAG OR (wt.WORK_FLAG =2 AND (wt.ABSENT_FLAG =10 OR  wt.ABSENT_FLAG =12 OR wt.ABSENT_FLAG =2 OR wt.ABSENT_FLAG =30) ))";
+            $arr_search_condition[] = "(wt.WORK_FLAG =$SEARCH_WORK_FLAG OR (wt.WORK_FLAG =2 AND (wt.ABSENT_FLAG =10 OR  wt.ABSENT_FLAG =12 OR wt.ABSENT_FLAG =2 OR wt.ABSENT_FLAG =30) ) OR (wt.WORK_FLAG =1 AND wt.SCAN_EXITTIME IS NULL ))";
+        }else{
+        	$arr_search_condition[] = "(wt.WORK_FLAG =$SEARCH_WORK_FLAG)";
+        }
+     }
+     
+     
+     if(!empty($SEARCH_ABSENT_FLAG)){
+     		//2 = ลาบ่าย, 10= ลาเช้า, 12= ลาเช้าและลาบ่าย, 30 = ลาทั้งวัน
+             if($SEARCH_ABSENT_FLAG==1){
+             	$arr_search_condition[] = "(wt.ABSENT_FLAG =10 OR  wt.ABSENT_FLAG =12) ";
+             }else if($SEARCH_ABSENT_FLAG==2){
+             	$arr_search_condition[] = "(wt.ABSENT_FLAG =2 OR  wt.ABSENT_FLAG =12) ";
+             }else{
+             	$arr_search_condition[] = "(wt.ABSENT_FLAG =30) ";
+             }
+     }
+     
+     if($search_per_type) $arr_search_condition[] = "(psn.PER_TYPE=$search_per_type)";
+     
+    $search_condition = "";
+    if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+    
+        
+  	$cmd = "	select count(col.CONTROL_ID) AS COUNT_DATA 
+                    from  PER_WORK_TIME_CONTROL col  
+                    left join  PER_ORG_ASS org on(org.ORG_ID=col.DEPARTMENT_ID)
+                    left join PER_WORK_TIME wt on(wt.CONTROL_ID=col.CONTROL_ID)
+                    left join PER_PERSONAL psn on(psn.PER_ID=wt.PER_ID)
+                    left join PER_PRENAME pn on(pn.PN_CODE=psn.PN_CODE) 
+                    left join PER_POSITION c on(c.POS_ID=psn.POS_ID) 
+                    left join PER_POS_EMP d on(d.POEM_ID=psn.POEM_ID) 
+                    left join PER_POS_EMPSER e on(e.POEMS_ID=psn.POEMS_ID) 
+                    left join PER_POS_TEMP j on (j.POT_ID=psn.POT_ID)
+                    left join PER_WORK_CYCLE wc on(wc.WC_CODE=wt.WC_CODE)
+                    WHERE col.CONTROL_ID=$CONTROL_ID AND wt.CONTROL_ID IS NOT NULL
+                    $search_condition
+				  ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$count_data = $data[COUNT_DATA];	
+?>  
+    <table width="100%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by;?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type;?>">
+    <?=$SORT_TITLE;?>
+</td>
+</tr>
+</table>
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td height="22" align="center">พบข้อมูล <?=$MENU_TITLE_LV2;?> ทั้งสิ้น <?=($count_data+0);?> รายการ</td>
+              </tr>
+          </table>  
+	</td></tr>
+</table>  
+<?
+		
+            
+        if($order_by==1){	//(ค่าเริ่มต้น)
+       		$order_str = "ORDER BY wt.WORK_DATE ".$SortType[$order_by].",c.ORG_ID ".$SortType[$order_by].",d.ORG_ID ".$SortType[$order_by].",e.ORG_ID ".$SortType[$order_by].",j.ORG_ID ".$SortType[$order_by].",psn.PER_NAME ".$SortType[$order_by].", psn.PER_SURNAME ".$SortType[$order_by];
+        }else if($order_by==2){	//
+            $order_str = "ORDER BY psn.PER_NAME ".$SortType[$order_by].", psn.PER_SURNAME ".$SortType[$order_by];
+        } elseif($order_by==3) {	//สำนัก/กอง
+            $order_str = "ORDER BY c.ORG_ID ".$SortType[$order_by].",d.ORG_ID ".$SortType[$order_by].",e.ORG_ID ".$SortType[$order_by].",j.ORG_ID ".$SortType[$order_by];
+        } elseif($order_by==4) {	//รอบฯ
+            $order_str = "ORDER BY wc.WC_NAME ".$SortType[$order_by];
+        }
+        
+     if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($DPISDB=="oci8"){
+    		
+    	if($command=='SEARCH'){
+        	$rec_start =1;$rec_end =$data_per_page;
+        }else{
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+        }
+        
+		$cmd = "select * from (
+						    select rownum rnum, q1.* from ( 
+                                select 	org.ORG_NAME,col.CLOSE_YEAR,col.CONTROL_ID,col.CLOSE_MONTH,
+                                    TO_CHAR(wt.WORK_DATE,'yyyy-mm-dd') AS WORK_DATE,
+                                    TO_CHAR(wt.APV_ENTTIME,'hh24:mi') AS APV_ENTTIME,
+                                    TO_CHAR(wt.APV_EXITTIME,'hh24:mi') AS APV_EXITTIME,
+                                    psn.PER_TYPE,wt.PER_ID,
+                                    pn.PN_SHORTNAME||psn.PER_NAME||' '||psn.PER_SURNAME  AS FULLNAME_SHOW,
+                                    c.ORG_ID,d.ORG_ID as EMP_ORG_ID, e.ORG_ID as EMPS_ORG_ID,
+                                    j.ORG_ID AS POT_ORG_ID,
+                                    wc.WC_NAME,wt.REMARK,wt.WORK_FLAG,
+                                    col.CLOSE_DATE,wt.ABSENT_FLAG,psn.PER_STATUS,
+                                    TO_CHAR(wt.SCAN_ENTTIME,'hh24:mi') AS SCAN_ENTTIME,
+                                    TO_CHAR(wt.SCAN_EXITTIME,'hh24:mi') AS SCAN_EXITTIME,
+                                    case when (exists (select null from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and trim(ab_code) not in ('10','13')and 
+                                          pa.abs_startdate < cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate > cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)))) then '3'||
+                                            (select trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and trim(ab_code) not in ('10','13') and
+                                          pa.abs_startdate < cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate > cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))) || ',0'
+                                    else 
+                            
+                                        nvl((select '3'||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_startperiod=3 and trim(ab_code) not in ('10','13')and 
+                                          pa.abs_startdate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)))
+                                        ,
+                            
+                                          nvl(
+                                            (select to_char(abs_startperiod)||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_startperiod<>2 and /*trim(ab_code) not in ('10','13')and */
+                                            pa.abs_startdate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))),
+                                               (
+                                                  nvl((select to_char(abs_startperiod)||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_startperiod<>2 and trim(ab_code) not in ('10','13')and 
+                                                        pa.abs_startdate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate > cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))),
+                                                      nvl((select to_char(abs_endperiod)||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_endperiod<>2 and trim(ab_code) not in ('10','13')and 
+                                                        pa.abs_startdate < cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))),
+                                                        0)
+                                                    )
+                                              )
+                                            ) || ',' ||
+                                            nvl(
+                                            (select to_char(abs_startperiod)||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_startperiod=2 and trim(ab_code) not in ('10','13')and 
+                                            pa.abs_startdate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))),
+                                               (
+                                                  nvl((select to_char(abs_startperiod)||trim(ab_code) from PER_ABSENTHIS pa where rownum=1 and pa.PER_ID=wt.PER_ID and abs_startperiod=2 and trim(ab_code) not in ('10','13')and 
+                                                        pa.abs_startdate = cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19)) and pa.abs_enddate > cast(to_char(wt.WORK_DATE,'YYYY-MM-DD') as char(19))),
+                                                      0
+                                                    )
+                                              )
+                                            )
+                            
+                                          )
+                               end ABSENT
+                                from  PER_WORK_TIME_CONTROL col  
+                                left join  PER_ORG_ASS org on(org.ORG_ID=col.DEPARTMENT_ID)
+                                left join PER_WORK_TIME wt on(wt.CONTROL_ID=col.CONTROL_ID)
+                                left join PER_PERSONAL psn on(psn.PER_ID=wt.PER_ID)
+                                left join PER_PRENAME pn on(pn.PN_CODE=psn.PN_CODE) 
+                                left join PER_POSITION c on(c.POS_ID=psn.POS_ID) 
+                              	left join PER_POS_EMP d on(d.POEM_ID=psn.POEM_ID) 
+                              	left join PER_POS_EMPSER e on(e.POEMS_ID=psn.POEMS_ID) 
+                                left join PER_POS_TEMP j on (j.POT_ID=psn.POT_ID)
+                                left join PER_WORK_CYCLE wc on(wc.WC_CODE=wt.WC_CODE)
+                                WHERE col.CONTROL_ID=$CONTROL_ID AND wt.CONTROL_ID IS NOT NULL
+                                $search_condition
+                            	$order_str 
+                             
+	
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";					 
+	}
+
+//echo "<pre>".$cmd;
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	if ($count_page_data) {
+?>
+        <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+          <tr align="center" class="table_head"> 
+            <td nowrap width="3%" height="40"><strong>
+            ลำดับ</strong></td>
+            <td nowrap width="11%" onClick="call_sort(1);">
+              <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+            วันที่ปฏิบัติราชการ</td>
+            <td width="6%">เวลาเข้า<br>(Process)</td>
+            <td width="6%">เวลาออก<br>(Process)</td>
+			<td width="6%">
+		    เวลาเข้า<br>(Approved)</td>
+			<td width="6%" nowrap > เวลาออก<br>(Approved)</td>
+			<td width="16%" height="40" nowrap onClick="call_sort(2);"><strong>
+			  <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+		    <?=$FULLNAME_TITLE?></strong></td>    
+      		<td nowrap width="17%" onClick="call_sort(3);"><strong>
+            <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+            <?=$ORG_TITLE;?></strong></td>
+            <td nowrap width="13%" onClick="call_sort(4);">
+            <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+            รอบการลงเวลา</td>
+			<td width="6%">สถานะ<br>การลงเวลา</td>
+			<td width="6%">สถานะ<br>การลา</td>
+            <? if($PAGE_AUTH["edit"]=="Y"){ ?>
+				<td width="4%"><?=$EDIT_TITLE;?></td>
+            <? }?>
+		  </tr>
+          <?
+	$current_list = "";
+	$data_count = 0;
+    $data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+        $data_num++;
+		if($data_count > $data_per_page) break;
+		$DATA_PER_ID = $data[PER_ID];
+        $DATA_PER_TYPE = $data[PER_TYPE];
+        if($DATA_PER_TYPE==1){ 
+			$TMP_PER_TYPE = "ข้าราชการ";
+			$TMP_ORG_ID = $data[ORG_ID];
+		}elseif($DATA_PER_TYPE==2){ 
+            $TMP_PER_TYPE = "ลูกจ้างประจำ";
+            $TMP_ORG_ID = $data[EMP_ORG_ID];   
+         } elseif ($DATA_PER_TYPE == 3) {
+            $TMP_PER_TYPE = "พนักงานราชการ";
+            $TMP_ORG_ID = $data[EMPS_ORG_ID];					
+        } elseif ($DATA_PER_TYPE == 4) {
+            $TMP_PER_TYPE = "ลูกจ้างชั่วคราว";
+            $TMP_ORG_ID = $data[POT_ORG_ID];				
+            
+        } 
+                
+        if($TMP_ORG_ID){
+            $cmd = " select ORG_ID_REF, ORG_NAME from PER_ORG where ORG_ID=$TMP_ORG_ID ";
+            $db_dpis2->send_cmd($cmd);
+            $data2 = $db_dpis2->get_array();
+            $DATA_ORG_NAME = $data2[ORG_NAME];
+        }
+        
+        
+        $DATA_WORK_DATE = show_date_format($data[WORK_DATE], $DATE_DISPLAY);
+        
+        $DATA_APV_ENTTIME = "";
+         if( $data[APV_ENTTIME]){
+         	 $DATA_APV_ENTTIME = $data[APV_ENTTIME]." น.";
+         }
+       
+         $DATA_APV_EXITTIME = "";
+         if( $data[APV_EXITTIME]){
+         	 $DATA_APV_EXITTIME = $data[APV_EXITTIME]." น.";
+         }
+         
+         $DATA_SCAN_ENTTIME = "";
+         if($data[APV_ENTTIME]!=$data[SCAN_ENTTIME]){
+             if( $data[SCAN_ENTTIME]){
+                 $DATA_SCAN_ENTTIME = $data[SCAN_ENTTIME]." น.";
+             }
+         }
+       
+         $DATA_SCAN_EXITTIME = "";
+         if($data[APV_EXITTIME]!=$data[SCAN_EXITTIME]){
+             if( $data[SCAN_EXITTIME]){
+                 $DATA_SCAN_EXITTIME = $data[SCAN_EXITTIME]." น.";
+             }
+        }
+
+         $DATA_FULLNAME_SHOW = $data[FULLNAME_SHOW];
+         
+          $DATA_WC_NAME = "";
+         if( $data[WC_NAME]){
+         	 $DATA_WC_NAME = $data[WC_NAME];
+         }
+         
+         $ARR_ABSENT = explode(",", $data[ABSENT]);
+         
+         
+		$DATA_WORK_FLAG = "";
+        if($data[WORK_FLAG]==1){
+        	if($data[REMARK]){
+            	$DATA_WORK_FLAG = "<font color='green'>".$data[REMARK]."</font>";
+            }else{
+            	$DATA_WORK_FLAG = "<font color='red'>สาย</font>";
+            }
+        }else if($data[WORK_FLAG]==2){
+        	// 0 = ขาด, 2 = ลาบ่าย, 10= ลาเช้า, 12= ลาเช้าและลาบ่าย, 30 = ลาทั้งวัน
+            
+           /* if($data[ABSENT_FLAG] !=0){ // อันเดิม
+        		$DATA_WORK_FLAG = "";
+            }else{
+            	$DATA_WORK_FLAG = "<font color='red'>ขาดราชการ</font>";
+            }*/
+            
+        	if($data[ABSENT_FLAG] !=0){
+            	
+            	if(substr($ARR_ABSENT[0],0,1)==0 || substr($ARR_ABSENT[1],0,1)==0){
+                	$DATA_WORK_FLAG = "<font color='red'>ขาดราชการ</font>";
+                }else{
+                	$DATA_WORK_FLAG = "";
+                } 
+        		
+            }else{
+            	$DATA_WORK_FLAG = "<font color='red'>ขาดราชการ</font>";
+            }
+        }else if($data[WORK_FLAG]==3){
+        	if($data[REMARK]){
+            	$DATA_WORK_FLAG = "<font color='green'>".$data[REMARK]."</font>";
+            }else{
+            	$DATA_WORK_FLAG = "<font color='violet'>ออกก่อน</font>";
+            }
+        	
+        }else if($data[WORK_FLAG]==4){
+        	if($data[REMARK]){
+            	$DATA_WORK_FLAG = "<font color='green'>".$data[REMARK]."</font>";
+            }else{
+            	$DATA_WORK_FLAG = "<font color='red'>ไม่ได้ลงเวลา</font>";
+            }
+        	
+        }else if($data[WORK_FLAG]==0){
+        	$DATA_WORK_FLAG = "<font color='green'>ปกติ</font>";
+        }else if($data[WORK_FLAG]==5){
+        	$DATA_WORK_FLAG = "<font color='green'>".$data[REMARK]."</font>";
+        }
+        
+        
+        $CLOSE_FLAG = 0;
+        if($data[CLOSE_DATE]){
+        	$CLOSE_FLAG = 1; //ยืนยันแล้ว
+        }
+        
+        
+        $DATA_ABSENT = "";
+        
+	
+		$DATA_AB_NAME = "";
+		$DATA_AB_NAME_AFTERNOON = '';
+		
+		if(substr($ARR_ABSENT[0],0,1)==1 || substr($ARR_ABSENT[0],0,1)==2 || substr($ARR_ABSENT[0],0,1)==3){
+			if(substr($ARR_ABSENT[0],-2) != '10' && substr($ARR_ABSENT[0],-2) != '13'){
+                $cmd_AB ="select AB_NAME
+                from PER_ABSENTTYPE
+                where AB_CODE = ".substr($ARR_ABSENT[0],-2);
+                //echo $cmd_AB; die();
+                $db_dpis_AB->send_cmd($cmd_AB);
+                $data_AB_NAME = $db_dpis_AB->get_array_array();
+                $DATA_AB_NAME = $data_AB_NAME[AB_NAME];
+             }
+		}
+		if(substr($ARR_ABSENT[1],0,1)==2){
+        	if(substr($ARR_ABSENT[1],-2) != '10' && substr($ARR_ABSENT[1],-2) != '13'){
+                $cmd_AB ="select AB_NAME
+                from PER_ABSENTTYPE
+                where AB_CODE = ".substr($ARR_ABSENT[1],-2);
+                //echo $cmd_AB; die();
+                $db_dpis_AB->send_cmd($cmd_AB);
+                $data_AB_NAME = $db_dpis_AB->get_array_array();
+                $DATA_AB_NAME_AFTERNOON = $data_AB_NAME[AB_NAME];
+             }
+		}
+        
+        if($data[ABSENT] !='0,0'){
+			if(substr($ARR_ABSENT[0],-2)==10 || substr($ARR_ABSENT[0],-2)==13){
+					$DATA_ABSENT = $DATA_AB_NAME;
+			} 
+			else {
+				if(substr($ARR_ABSENT[0],0,1)==3){
+						$DATA_ABSENT = $DATA_AB_NAME." (ทั้งวัน)";
+				} 
+				else {
+					if(substr($ARR_ABSENT[0],0,1)==1){
+							$DATA_ABSENT = $DATA_AB_NAME." (ครึ่งเช้า)";
+					} 
+					if(substr($ARR_ABSENT[1],0,1)==2){
+						if(substr($ARR_ABSENT[0],0,1)==1)
+							$DATA_ABSENT .= ',';
+						$DATA_ABSENT .= $DATA_AB_NAME_AFTERNOON." (ครึ่งบ่าย)";
+					} 
+				}
+			}
+		}
+        
+        $curstyle = "";
+        if($data[PER_STATUS]== 2){		//พ้นจากส่วนราชการ
+
+            $curstyle.="color:#FF0000"; 
+        } // end if	
+        
+
+        	
+?>
+          <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" style="<?=$curstyle; ?>"> 
+            <td height="25" align="center"><?=$data_num;?></td>
+            <td align="center"><?=$DATA_WORK_DATE;?></td>
+            <td align="center"><?=$DATA_SCAN_ENTTIME;?></td>
+            <td align="center"><?=$DATA_SCAN_EXITTIME;?></td>
+			<td align="center"><?=$DATA_APV_ENTTIME;?></td>
+			<td align="center"><?=$DATA_APV_EXITTIME;?></td>
+			<td align="left">&nbsp;<?=$DATA_FULLNAME_SHOW;?></td>   	
+      		<td>&nbsp;<?=$DATA_ORG_NAME;?></td>
+            <td align="left">&nbsp;<?=$DATA_WC_NAME;?></td>
+			<td align="center"><?=$DATA_WORK_FLAG;?></td>
+			<td align="center"><?=$DATA_ABSENT;?></td>
+            <? if($PAGE_AUTH["edit"]=="Y"){ ?>
+				<td align="center">
+                <? if ($SESS_USERGROUP !=1 && $NAME_GROUP_HRD!='HRD'){?>
+                            <? if($DATA_PER_ID !=$SESS_PER_ID){ ?>
+                            		<? if($CLOSE_FLAG ==0){ ?>
+                                			<a href="<?=("javascript:form1.action+='?UPD=1';form1.CONTROL_ID.value='$CONTROL_ID';form1.HID_PER_ID.value='$DATA_PER_ID';form1.HID_WORK_DATE.value='$data[WORK_DATE]';form1.command.value='';form1.submit();");?>"><img src="images/b_edit.png" border="0" title="<?=$EDIT_ALT;?>"></a>
+                            		<?  }?>
+                            <?  }?>
+               <? }else{?>
+                     <a href="<?=("javascript:form1.action+='?UPD=1';form1.CONTROL_ID.value='$CONTROL_ID';form1.HID_PER_ID.value='$DATA_PER_ID';form1.HID_WORK_DATE.value='$data[WORK_DATE]';form1.command.value='';form1.submit();");?>"><img src="images/b_edit.png" border="0" title="<?=$EDIT_ALT;?>"></a>
+                <? }?>    
+             
+             	</td>
+             <? }?>
+   		  </tr>
+          <? } ?>
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <tr class="table_footer" height="21"> 
+            <td>&nbsp;</td>
+      		<td>&nbsp;</td>
+      		<td>&nbsp;</td>
+      		<td>&nbsp;</td>    	
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+          </tr>
+          <?}?>
+        </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link;?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list;?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>
+
+<?php
+	if($UPD){
+		echo '<script>form1.WORK_FLAG.focus();</script>';
+    }
+?>

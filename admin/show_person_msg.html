@@ -1,0 +1,268 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	$MENU_ID_LV0 = $_POST['MENU_ID_LV0'];
+	if (!$MENU_ID_LV0)		$MENU_ID_LV0 = $_GET['MENU_ID_LV0'];
+	$MENU_ID_LV1 = $_POST['MENU_ID_LV1'];
+	if (!$MENU_ID_LV1)		$MENU_ID_LV1 = $_GET['MENU_ID_LV1'];
+	$MENU_ID_LV2 = $_POST['MENU_ID_LV2'];
+	if (!$MENU_ID_LV2)		$MENU_ID_LV2 = $_GET['MENU_ID_LV2'];
+	$MENU_ID_LV3 = $_POST['MENU_ID_LV3'];
+	if (!$MENU_ID_LV3)		$MENU_ID_LV3 = $_GET['MENU_ID_LV3'];
+	$MSG_ID = $_POST['MSG_ID'];
+	if (!$MSG_ID)		$MSG_ID = $_GET['MSG_ID'];
+	$SELECTED_LIST = $_POST['SELECTED_LIST'];
+	if (!$SELECTED_LIST)		$SELECTED_LIST = $_GET['SELECTED_LIST'];
+	if(substr($SELECTED_LIST,0,4)=="<***"){ 
+		$c = strpos($SELECTED_LIST,"***>");
+        if ($c)	$session_save_name = substr($SELECTED_LIST,4,$c-4);
+        else $session_save_name = substr($SELECTED_LIST,4);
+//		echo "session_save_name=".$session_save_name."<br>";
+	}
+//	echo "msg_id=$MSG_ID, selected=$SELECTED_LIST<br>";
+//	if(trim($SELECTED_LIST)) $arr_search_condition[] = "(id in ($SELECTED_LIST))";
+
+	$search_condition = "";
+    $sarray = array_chunk(explode(",",$SELECTED_LIST), 999);
+    $arr_search_condition_s = (array) null;
+    foreach($sarray as $key => $ssarray) {
+//		foreach($ssarray as $key1 => $val) {
+//			echo "$key :: $key1 :: ".(($key+1)*$key1)." :: $val<br>";
+//		} 
+		$arr_search_condition_s[] = "(id in (".implode(',',$ssarray)."))";
+//		echo "arr $key=".implode(",",$ssarray)."<br>";
+    }
+    $sub_condition = implode(" or ", $arr_search_condition_s);
+	if ($sub_condition) $arr_search_condition[] = "($sub_condition)";
+//	$arr_search_condition[] = "(id in ($SELECTED_LIST))";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	//หาชื่อผู้ที่มีในระบบการ login
+    if ($first_loaded==1) {
+        $cmd1 ="select * from user_detail 
+                        		$search_condition
+                         order by username";
+        $count_data = $db->send_cmd($cmd1);
+        //$db->show_error();
+//		$data = $db->get_array();
+//		$data = array_change_key_case($data, CASE_LOWER);
+//		$count_data = $data[count_data];
+//		echo "cmd=".$cmd1." ($count_data)<br>";
+	}
+?>
+<html>
+<head>
+<title>รายชื่อผู้รับ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.isSubmit.value = true;
+		form1.submit();
+	}
+	
+	function confirm_delete(msg_id , user_id, user_name){
+		if(confirm("ต้องการลบผู้รับ [ " + user_name + " ] ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.MSG_ID.value = msg_id;
+			form1.USER_ID.value = user_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function read_session(name) {
+//		'<?=$SESS_PER_TYPE?> = ""';
+		sessionStorage.SessionName = name;
+		str = sessionStorage.getItem("name");
+
+		return str;
+	}
+
+	function write_session(name, data) {
+		sessionStorage.SessionName = name;
+		sessionStorage.setItem("name",data);
+	}
+	
+	function window_onload() {
+		if (form1.first_loaded.value != 1) {
+			form1.session_save_name.value = "<?=$session_save_name?>";
+			if (form1.session_save_name.value) {
+				var longdata = read_session(form1.session_save_name.value);
+//				alert("1..get session ("+form1.session_save_name.value+")="+longdata);
+				form1.SELECTED_LIST.value = longdata;
+				form1.first_loaded.value = 1;
+				form1.submit();
+			} else {
+//				alert("2..get session ("+form1.session_save_name.value+")=<?=$SELECTED_LIST?>");
+				form1.SELECTED_LIST.value = "<?=$SELECTED_LIST?>";
+				form1.first_loaded.value = 1;
+				form1.submit();
+			}
+		}
+	}
+
+</script>
+<body onLoad="window_onload();">
+<form action="show_person_msg.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command" value="<?=$command?>">
+  <input type="hidden" name="MSG_ID" value="<?=$MSG_ID?>">
+  <input type="hidden" name="USER_ID" value="<?=$USER_ID?>">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <input type="hidden" name="isSubmit">
+  <input type="hidden" name="ReturnValue" value="">
+  <input type="hidden" name="session_save_name" value="<?=session_save_name?>">
+  <input type="hidden" name="first_loaded" value="<?=$first_loaded?>">
+<?
+if ($first_loaded==1) {
+?>
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบรายชื่อผู้รับที่เลือก ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+}
+			$total_page = ceil( $count_data / $data_per_page );	
+			$page_link = create_link_page($total_page, $current_page);
+			$limit_data = "";
+
+		    if ($first_loaded==1) {
+                //หาชื่อผู้ที่มีในระบบการ login
+                if($db_type=="mysql"){
+                    $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+                    $cmd1 ="select id,username,user_link_id,fullname, address 
+	                                    from user_detail 
+    	                                $search_condition
+        	                            order by username
+            	                        $limit_data";
+                }else if($db_type=="oci8"){
+                    $rec_start = (($current_page-1) * $data_per_page) + 1;
+                    $rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+                    
+                    $cmd1 ="select * from (
+                                    select rownum rnum, q1.* from ( 
+                                    select id,username,user_link_id,fullname, address 
+                                        from user_detail 
+                                        $search_condition
+                                        order by username
+                                    )  q1
+                                ) where rnum between $rec_start and $rec_end  ";
+                }
+                //echo $cmd1;
+                $count_page_data = $db->send_cmd($cmd1);
+                //$db->show_error();
+			} else {
+            	$count_page_data = 0;
+            }            
+			if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="5%" height="25" align="center"><?=$SEQ_NO_TITLE?></td>
+	<td width="35%" align="center"><?=$NAME_TITLE?></td>
+	<td width="30%" align="center">สังกัด</td>
+<?
+ if(trim($MSG_ID)){
+ ?>	
+	<td width="5%" align="center">อ่าน</td>
+<?	
+		//ลบผู้รับที่เลือกมา
+		if($command=="DELETE" && trim($USER_ID)){
+			$cmd = "delete PER_MESSAGE_USER where MSG_ID=".trim($MSG_ID)." and USER_ID=".trim($USER_ID);
+			$countdelete= $db_dpis->send_cmd($cmd);
+		//echo "<br>$countdelete : $cmd";
+			echo "<script type='text/javascript'>alert('ลบข้อมูลผู้รับรายนี้แล้ว'); window.parent.close(); self.close();</script>"; 
+		}
+
+	//หาผู้โพสต์
+	$cmd = "select USER_ID from PER_MESSAGE where MSG_ID=".trim($MSG_ID);
+	$db_dpis->send_cmd($cmd);
+	$update_data = $db_dpis->get_array();
+	$MSG_POSTUSER_ID = $update_data[USER_ID];
+	
+	//ต้องเป็นผู้โพสต์เท่านั้น/Admin จึงจะแก้ไข/ลบได้ ส่วนคนอื่นเข้ามาดูได้เท่านั้น
+	if($SESS_USERID == '1' || $SESS_USERID == $MSG_POSTUSER_ID){ 
+	?><td width="5%" align="center"><?=$DEL_TITLE?></td>
+<? } 
+} //end  if(trim($MSG_ID))
+?>
+  </tr>
+   <? 
+			$current_list = "";			$count_selected = 0;		$data_rown=0;
+			while($datausr = $db->get_array()) :
+				$datausr = array_change_key_case($datausr, CASE_LOWER);
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				if($current_page > 1){	 $data_rown=($data_count+($data_per_page*($current_page-1))); }else{	$data_rown=$data_count; }
+				
+				$TMP_PER_ID = $datausr[id];
+				$TMP_FULLNAME=$datausr[fullname];
+				$TMP_ADDRESS=$datausr[address];
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_PER_ID<::>$TMP_FULLNAME";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$data_rown; ?></td>
+    <td>&nbsp;<?=$TMP_FULLNAME?></td>
+    <td>&nbsp;<?=$TMP_ADDRESS?></td>
+	<?
+			//ดึงข้อมูลของ PER_MESSAGE_USER มา
+			if(trim($MSG_ID)){
+				//หาผู้รับ
+				$cmd = "select * from PER_MESSAGE_USER where MSG_ID=".trim($MSG_ID)." and USER_ID=".$TMP_PER_ID;
+				$db_dpis->send_cmd($cmd);
+				$update_data = $db_dpis->get_array();
+				$MSG_STATUS = $update_data[MSG_STATUS];
+				$MSG_READDATE = show_date_format($update_data[MSG_READ], 1);
+	?>
+	<td width="5%" align="center">&nbsp;<? if ($MSG_STATUS==1) { ?><img src="images/true.gif" border="0">&nbsp;<?=$MSG_READDATE; ?><? } elseif ($MSG_STATUS==0) { ?><img src="images/false.gif" border="0"><? } 
+	//echo "test : $cmd :: $MSG_POSTUSER_ID = $SESS_USERID  <br>";
+	?></td>
+	<?
+		//ต้องเป็นผู้โพสต์เท่านั้น/Admin จึงจะแก้ไข/ลบได้ ส่วนคนอื่นเข้ามาดูได้เท่านั้น
+		if($SESS_USERID == '1' || $SESS_USERID == $MSG_POSTUSER_ID){ 
+	?><td width="5%" align="center">&nbsp;<a href="javascript:confirm_delete('<?=trim($MSG_ID)?>','<?=$TMP_PER_ID?>','<?=$TMP_FULLNAME; ?>')"><img src="images/b_drop.png" border="0" alt="ลบออกจากรายชื่อผู้รับ"></a></td>
+	<? 
+			} 
+		} //end if(trim($MSG_ID)) 
+	?>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<!--	<p align="center"><input type="submit" name="Reset2" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="window.parent.close(); self.close();" class="button" ></p>-->
+	<p align="center"><input type="submit" name="Reset2" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="parent.refresh_opener();" class="button" ></p>
+<?
+		} else {
+        	echo "<p align='center'><font size='+3' color='red'>*** wait ***</font></p>";
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

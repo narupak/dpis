@@ -1,0 +1,344 @@
+<?
+  
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	$table = "PER_SPECIAL_SKILLGRP"; //ตั้งค่าเพื่อส่งข้อมูลในการ เพิ่มข้อมูล
+	$menu_detail = "ด้านความเชี่ยวชาญพิเศษ";  //ส่งค่าให้ insert log
+	include("php_scripts/master_table_000.php");
+        
+        $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+        
+        
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page; 
+  	if(trim($search_ss_code)) $arr_search_condition[] = "(SS_CODE like '$search_ss_code%')";
+  	if(trim($search_ss_name)) $arr_search_condition[] = "(pag.ss_name like '%$search_ss_name%'   or pag.ss_name like '%$search_ss_name%')";
+        if ($search_ref_code){    $arr_search_condition[] = "(pag.SS_CODE = '$search_ref_code' or pag.REF_CODE = '$search_ref_code')";}
+   
+                if ($search_data==1){
+                    $arr_search_condition[] = "(pag.ref_code is null)";
+                }
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+        $show="";
+         if(!$_POST['txt_show']){
+                        $show = "and 1 = 0";
+          }
+  	/* $cmd = " select 	count(sk_sub.SS_CODE) as count_data 
+					FROM PER_SPECIAL_SKILLGRP sk_sub 
+                                                LEFT JOIN PER_SPECIAL_SKILLGRP sk_main ON(trim(sk_main.SS_CODE)=trim(sk_sub.REF_CODE)) 
+                                                LEFT JOIN per_mapping_skillmin sk_map ON(trim(sk_map.ss_code)=trim(sk_sub.SS_CODE)) 
+                                                LEFT JOIN per_special_skillmin sk_min ON(trim(sk_min.spmin_code)=trim(sk_map.spmin_code)) 
+                                                WHERE sk_sub.SS_ACTIVE=1  $search_condition  $show
+                                                and sk_sub.REF_CODE IS NOT NULL 
+					   "; */
+        $cmd = "select 	 count(pag.SS_CODE) as count_data 
+						from 	PER_SPECIAL_SKILLGRP pag
+						WHERE pag.SS_ACTIVE=1  and trim(pag.SS_CODE) in(SELECT DISTINCT trim(SS_CODE) from PER_SPECIAL_SKILL)
+                                                $search_condition $show
+                                                ";
+                                             
+				                       
+	$db_dpis->send_cmd($cmd);
+      //  echo "นับ ="."<pre>".$cmd."<br>";
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];
+        
+        function get_child_s_special_skillgrp($db_fnc,$ss_code){
+                        $cmd ="SELECT SK_SUB.SS_CODE, 
+    
+                                                SK_MAIN.SS_NAME AS NAME_MAIN,
+                                                  SK_MIN.SPMIN_TITLE, 
+                                                  SK_SUB.SS_NAME AS NAME_SUB , 
+
+                                                SK_SUB.REF_CODE 
+                                                FROM PER_SPECIAL_SKILLGRP SK_SUB 
+                                                LEFT JOIN PER_SPECIAL_SKILLGRP SK_MAIN ON(TRIM(SK_MAIN.SS_CODE)=TRIM(SK_SUB.REF_CODE)) 
+                                                LEFT JOIN PER_MAPPING_SKILLMIN SK_MAP ON(TRIM(SK_MAP.SS_CODE)=TRIM(SK_SUB.SS_CODE)) 
+                                                LEFT JOIN PER_SPECIAL_SKILLMIN SK_MIN ON(TRIM(SK_MIN.SPMIN_CODE)=TRIM(SK_MAP.SPMIN_CODE)) 
+                                                WHERE TRIM(SK_SUB.SS_CODE) ='".trim($ss_code)."'
+                                                AND SK_SUB.REF_CODE IS NOT NULL ";
+                                                
+                            $db_fnc->send_cmd($cmd);
+                           $data_fnc = $db_fnc->get_array();
+                           $MAIN    = $data_fnc[NAME_MAIN];
+                           $TTLE_SP  = $data_fnc[SPMIN_TITLE];
+                           $NAME_SUB  = $data_fnc[NAME_SUB];
+                           
+                           $name_all = $MAIN."/".$TTLE_SP."/".$NAME_SUB;
+                           
+                         // echo"tester=>".$cmd;
+                           return $name_all;
+        }
+         
+        
+?>
+<html>
+<head>
+<title>ด้านความเชี่ยวชาญพิเศษ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+function checkadd_filed(chk_btn){   //ไว้เปิดฟิลด์ให้เพิ่มข้อมูลได้
+		var chk_btn;
+		if(chk_btn == 1)
+  		form1.command.value='ADD_FILED';
+		else 
+		form1.command.value='';
+		return true;
+} // end function 	
+function checkadd(f) {
+	if(f.<?=$arr_fields[0]?>.value=="") {
+		alert("กรุณาระบุ รหัส");
+		f.<?=$arr_fields[0]?>.focus();
+		return false;
+		} 
+		else if(f.<?=$arr_fields[1]?>.value=="") {
+		alert("กรุณาระบุ ชื่อ");
+		f.<?=$arr_fields[1]?>.focus();
+		return false;
+		}
+		else  	
+		form1.command.value='ADD';
+		return true;
+		} // end function
+</script>
+<body>
+<form action="search_special_skillgrp_inquiry.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="totss_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="SEA_ALL" value="<?=$SEA_ALL?>">
+  <input type="hidden" name="txt_show" value="<?=txt_show?>"> 
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+<?if($command != "ADD_FILED") {?>
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr><?=$err_text?>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_ss_code" value="<?=$search_ss_code?>" style="width:98%" class="textbox"></td>
+              <td width="20%" align="right"><?=$SG_TITLE?>พิเศษ&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_ss_name" value="<?=$search_ss_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+                          <?php 
+                    $cmd = "select SS_CODE, SS_NAME 
+			    from  PER_SPECIAL_SKILLGRP
+                            where REF_CODE is null 
+                            order by SS_SEQ_NO, SS_CODE";
+                    $db->send_cmd($cmd);
+                    
+                     
+                ?> 
+                        <tr>
+                            <td width="15%" align="right">ด้านหลัก:&nbsp;</td>
+                            <td width="20%">
+                                        <select name="search_ref_code" style="width:98%">
+                                            <option value="0" <?=($search_ref_code==0)?"selected":""?>>เลือกด้านหลัก</option>
+                                            <?php while($data = $db->get_array()){
+                                                $SS_CODE = $data[SS_CODE];
+                                                $SS_NAME = $data[SS_NAME];
+                                            ?>
+                                            <option value="<?=$SS_CODE?>" <?=($search_ref_code==$SS_CODE)?"selected":""?>>&nbsp;<?=$SS_NAME?></option>
+                                            <?php }?>
+                                        </select>
+                            </td>
+                            <td width="8%" align="right">ด้าน:&nbsp;</td>
+                            <td width="70%"><input type="radio" name="search_data" value="0" <?=($search_data==0)?"checked":""?>>ทั้งหมด&nbsp;&nbsp;&nbsp;
+                                            <input type="radio" name="search_data" value="1" <?=($search_data==1)?"checked":""?>>เฉพาะด้านหลัก</td>
+                        </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="4">
+			  <? if ($BUTTON_DISPLAY==1) { ?><input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0; ">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_ss_code.value=''; form1.search_ss_name.value=''; form1.current_page.value=0;form1.search_ref_code.value=0;form1.SEA_ALL.value=0;form1.search_data.value=0;">
+                          <?
+                            include("jqModalDialog.html");
+                           ?>
+
+                        <script>
+                            function call_help() {
+                               parameter = '?SEA_ALL='+1;
+                               var myWindow = window.open("help_skill.html"+parameter, "", "top=100,left=900,width=850,height=720"); 
+                               
+                               //window.open("help_skill.html", "top=100, left=900, width=850, height=720");
+                            }
+                        </script>
+                        
+                         <script>
+                            function call_help_one(SPMIN_TITLE) {
+                               parameter = '?SEA_SPMIN_TITLE='+SPMIN_TITLE+'&SEA_ALL='+1;
+                               var myWindow = window.open("help_skill.html"+parameter, "", "top=100,left=900,width=850,height=720"); 
+                               
+                               //window.open("help_skill.html", "top=100, left=900, width=850, height=720");
+                            }
+                        </script>
+   
+<!--                        <input type="button" name="bt_help" value="คำอธิบายความเชี่ยวชาญ" class="button" onclick="call_help();">-->
+			  <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_ss_code.value=''; form1.search_ss_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล<?=$SG_TITLE?>พิเศษทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+  <?}else{?>
+   <table width="85%" align="center" border="1" cellpadding="1" cellspacing="1" > <!--เริ่ม-->
+	<? include("search_000_master.html"); ?>
+	</table> <!--เริ่มสิ้นสุด-->
+<?}?>
+<?
+		
+                 $total_page = ceil( $count_data / $data_per_page );
+                $page_link = create_link_page($total_page, $current_page);
+                $limit_data = "";	
+                
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record SS_CODE from PER_SPECIAL_SKILLGRP where SS_ACTIVE=1 $search_condition order by SS_SEQ_NO, SS_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[SS_CODE]'";
+				$limit_data = " and SS_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and SS_CODE not in ( select * from (select sk_sub.SS_CODE from PER_SPECIAL_SKILLGRP sk_sub LEFT JOIN PER_SPECIAL_SKILLGRP sk_main ON(trim(sk_main.SS_CODE)=trim(sk_sub.REF_CODE)) 
+                                                                    LEFT JOIN per_mapping_skillmin sk_map ON(trim(sk_map.ss_code)=trim(sk_sub.SS_CODE)) 
+                                                                    LEFT JOIN per_special_skillmin sk_min ON(trim(sk_min.spmin_code)=trim(sk_map.spmin_code))  
+                                                                    where sk_sub.SS_ACTIVE=1 $search_condition order by sk_sub.SS_SEQ_NO, sk_sub.SS_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page  SS_CODE, SS_NAME 
+							 from 		PER_SPECIAL_SKILLGRP
+							 where 	SS_ACTIVE=1
+											$search_condition
+											$limit_data
+							order by	SS_SEQ_NO, SS_CODE ";
+		}elseif($DPISDB=="oci8"){
+                       
+                     $show="";
+         if(!$_POST['txt_show']){
+                        $show = "and 1 = 0";
+          }
+                     /*  $cmd = " select * from (
+                                        SELECT sk_sub.SS_CODE, 
+                                                sk_main.ss_name AS name_main,
+                                                  sk_min.spmin_title, 
+                                                  sk_sub.ss_name AS name_sub , 
+
+                                                sk_sub.REF_CODE 
+                                                FROM PER_SPECIAL_SKILLGRP sk_sub 
+                                                LEFT JOIN PER_SPECIAL_SKILLGRP sk_main ON(trim(sk_main.SS_CODE)=trim(sk_sub.REF_CODE)) 
+                                                LEFT JOIN per_mapping_skillmin sk_map ON(trim(sk_map.ss_code)=trim(sk_sub.SS_CODE)) 
+                                                LEFT JOIN per_special_skillmin sk_min ON(trim(sk_min.spmin_code)=trim(sk_map.spmin_code)) 
+                                                WHERE sk_sub.SS_ACTIVE=1  $search_condition $show
+                                                $limit_data
+                                                ) where rownum <= $data_per_page ";  */
+                        $cmd = "select * from (
+					select rownum rnum, q1.* from ( 
+						select DISTINCT	pag.SS_CODE, pag.SS_NAME AS name_main,pag.REF_CODE
+						from 	PER_SPECIAL_SKILLGRP pag
+						WHERE pag.SS_ACTIVE=1  and trim(pag.SS_CODE) in(SELECT DISTINCT trim(SS_CODE) from PER_SPECIAL_SKILL)
+                                                $search_condition $show
+                                                ORDER BY pag.SS_CODE ASC
+						)  q1
+					) where rownum <= $data_per_page  "; 
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	SS_CODE, SS_NAME 
+							 from 		PER_SPECIAL_SKILLGRP
+							 where 	SS_ACTIVE=1
+											$search_condition
+							order by	SS_SEQ_NO, SS_CODE
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+              // echo '<pre>'.$cmd;
+             //  echo "<pre>".$cmd."<br>";
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center"><?=$SG_TITLE?>พิเศษ (ด้านหลัก / ด้านรอง / ด้านย่อย)</td>
+<!--    <td align="center">คำอธิบาย</td>-->
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_SS_CODE = $data[SS_CODE];
+                                $TEM_GET_CHILD = get_child_s_special_skillgrp($db_dpis2,$TMP_SS_CODE);
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_SS_CODE'";
+                                $TMP_NAME_MAIN = trim($data[NAME_MAIN]);
+                                $SPMIN_TITLE = trim($data[SPMIN_TITLE]);
+                                $TMP_NAME_SUB = trim($data[NAME_SUB]);
+                                $REF_CODE = $data[REF_CODE];
+				$TEM_GET_CHILD_v1 = explode('/',$TEM_GET_CHILD);
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+                                
+                                 $SPMIN_TITLE = $TEM_GET_CHILD_v1[2];
+                                $TMP_NAME_SUB = $TEM_GET_CHILD_v1[1];
+
+			   	$returnValue = "$TMP_SS_CODE<::>$TMP_NAME_MAIN<::>$SPMIN_TITLE<::>$TMP_NAME_SUB<::>$send_by";
+                       
+  ?>
+  
+  <tr class="<?=$class?>"  style="cursor:hand;"  <?=$onmouse_event?> >
+    <td  height="22" align="center" onClick="parent.refresh_opener('<?=$returnValue?>');"><?=$TMP_SS_CODE?></td>
+    <td  onClick="parent.refresh_opener('<?=$returnValue?>');"  > &nbsp;<?php if(!$REF_CODE){echo $TMP_NAME_MAIN; }else{echo $TEM_GET_CHILD;}?></td>
+    <!--ปิดปุ่ม HELP-->
+    <!--<td height="22" align="center" ><img name="image1"   src="images/999.jpg" alt="<?=$SEARCH_TITLE?>" onClick="call_help_one('<?=$SPMIN_TITLE?>');"> <a href="javascript:call_help_one('<?=$SPMIN_TITLE?>')" >คำอธิบาย</a></td>-->
+  </tr>
+  
+   
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

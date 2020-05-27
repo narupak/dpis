@@ -1,0 +1,293 @@
+<? 
+	include("../php_scripts/connect_database.php");
+    include("php_scripts/session_start.php");
+    include("php_scripts/xrpt_lib.php");
+    include("php_scripts/xrpt_adv_table.php");
+?>
+<html>
+<head>
+<title>
+<?=$webpage_title?>
+</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<script language="javascript" src="js/selectbox.js"></script>
+<script language="javascript" src="js/OptionTransfer.js"></script>
+<script language="javascript">
+function MM_jumpMenu(targ,selObj,restore){ //v3.0
+  eval(targ+".location='"+selObj.options[selObj.selectedIndex].value+"'");
+  if (restore) selObj.selectedIndex=0;
+}
+
+var table = new OptionTransfer("table1","table2");
+table.setAutoSort(true);
+table.setDelimiter(",");
+table.setStaticOptionRegex("");
+table.saveRemovedLeftOptions("removedLeft");
+table.saveRemovedRightOptions("removedRight");
+table.saveAddedLeftOptions("addedLeft");
+table.saveAddedRightOptions("addedRight");
+table.saveNewLeftOptions("newLeft");
+table.saveNewRightOptions("newRight"); 
+
+var field = new OptionTransfer("field1","field2");
+field.setAutoSort(true);
+field.setDelimiter(",");
+field.setStaticOptionRegex("");
+field.saveRemovedLeftOptions("removedLeft");
+field.saveRemovedRightOptions("removedRight");
+field.saveAddedLeftOptions("addedLeft");
+field.saveAddedRightOptions("addedRight");
+field.saveNewLeftOptions("newLeft");
+field.saveNewRightOptions("newRight");
+
+</script>
+<script type="text/javascript" src="js/prototype.js"></script>
+<script>
+	function placeInHidden(delim, selStr, hidStr)
+	{
+		var selObj = document.getElementById(selStr);
+		var hideObj = document.getElementById(hidStr);
+		hideObj.value = '';
+		for (var i=0; i<selObj.options.length; i++) {
+			hideObj.value = hideObj.value ==
+			'' ? selObj.options[i].value : hideObj.value + delim + selObj.options[i].value;
+	  	}
+	}
+	
+	function joinValueHidden(delim, selStr, hidStr)
+	{
+		var tempVar;
+		var selObj = document.getElementById(selStr);
+		var hideObj = document.getElementById(hidStr);
+
+		hideObj.value = '1&';
+		if (document.form1.gid)
+		{
+			//alert('have');
+			hideObj.value = hideObj.value + 'gid' + "=" + document.form1.gid.value + "&";
+		} 
+		else 
+		{
+		<?php if($_GET['gid']) { ?>
+			hideObj.value = hideObj.value + 'gid' + "=<?php echo $_GET['gid']; ?>&";
+		<? } ?>
+		}
+		hideObj.value = hideObj.value + 'report_name' + "=" + document.form1.report_name.value + "&";
+		hideObj.value = hideObj.value + 'report_title' + "=" + document.form1.report_title.value + "&";
+		
+		for (var i=0; i<selObj.options.length; i++) {
+			// operator of filter 
+			tempName = "operator_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = (tempObj.options[tempObj.selectedIndex].value);
+			if(tempVal != '0') hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			// value of filter 
+			tempName = "value_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = tempObj.value;
+			if(tempVal != '') hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			// match of filter 
+			tempName = "match_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = (tempObj.options[tempObj.selectedIndex].value);
+			if(tempVal != '0') hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+
+			// order type of field 
+			tempName = "ASC_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			if(tempObj.checked) {
+				var tempVal = tempObj.value;
+				hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			} else {
+				tempName = "DESC_" + selObj.options[i].value;
+				var tempObj =  document.getElementById(tempName);
+				if(tempObj.checked) {
+					var tempVal = tempObj.value;
+					hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+				}
+			}
+			// sequence type of field 
+			tempName = "index_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = tempObj.value;
+			hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			
+			
+			// seq type of field 
+			tempName = "seq_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = tempObj.value;
+			hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			// text type of field 
+			tempName = "text_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			var tempVal = tempObj.value;
+			hideObj.value = hideObj.value + tempName + "=" + tempVal + "&";
+			// show type of field 
+			tempName = "show_" + selObj.options[i].value;
+			var tempObj =  document.getElementById(tempName);
+			if(tempObj.checked) {
+				hideObj.value = hideObj.value + tempName + "=1&";
+			}
+		}
+		//alert(hideObj.value);
+	}
+
+	function resetDIV(DIV) 
+	{
+		$(DIV).innerHTML = "&nbsp;";
+	}
+	
+	function resetStep(resetStep) 
+	{
+		if(resetStep == 1) {
+			resetDIV('DIV_step3');
+			resetDIV('DIV_step4');
+			resetDIV('DIV_step5');
+		} 
+		if(resetStep == 2) {
+			resetDIV('DIV_step4');
+			resetDIV('DIV_step5');
+		} 
+		if(resetStep == 3) {
+			resetDIV('DIV_step5');
+		}
+	}
+	
+	function sendRequest(submitURL, submitValue, returnDIV) 
+	{
+		new Ajax.Request(submitURL, 
+			{ 
+			method: 'post', 
+			postBody: 'param='+ submitValue,
+			onComplete: function(req){
+							$(returnDIV).innerHTML= req.responseText;
+						}
+			});
+	}
+
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</head>
+<body  onload="table.init(document.forms[0]);">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="input_table" height="100%"  onload="table.init(document.forms[0]);">
+  <tr>
+    <td height="10"><? include("header_menu.html")?></td>
+  </tr>
+  <tr>
+    <td align="left" valign="top"><form name="form1" method="post" action="" onSubmit="return false;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" class="normal_black" height="100%">
+          <tr>
+            <td align="left" valign="top"><table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td height="28"><table  border="0" cellspacing="0" cellpadding="0" class="current_location_table">
+                      <tr>
+                        <td width="4%" height="28">&nbsp;</td>
+                        <td nowrap class="current_location">Advance Report</td>
+                        <td width="40" class="current_location_right">&nbsp;</td>
+                      </tr>
+                    </table></td>
+                </tr>
+                <tr>
+                  <td height="20">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td height="28"><table width="90%" align="center" cellpadding="3" cellspacing="2" class="input_table">
+                    <tr>
+                      <td class="table_body">1. select table</td>
+                    </tr>
+                    <tr>
+                      <td><table>
+                        <tr>
+                          <td>All Tables </td>
+                          <td>&gt;&gt;</td>
+                          <td>Selected Table(s)</td>
+                        </tr>
+                        <tr>
+                          <td><select name="table1" size="10" multiple="multiple" id="table1">
+                            <?php foreach($_table_array as $table) { ?>
+                            <option value="<?php echo $table; ?>"><?php echo $table; ?></option>
+                            <?php } ?>
+                          </select></td>
+                          <td align="center"><input type="button" name="add" id="add" value="&gt;" onClick="table.transferRight()" />
+                            <br />
+                            <input type="button" name="add_all" id="add_all" value="&gt;&gt;" onClick="table.transferAllRight()" />
+                            <br />
+                            <input type="button" name="del" id="del" value="&lt;" onClick="table.transferLeft()" />
+                            <br />
+                            <input type="button" name="del_all" id="del_all" value="&lt;&lt;" onClick="table.transferAllLeft()" /></td>
+                          <td><select name="table2" size="10" multiple="multiple" id="table2">
+                            <?php if($_GET['gid']) echo $selected_table; ?>
+                          </select>
+                            <input type="hidden" name="hidSelectedTable" id="hidSelectedTable" /></td>
+                        </tr>
+                        <tr>
+                          <td colspan="3"><input type="button" name="step1" id="step1" value="Done" onClick="resetStep('1');placeInHidden(';', 'table2', 'hidSelectedTable');sendRequest('php_scripts/xrpt_adv_field.php',document.form1.hidSelectedTable.value,'DIV_step2')" /></td>
+                        </tr>
+                      </table></td>
+                    </tr>
+                    <tr>
+                      <td class="table_body">2. select field</td>
+                    </tr>
+                    <tr>
+                      <td><div id="DIV_step2">
+                        <?php
+	if($_GET['gid']) {
+		include("php_scripts/xrpt_adv_field.php");
+	} 
+?>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td class="table_body">3. select filter setting</td>
+                    </tr>
+                    <tr>
+                      <td><div id="DIV_step3">
+                        <?php
+	if($_GET['gid']) {
+		include("php_scripts/xrpt_adv_condition.php");
+	} 
+?>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td class="table_body">4. select sorting order</td>
+                    </tr>
+                    <tr>
+                      <td><div id="DIV_step4">
+                        <?php
+	if($_GET['gid']) {
+		include("php_scripts/xrpt_adv_sort.php");
+	} 
+?>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td class="table_body">5. select report setting</td>
+                    </tr>
+                    <tr>
+                      <td><div id="DIV_step5">
+                        <?php
+	if($_GET['gid']) {
+		include("php_scripts/xrpt_adv_report.php");
+	} 
+?>
+                      </div></td>
+                    </tr>
+                    <tr>
+                      <td class="table_body"> 6. view report  and export to PDF and Excel</td>
+                    </tr>
+                    <tr>
+                      <td><div id="DIV_step6">&nbsp;</div></td>
+                    </tr>
+                  </table>                    <br></td>
+                </tr>
+              </table></td>
+          </tr>
+        </table>
+      </form></td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/es_t0302_check_att.php"); 
+    if(!$sort_by) $sort_by=1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+    
+    $cmdChk=" SELECT COUNT(CONFIG_NAME) AS CNT FROM SYSTEM_CONFIG WHERE  UPPER(CONFIG_NAME) IN('ESDPIS_SERVICE')";
+    $db_dpis2->send_cmd($cmdChk);
+    $dataChk = $db_dpis2->get_array();
+    if($dataChk[CNT]=="0"){
+        $cmdA=" insert into SYSTEM_CONFIG
+        	(CONFIG_ID,CONFIG_NAME,CONFIG_REMARK)
+            values(109,'ESDPIS_SERVICE','วัน-เวลาที่ DPIS สามารถติดต่อ Service esTimeAtt.ได้ครั้งสุดท้าย (วิ่งทุก 1 นาที)') ";
+        $db_dpis2->send_cmd($cmdA);
+        $cmdA = "COMMIT";
+        $db_dpis2->send_cmd($cmdA);
+    }
+?>
+<html>
+<head>
+<title><?=$webpage_title;?> - <?=$MENU_TITLE_LV0;?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1;?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2;?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3;?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	
+function confirm_locked(id ,data_label,locked){
+	var tmplocked = "";
+	if(locked=='N'){
+		tmplocked = "Unlock";
+	}else{
+		tmplocked = "Lock";
+	}
+	if(confirm("คุณต้องการ "+tmplocked+" [ " + data_label + "]  ใช่หรือไม่ ?")){
+		form1.command.value = "UPDATE";
+		form1.HIDTA_CODE.value = id;
+		form1.HIDLOCK_STATUS.value = locked;
+		form1.HIDTA_NAME.value = data_label;
+		form1.submit();
+	}else{
+		return false;
+	}
+
+}
+
+function call_rtf_pdf_report(report_type) {
+		if(document.form1.hddata_count.value == 0 || document.form1.hddata_count.value == ''){ 
+				alert('ไม่พบข้อมูล');
+				return false();
+		}else{
+			var  report_type
+			var currDate = new Date();
+			var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+				   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+			var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")));?>";
+	
+			//document.form1.target = "_blank";
+			 if (report_type==1){
+			document.form1.action = "report/rpt_es_t0302_check_att.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate+"&FLAG_RTF=1";
+			}else if (report_type==0){ 
+			document.form1.action = "report/rpt_es_t0302_check_att.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate+"&FLAG_RTF=0";
+			}
+			document.form1.submit();
+			document.form1.target = "_self";
+			document.form1.action = "es_t0302_check_att.html";
+	    }
+	  
+	} 
+	
+	function call_export_file() {
+		if(document.form1.hddata_count.value == 0 || document.form1.hddata_count.value == ''){ 
+				alert('ไม่พบข้อมูล');
+				return false();
+		}else{
+			var currDate = new Date();
+			var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+				   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+			var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")));?>";
+	
+			document.form1.action = "report/rpt_es_t0302_check_att_xls.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate;
+			document.form1.submit();
+			document.form1.target = "_self";
+			document.form1.action = "es_t0302_check_att.html";
+		}
+	}	
+	
+	
+	function ChkAllAllow(obj){
+	var count = document.forms[0].elements.length;
+    for (i=0; i<count; i++) 
+      {
+			var element = document.forms[0].elements[i]; 
+			if(element.type == 'checkbox' && obj.checked){
+				
+				if(element.type == 'checkbox' && element.name.substr(0,13)=="list_allow_id" )
+				 {
+					 	element.checked=true;	
+				   }
+				  
+			}else{
+				
+				if(element.type == 'checkbox' && element.name.substr(0,13)=="list_allow_id" )
+				 {
+					 element.checked=false; 
+				  }
+			}
+            
+    	}
+}
+
+function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+}
+
+function ChkAllUPDate(){
+	if(confirm("คุณต้องการปรับปรุงข้อมูลจากเครื่องบันทึกเวลาใช่หรือไม่ ?\nหมายเหตุ : ควรปรับปรุงข้อมูลในช่วงที่ไม่มีการสแกนเข้า-ออก\n กดปุ่ม 'OK' ยืนยันปรับปรุงข้อมูล\n กดปุ่ม 'Cancel' ยกเลิกปรับปรุงข้อมูล")){
+		form1.command.value='SETFLAG_ALLOW';
+    	form1.submit();
+	}
+}
+	
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><? include("header_menu.html");?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="es_t0302_check_att.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page;?>">
+          <input type="hidden" name="total_page" value="<?=$total_page;?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="table" value="<?=$table;?>">
+          <input type="hidden" name="HIDTA_CODE" value="">
+          <input type="hidden" name="HIDLOCK_STATUS" value="">
+          <input type="hidden" name="HIDTA_NAME" value="">
+&nbsp; 
+<?
+	
+  	if(trim($search_code)) $arr_search_condition[] = "(a.TA_CODE like '".trim($search_code)."%')";
+  	if(trim($search_name)) $arr_search_condition[] = "(a.TA_NAME like '%".trim($search_name)."%')";
+  	if(trim($search_wl_code)) $arr_search_condition[] = "(a.WL_CODE = '".trim($search_wl_code)."')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+  	if($order_by==1) {	//รหัส
+		$order_str = "a.TA_CODE ".$SortType[$order_by];
+  	} elseif($order_by==2) {	//ชื่อย่อ
+		$order_str = "a.TA_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) { //ชื่อไทย
+		$order_str = "b.WL_NAME ".$SortType[$order_by];
+	}
+	//------------------------------------------------------------------------------------------------------//
+    
+	$cmd =" select count(a.TA_CODE) as count_data 
+    			from PER_TIME_ATT a, PER_WORK_LOCATION b where a.WL_CODE = b.WL_CODE $search_condition ";
+	$db_dpis->send_cmd($cmd);
+	// echo $cmd;
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+  ?>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE;?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="1" cellspacing="1" class="label_normal">
+            <tr>
+              <td width="24%" align="right">หมายเลขเครื่อง&nbsp;:&nbsp;</td>
+              <td width="18%"><input type="text" name="search_code" value="<?=$search_code;?>" style="width:65%" class="textbox" onKeyPress="return keyEnter(event,document.form1.Submit3);"></td>
+              <td width="14%" align="right"><?=$NAME_TITLE;?>เครื่องบันทึกเวลา
+                &nbsp;:&nbsp;</td>
+              <td width="44%"><input type="text" name="search_name" value="<?=$search_name;?>" style="width:50%" class="textbox" onKeyPress="return keyEnter(event,document.form1.Submit3);"></td>
+            </tr>
+            
+            <tr>
+              <td align="right">สถานที่ปฏิบัติราชการ&nbsp;:</td>
+              <td colspan="3"><!--<input type="text" name="search_wl_name" value="<?=$search_wl_name;?>" style="width:35%" class="textbox" readonly>
+                <input type="button" name="" value="<?=$SELECT_TITLE;?>" class="button" onClick="call_search_wl_2()">
+                <input type="hidden" name="search_wl_code" value="<?=trim($search_wl_code);?>">
+                <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_wl_name.value=''; form1.search_wl_code.value=''; return false;" align="center" alt="ล้างค่า">
+                -->
+                <select class="selectbox" name="search_wl_code">
+                        <option value="" <?=($search_wl_code=="")?"selected":"";?>>== ทั้งหมด ==</option>
+                        <?
+                            $cmd = " select WL_CODE, WL_NAME from PER_WORK_LOCATION where WL_ACTIVE = 1 order by WL_NAME ";
+                            $db_dpis->send_cmd($cmd);
+                            while($data = $db_dpis->get_array()){					
+                                $DB_WL_CODE = $data[WL_CODE];
+                                $DB_WL_NAME = $data[WL_NAME];
+                          ?>
+                        <option value="<?=$DB_WL_CODE;?>" <?=(trim($DB_WL_CODE)==trim($search_wl_code))?"selected":"";?>><?=$DB_WL_NAME;?></option>
+                        <?
+                            } // end while
+                          ?>
+                    </select>
+                </td>
+              </tr>
+            
+            <tr>
+              <td align="right">&nbsp;</td>
+              <td height="30" colspan="3">
+              <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE;?>" onClick="form1.current_page.value=0;">
+                <input name="Submit4" type="submit" class="button" value="<?=$SHOW_ALL_TITLE;?>" onClick="javascript:form1.search_code.value=''; form1.search_name.value=''; form1.search_wl_name.value=''; form1.search_wl_code.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image22" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE;?>">
+                <input name="image23" type="image" onClick="javascript:form1.search_code.value=''; form1.search_name.value=''; form1.search_wl_name.value=''; form1.search_wl_code.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE;?>">
+                <?}?>
+                
+                
+                
+              </td>
+            </tr>
+            <tr>
+              <td  colspan="4" align="center">&nbsp;</td>
+            </tr>
+            <tr>
+              <td  colspan="4">
+              <?
+                	$cmdChk=" SELECT substr(CONFIG_VALUE,1,10) as DATESERVICE, CONFIG_REMARK,
+                    		substr(CONFIG_VALUE,12,8) as TIMESERVICE,
+                    		(sysdate-to_date(config_value,'YYYY-MM-DD HH24:MI:SS'))* 1440 MINDIFFROM
+                     		from SYSTEM_CONFIG where config_name = 'ESDPIS_SERVICE' ";
+                    $db_dpis2->send_cmd($cmdChk);
+                    $dataChk = $db_dpis2->get_array();
+                    if($dataChk[MINDIFFROM] >1){
+                    	echo "วัน-เวลาที่ DPIS สามารถติดต่อ Service ลงเวลาได้ครั้งสุดท้าย (Update ทุก 1 นาที) : <font color='red'>".show_date_format($dataChk[DATESERVICE], $DATE_DISPLAY)." ".$dataChk[TIMESERVICE]."</font><font color='red' size='+2'> *** ผิดปกติ ***</font>";
+                    }else{
+                    	echo "วัน-เวลาที่ DPIS สามารถติดต่อ Service ลงเวลาได้ครั้งสุดท้าย (Update ทุก 1 นาที) : <font color='green'>".show_date_format($dataChk[DATESERVICE], $DATE_DISPLAY)." ".$dataChk[TIMESERVICE]." *** ปกติ ***</font>";
+                    }
+                  
+                ?>
+              </td>
+            </tr>
+          </table></td>
+        </tr>
+		<tr>
+		  <td>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by;?>"><input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+<input type="hidden" name="sort_type" value="<?=$sort_type;?>">
+<?=$SORT_TITLE;?></td>
+</tr>
+</table>
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="15%" height="22">
+              
+              <? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);">   
+				        <? if ($RTF_FLAG==1) { ?>
+                <input name="btn21" type="button" class="button" style="width:150" value="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);">    
+	                   <? } ?>
+                <?  } else { ?>
+                <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);">   
+				         <? if ($RTF_FLAG==1) { ?>
+               <img src="images/doc_icon_word.jpg" border="0" alt="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);">    
+	                   <? } ?>
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+                  <td align="center">พบข้อมูล 
+                    <?=$MENU_TITLE_LV2;?>
+                    ทั้งสิ้น
+<?=($count_data + 0)?>
+                    รายการ</td>
+              <td width="15%" align="right">
+              
+              <? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <?  } else { ?>
+                <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+          </table></td>
+		</tr>
+  </table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($DPISDB=="oci8"){
+    	if($current_page > 1){
+			$limit_data = " and TA_CODE not in ( select * from (select TA_CODE from PER_TIME_ATT a, PER_WORK_LOCATION b where a.WL_CODE = b.WL_CODE $search_condition order by TA_CODE) where rownum <= $start_record ) ";
+		} // end if 
+		$cmd = "	select	*
+							from (
+								select		a.TA_CODE, a.TA_NAME, a.WL_CODE, a.TA_ACTIVE, b.WL_NAME,
+                                 			a.ALIVE_STATUS,a.ALIVE_IP_ADDR,a.LOCK_STATUS,
+                                            TO_CHAR(a.SYNC_DATE,'yyyy-mm-dd') AS SYNC_DATE,
+                                            TO_CHAR(a.SYNC_DATE,'HH24:MI:SS') AS SYNC_TIME,
+                                            a.RESYNC_FLAG
+								from  		PER_TIME_ATT a, PER_WORK_LOCATION b
+								where		a.WL_CODE = b.WL_CODE AND a.TA_ACTIVE=1
+												$search_condition
+												$limit_data
+								order by $order_str
+							) where rownum <= $data_per_page ";
+	} // end if
+
+	//echo $cmd;
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+      <td nowrap width="11%" height="21" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>หมายเลขเครื่อง</strong></td>
+            <td width="19%" nowrap onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อเครื่องบันทึกเวลา</strong></td>      
+      <td nowrap width="20%" onClick="call_sort(3);"><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>สถานที่ปฏิบัติราชการ</td>
+      
+      <td width="13%">IP Address</td>
+      <td width="9%">สถานะ</td>
+      <td width="7%">Lock/Unlock</td>
+      <td width="14%">วัน-เวลาของสถานะล่าสุด</td>
+      
+      
+      <td width="7%">ปรับปรุง</td>
+      </tr>
+    <?
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$DATA_TA_CODE = $data[TA_CODE];
+        $current_list .= ((trim($current_list))?", ":"") . "'" . $DATA_TA_CODE ."'";
+        $DATA_TA_NAME = $data[TA_NAME];
+        $DATA_WL_NAME = $data[WL_NAME];
+        $DATA_TA_ACTIVE = $data[TA_ACTIVE];
+        $ALIVE_STATUS = $data[ALIVE_STATUS];
+        $ALIVE_IP_ADDR = $data[ALIVE_IP_ADDR];
+        $LOCK_STATUS = $data[LOCK_STATUS];
+        $DATA_RESYNC_FLAG = $data[RESYNC_FLAG];
+        $DATA_SYNC_DATE="";
+        if($data[SYNC_DATE]){
+        	$DATA_SYNC_DATE = show_date_format($data[SYNC_DATE], $DATE_DISPLAY)." ".$data[SYNC_TIME];
+        }
+?>
+    <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+      <td align="center"><?=$DATA_TA_CODE;?></td>
+      <td>&nbsp;<?=$DATA_TA_NAME;?></td>      
+      <td>&nbsp;<?=$DATA_WL_NAME;?></td>
+      
+      <td align="center"><?=$ALIVE_IP_ADDR;?></td>
+      <td align="center">
+      <? if($ALIVE_STATUS==1){ 
+      				echo "<font color='green'>ON</font>";
+           }else if($ALIVE_STATUS==0){ 
+           			echo "<font color='red'>OFF</font>";
+           			
+      	   }else{ 
+           			echo "";
+           }
+       ?>
+      </td>
+      <td align="center">
+      <?  if($LOCK_STATUS=="N"){  ?>
+      				<a onClick="javascript:return confirm_locked('<?=$DATA_TA_CODE;?>','<?=$DATA_TA_NAME;?>','Y');"><input type='image' title='คลิกเพื่อ Lock' name='imageField' id='imageField' src='images/unlock.png'></a>
+       <? }else if($LOCK_STATUS=="Y"){  ?>
+           			<a onClick="javascript:return confirm_locked('<?=$DATA_TA_CODE;?>','<?=$DATA_TA_NAME;?>','N');"><input type='image' title='คลิกเพื่อ Unlock' name='imageField' id='imageField' src='images/lock.png'></a>
+      <? }?>
+      
+      </td>
+      <td align="center"><?=$DATA_SYNC_DATE;?></td>
+      
+      
+      <td align="center"><input type="checkbox"  id="list_allow_id[]" name="list_allow_id[]" onClick="set_uncheck_all(this.checked,form1.list_allow_all,this.id)"  value="<?=$DATA_TA_CODE;?>" <? if($DATA_RESYNC_FLAG=='Y'){ echo 'checked';}?>></td>
+      
+      </tr>
+      
+    <? } ?>
+    
+    <? if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td align="center">
+              <input type="checkbox" name="list_allow_all" value="1" title="ทั้งหมด"  onClick="return ChkAllAllow(form1.list_allow_all);">
+              <br>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+               <input type="button" name="Submit43" value="<?=$SETFLAG_TITLE;?>" onClick="return ChkAllUPDate();" class="button" style="width:99%" title="ปรับปรุงฐานข้อมูลลงทะเบียน">
+             <?  } else { ?>
+               <input name="image33" type="image" onClick="return ChkAllUPDate();" src="images/save.png" border="0" title="ปรับปรุงฐานข้อมูลลงทะเบียน">
+  			<?  }?>
+  </td>
+      
+    </tr>
+	<?}?>
+
+  </table>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="right">
+      			<?
+                    echo "<font color='red'>* การสั่งปรับปรุงข้อมูล หมายถึง การสั่งให้ระบบโอนข้อมูลลงทะเบียน (ลายนิ้วมือ,ใบหน้า,บัตร) ใหม่ โดยจะลบข้อมูลลงทะเบียนที่เครื่องบันทึกเวลานั้น ๆ ออกทั้งหมด แล้วนำเข้าข้อมูลลงทะเบียนใหม่</font>";
+
+                ?></td>
+    </tr>
+  </table>
+  
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link;?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+  			<input type="hidden" name="current_list" value="<?=$current_list;?>">
+            <input name="hddata_count" type="hidden" value="<?=$data_count;?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

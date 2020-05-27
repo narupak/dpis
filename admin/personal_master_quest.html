@@ -1,0 +1,537 @@
+<? 
+	require_once("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php"); 
+    
+	//echo "$MENU_TITLE_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3<br>";
+	
+	//ถ้าเป็น db จังหวัดจะไม่มี DEPARTMENT_ID มาหา DEPARTMENT_NAME
+	//กำหนดค่าเริ่มต้นไม่ให้มันเป็น page not found
+	$MAIN_VIEW = "personal_quest_form.html";
+	//___echo $CTRL_TYPE."-".$DEPARTMENT_NAME." : <<".$MAIN_VIEW;
+    
+    function get_menu_lv($progname) {
+    	global $MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3, $CATE_FID;
+        global $db;
+		// fixed value $MENU_ID_LV0 และ $MENU_ID_LV1 ไปเลยสำหรับแสดงค่าที่ set ($PAGE_AUTH["edit"]   $PAGE_AUTH["del"]  $PAGE_AUTH["attach"]  $PAGE_AUTH["audit"] )	ใน C02 เพราะมันไม่ดึงค่ามาจากตาราง user_privilege กรณี login เป็นคน เข้ามาเป็น frame เลย
+		$MENU_ID_LV0 = 35;		
+		$MENU_ID_LV1 = 241;	
+
+               
+
+        
+       $cmd = " select menu_id from backoffice_menu_bar_lv3 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+		$db->send_cmd($cmd);
+       	$data = $db->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+        if (trim($data[menu_id])) {
+            $menu_lv3 = trim($data[menu_id]);
+            $menu_lv2 = $MENU_ID_LV2;
+            $menu_lv1 = $MENU_ID_LV1;
+            $menu_lv0 = $MENU_ID_LV0;
+		} else {
+	       $cmd = " select menu_id from backoffice_menu_bar_lv2 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+			$db->send_cmd($cmd);
+    	   	$data = $db->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+	        if (trim($data[menu_id])) {
+	            $menu_lv2 = trim($data[menu_id]);
+	            $menu_lv3 = 0;
+	            $menu_lv1 = $MENU_ID_LV1;
+    	        $menu_lv0 = $MENU_ID_LV0;
+			} else {
+		       $cmd = " select menu_id from backoffice_menu_bar_lv1 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+				$db->send_cmd($cmd);
+		       	$data = $db->get_array();
+				$data = array_change_key_case($data, CASE_LOWER);
+		        if (trim($data[menu_id])) {
+	            	$menu_lv1 = trim($data[menu_id]);
+		            $menu_lv3 = 0;
+		            $menu_lv2 = 0;
+    		        $menu_lv0 = $MENU_ID_LV0;
+				} else {
+			       $cmd = " select menu_id from backoffice_menu_bar_lv0 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+					$db->send_cmd($cmd);
+			       	$data = $db->get_array();
+					$data = array_change_key_case($data, CASE_LOWER);
+			        if (trim($data[menu_id])) {
+	        	    	$menu_lv0 = trim($data[menu_id]);
+		        	    $menu_lv3 = 0;
+		            	$menu_lv2 = 0;
+	    		        $menu_lv1 = 0;
+					} else {
+			            $menu_lv3 = $MENU_ID_LV3;
+			            $menu_lv2 = $MENU_ID_LV2;
+			            $menu_lv1 = $MENU_ID_LV1;
+			            $menu_lv0 = $MENU_ID_LV0;
+					} // end if lv1
+				} // end if lv1
+			} // end if lv2
+		} // end if lv3
+                 if($progname=="per_taxhis"){
+                    		//echo "$progname-->$MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3<br>";
+                               // echo $cmd;
+                }
+		$lv = "$menu_lv0,$menu_lv1,$menu_lv2,$menu_lv3";
+        
+    	return $lv;
+    } // end function get_menu_lv
+	
+	
+	
+	function get_can_inq($progname){
+    	global $MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3, $CATE_FID,$ACCESSIBLE_GROUP;
+        global $db;
+		// fixed value $MENU_ID_LV0 และ $MENU_ID_LV1 ไปเลยสำหรับแสดงค่าที่ set ($PAGE_AUTH["edit"]   $PAGE_AUTH["del"]  $PAGE_AUTH["attach"]  $PAGE_AUTH["audit"] )	ใน C02 เพราะมันไม่ดึงค่ามาจากตาราง user_privilege กรณี login เป็นคน เข้ามาเป็น frame เลย
+		$MENU_ID_LV0 = 35;		
+		$MENU_ID_LV1 = 241;	
+		
+		// หาในระดับที่ 2
+		$cmd = " select a.can_inq from user_privilege a,backoffice_menu_bar_lv2 b 
+		where a.group_id in ($ACCESSIBLE_GROUP) and 
+		a.page_id=1 
+		and a.menu_id_lv0=".$MENU_ID_LV0." 
+		and a.menu_id_lv1=".$MENU_ID_LV1." 
+		and a.menu_id_lv3=0 
+		and a.menu_id_lv2=b.menu_id 
+		and b.flag_show='S' and b.langcode='TH' and b.fid=$CATE_FID and b.linkto_web like '%$progname%' 
+		order by a.menu_id_lv2 ";
+		$db->send_cmd($cmd);
+		//$db->show_error();
+		$data = $db->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		$can_inq = $data[can_inq];
+                if($progname=="per_taxhis"){
+                    //echo "$cmd"."=> $progname = $can_inq <br>";
+                }
+		
+	
+	return 	"N";
+	} //end function
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($command=="ADD" || $command=="UPDATE" || $command=="DELETE"){ ?>parent.refresh_opener(true);<? } ?>
+
+	function confirm_delete(per_id , per_name){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + per_name + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.PER_ID.value = per_id;
+			form1.submit();
+		} // end if
+	}
+
+	function call_menu_desc (file, per_id, menulv) {	
+//		alert(menulv);
+		if (menulv) {
+			var arr_menu_lv = menulv.split(",");
+			menu_lv0 = arr_menu_lv[0];
+			menu_lv1 = arr_menu_lv[1];
+			menu_lv2 = arr_menu_lv[2];
+			menu_lv3 = arr_menu_lv[3];
+			document.all.PER_DESC_IFRAME.src = file + "?PER_ID=" + per_id + "&MENU_ID_LV0=" + menu_lv0 + "&MENU_ID_LV1=" + menu_lv1+ "&MENU_ID_LV2=" + menu_lv2 + "&MENU_ID_LV3=" + menu_lv3 + "&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>";
+		} else {
+			document.all.PER_DESC_IFRAME.src = file + "?PER_ID=" + per_id + "&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>";
+		}
+		//parent.PER_DESC_IFRAME.location.href = "";
+	}
+
+	function call_first() {
+//		alert("first init-3 personal_master_desc");
+	}
+</script>
+<span id="defaultTheme"></span>
+<body onLoad="call_first();">
+<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_master_quest.html" target="frame_personal_master_desc" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+  <? if(!$MAIN_VIEW){ echo"&nbsp;"; }?>
+  &nbsp;
+  <table width="95%" height="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" height="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="25" class="layout_inactive">&nbsp;&nbsp;รายละเอียดข้าราชการ/ลูกจ้างประจำ</td>
+        </tr>
+        <!--tr>
+          <td height="5" colspan="4"></td>
+        </tr-->
+        <tr>
+          <td><table width="100%" height="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="100" valign="top">
+              <?
+				/*****	
+					$cmd = " select * from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$MENU_ID_LV0." and menu_id_lv1=".$MENU_ID_LV1." and menu_id_lv3=0 and menu_id_lv2 in (76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,97,153) order by menu_id_lv2 ";
+					$db->send_cmd($cmd);
+//					$db->show_error();
+					$arr_content = (array) null;
+					while ($data = $db->get_array()) {
+						$data = array_change_key_case($data, CASE_LOWER);
+						$idx = $data[menu_id_lv2];
+						$arr_content[$idx][can_inq] = $data[can_add];
+						$arr_content[$idx][can_add] = $data[can_add];
+						$arr_content[$idx][can_edit] = $data[can_edit];
+						$arr_content[$idx][can_del] = $data[can_del];
+						$arr_content[$idx][can_inq] = $data[can_inq];
+						$arr_content[$idx][can_print] = $data[can_print];
+						$arr_content[$idx][can_confirm] = $data[can_confirm];
+                        if ($data[can_add]!="Y" && $data[can_edit]!="Y" && $data[can_del]!="Y" && $data[can_inq]!="Y" && $data[can_print]!="Y" && $data[can_confirm]!="Y") {
+							$button_off = true;
+						} else {
+							$button_off = false;
+                        }
+						$arr_content[$idx][button_off] = $button_off;
+					}
+				*****/
+				?>
+              <table width="100%" border="0" cellpadding="<?=$MAIN_VIEW?0:1?>" cellspacing="<?=$MAIN_VIEW?0:1?>">
+			<? if($MAIN_VIEW) { ?>
+					<tr><td><input type="button" name="Input2" value="ข้อมูลบุคคล" style="width:140" onClick="call_menu_desc('personal_quest_form.html', '<?=$PER_ID?>','<?=$lv?>')"></td></tr> 
+			<? } ?>
+			<? $lv=get_menu_lv("personal_master"); 
+				  $can_inq =get_can_inq("personal_master");
+					if($can_inq=="Y"){
+			?>
+            		<tr><td><input type="button" name="" value="ข้อมูลทั่วไป" style="width:140" onClick="call_menu_desc('personal_master_form.html', '<?=$PER_ID?>','<?=$lv?>')"></td></tr> 
+            <?
+				}
+				 $lv=get_menu_lv("personal_positionhis"); 
+				 $can_inq =get_can_inq("personal_positionhis");
+				 if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="การดำรงตำแหน่ง" style="width:140" onClick="call_menu_desc('personal_positionhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+	        <? 
+				}
+				$lv=get_menu_lv("personal_salary_sum");
+			 	$can_inq =get_can_inq("personal_salary_sum");
+				if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="เงิน" style="width:140" onClick="call_menu_desc('personal_salary_sum.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+	         <?	
+			 	}
+				 /* $lv=get_menu_lv("personal_extrahis"); */ ?>
+					<!--<tr><td><input type="button" name="" value="เงินเพิ่มพิเศษ" style="width:140" onClick="call_menu_desc('personal_extrahis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> -->
+			<? 	//} ?>
+                        <? 
+                                        $lv=get_menu_lv("personal_salaryslip");
+                                       
+					$can_inq =get_can_inq("personal_salaryslip");
+			 		if($can_inq=="Y"){
+			 ?>
+					<tr><td><input type="button" name="" value="สลิปเงินเดือน" style="width:140" onClick="call_menu_desc('personal_salaryslip.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			
+                       <?               }
+                                        $lv=get_menu_lv("SEARCHHIS=per_taxhis"); 
+                               
+				$can_inq =get_can_inq("SEARCHHIS=per_taxhis");        
+                                
+				if($can_inq=="Y"){
+                        ?>
+                                        <tr><td><input type="button" name="" value="หักภาษี ณ ที่จ่าย" style="width:140" onClick="call_menu_desc('per_taxhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+                        <? 
+                                        }
+				$lv=get_menu_lv("personal_educate"); 
+				$can_inq =get_can_inq("personal_educate");
+				if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="การศึกษา" style="width:140" onClick="call_menu_desc('personal_educate.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_training"); 
+			 $can_inq =get_can_inq("personal_training");
+			 if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="การอบรม/ดูงาน/สัมมนา" style="width:140" onClick="call_menu_desc('personal_training.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_ability"); 
+			 $can_inq =get_can_inq("personal_ability");
+			 if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="ความสามารถพิเศษ" style="width:140" onClick="call_menu_desc('personal_ability.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_special_skill"); 
+			 $can_inq =get_can_inq("personal_special_skill");
+			 if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="ความเชี่ยวชาญพิเศษ" style="width:140" onClick="call_menu_desc('personal_special_skill.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_heir"); 
+			$can_inq =get_can_inq("personal_heir");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="ทายาทผู้รับผลประโยชน์" style="width:140" onClick="call_menu_desc('personal_heir.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_scholar");
+			$can_inq =get_can_inq("personal_scholar");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="การลาศึกษาต่อ" style="width:140" onClick="call_menu_desc('personal_scholar.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+			$lv=get_menu_lv("personal_absenthis"); 
+			$can_inq =get_can_inq("personal_absenthis");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="การลา" style="width:140" onClick="call_menu_desc('personal_absenthis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_absentsum"); 
+			$can_inq =get_can_inq("personal_absentsum");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="สรุปวันลาสะสม" style="width:140" onClick="call_menu_desc('personal_absentsum.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_punishment"); 
+			$can_inq =get_can_inq("personal_punishment");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="วินัย" style="width:140" onClick="call_menu_desc('personal_punishment.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+                        /*Release 5.2.1.21*/
+                        if($SESS_USERGROUP!=3){
+                            $lv=get_menu_lv("behavior"); 
+                            $can_inq =get_can_inq("behavior");
+                            if($can_inq=="Y"){
+                            ?>
+                                            <tr><td><input type="button" name="" value="พฤติกรรม" style="width:140" onClick="call_menu_desc('behavior.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+                            <? 
+                            }
+                        }    
+                        /*End Release 5.2.1.21*/
+			$lv=get_menu_lv("personal_servicehis");
+			$can_inq =get_can_inq("personal_servicehis");
+			if($can_inq=="Y"){
+			 ?>
+					<tr><td><input type="button" name="" value="ราชการพิเศษ" style="width:140" onClick="call_menu_desc('personal_servicehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_rewardhis"); 
+			$can_inq =get_can_inq("personal_rewardhis");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="ความดีความชอบ" style="width:140" onClick="call_menu_desc('personal_rewardhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_marrhis"); 
+			$can_inq =get_can_inq("personal_marrhis");
+			if($can_inq=="Y"){
+			 ?>
+					<tr><td><input type="button" name="" value="การสมรส" style="width:140" onClick="call_menu_desc('personal_marrhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_namehis");
+			$can_inq =get_can_inq("personal_namehis");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="Input" value="การเปลี่ยนแปลงชื่อ-สกุล" style="width:140" onClick="call_menu_desc('personal_namehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+			<? 
+			}
+			$lv=get_menu_lv("personal_decoratehis");
+			$can_inq =get_can_inq("personal_decoratehis");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="เครื่องราชอิสริยาภรณ์" style="width:140" onClick="call_menu_desc('personal_decoratehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>	
+			<? 
+			}
+			$lv=get_menu_lv("personal_timehis");
+			$can_inq =get_can_inq("personal_timehis");
+			if($can_inq=="Y"){
+			?>
+					<tr><td><input type="button" name="" value="เวลาทวีคูณ" style="width:140" onClick="call_menu_desc('personal_timehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+		<? } ?>
+             <? $lv=get_menu_lv("personal_work_cyclehis");
+			  $can_inq =get_can_inq("personal_work_cyclehis");
+			  if($can_inq=="Y"){
+                          $urlhtml="personal_work_cyclehis.html";
+                          if($IS_OPEN_TIMEATT_ES=="OPEN"){$urlhtml="es_personal_work_cyclehis.html";}
+			 ?>
+					<tr><td><input type="button" name="" value="รอบการมาปฏิบัติราชการ" style="width:140" onClick="call_menu_desc('<?php echo $urlhtml;?>', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+			$lv=get_menu_lv("personal_work_time");
+			$can_inq =get_can_inq("personal_work_time");
+			if($can_inq=="Y"){
+                        $urlhtml2="personal_work_time.html";
+                          if($IS_OPEN_TIMEATT_ES=="OPEN"){$urlhtml2="es_personal_work_time.html";}
+			?>
+					<tr><td><input type="button" name="" value="ลงเวลาปฏิบัติราชการ" style="width:140" onClick="call_menu_desc('<?php echo $urlhtml2;?>', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr> 
+		<? } ?>
+			<? $lv=get_menu_lv("personal_kpi_form"); 
+			 $can_inq =get_can_inq("personal_kpi_form");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="คะแนนผลการประเมิน" style="width:140" onClick="call_menu_desc('personal_kpi_form.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<?
+			}
+			 //$lv=get_menu_lv("direct_pay_tax"); 
+			 //$can_inq =get_can_inq("direct_pay_tax");
+			 //if($can_inq=="Y"){
+			?>
+			<!--tr><td><input type="button" name="" value="ภาษี/ลดหย่อน" style="width:140" onClick="call_menu_desc('direct_pay_tax.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr-->
+			<? 
+			//}
+			$lv=get_menu_lv("personal_address"); 
+			$can_inq =get_can_inq("personal_address");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="ที่อยู่" style="width:140" onClick="call_menu_desc('personal_address.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+			$lv=get_menu_lv("personal_family"); 
+			$can_inq =get_can_inq("personal_family");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="ครอบครัว" style="width:140" onClick="call_menu_desc('personal_family.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_actinghis"); 
+			 $can_inq =get_can_inq("personal_actinghis");
+			if($can_inq=="Y"){			 
+			?>
+			<tr><td><input type="button" name="" value="รักษาราชการ/มอบหมายงาน" style="width:140" onClick="call_menu_desc('personal_actinghis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_pichist"); 
+			 $can_inq =get_can_inq("personal_pichist");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="ภาพถ่าย/ลายเซ็น" style="width:140" onClick="call_menu_desc('personal_pichist.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+		<? } ?>
+			<? $lv=get_menu_lv("personal_holidayhis"); 
+			 $can_inq =get_can_inq("personal_holidayhis");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="วันหยุด (พิเศษ)" style="width:140" onClick="call_menu_desc('personal_holidayhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_retire"); 
+			 $can_inq =get_can_inq("personal_retire");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="<?=$RETIRE_TITLE?>" style="width:140" onClick="call_menu_desc('personal_retire.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+<? 
+			}
+				$lv=get_menu_lv("personal_attachment");
+				 $can_inq =get_can_inq("personal_attachment");	
+				 if($can_inq=="Y"){
+            ?>
+			<tr><td><input type="button" name="" value="เอกสารหลักฐาน" style="width:140" onClick="call_menu_desc('personal_attachment.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_licensehis"); 
+			 $can_inq =get_can_inq("personal_licensehis");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="ใบอนุญาตประกอบวิชาชีพ" style="width:140" onClick="call_menu_desc('personal_licensehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+<?  
+			}
+			$lv=get_menu_lv("personal_excellent_performance"); 
+			$can_inq =get_can_inq("personal_excellent_performance");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="ผลงาน/ผลงานดีเด่น" style="width:140" onClick="call_menu_desc('personal_excellent_performance.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+if($MFA_FLAG == 1){ ?>
+			<? $lv=get_menu_lv("personal_posting");
+			 $can_inq =get_can_inq("personal_posting");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="การออกประจำการ" style="width:140" onClick="call_menu_desc('personal_postinghis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+} ?>
+			<? 
+if($ISCS_FLAG == 1){ ?>
+			<? $lv=get_menu_lv("personal_approve_resolution");
+			 $can_inq =get_can_inq("personal_approve_resolution");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="มติอนุมัติ" style="width:140" onClick="call_menu_desc('personal_approve_resolution.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+			$lv=get_menu_lv("personal_soldierhis"); 
+			$can_inq =get_can_inq("personal_soldierhis");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="การรับราชการทหาร" style="width:140" onClick="call_menu_desc('personal_soldierhis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? 
+			}
+} ?>
+			<? $lv=get_menu_lv("personal_test_coursehis"); 
+			 $can_inq =get_can_inq("personal_test_coursehis");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="การสอบ" style="width:140" onClick="call_menu_desc('personal_test_coursehis.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_birthdate_change"); 
+			 $can_inq =get_can_inq("personal_birthdate_change");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="แก้ไขวันเดือนปีเกิด" style="width:140" onClick="call_menu_desc('personal_birthdate_change.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_kp7_borrow"); 
+			 $can_inq =get_can_inq("personal_kp7_borrow");
+			 if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="การยืม ก.พ.7" style="width:140" onClick="call_menu_desc('personal_kp7_borrow.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+			<? $lv=get_menu_lv("personal_other_occupation"); 
+			$can_inq =get_can_inq("personal_other_occupation");
+			if($can_inq=="Y"){
+			?>
+			<tr><td><input type="button" name="" value="การลาออก (ไม่นับอายุราชการ)" style="width:140" onClick="call_menu_desc('personal_other_occupation.html', '<?=$PER_ID?>', '<?=$lv?>')"></td></tr>
+			<? } ?>
+		</table></td>
+		<td align="center" height="700" valign="top">
+			<iframe width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_DESC_IFRAME" name="frame_personal_master_desc" src="<?=($MAIN_VIEW)?"$MAIN_VIEW?MAIN_VIEW=1&PER_ID=$PER_ID&HIDE_HEADER=1":""?>">รายละเอียดข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td>
+	     </tr>
+          </table></td>
+        </tr>
+        <? if(!$MAIN_VIEW){ ?>
+		<!--tr>
+          <td height="10">&nbsp;</td>
+        </tr-->
+        <tr>
+          <td height="5" align="center"></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+		  	  <? if ($PER_ID) { ?>
+              		<input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="parent.refresh_opener('1<::>!<::>!');" class="button" >
+              <?}?>
+		  </td>
+        </tr>
+		<? } // end if ?>
+      </table></td>
+    </tr>
+  </table> 
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

@@ -1,0 +1,182 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+        
+        
+        if($command=='DELETE'){
+            $cmd = " select username, fullname from user_detail where id=$user_id and user_flag='Y' ";
+            $db->send_cmd($cmd);
+            $data = $db->get_array();
+            $data = array_change_key_case($data, CASE_LOWER);
+            $username = $data[username];
+            $user_name = $data[fullname];
+
+            $cmd = " update user_detail set user_flag='N' where id = $user_id ";
+            $db->send_cmd($cmd);
+            
+            if($db_type=="mysql") $log_date = "NOW()";
+            elseif($db_type=="mssql") $log_date = "GETDATE()";
+            elseif($db_type=="oci8" || $db_type=="odbc"){ $log_date = date("Y-m-d H:i:s"); $log_date = "'$log_date'"; }
+            $cmd = " update user_last_access set last_logout=$log_date, f_logout='1' where user_id=$user_id and f_logout is null ";
+            $db->send_cmd($cmd);
+            
+            insert_log("$MENU_TITLE_LV0 > $MENU_TITLE_LV1 > ลบผู้ใช้งาน [$username -> $user_name]");
+            
+            $command='';
+        }
+
+	$cmd = " select distinct USER_ID, FULLNAME, FROM_IP, LAST_LOGIN from USER_LAST_ACCESS where F_LOGOUT != '1' or F_LOGOUT is null ";
+	$count_data = $db->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db->show_error();
+?>
+<html>
+<head>
+<title>รายชื่อผู้เข้าใช้ระบบขณะปัจจุบัน</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.command.value='SEARCH';
+		form1.submit();
+	}
+</script>
+<body>
+<form action="user_log_list.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="user_id">
+&nbsp;
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+	<tr>
+		<td height="30" align="center" class="label_hilight">พบรายชื่อ ผู้เข้าใช้ระบบ ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+</table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		*
+							from 	(
+										select		top $select_top *
+										from		(
+														select	top ". ($data_per_page * $current_page) ."
+                                                        			distinct USER_ID, USERNAME, FULLNAME, FROM_IP, LAST_LOGIN 
+														from 	USER_LAST_ACCESS 
+                                                        where F_LOGOUT != '1' or F_LOGOUT is null
+													) 
+										) ";
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);  
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+								select rownum rnum, q1.* from ( 
+											select	distinct USER_ID, USERNAME, FULLNAME, FROM_IP, LAST_LOGIN
+											from 	USER_LAST_ACCESS 
+                                             where F_LOGOUT != '1' or F_LOGOUT is null
+								)  q1
+							) where rnum between $rec_start and $rec_end  ";
+		}elseif($DPISDB=="mysql"){	
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	 select distinct USER_ID, USERNAME, FULLNAME, FROM_IP, LAST_LOGIN  
+							  from 		USER_LAST_ACCESS 
+                              where F_LOGOUT != '1' or F_LOGOUT is null
+							$limit_data ";
+		} // end if
+		
+		$count_page_data = $db->send_cmd($cmd);
+//		$db->show_error();
+//		echo "<br>$cmd<br>";
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <?php if($SESS_USERID==1){echo '<td width="10%" align="center">ดำเนินการ</td>';}?>  
+    
+    <td width="10%" align="center">User Id</td>
+    <td width="40%" align="center">ชื่อ</td>
+    <td width="7%" align="center">จาก IP</td>
+    <td width="20%" align="center">Log in เมื่อ</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+            $rec_start = (($current_page-1) * $data_per_page);
+  			while($data = $db->get_array()) :
+				$data_count++;
+            	$rec_start ++;
+				if($data_count > $data_per_page) break;
+				$TMP_USER_ID = $data[USER_ID];
+				$current_list .= ((trim($current_list))?",":"") . $TMP_USER_ID;
+				$TMP_USERNAME = $data[USERNAME];
+				$TMP_FULL_NAME = $data[FULLNAME];
+				$TMP_FROM_IP = $data[FROM_IP];
+				$TMP_LAST_LOGIN = $data[LAST_LOGIN];
+                $buff = explode(" ",$TMP_LAST_LOGIN);
+                $buff1 = explode("-",$buff[0]);
+                $THAI_LAST_LOGIN = "".(int)$buff1[2]."/".(int)$buff1[1]."/".((int)$buff1[0]+543)." ".$buff[1];
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+//				$returnValue = "$TMP_USER_ID<::>$TMP_FULL_NAME<::>$TMP_FROM_IP<::>$TMP_LAST_LOGIN";
+  ?>
+<!--  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>-->
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <?php if($SESS_USERID==1){?>  
+    <td height="22" align="center">
+        <?php if($SESS_USERID!=$TMP_USER_ID){?>
+        <a href="javascript:confirm_delete('<?php echo $TMP_USER_ID;?>','<?php echo $TMP_FULL_NAME;?>');">
+            <img src="images/b_drop.png" border="0" alt="ลบข้อมูล">
+        </a>
+        <?php }?>
+    </td>
+    <?php }?>
+    <td height="22" align="left">&nbsp;<?=$TMP_USER_ID?></td>
+    <td align="left">&nbsp;<?=$TMP_FULL_NAME?></td>
+    <td align="center"><?=$TMP_FROM_IP?></td>
+    <td align="center"><?=$THAI_LAST_LOGIN?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+	} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>
+<script>
+    function confirm_delete(user_id , user_name_th){
+	if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + user_name_th + " ] ?")){
+		form1.command.value = "DELETE";
+		form1.user_id.value = user_id;
+		form1.submit();
+	} // end if
+}
+</script>

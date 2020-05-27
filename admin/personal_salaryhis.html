@@ -1,0 +1,765 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_salaryhis.php");
+	include("php_scripts/load_per_control.php");
+		
+	$cmd =" select count(SAH_ID) as count_data 	from PER_SALARYHIS where PER_ID=$PER_ID   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(sah_id , mov_name){
+		if(confirm("ต้องการลบประวัติการรับเงินเดือนนี้ ใช่หรือไม่ [ " + mov_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.SAH_ID.value = sah_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_movment () {	
+		parameter = "&MOV_CODE=2";
+	    call_openDialog("search_movment.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MOV_TITLE?>");		
+	}
+
+	function call_search_salary_movment () {	
+		parameter = "";
+	    call_openDialog("search_salary_movment.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"จำนวนขั้นเงินเดือน");		
+	}
+
+	function call_search_extratype () {	
+		parameter = "";
+	    call_openDialog("search_extratype.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ประเภทเงินเพิ่มพิเศษ");		
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+</script>
+
+<script type="text/javascript" language="JavaScript">
+function check(f) {
+	if(f.SAH_EFFECTIVEDATE.value=="") {
+		alert("กรุณาระบุ วันที่มีผลบังคับใช้");
+		f.SAH_EFFECTIVEDATE.focus();
+		return false;
+	} else if(f.SAH_SALARY.value=="") {
+		alert("กรุณาระบุ อัตราเงินเดือน");
+		f.SAH_SALARY.focus();
+		return false;
+	} else if(f.SAH_DOCNO.value=="") {
+		alert("กรุณาระบุ คำสั่งเลขที่");
+		f.SAH_DOCNO.focus();
+		return false;
+	} else if(f.MOV_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทความเคลื่อนไหว");
+		f.MOV_NAME.focus();
+		return false;
+	} else if(f.SAH_DOCDATE.value=="") {
+		alert("กรุณาระบุ ลงวันที่");
+		f.SAH_DOCDATE.focus();
+		return false;
+	} else  return true;
+}
+
+	function print_form(SAH_ID) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_SAH_ID = document.form1.SAH_ID.value;
+		document.form1.SAH_ID.value = SAH_ID;
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_personal_salaryhis_rtf.php?SAH_ID=" + SAH_ID + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.SAH_ID.value = OLD_SAH_ID;
+		document.form1.target = "_self";
+		document.form1.action = "personal_salaryhis.html";
+	}
+function setLayer(layerID){
+	if(document.getElementById(layerID)){
+		if(document.getElementById(layerID).style.display=='none'){
+			document.getElementById(layerID).style.display='block';	
+		}else{
+			document.getElementById(layerID).style.display='none';
+		}
+		if(document.getElementById(layerID).style.visibility=='hidden'){
+			document.getElementById(layerID).style.visibility='visible';
+		}else{
+			document.getElementById(layerID).style.visibility='hidden';
+		}
+	}
+}	
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_movment") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.MOV_CODE.value = arrValue[0];
+				form1.MOV_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_salary_movment") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.SM_CODE.value = arrValue[0];
+				form1.SM_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_extratype") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.EX_CODE.value = arrValue[0];
+				form1.EX_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><? if(!$HIDE_HEADER) include("header_menu.html"); ?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลเงินเดือน":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_salaryhis.html" enctype="multipart/form-data" onSubmit="return check(this);">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="SAH_ID" value="<?=$SAH_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+		<? if ($BUTTON_DISPLAY==1) { ?>
+          &nbsp;<input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salaryhis'"><!--history.back(); -->
+		  <?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salaryhis'">
+              <? } echo "&nbsp; &nbsp;"; ?>
+		  <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body" onClick="javascript:setLayer('id_salaryhis');"><?=($UPD)?"แก้ไข":$ADDTAB_TITLE?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table id="id_salaryhis" width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" style="display:none; visibility:hidden">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table  width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal" >
+            <tr>
+              <td width="15%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$SAH_EFFECTIVEDATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22"><input type="text" name="SAH_EFFECTIVEDATE" id="SAH_EFFECTIVEDATE" value="<?=$SAH_EFFECTIVEDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SAH_EFFECTIVEDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('SAH_EFFECTIVEDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td width="15%" align="right"><?=$SAH_ENDDATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+                    <input type="text" name="SAH_ENDDATE" id="SAH_ENDDATE" value="<?=$SAH_ENDDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SAH_ENDDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>		</td>
+                  <td>&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('SAH_ENDDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$SALARY_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_SALARY" value="<?=$SAH_SALARY?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td width="20%" align="center">&nbsp;</td>
+                </tr>
+              </table></td>
+              <td align="right">ประเภทเงิน&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="EX_NAME" value="<?=$EX_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="EX_CODE" value="<?=$EX_CODE?>">				  </td>
+                  <td width="20%">&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทเงิน" onClick="call_search_extratype('EX_CODE', 'EX_NAME');">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td align="right" nowrap="nowrap">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$MOV_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="MOV_NAME" value="<?=$MOV_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="MOV_CODE" value="<?=$MOV_CODE?>">				  </td>
+                  <td width="20%">&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทการเคลื่อนไหว" onClick="call_search_movment('MOV_CODE', 'MOV_NAME');">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td align="right">จำนวนขั้นเงินเดือน&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SM_NAME" value="<?=$SM_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="SM_CODE" value="<?=$SM_CODE?>">				  </td>
+                  <td width="20%">&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn4" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกรูปแบบ" onClick="call_search_salary_movment('SM_CODE', 'SM_NAME');">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$COM_NO_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="SAH_DOCNO" value="<?=$SAH_DOCNO?>" style="width:98%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+              <td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$COM_DATE_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="SAH_DOCDATE" id="SAH_DOCDATE" value="<?=$SAH_DOCDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SAH_DOCDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td>&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('SAH_DOCDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td align="right"><?=$SEQ_NO_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22"><input name="SAH_CMD_SEQ" type="text" class="textbox" onKeyPress="return NumOnly();" style="width:100%" value="<?=$SAH_CMD_SEQ?>" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  </td>
+                  <td>&nbsp;&nbsp;ในบัญชีแนบท้ายคำสั่ง</td>
+                </tr>
+              </table></td>
+              <td align="right"><?=$SEQ_NO_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22"><input name="SAH_SEQ_NO" type="text" class="textbox" onKeyPress="return NumOnly();" style="width:100%" value="<?=$SAH_SEQ_NO?>" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  </td>
+                  <td>&nbsp;&nbsp;กรณีวันที่เดียวกัน</td>
+                </tr>
+              </table></td>
+            </tr>	          	   
+            <tr>
+			<? if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง") { ?>
+              <td height="22" align="right"><?=$PAY_NO_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_PAY_NO" value="<?=$SAH_PAY_NO?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td width="20%" align="center">&nbsp;</td>
+                </tr>
+              </table></td>
+		<? } else { ?>
+              <td height="22" align="right"><?=$POS_NO_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22"><input name="SAH_POS_NO" type="text" class="textbox" style="width:100%" value="<?=$SAH_POS_NO?>" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>				  </td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+		<? } ?>
+              <td nowrap="nowrap" height="22" align="right"><?=$SALARY_TITLE;?>เดิม&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_OLD_SALARY" value="<?=$SAH_OLD_SALARY?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td width="20%" align="center">&nbsp;</td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td width="15%" height="22" align="right">เปอร์เซ็นต์ที่เลื่อน&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_PERCENT_UP" value="<?=$SAH_PERCENT_UP?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>	                </td>
+                </tr>
+              </table></td>
+              <td width="15%" align="right">เงินเดือนที่เลื่อน&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_SALARY_UP" value="<?=$SAH_SALARY_UP?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>	                </td>
+            </tr>
+          </table></td>
+        </tr>
+            <tr>
+              <td width="15%" height="22" align="right"><?=$SPSALARY_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_SALARY_EXTRA" value="<?=$SAH_SALARY_EXTRA?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>	                </td>
+                </tr>
+              </table></td>
+              <td height="22" align="right">ฐานในการคำนวณ&nbsp;:&nbsp;</td>
+              <td>
+			<input type="text" name="SAH_SALARY_MIDPOINT" value="<?=$SAH_SALARY_MIDPOINT?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>			</td>
+        </tr>
+            <tr>
+              <td width="15%" height="22" align="right"><?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_KF_YEAR" value="<?=$SAH_KF_YEAR?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>	                </td>
+                </tr>
+              </table></td>
+              <td height="22" align="right">รอบการประเมิน&nbsp;:&nbsp;</td>
+		<td>	
+		  		<input name="SAH_KF_CYCLE" type="radio" value="1" <?=($SAH_KF_CYCLE==1)?"checked":""?>>รอบที่ 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="SAH_KF_CYCLE" type="radio" value="2" <?=($SAH_KF_CYCLE==2)?"checked":""?>>&nbsp;รอบที่ 2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		
+		</td>
+        </tr>
+            <tr>
+              <td width="15%" height="22" align="right">ผลการประเมิน&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="SAH_TOTAL_SCORE" value="<?=$SAH_TOTAL_SCORE?>" style="width:50%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>	                </td>
+                </tr>
+              </table></td>
+	     <td align="right"><?=$LEVEL_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td>
+				<select class="selectbox" name="LEVEL_NO">
+				  <option value="" <?=($LEVEL_NO=="")?"selected":""?>>== <?=$LEVEL_TITLE?> ==</option>
+				  <?
+				  	$cmd = " select LEVEL_NO, LEVEL_NAME from PER_LEVEL where PER_TYPE = $PER_TYPE order by LEVEL_SEQ_NO ";
+					$db_dpis->send_cmd($cmd);
+					while($data = $db_dpis->get_array()){					
+						$TMP_LEVEL_NO = $data[LEVEL_NO];
+						$TMP_LEVEL_NAME = $data[LEVEL_NAME];
+				  ?>
+				  <option value="<?=$TMP_LEVEL_NO?>" <?=(trim($LEVEL_NO)==trim($TMP_LEVEL_NO))?"selected":""?>><?=$TMP_LEVEL_NAME?></option>
+				  <?
+				  	} // end while
+				  ?>
+				</select>			  </td>
+        </tr>
+            <tr>
+              <td width="15%" height="22" align="right"><?=$CMD_POSITION_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td colspan=3>
+			  <input type="text" name="SAH_POSITION" value="<?=$SAH_POSITION?>" style="width:90%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+        </tr>
+            <tr>
+              <td height="22" align="right">สังกัด&nbsp;:&nbsp;</td>
+              <td colspan=3>
+			<input type="text" name="SAH_ORG" value="<?=$SAH_ORG?>" style="width:90%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+        </tr>
+            <tr>
+              <td height="22" align="right"><?=$REMARK_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td colspan=3>
+			<input type="text" name="SAH_REMARK" value="<?=$SAH_REMARK?>" style="width:90%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+        </tr>
+            <tr>
+              <td height="22" align="right">เงินเดือนล่าสุด&nbsp;:&nbsp;</td>
+              <td colspan="3">
+			  	<input name="SAH_LAST_SALARY" type="radio" value="Y" <?=($SAH_LAST_SALARY=='Y')?"checked":""?>>&nbsp;ใช่&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="SAH_LAST_SALARY" type="radio" value="N" <?=($SAH_LAST_SALARY=='N')?"checked":""?>>&nbsp;ไม่ใช่&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			  </td>
+              </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25">
+		  		<? if ($UPD || $VIEW) { ?><? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.SAH_ID.value='';" class="button" >
+              <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.SAH_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+      		  <? } else { ?><? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+      		  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+	  		  <?}?>
+	  		  <?}?>          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table>
+  &nbsp;
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลเงินเดือนทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+<? 
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่มีผล
+		$order_str = "SAH_EFFECTIVEDATE $SortType[$order_by], SAH_SEQ_NO $SortType[$order_by]";
+  	}elseif($order_by==2) {	//ประเภทการเคลื่อนไหว
+		$order_str = "pm.MOV_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//เลขที่คำสั่ง
+		$order_str = "SAH_DOCNO ".$SortType[$order_by];
+	} elseif($order_by==4) {	//ลงวันที่
+		$order_str = "SAH_DOCDATE ".$SortType[$order_by];
+	}elseif($order_by==5) {	//วันที่สิ้นสุด
+		$order_str = "SAH_ENDDATE ".$SortType[$order_by];
+	}elseif($order_by==6) {	//เลขที่ตำแหน่ง
+		$order_str = "SAH_POS_NO_NAME $SortType[$order_by], SAH_POS_NO $SortType[$order_by]";
+	}elseif($order_by==7) {	//ระดับตำแหน่ง
+		$order_str = "LEVEL_NO ".$SortType[$order_by];
+	}elseif($order_by==8) {	//อัตราเงินเดือน
+		if($DPISDB=="odbc") {
+			$order_str = "IIF(ISNULL(SAH_SALARY), 9999, SAH_SALARY) ".$SortType[$order_by];
+		}elseif($DPISDB=="oci8" || $DPISDB=="mysql"){ 
+			$order_str = "SAH_SALARY ".$SortType[$order_by];
+		} 
+	}
+
+/*	if ($PER_ORDER_BY==1) {
+		if($DPISDB=="odbc") $order_by = "LEFT(SAH_EFFECTIVEDATE,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO";
+		elseif($DPISDB=="oci8") $order_by = "SUBSTR(SAH_EFFECTIVEDATE,1,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO";			 
+		elseif($DPISDB=="mysql") $order_by = "LEFT(SAH_EFFECTIVEDATE,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO"; 
+	} else {
+		if($DPISDB=="odbc") $order_by = "LEFT(SAH_EFFECTIVEDATE,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc";
+		elseif($DPISDB=="oci8") $order_by = "SUBSTR(SAH_EFFECTIVEDATE,1,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc";			 
+		elseif($DPISDB=="mysql") $order_by = "LEFT(SAH_EFFECTIVEDATE,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc"; 
+	} */
+	
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(SAH_ID) as concat_pk from PER_SALARYHIS psh, PER_MOVMENT pm where psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = $data[concat_pk];
+			$limit_data = " and trim(SAH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT 		top $data_per_page  	
+												SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+												SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA, LEVEL_NO, SAH_PAY_NO, SAH_POS_NO, SAH_POS_NO_NAME, SAH_LAST_SALARY
+						 FROM			PER_SALARYHIS psh, PER_MOVMENT pm 
+						 WHERE		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 
+												$limit_data
+						ORDER BY	$order_str ";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+								  					SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA, LEVEL_NO, SAH_PAY_NO, SAH_POS_NO, SAH_POS_NO_NAME, SAH_LAST_SALARY
+								  from 			PER_SALARYHIS psh, PER_MOVMENT pm 
+								  where 		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 
+													$search_condition
+								  order by 	$order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 
+	}elseif($DPISDB=="mysql"){
+		$cmd = " SELECT 		SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+												SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA , LEVEL_NO, SAH_PAY_NO, SAH_POS_NO, SAH_POS_NO_NAME, SAH_LAST_SALARY
+						 FROM			PER_SALARYHIS psh, PER_MOVMENT pm 
+						 WHERE		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 								
+						ORDER BY	$order_str
+								$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	//echo "<hr>    $sort_by";
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$MOV_TITLE;?></td>
+      <td width="8%" onClick="call_sort(3);"><strong><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$DOCNO_TITLE ;?></td>
+      <td width="10%" onClick="call_sort(4);"><strong><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$DOCDATE_TITLE;?></td>
+      <td width="10%" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$SAH_EFFECTIVEDATE_TITLE?></td>
+      <td width="10%" onClick="call_sort(5);"><strong><? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$SAH_ENDDATE_TITLE?></td>
+		<? if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง") { ?>
+      <td width="8%" onClick="call_sort(6);" ><strong><? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$PAY_NO_TITLE;?></td>
+		<? } else { ?>
+      <td width="8%" onClick="call_sort(6);"><strong><? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$POS_NO_TITLE;?></td>
+		<? } ?>
+      <td width="8%" onClick="call_sort(7);"><strong><? if($order_by==7&&$sort_by==7){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$LEVEL_TITLE;?></td>
+      <!--td width="8%">ปรับเงิน</td-->
+      <td width="8%" onClick="call_sort(8);"><strong><? if($order_by==8&&$sort_by==8){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$SALARY_TITLE;?></td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+      <td width="4%"><?=$PRINT_TITLE?></td>
+	  <td width="4%">จำนวนไฟล์</td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_SAH_ID = $data[SAH_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SAH_ID;
+		$TMP_SAH_EFFECTIVEDATE = show_date_format($data[SAH_EFFECTIVEDATE], $DATE_DISPLAY);
+		$TMP_SAH_ENDDATE = show_date_format($data[SAH_ENDDATE], $DATE_DISPLAY);
+		$TMP_SAH_SALARY = number_format($data[SAH_SALARY], 2, '.', ',');
+		$TMP_MOV_NAME = $data[MOV_NAME];
+		$TMP_SAH_DOCNO = (trim($data[SAH_DOCNO]))? $data[SAH_DOCNO] : "-" ;		
+		$TMP_SAH_DOCDATE = show_date_format($data[SAH_DOCDATE], $DATE_DISPLAY);
+		if($TMP_SAH_DOCDATE == "" || $TMP_SAH_DOCDATE == 543) {  $TMP_SAH_DOCDATE = '-'; }
+		$TMP_SAH_PERCENT_UP = number_format($data[SAH_PERCENT_UP], 4, '.', ',');
+		$TMP_SAH_SALARY_UP = number_format($data[SAH_SALARY_UP], 2, '.', ',');
+		$TMP_SAH_SALARY_EXTRA = number_format($data[SAH_SALARY_EXTRA], 2, '.', ',');
+				
+		$TMP_SAH_PAY_NO = $data[SAH_PAY_NO];
+		$TMP_SAH_POS_NO = $data[SAH_POS_NO_NAME].$data[SAH_POS_NO];
+		$TMP_SAH_POS_NO_NAME = $data[SAH_POS_NO_NAME];
+		if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง") { 
+			$TMP_SAH_PAY_NO = $TMP_SAH_PAY_NO; 
+		} else { 
+			$TMP_SAH_PAY_NO = $TMP_SAH_POS_NO;
+		}
+		$TMP_SAH_LAST_SALARY = $data[SAH_LAST_SALARY];
+		
+		$TMP_LEVEL_NO = $data[LEVEL_NO];
+		$cmd ="select LEVEL_NAME, POSITION_LEVEL from PER_LEVEL where LEVEL_NO = '$TMP_LEVEL_NO' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$POSITION_LEVEL = $data2[POSITION_LEVEL];
+		$LEVEL_NAME = trim($data2[LEVEL_NAME]);
+		if ($POSITION_LEVEL) $LEVEL_NAME = $POSITION_LEVEL;
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($SAH_ID==$TMP_SAH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+		<? if ($TMP_SAH_LAST_SALARY=="Y") $sub_class = "label_hilight"; else $sub_class = $class; ?>
+      <td class="<?=$sub_class?>" height="25" align="center"><?=$num_order?></td>
+      <td class="<?=$sub_class?>" align="center">&nbsp;<?=$TMP_MOV_NAME?></td>
+      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_DOCNO?></td>
+      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_DOCDATE?></td>
+      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_EFFECTIVEDATE?></td>
+      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_ENDDATE?></td>
+      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_PAY_NO?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$LEVEL_NAME?></td>
+      <!--td class="<?=$sub_class?>" align="right"><?=$TMP_SAH_SALARY_UP?>&nbsp;</td-->
+      <td class="<?=$sub_class?>" align="right"><?=$TMP_SAH_SALARY?>&nbsp;</td>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.SAH_ID.value=$TMP_SAH_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติการรับเงินเดือน" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.SAH_ID.value=$TMP_SAH_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติการรับเงินเดือน"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_SAH_ID,'$TMP_MOV_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติการรับเงินเดือน"></td>
+	  <?}?>
+      <td align="center">&nbsp;<a href="<?=("javascript:print_form(".$TMP_SAH_ID.")")?>"><img src="images/detail.gif" border="0" alt="พิมพ์รายละเอียดการเลื่อนเงินเดือน" width="24" height="24"></a></td>
+	  <? $parameter1=$parameter2=$parameter3=$parameter4=""; 
+		 	if($ATTACH_FILE==1){
+		 		$parameter1="PER_ATTACHMENT";	$parameter2="53";	$parameter3="เงินเดือน";	$parameter4=$PER_ID;
+			}else{
+		 		$parameter1="PER_SALARYHIS";	$parameter2=$TMP_SAH_ID;	$parameter3="('คำสั่งเลขที่$TMP_SAH_DOCNO ($TMP_SAH_SALARY)')";	$parameter4=$PER_ID;
+			}
+		?>
+	  <td align="center">&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?><td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td><? } ?>
+ <?}?>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <!--td>&nbsp;</td-->
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? } ?>
+	</tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+		<tr><td colspan="10">&nbsp;</td></tr>
+		<tr><td colspan="10"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+	</table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } // end if ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

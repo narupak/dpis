@@ -1,0 +1,552 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	switch($CTRL_TYPE){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if($isLock){
+		$search_ministry_id = $MINISTRY_ID;
+		$search_ministry_name = $MINISTRY_NAME;
+		$search_department_id = $DEPARTMENT_ID;
+		$search_department_name = $DEPARTMENT_NAME;
+	} // end if
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	if(trim($search_org_id)){ 
+		$arr_search_condition[] = "(a.ORG_ID = $search_org_id)";
+	}elseif(trim($search_department_id)){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+	}elseif(trim($search_ministry_id)){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) 
+		$arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(b.ORG_ID_REF in (". implode(",", $arr_org) ."))";
+	} // end if
+
+	if(trim($search_pv_code)) $arr_search_condition[] = "(trim(b.PV_CODE) = '". trim($search_pv_code) ."')";
+
+  	if(trim($search_pos_no_name)) $arr_search_condition[] = "(a.POS_NO_NAME like '$search_pos_no_name%')";
+  	if(trim($search_pos_no)) $arr_search_condition[] = "(a.POS_NO = '$search_pos_no')";
+  	if(trim($search_pos_name)) $arr_search_condition[] = "(c.PL_NAME like '%$search_pos_name%' OR d.PM_NAME like '%$search_pos_name%')";
+	if($CALL_FROM=="KPI_POSITION_COMPETENCE") {
+		if(trim($search_department_id))
+			$arr_search_condition[] = "a.POS_ID not in (select POS_ID from PER_POSITION_COMPETENCE where DEPARTMENT_ID = $search_department_id and PER_TYPE=1)";
+		else
+			$arr_search_condition[] = "a.POS_ID not in (select POS_ID from PER_POSITION_COMPETENCE)";
+	}
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+	if($command == "SEARCH"){
+	if($DPISDB=="odbc"){
+		$cmd = " select 	count(a.POS_ID) as count_data 
+						 from 		(
+						 					(
+												PER_POSITION a
+												inner join PER_ORG b on a.ORG_ID=b.ORG_ID
+											) inner join PER_LINE c on a.PL_CODE=c.PL_CODE
+						 				) left join PER_MGT d on a.PM_CODE=d.PM_CODE
+						 where 	a.POS_STATUS=1
+										$search_condition ";
+	}elseif($DPISDB=="oci8"){
+		$cmd = " select 	count(a.POS_ID) as count_data 
+						 from 		PER_POSITION a, PER_ORG b, PER_LINE c, PER_MGT d 
+						 where 	a.ORG_ID=b.ORG_ID and a.PL_CODE=c.PL_CODE and a.PM_CODE=d.PM_CODE(+) and a.POS_STATUS=1
+										$search_condition ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	count(a.POS_ID) as count_data 
+						 from 		(
+						 					(
+												PER_POSITION a
+												inner join PER_ORG b on a.ORG_ID=b.ORG_ID
+											) inner join PER_LINE c on a.PL_CODE=c.PL_CODE
+						 				) left join PER_MGT d on a.PM_CODE=d.PM_CODE
+						 where 	a.POS_STATUS=1
+										$search_condition ";
+	} // end if
+	if($SESS_ORG_STRUCTURE==1) {
+		$cmd = str_replace("PER_ORG", "PER_ORG_ASS", $cmd);
+	}
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	//echo $cmd;
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+	} // end if $command == "SEARCH"
+?>
+<html>
+<head>
+<title>ตำแหน่งข้าราชการ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.command.value='SEARCH';
+		form1.submit();
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.search_department_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_province () {	
+		parameter = "&CT_CODE=140";
+	    call_openDialog("search_province.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PV_TITLE?>");		
+	}
+
+	function clear_form() {
+		form1.search_pos_no.value=''; 
+		<? if ($POSITION_NO_CHAR=="Y") { ?>form1.search_pos_no_name.value='';  <? } ?>
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+		form1.search_ministry_id.value="";
+		form1.search_ministry_name.value="";
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+		form1.search_department_id.value="";
+		form1.search_department_name.value="";
+		<? } // end if ?>
+		<? if($SESS_USERGROUP_LEVEL < 5){ ?>
+		form1.search_org_id.value=''; 
+		form1.search_org_name.value=''; 
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 2 && $SESS_USERGROUP_LEVEL < 2){ ?>
+		form1.search_pv_code.value=""; 
+		form1.search_pv_name.value=""; 
+		<? } // end if ?>
+
+		form1.current_page.value=0;	
+	}
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+					form1.search_org_id.value = "";
+					form1.search_org_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+					form1.search_org_id.value = "";
+					form1.search_org_name.value = "";
+				} else if (arrValue[7]=="search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+					if(arrValue[0] != "")
+						document.all.PROCESS_IFRAME.src = "find_per_country.html?ORG_ID=" + arrValue[0] + "&RETURN_VAR[PV_CODE]=search_pv_code&RETURN_VAR[PV_NAME]=search_pv_name";
+				}
+			} // end if
+		} else if  (src.indexOf("search_province") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.search_pv_code.value = arrValue[0];
+				form1.search_pv_name.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body>
+<form action="search_position.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="isLock" value="<?=$isLock?>">
+  <input type="hidden" name="LOCK_MINISTRY_ID" value="<?=$LOCK_MINISTRY_ID?>">
+  <input type="hidden" name="LOCK_DEPARTMENT_ID" value="<?=$LOCK_DEPARTMENT_ID?>">
+  <input type="hidden" name="CALL_FROM" value="<?=$CALL_FROM?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="15%" height="22" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%">
+				<input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:80%" class="textbox" readonly>&nbsp;
+				<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && !($isLock && $LOCK_MINISTRY_ID)){ ?><input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()"><? } // end if ?>
+				<input type="hidden" name="search_ministry_id" value="<?=trim($search_ministry_id)?>">          </td>
+              <td width="15%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+				<input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:80%" class="textbox" readonly>&nbsp;
+				<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && !($isLock && $LOCK_DEPARTMENT_ID)){ ?><input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()"><? } // end if ?>
+				<input type="hidden" name="search_department_id" value="<?=trim($search_department_id)?>">          </td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+				<input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:80%" class="textbox" readonly>&nbsp;
+				<? if($SESS_USERGROUP_LEVEL < 5){ ?><input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()"><? } // end if ?>
+				<input type="hidden" name="search_org_id" value="<?=trim($search_org_id)?>">          </td>
+              <td align="right"><?=$PV_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+				<input type="text" name="search_pv_name" value="<?=$search_pv_name?>" style="width:80%" class="textbox" readonly>&nbsp;
+				<? if($CTRL_TYPE < 2 && $SESS_USERGROUP_LEVEL < 2){ ?><input type="button" name="bnt_province" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_province()"><? } // end if ?>
+				<input type="hidden" name="search_pv_code" value="<?=trim($search_pv_code)?>">		  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$POS_NO_TITLE?>&nbsp;:&nbsp;</td>
+              <td><? if ($POSITION_NO_CHAR=="Y") { ?>
+			  <input type="text" name="search_pos_no_name" value="<?=$search_pos_no_name?>" style="width:20%" class="textbox">
+			  <? } ?>
+			  <input type="text" name="search_pos_no" value="<?=$search_pos_no?>" style="width:65%" class="textbox" onKeyPress="return DigitOnly();">
+			  </td>
+              <td align="right">ชื่อตำแหน่ง&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_pos_name" value="<?=$search_pos_name?>" style="width:80%" class="textbox"></td>
+            </tr>
+			<tr>
+			  <td height="7" colspan="4" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">HIDDEN</iframe></td>
+			</tr>
+			<tr align="center">
+              <td height="25" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="Submit1" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.command.value='SEARCH'; form1.current_page.value=0;">
+                <input name="Submit2" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.command.value='SEARCH'; clear_form();">
+                <input name="button" type="button" class="button" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="parent.refresh_opener();">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+&nbsp;
+<input name="image2" type="image" onClick="form1.command.value='SEARCH'; clear_form();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="parent.refresh_opener();">&nbsp;&nbsp;
+<?}?></td>
+			</tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+	<? if($command == "SEARCH"){ ?>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลตำแหน่งทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+
+	$sort_by = (isset($sort_by))?  $sort_by : 1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+  	$order_by = (isset($order_by))?  $order_by : 1;
+	if($order_by==1){	// เลขที่ตำแหน่ง
+		if($DPISDB=="odbc"){  $order_str = "a.POS_NO_NAME $SortType[$order_by], IIf(IsNull(a.POS_NO), 0, CLng(a.POS_NO)) $SortType[$order_by]";
+		}elseif($DPISDB=="oci8"){ $order_str = "a.POS_NO_NAME $SortType[$order_by], to_number(replace(a.POS_NO,'-','')) $SortType[$order_by]"; 
+		}elseif($DPISDB=="mysql"){ $order_str = "a.POS_NO_NAME $SortType[$order_by], a.POS_NO+0 $SortType[$order_by]"; }
+  	}elseif($order_by==2) {	//ตำแหน่งในสายงาน
+		$order_str = "c.PL_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ตำแหน่งในการบริหารงาน
+		$order_str = "d.PM_NAME $SortType[$order_by]";
+  	}elseif($order_by==4) {	//ผู้ครองตำแหน่ง
+		$order_str = "PER_NAME $SortType[$order_by], PER_SURNAME $SortType[$order_by]";
+  	} 
+		$total_page = ceil( $count_data / $data_per_page );	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select 	top $start_record a.POS_ID 
+								 from 		(
+													(
+														PER_POSITION a
+														inner join PER_ORG b on a.ORG_ID=b.ORG_ID
+													) inner join PER_LINE c on a.PL_CODE=c.PL_CODE
+												) left join PER_MGT d on a.PM_CODE=d.PM_CODE
+								where 	a.POS_STATUS=1 
+												$search_condition 
+								order by $order_str ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "$data[POS_ID]";
+				$limit_data = " and a.POS_ID not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			}
+		}
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											a.POS_ID, a.POS_NO_NAME, a.POS_NO, a.PL_CODE, a.PM_CODE, c.PL_NAME, d.PM_NAME, e.POSITION_LEVEL, 
+											a.DEPARTMENT_ID, a.ORG_ID, a.ORG_ID_1, a.ORG_ID_2, b.ORG_NAME, a.POS_RESERVE, a.POS_SALARY
+							 from	( 
+							 				(
+							 					(
+													PER_POSITION a
+													inner join PER_ORG b on a.ORG_ID=b.ORG_ID
+												) inner join PER_LINE c on a.PL_CODE=c.PL_CODE
+							 				) left join PER_MGT d on a.PM_CODE=d.PM_CODE
+						 				) left join PER_LEVEL e on a.LEVEL_NO=e.LEVEL_NO
+							 where 	a.POS_STATUS=1
+											$search_condition
+											$limit_data
+							order by	$order_str ";
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									  select 		a.POS_ID, a.POS_NO_NAME, a.POS_NO, a.PL_CODE, a.PM_CODE, c.PL_NAME, d.PM_NAME, e.POSITION_LEVEL, 
+									  					a.DEPARTMENT_ID, a.ORG_ID, a.ORG_ID_1, a.ORG_ID_2, b.ORG_NAME, a.POS_RESERVE, a.POS_SALARY
+									  from 			PER_POSITION a, PER_ORG b, PER_LINE c, PER_MGT d, PER_LEVEL e
+									  where 		a.ORG_ID=b.ORG_ID and a.PL_CODE=c.PL_CODE and a.PM_CODE=d.PM_CODE(+) and 
+									  					a.LEVEL_NO=e.LEVEL_NO(+) and a.POS_STATUS=1 
+														$search_condition
+									  order by 	$order_str 
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";	
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	a.POS_ID, a.POS_NO_NAME, a.POS_NO, a.PL_CODE, a.PM_CODE, c.PL_NAME, d.PM_NAME, e.POSITION_LEVEL, 
+										a.DEPARTMENT_ID, a.ORG_ID, a.ORG_ID_1, a.ORG_ID_2, b.ORG_NAME, a.POS_RESERVE, a.POS_SALARY 
+							 from	( 
+							 				(
+							 					(
+													PER_POSITION a
+													inner join PER_ORG b on a.ORG_ID=b.ORG_ID
+												) inner join PER_LINE c on a.PL_CODE=c.PL_CODE
+							 				) left join PER_MGT d on a.PM_CODE=d.PM_CODE
+						 				) left join PER_LEVEL e on a.LEVEL_NO=e.LEVEL_NO
+							 where 	a.POS_STATUS=1
+											$search_condition
+							order by	$order_str
+											$limit_data ";
+		} // end if
+		$count_page_data = $db_dpis->send_cmd($cmd);
+                //echo $cmd;
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>"><input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+<input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center" onClick="call_sort(1);"><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>      <?=$POS_NO_TITLE?></td>
+    <td align="center" onClick="call_sort(2);"><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>      <?=$PL_TITLE?></td>
+    <td width="30%" align="center" onClick="call_sort(3);"><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>      <?=$PM_TITLE?></td>
+		  <? if ($SESS_DEPARTMENT_NAME=="กรมชลประทาน") { ?>
+    <td width="30%" align="center">ผู้ครองตำแหน่ง<br>สงวนตำแหน่ง</td>    
+		  <? } else { ?>
+    <td width="30%" align="center">ผู้ครองตำแหน่ง</td>
+		  <? } ?>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_POS_ID = $data[POS_ID];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_POS_ID'";
+				$TMP_POS_NO = trim($data[POS_NO]);
+				$TMP_POS_NO_NAME = trim($data[POS_NO_NAME]);
+				$TMP_PL_CODE = trim($data[PL_CODE]);
+				$TMP_PL_NAME = trim($data[PL_NAME]);
+				$TMP_POSITION_LEVEL = trim($data[POSITION_LEVEL]);
+				$TMP_PM_CODE = trim($data[PM_CODE]);
+				$TMP_PM_NAME = trim($data[PM_NAME]);
+				$TMP_DEPARTMENT_ID = $data[DEPARTMENT_ID];
+				$TMP_ORG_ID = $data[ORG_ID];
+				$TMP_ORG_ID_1 = $data[ORG_ID_1];
+				$TMP_ORG_ID_2 = $data[ORG_ID_2];
+				$TMP_ORG_NAME = trim($data[ORG_NAME]);
+				
+				$cmd = " select ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID=$TMP_DEPARTMENT_ID ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$TMP_DEPARTMENT_NAME = $data2[ORG_NAME];		
+				$TMP_MINISTRY_ID = $data2[ORG_ID_REF];		
+				
+				$TMP_MINISTRY_NAME = "";
+				if($TMP_MINISTRY_ID){
+					$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$TMP_MINISTRY_ID ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_MINISTRY_NAME = $data2[ORG_NAME];		
+				}
+				$TMP_ORG_NAME_1 = "";
+				if($TMP_ORG_ID_1){
+					$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$TMP_ORG_ID_1 ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_ORG_NAME_1 = $data2[ORG_NAME];		
+				}
+				$TMP_ORG_NAME_2 = "";
+				if($TMP_ORG_ID_2){
+					$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$TMP_ORG_ID_2 ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_ORG_NAME_2 = $data2[ORG_NAME];		
+				}
+				
+				if($DPISDB=="odbc"){
+					$cmd = " select 	a.PER_ID, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_STATUS, a.LEVEL_NO, a.PER_SALARY 
+									 from 		PER_PERSONAL a
+													left join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+									 where	a.POS_ID=$TMP_POS_ID and (a.PER_STATUS=1 or a.PER_STATUS=0) and a.PER_TYPE=1 ";
+				}elseif($DPISDB=="oci8"){
+					$cmd = " select 	a.PER_ID, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_STATUS, a.LEVEL_NO, a.PER_SALARY 
+									 from 		PER_PERSONAL a, PER_PRENAME b
+									 where	a.PN_CODE=b.PN_CODE(+) and a.POS_ID=$TMP_POS_ID and (a.PER_STATUS=1 or a.PER_STATUS=0) and a.PER_TYPE=1 ";
+				}elseif($DPISDB=="mysql"){
+					$cmd = " select 	a.PER_ID, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_STATUS, a.LEVEL_NO, a.PER_SALARY 
+									 from 		PER_PERSONAL a
+													left join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+									 where	a.POS_ID=$TMP_POS_ID and (a.PER_STATUS=1 or a.PER_STATUS=0) and a.PER_TYPE=1 ";
+				}
+				$db_dpis2->send_cmd($cmd);
+				$data_dpis2 = $db_dpis2->get_array();
+				$POS_PERSON = "$data_dpis2[PN_NAME]$data_dpis2[PER_NAME] $data_dpis2[PER_SURNAME]";
+				if($data_dpis2[PER_ID]) $POS_PERSON .= (($data_dpis2[PER_STATUS]==0)?" <span class=\"label_alert\">(รอบรรจุ)</span>":"");
+				$TMP_LEVEL_NO = $data_dpis2[LEVEL_NO];
+				$TMP_SALARY = $data_dpis2[PER_SALARY];
+				$TMP_POS_RESERVE  = trim($data[POS_RESERVE]);			
+				if (!$TMP_SALARY) $TMP_SALARY = $data[POS_SALARY];
+		
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_POS_ID<::>$TMP_POS_NO<::>$TMP_PL_NAME.$TMP_POSITION_LEVEL<::>$TMP_LEVEL_NO<::>$TMP_SALARY<::>$TMP_PM_NAME<::>$TMP_POS_NO_NAME<::>$TMP_PL_CODE<::>$TMP_PM_CODE<::>$TMP_MINISTRY_ID<::>$TMP_MINISTRY_NAME<::>$TMP_DEPARTMENT_ID<::>$TMP_DEPARTMENT_NAME<::>$TMP_ORG_ID<::>$TMP_ORG_NAME<::>$TMP_ORG_ID_1<::>$TMP_ORG_NAME_1<::>$TMP_ORG_ID_2<::>$TMP_ORG_NAME_2<::>$TMP_PL_NAME<::>$send_by"; // send_by (20)
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_POS_NO_NAME.$TMP_POS_NO?></td>
+    <td>&nbsp;<?=$TMP_PL_NAME.$TMP_POSITION_LEVEL?></td>
+    <td>&nbsp;<?=$TMP_PM_NAME?></td>
+    <td>&nbsp;<?=$POS_PERSON?><br>&nbsp;<span class="label_alert"><?=$TMP_POS_RESERVE?></span></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+	} // end if $command == "SEARCH"
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

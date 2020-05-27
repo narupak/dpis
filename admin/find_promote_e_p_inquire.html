@@ -1,0 +1,44 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+
+	$db_dpis3 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if($PRO_DATE && $POS_POEM_ID && $table){
+		$temp_date = explode("/", $PRO_DATE);
+		$temp_pro_date = ($temp_date[2]-543) ."-". $temp_date[1] ."-". $temp_date[0];
+	
+		if ($table == "PER_PROMOTE_P")
+			if($DPISDB=="odbc") $where = "LEFT(PRO_DATE, 10)='$temp_pro_date' and POS_ID=$POS_POEM_ID";
+			elseif($DPISDB=="oci8") $where = "SUBSTR(PRO_DATE, 1, 10)='$temp_pro_date' and POS_ID=$POS_POEM_ID";
+			elseif($DPISDB=="mysql")	$where = "LEFT(PRO_DATE, 10)='$temp_pro_date' and POS_ID=$POS_POEM_ID";
+		elseif ($table == "PER_PROMOTE_E")
+			if($DPISDB=="odbc") $where = "LEFT(PRO_DATE, 10)='$temp_pro_date' and POEM_ID=$POS_POEM_ID";
+			elseif($DPISDB=="oci8") $where = "SUBSTR(PRO_DATE, 1, 10)='$temp_pro_date' and POEM_ID=$POS_POEM_ID";
+			elseif($DPISDB=="mysql") $where = "LEFT(PRO_DATE, 10)='$temp_pro_date' and POEM_ID=$POS_POEM_ID";
+	
+		if ($DEPARTMENT_ID) $where .= " and DEPARTMENT_ID=$DEPARTMENT_ID";
+		$cmd = " select PER_ID from $table where $where ";
+		$count_data = $db_dpis3->send_cmd($cmd);
+		$count_data += 0;
+		//echo "$cmd<br>";
+		//$db_dpis3->show_error();
+		$chksave_promote = $count_data;
+	}		
+?>
+<script>
+	parent.document.form1.chksave_promote.value = <?=$chksave_promote?>;
+//	alert(parent.document.form1.chksave_promote.value);
+//	alert("<?=$table?> : <?=$where?> :: <?=$count_data?>");
+	if (parent.document.form1.chksave_promote.value > 0) {
+		if ( confirm("พบข้อมูลซ้ำ ต้องการบันทึกแทนที่หรือไม่") ) {
+			parent.document.form1.action+='?UPD=1';
+			parent.document.form1.submit();
+			//parent.ProcessUploading();
+		}
+	} else {
+		parent.document.form1.action+='?UPD=1';
+		parent.document.form1.submit();	
+		parent.ProcessUploading();
+	}
+</script>

@@ -1,0 +1,615 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_transfer_req_comdtl_form.php");
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	<? if($command=="UPDATE" || $command=="DELETE"){ ?>parent.refresh_opener(true);<? } ?>
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_person () {	
+		var PER_TYPE = <?=$PER_TYPE?"$PER_TYPE":"form1.PER_TYPE.value"; ?>;
+		parameter = "";
+		//___alert(PER_TYPE+' ==  '+form1.PER_TYPE.value);		
+		if(PER_TYPE){	parameter += "&PER_TYPE="+PER_TYPE; }
+		parameter += "&EXCEPT_PER_ID=select PER_ID from PER_COMDTL where COM_ID="+form1.COM_ID.value;
+		childReturn = window.showModalDialog("search_person_frame.html?search_per_status=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.PER_ID.value = arrValue[0];
+			form1.PER_NAME.value = arrValue[1];
+			form1.CMD_SALARY_KEYIN.value = arrValue[8];
+			<? if ($POSITION_NO_CHAR=="Y") { ?>form1.POS_POEM_NO_NAME.value = arrValue[16];<? } ?>
+			
+			if ( arrValue[0] && arrValue[1] ){
+				document.all.PROCESS_IFRAME_1.src = "find_transfer_req_comdtl_personal.html?PER_ID=" + arrValue[0];
+			} 
+		} // end if
+	}
+	
+	function select_salary_inputtype(RPT_N, PER_TYPE, LEVEL_NO){
+		if(RPT_N=="N" && (PER_TYPE=="1" || PER_TYPE=="3" || PER_TYPE=="4")){
+			// show salary_keyin
+			document.getElementById("SALARY_KEYIN").style.display = "block";
+			document.getElementById("SALARY_SELECT").style.display = "none";
+		}else{
+			// show salary_select
+			document.getElementById("SALARY_SELECT").style.display = "block";
+			document.getElementById("SALARY_KEYIN").style.display = "none";
+		}
+	}
+
+	function change_salary_bylevel(LEVEL_NO, SALARY_VALUE){
+		document.all.PROCESS_IFRAME_1.src = 'find_promote_c_comdtl_layer.html?LEVEL_NO=' + LEVEL_NO + '&SALARY_VALUE=' + SALARY_VALUE;
+	}
+	
+	function call_search_education (per_id) {
+		var en_code = form1.EN_CODE.value;
+		parameter = "&search_per_id=" + per_id + "&search_en_code=" + en_code;
+		childReturn = window.showModalDialog("search_education_by_personal_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.EN_CODE.value = arrValue[1];
+		} // end if
+	}
+
+	function call_show_educname (per_id, en_code) {	
+		parameter = "&search_per_id=" + per_id + "&search_en_code=" + en_code;
+		childReturn = window.showModalDialog("show_educname_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+	}
+	
+	function call_search_perline_posname (code, name) {	
+		if (form1.PER_TYPE.value) {
+			parameter = "";
+			var po_code = eval("form1." + code);
+			var po_name = eval("form1." + name);
+			var per_type = form1.PER_TYPE.value;
+			if (per_type == 1)
+				childReturn = window.showModalDialog("search_perline_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+			else if (per_type == 2)
+				childReturn = window.showModalDialog("search_pos_name_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");				
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				po_code.value = arrValue[0];
+				po_name.value = arrValue[1];
+			} 	// end if
+		}		// end if 
+	}
+	
+	function call_search_position (code, name) {	
+		if (form1.PER_TYPE.value) {	
+			parameter = "&isLock=1&LOCK_MINISTRY_ID=<?=$MINISTRY_ID?>&LOCK_DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		<? if(!trim($SESS_DEPARTMENT_NAME)){ ?>
+				var LOGIN_DEPARTMENT_NAME = form1.MAIN_DEPARTMENT_NAME.value;
+		<? }else{ ?> 
+				var LOGIN_DEPARTMENT_NAME ='<?=trim($SESS_DEPARTMENT_NAME); ?>';		
+		<? } ?>
+			var po_code = eval("form1." + code);
+			var po_name = eval("form1." + name);
+			var per_type = form1.PER_TYPE.value;
+			if(LOGIN_DEPARTMENT_NAME=="กรมการปกครอง"){
+				search_sitename = "search_position_frame";
+			}else{
+				search_sitename = "search_position_vacant_frame";
+			}			
+			if (per_type == 1){
+				childReturn = window.showModalDialog(search_sitename+".html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+			}else if (per_type == 2){
+				childReturn = window.showModalDialog("search_pos_emp_vacant_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");				
+			}else if (per_type == 3){
+				childReturn = window.showModalDialog("search_pos_empser_vacant_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");				
+			}else if (per_type == 4){
+				childReturn = window.showModalDialog("search_pos_temp_vacant_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");				
+			}
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				po_code.value = arrValue[0];
+				po_name.value = arrValue[1];
+				<? if ($POSITION_NO_CHAR=="Y") { ?> 
+					if (per_type == 1) {
+						if(LOGIN_DEPARTMENT_NAME=="กรมการปกครอง"){
+							form1.POS_POEM_NO_NAME.value=arrValue[6];
+						}else{
+							form1.POS_POEM_NO_NAME.value=arrValue[3];
+						}
+					}else if (per_type == 2){
+						form1.POS_POEM_NO_NAME.value=arrValue[6]; 
+					}else if (per_type == 3){
+						form1.POS_POEM_NO_NAME.value=arrValue[4]; 
+					}else if (per_type == 4){
+						form1.POS_POEM_NO_NAME.value=arrValue[5]; 
+					}
+				<? } ?>
+				form1.POS_POEM_NAME.value = arrValue[2];
+				 if (per_type == 2){	form1.PG_CODE.value = arrValue[4];		form1.PG_CODE_SALARY.value = arrValue[5];   } 
+			} // end if
+			if(po_code.value  && po_name.value){
+				if(per_type == 1) {
+					document.all.PROCESS_IFRAME_2.src = "find_move_req_comdtl_position.html?POS_ID=" + arrValue[0] + "&PROGRAM_NAME=data_transfer_req&MOV_NAME=" + form1.MOV_NAME.value;	
+				}
+				if(per_type == 2) {
+					document.all.PROCESS_IFRAME_2.src = "find_move_req_comdtl_posemp.html?POEM_ID=" + arrValue[0];	
+				}
+				if(per_type == 3) {
+					document.all.PROCESS_IFRAME_2.src = "find_move_req_comdtl_posempser.html?POEM_ID=" + arrValue[0];	
+				}
+				if(per_type == 4) {
+					document.all.PROCESS_IFRAME_2.src = "find_move_req_comdtl_postemp.html?POEM_ID=" + arrValue[0];	
+				}
+			}
+		}else{
+			alert("กรุณาเลือกบุคคลที่รอบรรจุก่อน");
+			form1.btn_person.focus();
+		}	// end if 
+	}
+	
+	function call_search_movment () {	
+		parameter = "&MOV_CODE=101";
+		childReturn = window.showModalDialog("search_movment_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MOV_CODE.value = arrValue[0];
+			form1.MOV_NAME.value = arrValue[1];
+			if (form1.POS_PM_NAME.value.trim()=="")
+				form1.PL_NAME_WORK.value = form1.MOV_NAME.value + " และแต่งตั้งให้ดำรงตำแหน่ง " + form1.POS_POEM_NAME.value;
+			else
+				form1.PL_NAME_WORK.value = form1.MOV_NAME.value + " และแต่งตั้งให้ดำรงตำแหน่ง " + form1.POS_PM_NAME.value + " (" + form1.POS_POEM_NAME.value + ")";
+		} // end if
+	}
+	
+	function  confirm_add() {
+		//เช็คอัตราเงินเดือนว่าเป็นชื่อไหน
+		var CMD_SALARY;
+		if(form1.CMD_SALARY_KEYIN.value){
+			CMD_SALARY=parseInt(form1.CMD_SALARY_KEYIN.value);
+		}else if(form1.CMD_SALARY_SELECT.value){
+			CMD_SALARY=parseInt(form1.CMD_SALARY_SELECT.value);
+		}
+		if(parseInt(form1.LAYER_SALARY_MIN.value)!="" &&  parseInt(form1.LAYER_SALARY_MAX.value)!=""){
+			if(CMD_SALARY <  parseInt(form1.LAYER_SALARY_MIN.value)){
+				alert('เงินเดือนไม่อยู่ในช่วงเงินเดือนของระดับตำแหน่งและประเภทข้าราชการที่เลือก');		//น้อยกว่า		LAYER_SALARY_MIN
+				return false;
+			}
+			if(CMD_SALARY >  parseInt(form1.LAYER_SALARY_MAX.value)){
+				alert('เดือนไม่อยู่ในช่วงเงินเดือนของระดับตำแหน่งและประเภทข้าราชการที่เลือก');			//มากกว่า		LAYER_SALARY_MAX
+				return false;
+			}
+		} //end if
+		if (form1.PER_CARDNO.value.trim()=="") {
+			alert ("กรุณาเลือกข้อมูล \"เลขประจำตัวประชาชน\" ");
+			return false;
+		}else if (!form1.CMD_DATE.value) {
+			alert ("กรุณาป้อนข้อมูล \"วันที่แต่งตั้ง\" ");
+			return false;			
+		}else if (!form1.CMD_SALARY_KEYIN.value && !form1.CMD_SALARY_SELECT.value) {
+			alert ("กรุณาป้อนข้อมูล \"อัตราเงินเดือน\" ");
+			return false;			
+		} else {
+			form1.command.value = "ADD";
+			return true;
+		}
+	}
+	
+	function confirm_update() {
+		//เช็คอัตราเงินเดือนว่าเป็นชื่อไหน
+		var CMD_SALARY;
+		if(form1.CMD_SALARY_KEYIN.value){
+			CMD_SALARY=parseInt(form1.CMD_SALARY_KEYIN.value);
+		}else if(form1.CMD_SALARY_SELECT.value){
+			CMD_SALARY=parseInt(form1.CMD_SALARY_SELECT.value);
+		}
+		if(parseInt(form1.LAYER_SALARY_MIN.value)!="" &&  parseInt(form1.LAYER_SALARY_MAX.value)!=""){
+			if(CMD_SALARY <  parseInt(form1.LAYER_SALARY_MIN.value)){
+				alert('เงินเดือนไม่อยู่ในช่วงเงินเดือนของระดับตำแหน่งและประเภทข้าราชการที่เลือก');		//น้อยกว่า		LAYER_SALARY_MIN
+				return false;
+			}
+			if(CMD_SALARY >  parseInt(form1.LAYER_SALARY_MAX.value)){
+				alert('เดือนไม่อยู่ในช่วงเงินเดือนของระดับตำแหน่งและประเภทข้าราชการที่เลือก');			//มากกว่า		LAYER_SALARY_MAX
+				return false;
+			}
+		} //end if
+		if (!form1.CMD_DATE.value) {
+			alert ("กรุณาป้อนข้อมูล \"วันที่แต่งตั้ง\" ");
+			return false;
+		} else {
+			form1.command.value = "UPDATE";
+			return true;
+		}	
+	}		
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_transfer_req_comdtl_form.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="COM_ID" value="<?=$COM_ID?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+		  <input type="hidden" name="MAIN_DEPARTMENT_NAME" value="<?=$MAIN_DEPARTMENT_NAME?>">	<!---???????????????????????--->
+        &nbsp;&nbsp; 
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr> 
+                        <td width="20%" height="25" align="right"><span class="label_alert">*</span>&nbsp;<?=$SEQ_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="30%"><input type="text" name="CMD_SEQ" value="<?=$CMD_SEQ?>" class="textbox" onKeyPress="DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td width="20%" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width=70%" class="textbox" readonly>&nbsp;&nbsp;
+<? if (!trim($PER_ID)) :  if(($PAGE_AUTH["add"]=="Y") || ($PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?><? endif; endif; ?></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width=70%" class="textbox" readonly>&nbsp;
+                          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+                          <input type="button" name="btn_person" class="button" value="<?=$SELECT_TITLE?>" alt="<?=$SELECT_PERSON_TITLE?>" onClick="call_search_person();">
+                          <input type="hidden" name="PER_TYPE" value="<?=$PER_TYPE?>"></td>
+                        <td align="right"><?=$PER_LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_LEVEL2" value="<?=$CMD_LEVEL2?>" style="width=70%" class="textbox" readonly>
+						<input type="hidden" name="CMD_LEVEL" value="<?=$CMD_LEVEL?>" style="width=70%" class="textbox" readonly>
+			<input type="hidden" name="PER_BIRTHDATE" value="<?=$PER_BIRTHDATE?>" style="width=70%" class="textbox" readonly></td>
+                      </tr>
+                      <tr> 
+                        <td align="right">วุฒิที่ใช้บรรจุ&nbsp;:&nbsp;</td>
+                        <td> 
+<!--							<input type="text" name="EN_NAME" value="<?=$EN_NAME?>" style="width=70%" class="textbox" readonly>&nbsp; -->
+							<input type="hidden" name="EN_CODE" value="<?=$EN_CODE?>">
+						  <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+						  <input type="button" name="btn2" class="button"  value="เลือกวุฒิ" alt="เลือกวุฒิที่ใช้ในตำแหน่ง" onClick="call_search_education(form1.PER_ID.value);"> 
+						  <input type="button" name="btn3" class="button"  value="วุฒิที่เลือก" alt="วุฒิที่เลือกไว้แล้ว" onClick="call_show_educname(form1.PER_ID.value, form1.EN_CODE.value);"> 
+						  <? endif; ?>							
+                        <td width="20%" align="right"><span class="label_alert">*</span>&nbsp;<?=$CMD_DATE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_DATE" value="<?=$CMD_DATE?>" style="width=70%" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.CMD_DATE,this.value)">&nbsp;&nbsp;
+							<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>						
+						  	<input type="reset" class="button" onClick="return showCalendar('CMD_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+							<? endif; ?></td>
+                      </tr>
+					</table>		</td></tr>
+                    <tr> 
+					<td>
+					<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="input_table">
+					<tr><td width="20%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg; <?=$OLD_POSITION_TITLE?></td>
+							<td colspan="3"></td>
+					</tr>
+                      <tr> 
+                        <td align="right">วันที่ลาออก&nbsp;:&nbsp;</td>
+                        <td width="30%"><input type="text" name="CMD_DATE2" value="<?=$CMD_DATE2?>" style="width=70%" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.CMD_DATE2,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                          &nbsp;&nbsp;
+                          <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="reset" class="button" onClick="return showCalendar('CMD_DATE2', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+                          <? endif; ?></td>
+                         <td width="20%" align="right"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_POSITION" value="<?=$CMD_POSITION?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>> 
+                          &nbsp;&nbsp; </td>					  
+                      </tr>
+                      <tr>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_LEVEL3" value="<?=$CMD_LEVEL3?>" style="width=70%" class="textbox" readonly>
+                        <input type="hidden" name="CMD_LEVEL1" value="<?=$CMD_LEVEL1?>" style="width=70%" class="textbox" readonly></td>
+                        <td align="right"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_PM_NAME" value="<?=$CMD_PM_NAME?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>> 
+                          &nbsp;&nbsp; </td>					  
+                      </tr>				
+                     <tr> 
+                        <td align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG1" value="<?=$CMD_ORG1?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG2" value="<?=$CMD_ORG2?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+  &nbsp;&nbsp; </td>
+                      </tr>						  
+                      <tr> 
+                        <td align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG3" value="<?=$CMD_ORG3?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td align="right"><?=$ORG_TITLE1?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG4" value="<?=$CMD_ORG4?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+  &nbsp;&nbsp; </td>
+                      </tr>			
+			  <tr> 
+				<td align="right"><?=$ORG_TITLE2?>&nbsp;:&nbsp;</td>
+				<td><input type="text" name="CMD_ORG5" value="<?=$CMD_ORG5?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>					  
+<?
+			if($SESS_ORG_SETLEVEL!=2){ 
+?>
+                        <td align="right"><?=$ORG_TITLE3?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG6" value="<?=$CMD_ORG6?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+  &nbsp;&nbsp; </td>
+                      </tr>
+                      <tr> 
+					  <? if($SESS_ORG_SETLEVEL!=3) { ?>
+                        <td align="right"><?=$ORG_TITLE4?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG7" value="<?=$CMD_ORG7?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+              			<? if($SESS_ORG_SETLEVEL!=3&&$SESS_ORG_SETLEVEL!=4) { ?>
+                        <td align="right"><?=$ORG_TITLE5?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ORG8" value="<?=$CMD_ORG8?>" style="width=70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+  &nbsp;&nbsp; </td>
+                      </tr>	
+					  <tr>
+				<? } ?>
+			<? } ?>  
+			<? } ?>  
+				  <td align="right"><?=$SALARY_TITLE?>&nbsp;:&nbsp;</td>
+				  <td><input type="text" name="CMD_OLD_SALARY" value="<?=$CMD_OLD_SALARY?>" style="width=70%" class="textbox" onKeyPress="NumOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+&nbsp;&nbsp; </td> 
+                    </tr>	
+                       <tr><td height="5"></td></tr>					  
+                      <tr> 
+			</table>
+			</td>
+			</tr>		  
+                    <tr> 
+					<td>
+					<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="input_table">
+					<tr>
+					    <td width="20%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg; ได้รับคัดเลือก/สอบแข่งขันได้</td>
+                        <td colspan="5"></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$CMD_POSITION_TITLE?>                          &nbsp;:&nbsp;</td>
+                        <td  width="30%"><input type="text" name="PL_PN_NAME" value="<?=$PL_PN_NAME?>" class="textbox" style="width=70%" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+						  <input type="hidden" name="PL_PN_CODE" value="<?=$PL_PN_CODE?>"> 
+                          <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="button" name="btn4" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกตำแหน่งได้รับคัดเลือก/สอบแข่งขันได้" onClick="call_search_perline_posname('PL_PN_CODE', 'PL_PN_NAME');"> 
+                          <? endif; ?>						</td>
+                        <td width="20%" align="right"><?=$SEQ_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_AC_NO" value="<?=$CMD_AC_NO?>" class="textbox" onKeyPress="DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp; </td></tr>
+                      <tr> 
+                        <td align="right">ตามประกาศผลการสอบของ&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="CMD_ACCOUNT" value="<?=$CMD_ACCOUNT?>" class="textbox" style="width=70%" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td align="right">&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>	
+                      <tr><td height="5"></td></tr>			
+</table></td></tr>
+						
+          <tr>
+            <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>				  
+						<td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="input_table">
+						<tr>
+                        <td width="20%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&reg; <?=$NEW_POSITION_TITLE?></td>
+                        <td colspan="3"></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$POS_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="30%" nowrap="nowrap"><? if ($POSITION_NO_CHAR=="Y") { ?><input type="text" name="POS_POEM_NO_NAME" value="<?=$POS_POEM_NO_NAME?>" style="width=40%" class="textbox" readonly><? } ?>&nbsp;<input type="text" name="POS_POEM_NO" value="<?=$POS_POEM_NO?>" class="textbox" style="width=30%" onKeyPress="DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+						  <input type="hidden" name="POS_POEM_ID" value="<?=$POS_POEM_ID?>">
+						  <input type="hidden" name="PG_CODE" value="<?=$PG_CODE?>">
+			  			  <input type="hidden" name="PG_CODE_SALARY" value="<?=$PG_CODE_SALARY?>">
+                          <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="button" name="btn5" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกตำแหน่งที่แต่งตั้ง" onClick="call_search_position('POS_POEM_ID', 'POS_POEM_NO');">
+                          <? endif; ?>						<input type="hidden" name="ES_CODE" value="<?=$ES_CODE?>"><input type="hidden" name="ES_NAME" value="<?=$ES_NAME?>"></td>
+                        <td width="20%" align="right"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_NAME" value="<?=$POS_POEM_NAME?>" style="width=70%" class="textbox" readonly>
+ 								  <input type="hidden" name="POS_PM_CODE" value="<?=$POS_PM_CODE?>">
+                          &nbsp;&nbsp; </td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td> 
+                          <? if($_POST[LEVEL_NO])	$LEVEL_NO=$_POST[LEVEL_NO];		list_per_level_transfer_req ('LEVEL_NO', $LEVEL_NO); ?>
+                          <input type="hidden" name="LEVEL_NAME" value="<?=$LEVEL_NAME?>"></td>
+                        <td align="right"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_PM_NAME" value="<?=$POS_PM_NAME?>" style="width=70%" class="textbox" readonly> 
+                          &nbsp;&nbsp; </td>
+                      </tr>
+					  <tr>
+                        <td align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG1" value="<?=$POS_POEM_ORG1?>" style="width=70%" class="textbox" readonly></td>
+					    <td align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG2" value="<?=$POS_POEM_ORG2?>" style="width=70%" class="textbox" readonly></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG3" value="<?=$POS_POEM_ORG3?>" style="width=70%" class="textbox" readonly></td>
+                        <td align="right"><?=$ORG_TITLE1?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG4" value="<?=$POS_POEM_ORG4?>" style="width=70%" class="textbox" readonly></td>
+                      </tr>
+<?
+			if($RPT_N && ($PER_TYPE==1 || $PER_TYPE==3 || $PER_TYPE==4)){ 
+				$display_salary_keyin = "block";
+				$display_salary_select = "none";
+			}else{
+				$display_salary_keyin = "none";
+				$display_salary_select = "block";
+			}
+?>
+					  <tr> 
+                        <td align="right"><?=$ORG_TITLE2?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG5" value="<?=$POS_POEM_ORG5?>" style="width=70%" class="textbox" readonly></td>					  
+<?
+			if($SESS_ORG_SETLEVEL!=2){ 
+?>
+                        <td align="right"><?=$ORG_TITLE3?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG6" value="<?=$POS_POEM_ORG6?>" style="width=70%" class="textbox" readonly></td>
+					  </tr>	
+                      <tr> 
+					<? if($SESS_ORG_SETLEVEL!=3) { ?>
+                        <td align="right"><?=$ORG_TITLE4?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG7" value="<?=$POS_POEM_ORG7?>" style="width=70%" class="textbox" readonly></td>
+ 					<? if($SESS_ORG_SETLEVEL!=3&&$SESS_ORG_SETLEVEL!=4) { ?>
+					    <td align="right"><?=$ORG_TITLE5?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="POS_POEM_ORG8" value="<?=$POS_POEM_ORG8?>" style="width=70%" class="textbox" readonly></td>
+                      </tr>
+					  <tr>
+				<? } ?>
+			<? } ?>
+<? } ?>	
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$SALARY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><?
+							// --เพื่อไปกำหนดค่าตรวจสอบอัตราเงินเดือนให้ hidden
+							if(trim($LEVEL_NO)){
+									$LAYER_SALARY_MIN=0;	$LAYER_SALARY_MAX=0;
+									$cmd = " select 				LAYER_NO,LAYER_SALARY, LAYER_ACTIVE, LAYER_SALARY_MIN, 
+																				LAYER_SALARY_MAX, LAYER_SALARY_MIDPOINT, 
+																				LAYER_SALARY_MIDPOINT1, LAYER_SALARY_MIDPOINT2, LAYER_SALARY_FULL
+															  from 			PER_LAYER a, PER_LEVEL b
+															  where		a.LEVEL_NO=b.LEVEL_NO and LAYER_NO=0 and b.LEVEL_NO='$LEVEL_NO' AND a.LAYER_ACTIVE=1
+															  order by 	b.PER_TYPE, b.LEVEL_SEQ_NO, a.LEVEL_NO, a.LAYER_TYPE, a.LAYER_NO ";
+									$db_dpis1->send_cmd($cmd);
+									$data1 = $db_dpis1->get_array();
+									$LAYER_SALARY_MIN = trim($data1[LAYER_SALARY_MIN]);
+									$LAYER_SALARY_MAX = trim($data1[LAYER_SALARY_MAX]);
+							}  // end if
+						?>
+                            <input type="hidden" name="LAYER_SALARY_MIN" value="<?=$LAYER_SALARY_MIN?>">
+                            <input type="hidden" name="LAYER_SALARY_MAX" value="<?=$LAYER_SALARY_MAX?>">
+                            <div id="SALARY_KEYIN" style="display:<?=$display_salary_keyin?>;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                  <td><input type="text" name="CMD_SALARY_KEYIN" value="<?=$CMD_SALARY?>" class="textbox" style="width=70%" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                                </tr>
+                              </table>
+                            </div>
+                          <div id="SALARY_SELECT" style="display:<?=$display_salary_select?>;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                  <td><select name="CMD_SALARY_SELECT" class="selectbox" style="width=70%">
+                                      <option value="">== เลือกอัตราเงินเดือน ==</option>
+                                      <?=$list_layer_temp?>
+                                    </select>                                  </td>
+                                </tr>
+                              </table>
+                          </div></td> 
+                        <td align="right">&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                      <tr><td height="5"></td></tr>
+</table>		</td></tr>
+          <tr>
+            <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+                        <td width="20%" align="right"><?=$PL_ASSIGN_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="30%"> <input type="text" name="PL_PN_NAME_ASSIGN" value="<?=$PL_PN_NAME_ASSIGN?>" style="width=70%" class="textbox" readonly>&nbsp;&nbsp;
+						  <input type="hidden" name="PL_PN_CODE_ASSIGN" value="<?=$PL_PN_CODE_ASSIGN?>"> 
+                          <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="button" name="btn6" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกตำแหน่งที่มอบหมายให้ปฏิบัติงาน" onClick="call_search_perline_posname('PL_PN_CODE_ASSIGN', 'PL_PN_NAME_ASSIGN');"> 
+                          <? endif; ?>						  </td>
+                        <td width="20%" align="right"><span class="label_alert">*</span>&nbsp;<?=$MOV_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="MOV_NAME" value="<?=$MOV_NAME?>" style="width=70%" class="textbox" readonly>&nbsp;
+                          <input type="hidden" name="MOV_CODE" value="<?=$MOV_CODE?>"> 
+                          <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="button" name="btn7" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทการเคลื่อนไหว" onClick="call_search_movment();"> 
+                          <? endif; ?>						  </td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$PL_NAME_WORK_TITLE?>&nbsp;:&nbsp;</td>
+                        <td colspan="3"><textarea name="PL_NAME_WORK" rows="2" style="width=70%" class="selectbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$PL_NAME_WORK?></textarea></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$ORG_NAME_WORK_TITLE?>&nbsp;:&nbsp;</td>
+                        <td colspan="3"><textarea name="ORG_NAME_WORK" rows="2" style="width=70%" class="selectbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$ORG_NAME_WORK?></textarea></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$REMARK_TITLE?>(1)&nbsp;:&nbsp;</td>
+                        <td colspan="3"><textarea name="CMD_NOTE1" rows="2" style="width=70%" class="selectbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$CMD_NOTE1?></textarea></td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$REMARK_TITLE?>(2)&nbsp;:&nbsp;</td>
+                        <td colspan="3"><textarea name="CMD_NOTE2" rows="2" style="width=70%" class="selectbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$CMD_NOTE2?></textarea></td>
+                      </tr>
+                    </table></td>
+        </tr>
+</table>		</td></tr>
+        <tr align="center">
+          <td height="30">
+          <? if ($BUTTON_DISPLAY==1) { ?>
+<!--		<input type="submit" name="Reset2" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="parent.refresh_opener(true);" class="button" >-->
+		  <? } else { ?>
+<!--		<img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="parent.refresh_opener(true);">-->
+      		  <?}  echo "&nbsp; &nbsp;"; ?> 
+			  <input type="hidden" name="CH_ADD" value="<?=$CH_ADD?>">				
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+					<input type="button" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; parent.refresh_opener('2<::>!<::>!<::>!<::>!<::><::>!<::><::>!<::>');" class="button" > 
+				<? } else { ?>
+	              	<input type="image" src="images/cancel.gif" border="0" alt="<?=$CANCEL_TITLE?>" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; parent.refresh_opener('2<::>!<::>!<::>!<::>!<::><::>!<::><::>!<::>');">
+      			<?}  echo "&nbsp; &nbsp;"; ?>
+<?	 
+			if(!$VIEW){
+				if(($CH_ADD=="" || $CH_ADD!=1) && ($PAGE_AUTH["edit"]=="Y" && $UPD)){
+				 if ($BUTTON_DISPLAY==1) { ?>
+					<input name="Submit22" type="submit" class="button" onClick="return confirm_update();" value="<?=$EDIT_TITLE?>"> 
+				<?  } else { ?>
+              		<input name="image2" type="image" onClick="return confirm_update();"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              	<? } echo "&nbsp; &nbsp;";?>
+				<? } else { ?><? if ($BUTTON_DISPLAY==1) { ?>
+      		  		<input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; parent.refresh_opener('3<::>!<::>!<::>!<::>!<::><::>!<::><::>!<::>');">  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.COM_ID.value=''; form1.command.value='CANCEL'; parent.refresh_opener('3<::>!<::>!<::>!<::>!<::><::>!<::><::>!<::>');" class="button" > &nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+	  		  		<?if ($PAGE_AUTH["add"]=="Y"){?>
+                    	<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit2" type="submit" class="button" onClick="return confirm_add();" value="<?=$ADD_TITLE?>">
+						<?  } else { ?>
+							<input name="image2" type="image" onClick="return confirm_add();" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              			<? } echo "&nbsp; &nbsp;";?>
+					<? } ?> 
+			<? }
+			}
+			?>
+          </td>
+        </tr>
+        <tr>
+          <td height="5">
+				<iframe src="javascript:;" id="PROCESS_IFRAME_1" frameborder="0" height="5" scrolling="no">หารายละเอียดข้าราชการ/ลูกจ้าง</iframe>
+				<iframe src="javascript:;" id="PROCESS_IFRAME_2" frameborder="0" height="5" scrolling="no">หาข้อมูลจากเลขที่ตำแหน่ง</iframe>
+		  </td>
+          </tr>
+      </table></td>
+    </tr>
+  </table> 
+    <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>&nbsp;</td>
+    </tr>
+</table>  
+&nbsp;
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

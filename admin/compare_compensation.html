@@ -1,0 +1,443 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+    include("php_scripts/load_per_control.php");
+   // ตัดต่อ CP_ID
+    $test_id = str_replace("'","",$set_id); 
+    $set_id_x = explode(",",$test_id);
+    $set_id='';
+    for($i=0;$i<count($set_id_x);$i++){
+      if(!empty($set_id_x[$i])){
+      $set_id.=$set_id_x[$i].',';
+      }
+    }
+
+	$cmd = "select CP_ID,CP_BUDGET,CP_RESULT,CP_NAME, PER_TYPE, DEPARTMENT_ID, ORG_ID from PER_COMPENSATION_TEST where CP_ID in (" . substr($set_id,0,-1) . ")";
+    $cnt = $db_dpis->send_cmd($cmd);
+//	echo "  |1..cmd=$cmd ($cnt)<br>";
+    while ($data = $db_dpis->get_array()) {
+    	$temp_id = $data[CP_ID];
+        $temp_arr[$temp_id][budget] = $data[CP_BUDGET];
+        $temp_arr[$temp_id][result] = $data[CP_RESULT];
+        $temp_arr[$temp_id][name] = $data[CP_NAME];
+        $temp_arr[$temp_id][per_type] = $data[PER_TYPE];
+		$TMP_DEPARTMENT_ID = $data[DEPARTMENT_ID];
+		$TMP_ORG_ID = $data[ORG_ID];
+    }
+
+    $cmd = " select 	AL_CODE, AL_NAME from PER_ASSESS_LEVEL where AL_YEAR = '$CP_YEAR' and AL_CYCLE in ($CP_CYCLE) and PER_TYPE = $search_per_type and DEPARTMENT_ID = $TMP_DEPARTMENT_ID and ORG_ID = $TMP_ORG_ID ";
+    $cnt = $db_dpis->send_cmd($cmd);
+//	echo "2..cmd=$cmd ($cnt)<br>";
+    while ($data = $db_dpis->get_array()) {
+        $AL_CODE = $data[AL_CODE];
+        $AL_NAME[$AL_CODE] = $data[AL_NAME];
+    }
+
+?>
+<html>
+<head>
+<title>เปรียบเทียบ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<body>
+<form action="" method="post" enctype="multipart/form-data" name="form1">
+  <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+  <?
+
+	$cmd = " select * from  PER_COMPENSATION_TEST	where CP_ID in (" . substr($set_id,0,-1) . ")";
+
+	$cnt = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "3..cmd=$cmd ($cnt)<br>";
+	while($data = $db_dpis->get_array()) {
+	    $data = array_change_key_case($data, CASE_LOWER);
+        
+        $cp_id = $data[cp_id];
+        $temp_qty = explode(':',$data[sum_qty]);
+        foreach($temp_qty as $value) {
+        	list($xkey,$xvalue) = explode("=",$value);
+            $al_name= $AL_NAME[$xkey];
+            $result[$cp_id][$al_name][qty] = str_replace(",","",$xvalue);
+            $result[$cp_id][qty] += str_replace(",","",$xvalue);
+        }
+        $temp_salary = explode(':',$data[sum_salary]);
+        foreach($temp_salary as $value) {
+        	list($xkey,$xvalue) = explode("=",$value);
+            $al_name= $AL_NAME[$xkey];
+            $result[$cp_id][$al_name][salary] = str_replace(",","",$xvalue);
+            $result[$cp_id][salary] += str_replace(",","",$xvalue);
+        }
+	}
+	//echo "<pre>"; print_r($salary); echo "</pre>";
+	$cmd = "select cp_id,level_no, al_code, count(al_code) as c_al_code, sum(cd_salary) as s_cd_salary
+                    from per_compensation_test_dtl
+                    where cp_id in (" . substr($set_id,0,-1) . ")
+                    group by cp_id,level_no, al_code 
+                    order by cp_id,level_no,al_code DESC";
+
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	while($data = $db_dpis->get_array()) {
+	    $data = array_change_key_case($data, CASE_LOWER);        
+        $cp_id = $data[cp_id];
+        $level_no = $data[level_no];
+        $al_code = $data[al_code];
+        $c_al_code = $data[c_al_code];
+        $s_cd_salary = $data[s_cd_salary];
+        $level_no_0 = $level_no[0];
+ 
+        $al_name= $AL_NAME[$al_code];
+        
+        $record[$cp_id][$level_no_0][$level_no][$al_name][count] = $c_al_code;
+        $record[$cp_id][$level_no_0][$level_no][$al_name][sum] = $s_cd_salary;
+        
+        $record[$cp_id][$level_no_0][$level_no][count] += $c_al_code;
+        $record[$cp_id][$level_no_0][$level_no][sum] += $s_cd_salary;
+        
+        $record[$cp_id][$level_no_0][count] += $c_al_code;
+        $record[$cp_id][$level_no_0][sum] += $s_cd_salary;
+        
+        $record[$cp_id][count] += $c_al_code;
+        $record[$cp_id][sum] += $s_cd_salary;
+        
+	}
+    	
+    foreach($record as $k_cp_id => $al_code_arr) { // cp_id
+//    echo "<pre>";print_r($record[$k_cp_id][O][O1]);echo "</pre>";
+?>
+      <td> 
+        <table width="100%" cellpadding="0" class="label_normal">
+          <tr align="center" class="table_head">
+            <td colspan="5"><?=$temp_arr[$k_cp_id][name];?></td>
+          </tr>
+          <tr align="center">
+            <td colspan="5"><table width="100%" class="label_normal">
+          <tr align="center" class="table_head">
+            <td width="30%">ระดับ</td>
+            <td width="35%">จำนวนคน</td>
+            <td width="35%">จำนวนเงิน</td>
+          </tr>
+          <?
+          unset($total_qty);unset($total_salary);
+          foreach($result[$k_cp_id] as $key => $row) {
+				if($key == 'qty' || $key == 'salary') continue;
+          ?>
+          <tr>
+            <td><?=$key?></td>
+            <td align="right"><?=number_format($row[qty]);?></td>
+            <td align="right"><?=number_format($row[salary],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2">
+            <td>รวม</td>
+            <td align="right"><?=number_format($result[$k_cp_id][qty])?></td>
+            <td align="right"><?=number_format($result[$k_cp_id][salary],2)?></td>
+          </tr>
+        </table>
+        <table width="100%" class="label_normal">
+          <tr align="center" class="table_head">
+            <td width="30%">ประเภท</td>
+            <td width="35%">จำนวนคน</td>
+            <td width="35%">จำนวนเงิน</td>
+          </tr>
+          <tr>
+            <td>ประเภททั่วไป</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][sum],2);?></td>
+          </tr>
+          <tr>
+            <td>ประเภทวิชาการ</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][sum],2);?></td>
+          </tr>
+          <tr>
+            <td>ประเภทอำนวยการ</td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][sum],2);?></td>
+          </tr>
+          <tr>
+            <td>ประเภทบริหาร</td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][sum],2);?></td>
+          </tr>
+          <tr class="table_body_2">
+            <td>รวม</td>
+            <td align="right"><?=number_format($record[$k_cp_id][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][sum],2);?></td>
+          </tr>
+          <tr class="table_body">
+            <td>เงินประมาณ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($temp_arr[$k_cp_id][budget],0)?></td>
+          </tr>
+          <tr class="table_body_2_over">
+            <td>ผลต่าง</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($temp_arr[$k_cp_id][result],0)?></td>
+          </tr>
+      </table></td>
+          </tr>
+          <tr align="center" class="table_head">
+            <td width="20%"><strong>ประเภท</strong></td>
+            <td width="20%"><strong>ประเภทย่อย</strong></td>
+            <td width="20%"><strong>ระดับ</strong></td>
+            <td width="20%"><strong>จำนวนคน</strong></td>
+            <td width="20%"><strong>จำนวนเงิน</strong></td>
+          </tr>
+          <tr class="table_body_2">
+            <td>ประเภททั่วไป</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][sum],2);?></td>
+          </tr>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับปฏิบัติงาน</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O1][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O1][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][O][O1] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับชำนาญงาน</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O2][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O2][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][O][O2] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับอาวุโส</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O3][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O3][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][O][O3] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับทักษะพิเศษ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O4][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][O][O4][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][O][O4] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2">
+            <td>ประเภทวิชาการ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][sum],2);?></td>
+          </tr>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับปฏิบัติการ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K1][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K1][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][K][K1] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับชำนาญการ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K2][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K2][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][K][K2] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;
+            <?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับชำนาญการพิเศษ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K3][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K3][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][K][K3] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับเชี่ยวชาญ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K4][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K4][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][K][K4] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ระดับทรงคุณวุฒิ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K5][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][K][K5][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][K][K5] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2">
+            <td>ประเภทอำนวยการ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][sum],2);?></td>
+          </tr>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ต้น</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][D1][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][D1][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][D][D1] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">สูง</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][D2][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][D][D2][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][D][D2] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2">
+            <td>ประเภทบริหาร</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][sum],2);?></td>
+          </tr>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">ต้น</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][M1][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][M1][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][M][M1] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body_2_over">
+            <td>&nbsp;</td>
+            <td align="right">สูง</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][M2][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][M][M2][sum],2);?></td>
+          </tr>
+          <? foreach($record[$k_cp_id][M][M2] as $key => $row) { if($key == 'sum' || $key == 'count') continue; ?>
+          <tr>
+            <td>&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;<?=$key?></td>
+            <td align="right">&nbsp;<?=number_format($row[count]);?></td>
+            <td align="right">&nbsp;<?=number_format($row[sum],2);?></td>
+          </tr>
+          <? } ?>
+          <tr class="table_body">
+            <td>รวม</td>
+            <td align="right">&nbsp;</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><?=number_format($record[$k_cp_id][count]);?></td>
+            <td align="right"><?=number_format($record[$k_cp_id][sum],2);?></td>
+          </tr>
+      </table></td>
+<?
+} // foreach cp_id
+?>
+    </tr>
+  </table>
+</form>
+</body>
+</html>

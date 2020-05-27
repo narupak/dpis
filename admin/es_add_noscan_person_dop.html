@@ -1,0 +1,236 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+    include("php_scripts/es_add_noscan_person_dop.php");  
+    
+    /* echo $CTRL_TYPE."||".$SESS_USERGROUP_LEVEL;*/
+    switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			$PROVINCE_CODE = $PROVINCE_CODE;
+			$PROVINCE_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){								
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			$PROVINCE_CODE = $PROVINCE_CODE;
+			$PROVINCE_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$MAIN_ORG_ID = $ORG_ID;
+			$MAIN_ORG_NAME = $ORG_NAME;
+			break;
+		case 6 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			$search_org_id_1 = $ORG_ID_1;
+			$search_org_name_1 = $ORG_NAME_1;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$MAIN_ORG_ID = $ORG_ID;
+			$MAIN_ORG_NAME = $ORG_NAME;
+			break;
+	} // end switch case
+    
+    /*ดูสิทธิ์เป็นผู้ตรวจสอบการลาหรือไม่*/
+    
+    $cmd2 = " select PER_AUDIT_FLAG,ORG_ID from PER_PERSONAL where PER_ID=$SESS_PER_ID"; 
+    $db_dpis2->send_cmd($cmd2);
+    $data2 = $db_dpis2->get_array();
+    $PER_AUDIT_FLAG = $data2[PER_AUDIT_FLAG];
+    $PER_ORG_ID = $data2[ORG_ID]; /*หาคนภายใต้หน่วยงานตามหมอบหมายงาน*/
+   
+   
+    
+    
+    
+    //หาว่าอยู่กลุ่ม กจ. กรม หรือไม่--------------------------------
+    $cmd4 = "	select	 b.CODE from	user_detail a, user_group b
+					where a.group_id=b.id AND a.ID=".$SESS_USERID;
+    $db_dpis2->send_cmd($cmd4);
+    $data4 = $db_dpis2->get_array();
+    if ($data4[CODE]) {
+        $NAME_GROUP_HRD = $data4[CODE];
+    }else{
+        $NAME_GROUP_HRD = "";
+    }
+    
+    if($PER_AUDIT_FLAG==1 || $NAME_GROUP_HRD=='HRD'){
+    	$select_org_structure=1;
+    }
+    
+    //-ถ้าไม่ใช่กลุ่ม admin กับกลุ่ม กจ. กรม จะเอาหน่วยงานตามหมอบหมายงาน
+    
+     if ($SESS_USERGROUP !=1 && $NAME_GROUP_HRD!='HRD'){
+    	$cmd3 = " select ORG_NAME from PER_ORG_ASS where ORG_ID=$PER_ORG_ID"; 
+        $db_dpis2->send_cmd($cmd3);
+        $data3 = $db_dpis2->get_array();
+        $search_org_name = $data3[ORG_NAME];
+        $search_org_id = $PER_ORG_ID;
+    }
+
+
+?>
+<html>
+<head>
+<title><?=$page_title;?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" >
+
+</script>
+<body>
+<form action="es_add_noscan_person_dop.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page;?>">
+  <input type="hidden" name="total_page" value="<?=$total_page;?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+  <input type="hidden" name="CntEncode" id="CntEncode" value="<?=$Olddata_count;?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="isLock" value="<?=$isLock;?>">
+  <input type="hidden" name="LOCK_MINISTRY_ID" value="<?=$LOCK_MINISTRY_ID;?>">
+  <input type="hidden" name="LOCK_DEPARTMENT_ID" value="<?=$LOCK_DEPARTMENT_ID;?>">
+  <input type="hidden" name="HideID" value="<?=$HideID;?>">
+  <input type="hidden" name="TIME_START" value="<?=$TIME_START;?>">
+  <input type="hidden" name="TIME_END" value="<?=$TIME_END;?>">
+  <input type="hidden" name="FLAG_PRINT" value="<?=$FLAG_PRINT;?>">
+  <input type="hidden" name="REMARK" value="<?=trim(iconv("utf-8","tis620",urldecode($REMARK)));?>">
+  <input type="hidden" name="PER_AUDIT_FLAG" value="<?=$PER_AUDIT_FLAG;?>">
+        <input type="hidden" name="NAME_GROUP_HRD" value="<?=$NAME_GROUP_HRD;?>">
+  
+  
+
+
+<?
+        
+		$HideID_save= explode(",",$HideID);
+		$DATA_FULLNAME_SHOW= "";
+        $data_count=0;
+		foreach ($HideID_save as $value) {
+		  $cmd = " select 	a.PER_ID, a.PER_TYPE,ex.START_DATE ,ex.END_DATE,
+                        g.PN_SHORTNAME||a.PER_NAME||' '||a.PER_SURNAME  AS FULLNAME_SHOW
+                        from  TA_SET_EXCEPTPER ex
+                        left join PER_PERSONAL a on(a.PER_ID=ex.PER_ID) 
+                        left join PER_PRENAME g on(g.PN_CODE=a.PN_CODE) 
+                        WHERE ex.END_DATE IS NOT NULL 
+							AND ex.CANCEL_FLAG=1
+							AND ex.PER_ID=$value  
+							AND 	(   (ex.START_DATE  BETWEEN '$TIME_START' and '$TIME_END')
+                            or  (ex.END_DATE BETWEEN '$TIME_START' and '$TIME_END') 
+         					or ( '$TIME_START'  BETWEEN ex.START_DATE and ex.END_DATE )
+    						or ( '$TIME_END'  BETWEEN ex.START_DATE and ex.END_DATE ) 
+                            )
+                        order by  ex.START_DATE ASC,a.PER_NAME ASC,a.PER_SURNAME ASC ";
+
+		
+			$count_page_data = $db_dpis->send_cmd($cmd);
+            //echo "<pre>".$cmd."<br>";
+            if($count_page_data){
+                $data = $db_dpis->get_array();
+                $data_count++;
+                $DATA_FULLNAME_SHOW = $DATA_FULLNAME_SHOW."&nbsp;".$data_count.". ".$data[FULLNAME_SHOW]." (".show_date_format($data[START_DATE], $DATE_DISPLAY)." - ".show_date_format($data[END_DATE], $DATE_DISPLAY).")<br>";
+            }
+        } ?>
+   <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td>
+  <table width="100%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    
+    <tr valign="top">
+      <td width="28%" align="right">รายชื่อบุคลากรที่ไม่ต้องลงเวลา - วันที่&nbsp;:&nbsp;</td>
+      <td width="72%" align="left"><?=$DATA_FULLNAME_SHOW;?></td>
+    </tr>
+
+    <tr>
+      <td align="right">&nbsp;</td>
+      <td align="left">&nbsp;</td>
+    </tr>
+    <tr>
+      <td align="right">&nbsp;</td>
+	  <td align="left"><input name="Submit_ok" type="submit" class="button" onClick="form1.command.value='NEW';" value=" บันทึกทับข้อมูลเดิม ">
+      <input name="Submit_cancle" type="submit" class="button" onClick="form1.command.value='SCRIPT';" value=" บันทึกใช้ข้อมูลเดิม ">
+      </td>
+	</tr>
+    
+    <tr>
+      <td align="right">&nbsp;</td>
+      <td align="left">&nbsp;</td>
+    </tr>
+    <tr>
+      <td align="right">&nbsp;</td>
+      <td align="left"><font color="0000FF">&nbsp;* หมายเหตุ<br>
+      						&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;คลิกปุ่ม "ทับข้อมูลเดิม" หมายถึง ข้อมูลเดิมจะถูกทับแทนที่โดยข้อมูลใหม่<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;คลิกปุ่ม "บันทึกใช้ข้อมูลเดิม" หมายถึง บันทึกเฉพาะข้อมูลที่ไม่ซ้ำในฐานข้อมูล
+                            </font>
+       </td>
+    </tr>
+    
+  </table>
+  
+  </td>
+    </tr>
+    
+  </table>
+
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

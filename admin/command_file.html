@@ -1,0 +1,591 @@
+<?
+	if(!$PAGE) $PAGE = 1; 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/command_file.php");
+	include("php_scripts/load_per_control.php");
+	//กำหนดค่า
+	if($db_type=="oci8"){
+		$db_obj = $db_dpis;
+		$SHOW_FILENAME = "SHOW_FILENAME";
+	}else{
+		$db_obj = $db;
+		$SHOW_FILENAME = "show_filename";
+	}
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<META HTTP-EQUIV="Expires" CONTENT="Fri, Jun 12 1981 08:20:00 GMT">
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+<META HTTP-EQUIV="Cache-Control" CONTENT="no-cache">
+<meta http-equiv="Content-Transfer-Encoding" content="8bit">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	var file_exist ="";
+	function set_page(page){
+		form1.PAGE.value = page;
+		form1.submit();
+	}
+
+	function linkopenfile (filesrc) {
+		//alert(filesrc);
+//		window.open(filesrc,'linkfile','toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=yes,width=400,height=350');
+		call_openDialog(filesrc,400,350,"linkfile");
+	}
+
+	function call_upd_media (file_id) {
+		form1.file_id.value = file_id;
+		form1.action += "?UPD=1";
+		form1.submit();
+	}
+
+	function call_upd_attachment(file_id) {
+		form1.file_id.value = file_id;
+		form1.command.value='';
+		form1.action += "?UPD=1";
+		form1.submit();
+	}
+
+	function check_existfn(existfn){
+		var action="";
+		var arr_existfn = existfn.split(',');
+		for(var i=0; i < arr_existfn.length; i++){
+			//ค้นหาโดยบางส่วน ถ้าพบชื่อไฟล์ซ้ำกัน
+			if(form1.filename.value.indexOf(arr_existfn[i]) != -1){
+				file_exist = arr_existfn[i];	//ชื่อไฟล์ที่ซ้ำ
+			  	action+="1|"
+			}else{
+				action+="0|";
+			}
+		}
+		return action;
+	}
+
+	function call_cmd(value,existfn) {
+		var answer, cmdval;
+		form1.up_dbsamefile.value="";
+		
+		//alert('ttt'+value+'::::'+existfn);
+		
+		if(value=='นำเข้า'){
+			cmdval = 'UPLOAD';	upfn_same=0;
+			form1.BTN_UPLOADFILE.readonly = true;
+		}
+		if(value=='<?=$EDIT_TITLE?>'){ //ชื่อไฟล์ที่ปรับปรุงใหม่ ต้องเป็นชื่อเดิม หรือชื่อใหม่ที่ไม่ตรงกับชื่อไฟล์อื่นๆใน database ที่มีอยู่แล้ว
+			cmdval = 'UPDATE';		upfn_same=1;
+		}	
+
+		//มีไฟล์อยู่ในโฟลเดอร์ และ database
+		if(existfn != ""){	
+			action = check_existfn(existfn);
+			//alert(value+' >> '+action+' '+file_exist);	//test
+			if((action.indexOf('1|') != -1) && file_exist){	//มี
+				if(upfn_same==0){
+					answer = confirm('พบชื่อไฟล์ '+file_exist+' ซ้ำ คุณต้องการแทนที่ข้อมูลเดิมหรือไม่ ?');
+				}
+				form1.up_dbsamefile.value=upfn_same;
+			}else{ //ไม่พบ
+				form1.command.value=cmdval;
+			}
+			//------------------------------------------------
+			if (answer==true){ //แทนที่ไฟล์ และข้อมูลเดิม
+				form1.command.value='REPLACE';
+			}else{
+				if(form1.up_dbsamefile.value!=""){
+					if(form1.up_dbsamefile.value==0){ //นำเข้า
+						form1.command.value='CANCEL';
+					}else{ //ปรับปรุง
+						form1.command.value=cmdval;	
+					}
+				}
+			}
+		}else{ //first
+				form1.command.value='UPLOAD';
+		}
+		//alert(form1.up_dbsamefile.value+' :: '+form1.command.value);	//test
+	}
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ไฟล์ข้อมูล".$TITLE:"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="command_file.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+		<input type="hidden" name="command" value="<?=$command; ?>">
+		
+		<input type="hidden" name="PAGE" value="1">
+		<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		<input type="hidden" name="PER_CARDNO" value="<?=$PER_CARDNO ?>">
+		<input type="hidden" name="CATEGORY" value="<?=$CATEGORY ?>">
+		<input type="hidden" name="LAST_SUBDIR" value="<?=$LAST_SUBDIR?>">
+		<input type="hidden" name="TITLE" value="<?=$TITLE ?>">
+		<input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+&nbsp;
+<? //echo "$SESS_USERGROUP : $PER_ID = $SESS_PER_ID + $SESS_USERID"; ?>
+<? 
+//	if($PER_ID) {
+	if($file_namedb) {
+		if($db_type=="mysql"){
+			$cmd = " 	select 	real_filename, show_filename,description, size, 
+												date_format(update_date, '%d %b %Y'), date_format(update_date, '%H:%i:%s'), update_by, user_id, user_group_id,id 
+								from 		editor_attachment
+								where 	real_filename LIKE '$file_namedb%'
+								order by show_filename ";
+		}elseif($db_type=="mssql"){
+			$cmd = " 	select 	real_filename, show_filename,description, size, 
+												convert(varchar(15), update_date, 106), convert(varchar(8), update_date, 114), update_by, user_id, user_group_id,id 
+								from 		editor_attachment
+								where 	real_filename LIKE '$file_namedb%'
+								order by show_filename ";
+		}elseif($db_type=="oci8"){	
+			$cmd = " 	select 	REAL_FILENAME, SHOW_FILENAME, DESCRIPTION, FILE_SIZE, 
+												SUBSTR(UPDATE_DATE,1,10) as UPDATE_DATE1, SUBSTR(UPDATE_DATE,12,19) as UPDATE_DATE2,UPDATE_BY, USER_ID, 
+                                                USER_GROUP_ID, ID
+								from 		EDITOR_ATTACHMENT
+								where 	REAL_FILENAME LIKE '$file_namedb%'
+								order by SHOW_FILENAME ";
+		} // end if
+	
+	//---Admin และคน login ถ้า SESS_PER_ID=PER_ID นำเข้า/ดู/แก้ไข และลบสิ่งที่นำเข้าได้ 
+	//--สำหรับ  Administrator หรือบันทึกข้อมูลจากส่วนภูมิภาค หรือแค่ KPI เท่านั้น
+	//echo $cmd;
+	//echo $db_type."--".$PAGE_AUTH["attach"]." // ".$PER_ID."::: ".$SESS_USERGROUP." + ".$SESS_PER_ID." > ".$CATEGORY;
+
+if($PAGE_AUTH["attach"]=="Y"){
+/* if(($SESS_USERGROUP==1 || $SESS_USERGROUP==262) || substr($CATEGORY,0,12)=="PER_WORKFLOW" || (($PER_ID == $SESS_PER_ID && $CATEGORY=="PER_KPI") || ($PER_ID == $SESS_PER_ID && $CATEGORY=="PER_PERFORMANCE_GOALS") || ($PER_ID == $SESS_PER_ID && $CATEGORY=="PER_ATTACHMENT"))){			
+*/
+?>
+	<table width="95%" align="center" cellpadding="0" cellspacing="0">
+		<tr>
+		  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+			  <tr>
+				<td height="22" align="center" class="table_body" nowrap="nowrap"><?=($UPD)?"แก้ไข":"นำเข้า"?>ไฟล์ <?=$UPFOR ?></td>
+			  </tr>		
+		  </table></td>
+		</tr>
+	  </table>
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+<? if ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1) { ?>
+		<tr>
+		  <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+			<tr>
+			  <td height="5"></td>
+			</tr>
+			<tr>
+				<td width="25%" align="right">รายละเอียด&nbsp;:&nbsp;</td>
+				<td><textarea name="description" rows="5" class="selectbox" style="width:50%"><?=$description?></textarea> 
+				</td>
+			</tr>
+			<tr>
+				 <td width="25%" align="right">ชื่อไฟล์&nbsp;:&nbsp;</td>
+				 <td><input type="file" name="filename" style="width:50%" class="filebox"><br><?=$maxsize_up_file_label; ?></td>
+			</tr>
+			<?if($UPD){?>
+			 <tr>
+				  <td width="25%" align="right">&nbsp;</td>
+				  <td>Reference = <a href="javascript:linkopenfile('<? echo $FILE_PATH."/".$real_filename; ?>')"><?=$show_filename; ?></a> , Size = <?=$size?> , Update By = <?=$update_by?></td>
+			 </tr>
+			<?}?>
+			<tr><td height="5"></td></tr>
+			<tr>
+			  <td width="25%" align="right">&nbsp;</td>
+			  <td>
+			<input type="hidden" name="file_id" value="<?=$file_id?>">
+			<input type="hidden" name="up_dbsamefile" value="<?=$up_dbsamefile?>">
+			<? if ($UPD) { ?>
+			<!--<input type="submit" value="ปรับปรุง"  onClick="form1.command.value='UPDATE'" class="button">-->
+			<input type="submit" value="<?=$EDIT_TITLE?>"  onClick="javascript:call_cmd('<?=$EDIT_TITLE?>','<?=$show_filename; ?>');" class="button">
+			<input type="submit" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'" class="button">
+			<? }else{ ?>
+			<input type="submit" name="BTN_UPLOADFILE"  value="นำเข้า"  onClick="javascript:call_cmd(this.value,'<?=$show_filename; ?>'); return ProcessUploading();" class="button">
+			<? } ?>		  </td>
+			  </tr>
+			  <tr><td height="5"></td></tr>
+		  </table></td>
+		</tr>
+<? } ?>			  
+	  </table> 
+	<?
+  	}	 //end if($PAGE_AUTH["attach"]=="Y")
+  }	 //end if($file_namedb)
+//	echo "<br>$cmd<br>";
+	//$SESS_PER_ID 	//PER_ID ที่ login
+	$existfn="";
+	$db_obj->send_cmd($cmd);
+	while ($data = $db_obj->get_array()) {	$existfn .= $data[$SHOW_FILENAME].",";	}
+	$count_data = $db_obj->send_cmd($cmd);
+	$existfn = substr($existfn, 0, -1);
+	//echo "<br>$existfn<br>";
+
+	//นับจำนวนไฟล์ทั้งหมดใน folder
+	$numfiles=0;
+	if ($dh = opendir($FILE_PATH)) {
+		while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+			if ($file != "." && $file != "..") {
+				$numfiles++;
+			} // end if
+   		} // while loop readdir
+		closedir($dh);
+	} // end if
+	//-----------------------------------------
+//echo $FILE_PATH."-----------------<br>";	
+?>&nbsp;
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+<!--	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+	<td align="center">พบไฟล์ข้อมูล<?=$TITLE?>ทั้งสิ้น <?=($numfiles + 0)?> รายการ</td>
+<!--	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+     </tr>
+   </table></td>
+	</tr>
+</table>     
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+         <tr>
+            <td height="5"></td>
+          </tr>
+          <tr>
+            <td align="center" valign="top">
+				<? 
+					$check_del_list=0;
+					if($numfiles>0){
+				?>
+                <table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                  <tr class="table_head">
+                    <td height="24">&nbsp;&nbsp;ชื่อไฟล์</td>
+                    <td width="50%">&nbsp;&nbsp;<?=$DETAIL_TITLE?></td>
+                    <td width="7%">&nbsp;&nbsp;ขนาดไฟล์</td>
+					<td width="10%">&nbsp;&nbsp;โดย</td>
+					<td width="4%" align="center"><?=$INQ_TITLE?></td>
+					<? if($PAGE_AUTH["edit"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?>
+						<td width="4%" align="center"><?=$EDIT_TITLE?></td><!--เฉพาะเจ้าของ kpi-->
+					<? } ?>
+					<? if($PAGE_AUTH["del"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?>
+                    	<td width="4%" align="center"><?=$DEL_TITLE?></td><!--เฉพาะเจ้าของ kpi-->
+					<? } ?>
+                  </tr>
+				<?
+				if($count_data > 0){
+					while ($data = $db_obj->get_array()) {
+					if($db_type=="oci8"){
+						$real_filename = $data[REAL_FILENAME];
+						$show_filename = $data[SHOW_FILENAME];
+						$description = $data[DESCRIPTION];
+						$size = $data[FILE_SIZE] ;
+						$update_date = show_date_format($data[UPDATE_DATE1], 1);
+						$update_time = $data[UPDATE_DATE2];
+						$update_by = $data[UPDATE_BY];		//ตัวเลข
+						//ดึงชื่อผู้โพสต์จาก ตาราง USER_DETAIL
+						$cmd1 ="select FULLNAME from USER_DETAIL where ID=$update_by";	
+						$db_dpis2->send_cmd($cmd1);
+						$datausr = $db_dpis2->get_array();
+						//$datausr = array_change_key_case($datausr, CASE_LOWER);
+						$update_by = $datausr[FULLNAME];		//$SESS_USERID;	
+						
+						$file_user_id = $data[USER_ID];
+						$file_user_group = $data[USER_GROUP_ID];
+						$attach_id = $data[ID];
+						$arrfilename[] = $real_filename;
+					}else{
+						$real_filename = $data[0];
+						$show_filename = $data[1];		
+						$description = $data[2];
+						$size = $data[3];
+						$update_date = $data[4];
+						$update_time = $data[5];
+						$update_by = $data[6];
+						$file_user_id = $data[7];
+						$file_user_group = $data[8];
+						$attach_id = $data[9];
+						$arrfilename[] = $real_filename;
+					}
+					//###กรณีไม่มีรายละเอียดไฟล์ ใน database
+					if(!$show_filename)		$show_filename=$file;
+					if(!$update_date)			$update_date="-";				//date("Y-m-d", filemtime($file));
+					if(!$update_time)			$update_time="-";				//date("H:i:s", filemtime($file));
+					if(!$update_by)				$update_by="-";
+					if(!$description)			$description="-";
+?>
+				<!--- //---1) แยกสำหรับไฟล์ที่แนบมาจากประวัติปกติ ที่มีการ insert ลง database #######--->
+                 <tr class="table_body_2">
+                    <td>&nbsp;<?=$show_filename; ?></td>
+                    <td><?="<u>Update Date</u> : $update_date&nbsp;&nbsp;<u>Update Time</u> : $update_time<br><u>Update By</u> : $update_by<br><u>Comment</u> : ".nl2br($description); ?></td>
+                    <td align=right><?=$size?>&nbsp;</td>
+					<td align=right><?=$update_by?>&nbsp;</td>
+					<td align="center">&nbsp;<a href="javascript:linkopenfile('<?=$FILE_PATH."/".$real_filename; ?>')"><img src="images/icon_eye.gif" alt="ดูไฟล์" width="16" height="16" border="0"></a></td>
+					<? if($PAGE_AUTH["edit"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center">&nbsp;<?if($file_user_id == $SESS_USERID){?><a href="javascript:call_upd_attachment('<?="$attach_id";?>')"><img src="images/b_edit.png" border="0" alt="แก้ไขไฟล์"></a><? } else { echo "&nbsp;"; }?></a></td>
+					<? } ?>
+                    <? if($PAGE_AUTH["del"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center"><? if($file_user_id == $SESS_USERID){  $check_del_list++; ?><input type="checkbox" name="filedel[]" value="<?=$attach_id?>"><? }else{ echo "&nbsp;"; } ?></td><? } ?>
+                  </tr>
+<?
+						} // while loop data
+
+						//#########################################################################
+						//###อ่านไฟล์ทั้งหมดใน folder ที่รวมไฟล์จากการ convert ด้วย (ซึ่งไม่ถูกเก็บข้อมูล insert ลง database)
+						//#########################################################################
+						if (is_dir($FILE_PATH)) {
+						if ($dh2 = opendir($FILE_PATH)) {
+							while (($file = readdir($dh2)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+								if ($file != "." && $file != "..") {					
+								//---เปรียบเทียบชื่อไฟล์จาก folder และชื่อที่ดึงมาจาก database (ตาราง editor_attachment)
+								if (!in_array($file, $arrfilename)) {	 //---2 ) แยกสำหรับไฟล์จากการ convert #######
+									//___echo "1>>".$file."!=".$real_filename
+								//25/11/2011 เพื่อแสดงรายละเอียด kpi 
+								if($db_type=="mysql"){
+									$cmd = " 	select 	real_filename, show_filename,description, size, 
+																		date_format(update_date, '%d %b %Y') as update_date1, date_format(update_date, '%H:%i:%s') as update_date2, update_by, user_id, user_group_id,id 
+														from 		editor_attachment
+														where 	real_filename LIKE '$file%'
+														order by show_filename
+												   ";
+								}elseif($db_type=="mssql"){
+									$cmd = " 	select 	real_filename, show_filename,description, size, 
+																		convert(varchar(15), update_date, 106) as update_date1, convert(varchar(8), update_date, 114), as update_date2 update_by, user_id, user_group_id,id 
+														from 		editor_attachment
+														where 	real_filename LIKE '$file%'
+														order by show_filename
+												   ";
+								}elseif($db_type=="oci8"){
+									$cmd = " 	select 	REAL_FILENAME, SHOW_FILENAME, DESCRIPTION, FILE_SIZE, 
+																		SUBSTR(UPDATE_DATE,1,10) as UPDATE_DATE1, SUBSTR(UPDATE_DATE,12,19) as UPDATE_DATE2,UPDATE_BY, USER_ID, USER_GROUP_ID, ID
+														from 		EDITOR_ATTACHMENT
+														where 	REAL_FILENAME LIKE '$file%'
+														order by SHOW_FILENAME
+												   ";
+									/*$cmd = "select 	REAL_FILENAME, SHOW_FILENAME, DESCRIPTION, FILE_SIZE, 
+																		TO_CHAR(UPDATE_DATE, 'DD MON YYYY'),TO_CHAR(UPDATE_DATE, 'HH24:MI:SS'),UPDATE_BY, USER_ID, USER_GROUP_ID, ID
+														from 		EDITOR_ATTACHMENT
+														where 	REAL_FILENAME LIKE '$file%'
+														order by SHOW_FILENAME
+												   ";*/	
+								} // end if
+								$db_obj->send_cmd($cmd);
+								$data2 = $db_obj->get_array();
+								//echo $cmd;
+								//$db_obj->show_error();
+								if($db_type=="oci8"){
+									$real_filename2 = $data2[REAL_FILENAME];
+									$show_filename2 = $data2[SHOW_FILENAME];
+									$description2 = $data2[DESCRIPTION];
+									$size2 = $data2[FILE_SIZE] ;
+									$update_date2 = show_date_format($data2[UPDATE_DATE1], 1);
+									$update_time2 = $data2[UPDATE_DATE2];
+									$update_by2 = $data2 [UPDATE_BY];
+									//ดึงชื่อผู้โพสต์จาก ตาราง USER_DETAIL
+									$cmd1 ="select FULLNAME from USER_DETAIL where ID=$update_by2";	
+									$db_dpis2->send_cmd($cmd1);
+									$datausr = $db_dpis2->get_array();
+									//$datausr = array_change_key_case($datausr, CASE_LOWER);
+									$update_by2 = $datausr[FULLNAME];		//$SESS_USERID;	
+									
+									$file_user_id2 = $data2[USER_ID];
+									$file_user_group2 = $data2[USER_GROUP_ID];
+									$attach_id2 = $data2[ID];
+								}else{
+									$real_filename2 = $data2[real_filename];
+									$show_filename2 = $data2[show_filename];		
+									$description2 = $data2[description];
+									$size2 = $data2[size];
+									$update_date2 = $data2[update_date1];
+									$update_time2 = $data2[update_date2];
+									$update_by2 = $data2[update_by];
+									$file_user_id2 = $data2[user_id];
+									$file_user_group2 = $data2[user_group_id];
+									$attach_id2 = $data2[id];
+								}
+								//###กรณีไม่มีรายละเอียดไฟล์ ใน database
+								if(!$show_filename2)	$show_filename2=$file;
+								if(!$update_date2)		$update_date2="-";				//date("Y-m-d", filemtime($file));
+								if(!$update_time2)		$update_time2="-";				//date("H:i:s", filemtime($file));
+								if(!$update_by2)			$update_by2="-";
+								if(!$description2)			$description2="-";
+?>
+                 <tr class="table_body_2">
+                    <td>&nbsp;<?=$show_filename2; ?></td>
+                    <td><?="<u>Update Date</u> : $update_date2&nbsp;&nbsp;<u>Update Time</u> : $update_time2<br><u>Update By</u> : $update_by2<br><u>Comment </u>: ".nl2br($description2); ?>&nbsp;</td>
+                    <td align=right><?=filesize("$FILE_PATH/$file")."b";	?>&nbsp;</td>
+					<td align=right><?=$update_by2?></td>
+					<td align="center">&nbsp;<a href="javascript:linkopenfile('<? echo $FILE_PATH."/".$file; ?>')"><img src="images/icon_eye.gif" alt="ดูไฟล์" width="16" height="16" border="0"></a></td>
+					<? //if($PAGE_AUTH["edit"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center">&nbsp;<?if($file_user_id2 == $SESS_USERID){?><a href="javascript:call_upd_attachment('')"><img src="images/b_edit.png" border="0" alt="แก้ไขไฟล์"></a><? } else { echo "&nbsp;"; }?></a></td>
+					<? //} ?>
+                    <? //if($PAGE_AUTH["del"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center"><? if($file_user_id2 == $SESS_USERID){ $check_del_list++; ?><input type="checkbox" name="filedel[]" value="<?='convert'.$file; ?>"><? }else{ echo "&nbsp;"; } ?></td><? //} ?>
+                  </tr>
+<?
+						} // end if
+						} // end if
+					   } // while loop readdir
+						closedir($dh2);
+						} // end if
+						} // end if
+	 } // end if($count_data > 0)
+	else{		//##########กรณีที่มีเฉพาะแค่ไฟล์แบบ convert แต่ไม่มีไฟล์ที่ add มาจากระบบ
+						if (is_dir($FILE_PATH)) {
+						if ($dh3 = opendir($FILE_PATH)) {
+							while (($file = readdir($dh3)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+								if ($file != "." && $file != "..") {
+								//25/11/2011 เพื่อแสดงรายละเอียด kpi 
+								if($db_type=="mysql"){
+									$cmd = " 	select 	real_filename, show_filename,description, size, 
+																		date_format(update_date, '%d %b %Y') as update_date1, date_format(update_date, '%H:%i:%s') as update_date2, update_by, user_id, user_group_id,id 
+														from 		editor_attachment
+														where 	real_filename LIKE '$file%'
+														order by show_filename
+												   ";
+								}elseif($db_type=="mssql"){
+									$cmd = " 	select 	real_filename, show_filename,description, size, 
+																		convert(varchar(15), update_date, 106) as update_date1, convert(varchar(8), update_date, 114) as update_date2, update_by, user_id, user_group_id,id 
+														from 		editor_attachment
+														where 	real_filename LIKE '$file%'
+														order by show_filename
+												   ";
+								}elseif($db_type=="oci8"){
+									$cmd = " 	select 	REAL_FILENAME, SHOW_FILENAME, DESCRIPTION, FILE_SIZE, 
+																		SUBSTR(UPDATE_DATE,1,10) as UPDATE_DATE1, SUBSTR(UPDATE_DATE,12,19) as UPDATE_DATE2,UPDATE_BY, USER_ID, USER_GROUP_ID, ID
+														from 		EDITOR_ATTACHMENT
+														where 	REAL_FILENAME LIKE '$file%'
+														order by SHOW_FILENAME
+												   ";
+									/*$cmd = "select 	REAL_FILENAME, SHOW_FILENAME, DESCRIPTION, FILE_SIZE, 
+																		TO_CHAR(UPDATE_DATE, 'DD MON YYYY'),TO_CHAR(UPDATE_DATE, 'HH24:MI:SS'),UPDATE_BY, USER_ID, USER_GROUP_ID, ID
+														from 		EDITOR_ATTACHMENT
+														where 	REAL_FILENAME LIKE '$file%'
+														order by SHOW_FILENAME
+												   ";*/	
+								} // end if
+								$db_obj->send_cmd($cmd);
+								$data3 = $db_obj->get_array();
+								//echo $cmd;
+								//$db_obj->show_error();
+								if($db_type=="oci8"){
+									$real_filename3 = $data3[REAL_FILENAME];
+									$show_filename3 = $data3[SHOW_FILENAME];
+									$description3 = $data3[DESCRIPTION];
+									$size3 = $data3[FILE_SIZE] ;
+									$update_date3 = show_date_format($data3[UPDATE_DATE1], 1);
+									$update_time3 =  $data3[UPDATE_DATE2];
+									$update_by3=$data3 [UPDATE_BY];
+									//ดึงชื่อผู้โพสต์จาก ตาราง USER_DETAIL
+									$cmd1 ="select FULLNAME from USER_DETAIL where ID=$update_by3";	
+									$db_dpis2->send_cmd($cmd1);
+									$datausr = $db_dpis2->get_array();
+									//$datausr = array_change_key_case($datausr, CASE_LOWER);
+									$update_by3 = $datausr[FULLNAME];		//$SESS_USERID;	
+
+									$file_user_id3  =$data3[USER_ID];
+									$file_user_group3 = $data3[USER_GROUP_ID];
+									$attach_id3 = $data3[ID];
+								}else{
+									$real_filename3 = $data3[real_filename];
+									$show_filename3 = $data3[show_filename];		
+									$description3 = $data3[description];
+									$size3 = $data3[size];
+									$update_date3 = $data3[update_date1];
+									$update_time3 = $data3[update_date2];
+									$update_by3 = $data3[update_by];
+									$file_user_id3 = $data3[user_id];
+									$file_user_group3 = $data3[user_group_id];
+									$attach_id3 = $data3[id];
+								}
+								//$arrfilename[] = $real_filename;
+								//###กรณีไม่มีรายละเอียดไฟล์ ใน database
+								if(!$show_filename3)	$show_filename3=$file;
+								if(!$update_date3)		$update_date3="-";				//date("Y-m-d", filemtime($file));
+								if(!$update_time3)		$update_time3="-";				//date("H:i:s", filemtime($file));
+								if(!$update_by3)			$update_by3="-";
+								if(!$description3)			$description3="-";
+								//print("<hr>");	print_r($data3);
+?>
+                 <tr class="table_body_2">
+                    <td>&nbsp;<?=$show_filename3; ?></td>
+                    <td><?="<u>Update Date</u> : $update_date3&nbsp;&nbsp;<u>Update Time</u> : $update_time3<br><u>Update By</u> : $update_by3<br><u>Comment</u> : ".nl2br($description3); ?>&nbsp;</td>
+                    <td align=right><?=filesize("$FILE_PATH/$file")."b";	?>&nbsp;</td>
+					<td align=right><?=$update_by3?></td>
+					<td align="center">&nbsp;<a href="javascript:linkopenfile('<? echo $FILE_PATH."/".$file; ?>')"><img src="images/icon_eye.gif" alt="ดูไฟล์" width="16" height="16" border="0"></a></td>
+					<? //if($PAGE_AUTH["edit"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center">&nbsp;<?if($file_user_id3 == $SESS_USERID){?><a href="javascript:call_upd_attachment('')"><img src="images/b_edit.png" border="0" alt="แก้ไขไฟล์"></a><? } else { echo "&nbsp;"; }?></a></td>
+					<? //} ?>
+                    <? //if($PAGE_AUTH["del"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?><td align="center"><? if($file_user_id3 == $SESS_USERID){ $check_del_list++; ?><input type="checkbox" name="filedel[]" value="<?='convert'.$file; ?>"><? }else{ echo "&nbsp;"; } ?></td><? //} ?>
+                  </tr>
+<?				
+						} // end if
+					   } // while loop readdir
+						closedir($dh3);
+						} // end if
+						} // end if
+					} //end else
+?>
+                  <tr align="right" class="table_head">
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+					<td>&nbsp;</td>
+					<? if($PAGE_AUTH["edit"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?>
+					<td>&nbsp;</td>
+					 <? } ?>
+					<? if($PAGE_AUTH["del"]=="Y" && ($SESS_PER_ID == $PER_ID || $SESS_USERGROUP==1)){?>
+                    <td><? if($check_del_list > 0){ ?><input type="submit" value="ลบ" onClick="form1.command.value='DELFILE'" class="button"><? } ?></td>
+					 <? } ?>
+                  </tr>
+              </table>
+			  <? } // end if($numfiles>0) ?></td>
+          </tr>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>		</td>
+	</tr>
+</table>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+<?
+	include("jqModalDialog.html");
+?>
+</html>

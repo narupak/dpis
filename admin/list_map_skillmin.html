@@ -1,0 +1,213 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	$menu_detail = "ด้านความเชี่ยวชาญพิเศษ";  //ส่งค่าให้ insert log
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+        
+        $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+  	
+        $cmd = "        SELECT  count(skmin.SPMIN_CODE) as count_data
+                                FROM PER_SPECIAL_SKILLMIN skmin
+                                
+                        
+                                    ";
+        //echo "<pre>".$cmd."บน<br>";                            
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+        
+  
+        function get_check($db,$SPMIN_CODE,$SS_CODE){
+           $cmd = "    SELECT  SS_CODE
+                            FROM PER_MAPPING_SKILLMIN mapskill 
+                            WHERE SPMIN_CODE = '$SPMIN_CODE' and SS_CODE = '$SS_CODE'";
+                           // echo "<pre>".$cmd."<br>";
+            $db->send_cmd($cmd);
+            $data2 = $db->get_array();
+            
+            $SS_CODE = trim($data2[SS_CODE]);
+            //echo "Name =".$SS_NAME."<br>";
+            return $SS_CODE;      
+            
+    }
+        
+        $close = 1;
+        $returnValue = "$close";
+        
+        if ($command == "SETVALUE") {
+                    if($count_data>0){
+                for($idx=0;$idx<$count_data;$idx++){
+                    $tmp_txtcode=$_POST['TXTCODE_'.$idx];
+                    $txt_arr = explode("_",$tmp_txtcode);
+                    if($txt_arr[0] == 'Y'){
+                        
+                        $cmd = "SELECT SPMIN_CODE , SS_CODE FROM PER_MAPPING_SKILLMIN WHERE SPMIN_CODE = $txt_arr[1] and SS_CODE = $txt_arr[2]";
+                        $db_dpis->send_cmd($cmd);
+                        $COUNT_DATA = $db_dpis->get_array();
+                        if(!$COUNT_DATA){
+                            $cmd = "INSERT INTO PER_MAPPING_SKILLMIN (SPMIN_CODE,SS_CODE) VALUES ('$txt_arr[1]','$txt_arr[2]')";
+                            $db_dpis->send_cmd($cmd);
+                            //echo "$cmd";
+                            
+                        }
+                    }else if($txt_arr[0] == 'N'){
+                         
+                        $cmd = "SELECT SPMIN_CODE , SS_CODE FROM PER_MAPPING_SKILLMIN WHERE SPMIN_CODE = $txt_arr[1] and SS_CODE = $txt_arr[2]";
+                        $db_dpis->send_cmd($cmd);
+                        $COUNT_DATA = $db_dpis->get_array();
+                        if($COUNT_DATA){
+                            $cmd = "DELETE FROM PER_MAPPING_SKILLMIN WHERE SPMIN_CODE = '$txt_arr[1]' and  SS_CODE  = '$txt_arr[2]'";
+                            $db_dpis->send_cmd($cmd);
+                        }
+                    }
+                //echo "<script language=\"JavaScript\">alert(\"บันทึกข้อมูลสำเร็จ\");</script>"; 
+                }
+            }
+	}
+?>
+<html>
+<head>
+<title>test</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function chksetvalues(idchk,idtxt,val){
+    
+    if(document.getElementById(idchk).checked==true){
+        document.getElementById(idtxt).value='Y_'+val;
+    }else{
+        document.getElementById(idtxt).value='N_'+val;
+    }
+    
+}
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function returnFrom(src, returnValue){
+		//alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("add_special_skillmin.html") > -1) {
+			if(returnValue){
+                                //location.reload();
+                               form1.submit() =  form1.current_page.value=0;
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	}
+        
+</script>
+<body>
+<form action="list_map_skillmin.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="totss_page" value="<?=$totss_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="SS_CODE" value="<?=$SS_CODE?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+
+    <table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr >
+                <td  align="center" class="label_hilight">พบข้อมูลทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+            </tr>
+    </table>
+     
+<?
+		$totss_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($totss_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record SS_CODE from PER_SPECIAL_SKILLGRP where SS_ACTIVE=1 $search_condition order by SS_SEQ_NO, SS_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[SS_CODE]'";
+				$limit_data = " and SS_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and SS_CODE not in ( select * from (select SS_CODE from PER_SPECIAL_SKILLGRP where SS_ACTIVE=1 $search_condition order by SS_SEQ_NO, SS_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+       								   SELECT  SPMIN_CODE, SPMIN_TITLE
+                                                                    FROM PER_SPECIAL_SKILLMIN 
+								    $limit_data
+                                                                    order by SPMIN_TITLE asc
+							) where rownum <= $data_per_page ";
+                     }
+		$count_page_data = $db_dpis->send_cmd($cmd);
+                //echo '<pre>'.$cmd;
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="90%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+ <tr class="table_head" width="90%">
+         
+    <td height="25" width="30%" align="center"></td>
+     <td height="25" width="40" align="center">ชื่อด้านรอง</td>
+      <td height="25"  align="center"></td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+                        $idx=0;
+                        $newTR=0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+                                $newTR++;
+				if($data_count > $data_per_page) break;
+                                $TMP_SPMIN_CODE = $data[SPMIN_CODE];
+                                $TMP_SS_CODE = $data[SS_CODE];
+                                $TMP_CHECK = get_check($db_dpis2,$TMP_SPMIN_CODE,$SS_CODE);
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_LE_CODE'";
+				$TMP_SPMIN_TITLE = $data[SPMIN_TITLE];
+                                
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+                                $val='N';
+                                if($TMP_CHECK){
+                                    $val='Y';
+                                }
+                                 if($newTR==1){echo '<tr class="'.$class.'">';}
+  ?>
+  
+     
+    <td><input onclick="chksetvalues('listcheck_<?php echo $idx;?>','TXTCODE_<?php echo $idx;?>','<?=$TMP_SPMIN_CODE.'_'.$SS_CODE;?>')" type="checkbox" name="listcheck_<?php echo $idx;?>" id="listcheck_<?php echo $idx;?>" <?=(($TMP_CHECK)?"checked":"")?>>
+                         <input type="hidden" name="TXTCODE_<?php echo $idx;?>" id="TXTCODE_<?php echo $idx;?>" value="<?=$val.'_'.$TMP_SPMIN_CODE.'_'.$SS_CODE;?>">&nbsp;<?=$TMP_SPMIN_TITLE?></td>
+ 
+  <? $idx++;	
+   if($newTR==3){echo '</tr>';$newTR=0;}
+  endwhile; ?>
+  
+  
+</table>
+<center><input  type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETVALUE';form1.current_page.value=0;" class="button"></center>
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+   
+</form>
+ <?
+	include("jqModalDialog.html");
+            ?>
+</body>
+</html>

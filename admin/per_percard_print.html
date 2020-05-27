@@ -1,0 +1,932 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+
+	if ($command=="SAVE") {
+		$UPDATE_DATE = date("Y-m-d H:i:s");
+
+		$cmd = " select * FROM PER_PERSONAL_CARD where PER_ID=$PER_ID and PC_ID=$PC_ID ";
+
+		$db_dpis->send_cmd($cmd);
+		if ($data = $db_dpis->get_array()) {
+        	$cmd = "  update PER_PERSONAL_CARD set
+									PC_PER_FORM = '$text1',
+									UPDATE_USER=$SESS_USERID,
+        		                    UPDATE_DATE='$UPDATE_DATE'
+                            where PER_ID=$PER_ID and PC_ID = $PC_ID 
+						";
+    	} else {
+        	$cmd = "  insert into PER_PERSONAL_CARD 
+            						(PER_ID, PC_ID, PC_PER_FORM, UPDATE_USER, UPDATE_DATE)
+								values
+                                    ($PER_ID, $PC_ID, '$text1', $SESS_USERID, '$UPDATE_DATE')
+						";
+        }
+		echo "$cmd<br>";
+		$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+        $text1="";	// Clear ค่า text1 เพื่อให้อ่านข้อมูลใหม่
+    	$command = "UPDATE";	// เปลี่ยนค่า command จาก ADD เพื่อให้เป็น mode UPDATE ปกติ
+    }
+
+	$var_name = array("New Variable"=>"New Variable", "pername1"=>"คำนำ ชื่อ นามสกุล", "pername2"=>"ชื่อ นามสกุล", "perposline"=>"ตำแหน่งในสายงาน", "perposmng"=>"ตำแหน่งทางบริหาร", "poslevel"=>"ระดับตำแหน่ง", "org"=>"สังกัด/กอง", "address1"=>"ที่อยู่ ตามทะเบียนบ้าน", "address2"=>"ที่อยู่ ที่ติดต่อได้", "allphone"=>"โทรศัพท์ ทั้งหมด", "homephone"=>"โทรศัพท์บ้าน", "mobilephone"=>"โทรศัพท์เคลื่อนที่", "officephone"=>"โทรศัพท์ที่ทำงาน", "faxno"=>"โทรสาร", "email"=>"E-Mail");
+
+    if (!$PC_ID) { $PC_ID=1; $ruler = 1; }
+
+//	echo "PER_ID=$PER_ID, PC_ID=$PC_ID, command=$command<br>";
+
+	if (!$text1) {
+		$cmd = " select * FROM PER_PERCARD where PC_ID=$PC_ID ";
+		
+		$db_dpis->send_cmd($cmd);
+		if ($data = $db_dpis->get_array()) {
+   			$PC_NAME = $data[PC_NAME];
+			$text1 = $data[PC_FORM];
+			$unit = $data[PC_UNIT];
+   		    $PC_w = $data[PC_W];
+       		$PC_h = $data[PC_H];
+        
+	        if ($PER_ID && $command != "ORIGINAL") {
+				$cmd = " select * FROM PER_PERSONAL_CARD where PER_ID=$PER_ID and PC_ID=$PC_ID ";
+
+//				echo "$cmd<br>";		
+				$db_dpis2->send_cmd($cmd);
+				if ($data2 = $db_dpis2->get_array()) {
+					$text1 = $data2[PC_PER_FORM];
+				}
+//				echo "PER_ID=$PER_ID, $text1<br>";
+                $command="UPDATE";
+			}
+		} else {
+    		$text1 = "";
+		}	// if ($data = $db_dpis->get_array())
+//		echo "text1=$text1<br>";
+	} // if (!$text1)
+
+    // form บัตรข้าราชการ ใช้เฉพาะใน viewer
+    $bwspc = $PC_w + 20;
+    $bhspc = $PC_h + 10;
+	$tformat = array('paper-size'=>'wh('.$bwspc.','.$bhspc.')',	'metric'=>'mm', 'marginLeft'=>6, 'marginTop'=>6, 'width'=>$PC_w, 'height'=>$PC_h);
+//	echo "tformat:'".implode(",",$tformat)."'<br>";
+
+	if (!trim($field_data)) $field_data=0;
+	$last_field_index = $field_data;	// ข้อมูลที่เลือกไว้ รายการก่อนหน้า
+
+	$sel_paper = array(
+		'A4' => array('paper-size'=>'A4', 'metric'=>'mm', 'marginLeft'=>6, 'marginTop'=>6, 'width'=>$PC_w, 'height'=>$PC_h),
+		'Letter' => array('paper-size'=>'letter', 'metric'=>'mm', 'marginLeft'=>6, 'marginTop'=>6, 'width'=>$PC_w, 'height'=>$PC_h)
+	);
+
+//	echo "SESS_USERGROUP=$SESS_USERGROUP, SESS_USERID=$SESS_USERID<br>";
+	if (!$PER_ID) $PER_ID=$SESS_USERID;
+	$cmd = " select * FROM PER_PERSONAL where PER_ID=$PER_ID ";
+
+//	echo "$cmd<br>";		
+	$db_dpis->send_cmd($cmd);
+	if ($data = $db_dpis->get_array()) {
+		$PER_ID = $data[PER_ID];
+   		$PER_NAME = $data[PER_NAME];
+   		$PER_SURNAME = $data[PER_SURNAME];
+   		$PER_PRT_NAME = ($f_eng ? $data[PER_ENG_NAME] : $data[PER_NAME]);
+   		$PER_PRT_SURNAME = ($f_eng ? $data[PER_ENG_SURNAME] : $data[PER_SURNAME]);
+
+		$cmd = "	select pad.*, pap.AP_NAME, pap.AP_ENG_NAME, ppv.PV_NAME, ppv.PV_ENG_NAME from PER_ADDRESS pad left join PER_AMPHUR pap on (pad.AP_CODE=pap.AP_CODE) left join PER_PROVINCE ppv on (pad.PV_CODE=ppv.PV_CODE) where pad.PER_ID='$PER_ID' ORDER BY pad.ADR_TYPE ";
+		$db_dpis2->send_cmd($cmd);
+//		echo "$cmd<br>";
+		$ADDRT = array("", "", "", "", "");
+		$ADDRE = array("", "", "", "", "");
+		while ($data2 = $db_dpis2->get_array()) {
+			$PER_ADDt="";
+			if($data2[ADR_VILLAGE]) $PER_ADDt .= "หมู่บ้าน".$data2[ADR_VILLAGE]." ";
+			if($data2[ADR_BUILDING]) $PER_ADDt .= "อาคาร".$data2[ADR_BUILDING]." ";
+			if($data2[ADR_NO]) $PER_ADDt .= "เลขที่ ".$data2[ADR_NO]." ";
+			if($data2[ADR_MOO]) $PER_ADDt .= "หมู่ที่ ".$data2[ADR_MOO]." ";
+			if($data2[ADR_SOI]) $PER_ADDt .= "ซอย".$data2[ADR_SOI]." ";
+			if($data2[ADR_ROAD]) $PER_ADDt .= "ถนน".$data2[ADR_ROAD]." ";
+			if($data2[ADR_DISTRICT]) $PER_ADDt .= "ตำบล/แขวง ".$data2[ADR_DISTRICT]." ";
+			if($data2[AP_NAME]) $PER_ADDt .= "อำเภอ/เขต ".$data2[AP_NAME]." ";
+			if($data2[PV_NAME]) $PER_ADDt .= "จังหวัด ".$data2[PV_NAME]." ";
+			if($data2[ADR_POSTCODE]) $PER_ADDt .= "รหัสไปรษณีย์ ".$data2[ADR_POSTCODE]." ";
+
+            // ADR_TYPE=1 ที่อยู่ปัจจุบัน  2= ที่อยู่ตามทะเบียนบ้าน  3=ที่อยู่ตามบัตรประชาชน  4=ที่อยู่ตามภูมิลำเนา
+			$ADDRT[$data2[ADR_TYPE]] = $PER_ADDt;
+            
+			$PER_ADDe="";
+			if($data2[ADR_ENG_VILLAGE]) $PER_ADDe .= "หมู่บ้าน".$data2[ADR_ENG_VILLAGE]." ";
+			if($data2[ADR_ENG_BUILDING]) $PER_ADDe .= "อาคาร".$data2[ADR_ENG_BUILDING]." ";
+			if($data2[ADR_ENG_NO]) $PER_ADDe .= "เลขที่ ".$data2[ADR_ENG_NO]." ";
+			if($data2[ADR_ENG_MOO]) $PER_ADDe .= "หมู่ที่ ".$data2[ADR_ENG_MOO]." ";
+			if($data2[ADR_ENG_SOI]) $PER_ADDe .= "ซอย".$data2[ADR_ENG_SOI]." ";
+			if($data2[ADR_ENG_ROAD]) $PER_ADDe .= "ถนน".$data2[ADR_ENG_ROAD]." ";
+			if($data2[ADR_ENG_DISTRICT]) $PER_ADDe .= "ตำบล/แขวง ".$data2[ADR_ENG_DISTRICT]." ";
+			if($data2[AP_ENG_NAME]) $PER_ADDe .= "อำเภอ/เขต ".$data2[AP_ENG_NAME]." ";
+			if($data2[PV_ENG_NAME]) $PER_ADDe .= "จังหวัด ".$data2[PV_ENG_NAME]." ";
+			if($data2[ADR_ENG_POSTCODE]) $PER_ADDe .= "รหัสไปรษณีย์ ".$data2[ADR_ENG_POSTCODE]." ";
+
+            // ADR_TYPE=1 ที่อยู่ปัจจุบัน  2= ที่อยู่ตามทะเบียนบ้าน  3=ที่อยู่ตามบัตรประชาชน  4=ที่อยู่ตามภูมิลำเนา
+			$ADDRE[$data2[ADR_TYPE]] = $PER_ADDe;
+		}
+
+		for($i=1; $i <= 4; $i++) {
+        	if ($i==1)
+		   		$ADDRESS1 = ($f_eng ? $ADDRE[1] : $ADDRT[1]);
+			else
+            	if (!$ADDRESS2)
+	   				$ADDRESS2 = ($f_eng ? $ADDRE[$i] : $ADDRT[$i]);
+		}
+        if (!$ADDRESS1) $ADDRESS1 = $data[PER_ADD1];
+        if (!$ADDRESS2) $ADDRESS2 = $data[PER_ADD2];
+//		echo "[$ADDRESS1] [$ADDRESS2]<br>";
+
+   		$PER_HOMETEL = $data[PER_HOME_TEL];
+   		$PER_OFFTEL = $data[PER_OFFICE_TEL];
+   		$PER_FAX = $data[PER_FAX];
+   		$PER_MOBILE = $data[PER_MOBILE];
+   		$PER_EMAIL = $data[PER_EMAIL];
+
+		$LEVEL_NO = trim($data[LEVEL_NO]);
+
+		$ES_CODE = trim($data[ES_CODE]);
+		$PL_NAME_WORK = trim($data[PL_NAME_WORK]);
+		$ORG_NAME_WORK = trim($data[ORG_NAME_WORK]);
+		
+		$PN_CODE = trim($data[PN_CODE]);
+		if ($PN_CODE) {
+			$cmd = " select PN_NAME, PN_SHORTNAME, PN_ENG_NAME from PER_PRENAME where PN_CODE='$PN_CODE'";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$PN_NAME = ($f_eng ? $data2[PN_ENG_NAME] : $data2[PN_NAME]);
+			$PN_SHORTNAME = ($f_eng ? $data2[PN_ENG_NAME] : $data2[PN_SHORTNAME]);
+		}
+				
+		$cmd = " select POSITION_LEVEL, POSITION_LEVEL_ENG from PER_LEVEL where LEVEL_NO='$LEVEL_NO' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_LEVEL_NAME = ($f_eng ? $data2[POSITION_LEVEL_ENG] : $data2[POSITION_LEVEL]);
+		
+		$PER_TYPE = $data[PER_TYPE];
+		$PER_STATUS = $data[PER_STATUS];
+		$POSEM_NO = $ORG_NAME = $ORG_NAME_REF = $TMP_PL_NAME = $TMP_PM_NAME = "";
+		if ($PER_TYPE == 1) {
+        // ข้าราชการ
+			if ($command == "SEARCHPAY") {
+				$POS_ID = $data[PAY_ID];
+				if ($POS_ID) {
+					$cmd = " 	select POS_NO, pl.PL_NAME, pl.PL_ENG_NAME, po.ORG_NAME, po.ORG_ENG_NAME, 
+                    						  pp.PT_CODE, pt.PT_NAME, pt.PT_ENG_NAME, po.ORG_ID, po.ORG_ID_REF, pp.PM_CODE, 
+                                              pp.ORG_ID_1
+									  from PER_POSITION pp left join PER_LINE pl on (pp.PL_CODE=pl.PL_CODE) left join PER_ORG po on (pp.ORG_ID=po.ORG_ID) left join PER_TYPE pt on (pp.PT_CODE=pt.PT_CODE) 
+									 where pp.POS_ID=$POS_ID  ";
+					if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$POSEM_NO = $data2[POS_NO];
+					$TMP_PL_NAME = ($f_eng ? $data2[PL_ENG_NAME] : $data2[PL_NAME]);
+					$ORG_NAME = ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+					$ORG_ID = trim($data2[ORG_ID]);
+					$ORG_ID_1 = trim($data2[ORG_ID_1]);
+					$ORG_ID_REF = trim($data2[ORG_ID_REF]);
+					$PT_CODE = trim($data2[PT_CODE]);
+					$PT_NAME = ($f_eng ? trim($data2[PT_ENG_NAME]) : trim($data2[PT_NAME]));
+					$PM_CODE = trim($data2[PM_CODE]);
+
+					$cmd = " 	select PM_NAME, PM_ENG_NAME from PER_MGT	where PM_CODE='$PM_CODE'  ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PM_NAME = ($f_eng ? trim($data2[PM_ENG_NAME]) : trim($data2[PM_NAME]));
+					if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง" && !$TMP_PM_NAME) $TMP_PM_NAME = $TMP_PL_NAME;
+				}
+			
+				$PAY_ID = $data[POS_ID];
+				if ($PAY_ID) {
+					$cmd = " 	select		POS_NO, po.ORG_NAME, po.ORG_ENG_NAME
+									  from		PER_POSITION pp left join PER_ORG po on (pp.ORG_ID=po.ORG_ID)
+									 where		pp.POS_ID=$PAY_ID ";
+					if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$PAY_NO = $data2[POS_NO] . " " . ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+				}
+			} else {
+				$POS_ID = $data[POS_ID];
+				if ($POS_ID) {
+					$cmd = " 	select POS_NO, pl.PL_NAME, pl.PL_ENG_NAME, po.ORG_NAME, po.ORG_ENG_NAME, 
+                    						  pp.PT_CODE, pt.PT_NAME, pt.PT_ENG_NAME, po.ORG_ID, po.ORG_ID_REF, pp.PM_CODE, 
+                                              pp.ORG_ID_1
+									  from PER_POSITION pp left join PER_LINE pl on (pp.PL_CODE=pl.PL_CODE) left join PER_ORG po on (pp.ORG_ID=po.ORG_ID) left join PER_TYPE pt on (pp.PT_CODE=pt.PT_CODE)
+									where pp.POS_ID=$POS_ID ";
+					if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$POSEM_NO = $data2[POS_NO];
+					$TMP_PL_NAME = ($f_eng ? $data2[PL_ENG_NAME] : $data2[PL_NAME]);
+					$ORG_NAME = ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+					$ORG_ID = trim($data2[ORG_ID]);
+					$ORG_ID_1 = trim($data2[ORG_ID_1]);
+					$ORG_ID_REF = trim($data2[ORG_ID_REF]);
+					$PT_CODE = trim($data2[PT_CODE]);
+					$PT_NAME = ($f_eng ? trim($data2[PT_ENG_NAME]) : trim($data2[PT_NAME]));
+					$PM_CODE = trim($data2[PM_CODE]);
+
+					$cmd = " 	select PM_NAME, PM_ENG_NAME from PER_MGT	where PM_CODE='$PM_CODE'  ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PM_NAME = ($f_eng ? trim($data2[PM_ENG_NAME]) : trim($data2[PM_NAME]));
+					if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง" && !$TMP_PM_NAME) $TMP_PM_NAME = $TMP_PL_NAME;
+				}
+			
+				$PAY_ID = $data[PAY_ID];
+				if ($PAY_ID) {
+					$cmd = " 	select		POS_NO, po.ORG_NAME, po.ORG_ENG_NAME
+									  from		PER_POSITION pp left join PER_ORG po on (pp.ORG_ID=po.ORG_ID)
+									where		pp.POS_ID=$PAY_ID ";
+					if($SESS_ORG_STRUCTURE==1) {	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$PAY_NO = $data2[POS_NO] . " " . ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+				}
+			}
+		} elseif ($PER_TYPE == 2) {
+        // ลูกจ้างประจำ
+			$POEM_ID = $data[POEM_ID];
+			if ($POEM_ID) {
+				$cmd = " 	select		POEM_NO, pl.PN_NAME, pl.PN_ENG_NAME, po.ORG_NAME, po.ORG_ENG_NAME, 
+                								po.ORG_ID, pp.ORG_ID_1, po.ORG_ID_REF   
+								from			PER_POS_EMP pp left join PER_POS_NAME pl on (pp.PN_CODE=pl.PN_CODE) left join PER_ORG po on (pp.ORG_ID=po.ORG_ID)
+								where		pp.POEM_ID=$POEM_ID ";
+				if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$POSEM_NO = trim($data2[POEM_NO]);
+				$TMP_PL_NAME = ($f_eng ? trim($data2[PN_ENG_NAME]) : trim($data2[PN_NAME]));
+				$ORG_NAME = ($f_eng ? trim($data2[ORG_ENG_NAME]) : trim($data2[ORG_NAME]));
+				$ORG_ID = trim($data2[ORG_ID]);
+				$ORG_ID_1 = trim($data2[ORG_ID_1]);
+				$ORG_ID_REF = trim($data2[ORG_ID_REF]);
+			}
+		} elseif ($PER_TYPE == 3) {
+        // พนักงานราชการ
+			$POEMS_ID = $data[POEMS_ID];
+			if ($POEMS_ID) {
+				$cmd = " 	select		POEMS_NO, pl.EP_NAME, pl.EP_ENG_NAME, po.ORG_NAME, po.ORG_ENG_NAME, 
+                								po.ORG_ID, pp.ORG_ID_1, po.ORG_ID_REF   
+								from			PER_POS_EMPSER pp left join PER_EMPSER_POS_NAME pl on (pp.EP_CODE=pl.EP_CODE) left join PER_ORG po on (pp.ORG_ID=po.ORG_ID)
+								where		pp.POEMS_ID=$POEMS_ID ";
+				if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$POSEM_NO = trim($data2[POEMS_NO]);
+				$TMP_PL_NAME = ($f_eng ? trim($data2[EP_ENG_NAME]) : trim($data2[EP_NAME]));
+				$ORG_NAME = ($f_eng ? trim($data2[ORG_ENG_NAME]) : trim($data2[ORG_NAME]));
+				$ORG_ID = trim($data2[ORG_ID]);
+				$ORG_ID_1 = trim($data2[ORG_ID_1]);
+				$ORG_ID_REF = trim($data2[ORG_ID_REF]);
+			}
+		}
+
+		$cmd = " select * from PER_PERSONALPIC where PER_ID=$PER_ID and PIC_SHOW='1' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$PER_PICSEQ = $data2[PER_PICSEQ];
+		$PER_PICPATH = $data2[PER_PICPATH];
+		$PER_CARDNO = $data2[PER_CARDNO];
+		$PER_GENNAME = $data2[PER_GENNAME];
+		$T_PIC_SEQ = substr("000",0,3-strlen("$PER_PICSEQ"))."$PER_PICSEQ";
+		$PER_PIC=$PER_PICPATH.($PER_CARDNO=="NULL"?$PER_GENNAME:$PER_CARDNO)."-".$T_PIC_SEQ.".jpg";
+
+		$MINISTRY_ID_REF = "";
+		$MINISTRY_NAME = "";
+		$cmd = " select ORG_ID_REF, ORG_NAME, ORG_ENG_NAME from PER_ORG where ORG_ID=$ORG_ID_REF ";
+		if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$MINISTRY_ID_REF = $data2[ORG_ID_REF];
+		$ORG_NAME_REF = ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+		
+		if ($MINISTRY_ID_REF) {
+			$cmd = " select ORG_NAME, ORG_ENG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID_REF ";
+			if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$MINISTRY_NAME = ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+		}
+
+		if ($ORG_ID_1) {
+			$cmd = " select ORG_NAME, ORG_ENG_NAME from PER_ORG where ORG_ID=$ORG_ID_1 ";
+			if($SESS_ORG_STRUCTURE==1){	$cmd = str_replace("PER_ORG","PER_ORG_ASS",$cmd); 	}
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$ORG_NAME = $ORG_NAME . "<br>" . ($f_eng ? $data2[ORG_ENG_NAME] : $data2[ORG_NAME]);
+		}
+   		$POSEM_NO;
+		$fullname1 = (($PN_SHORTNAME)?$PN_SHORTNAME:$PN_NAME)." ".$PER_PRT_NAME ." ". $PER_PRT_SURNAME;
+		$fullname2 = $PER_PRT_NAME." ".$PER_PRT_SURNAME;
+        if ($SESS_USERGROUP_LEVEL==1 || $SESS_USERGROUP_LEVEL==2 || $SESS_USERGROUP_LEVEL==3)
+			$ORG = $ORG_NAME_REF;
+		else
+			$ORG = $ORG_NAME;
+    	$readerr = false;	// อ่าน per_personal ได้
+	} else {
+    	$readerr = true;		// อ่าน per_personal ไม่ได้
+	}	// if ($data = $db_dpis->get_array())
+	if ($SESS_USERGROUP==1) $readerr = true; else $readerr = false;
+
+	if (!trim($field_data)) $field_data=0;
+
+	// จัดข้อมูลใหม่เพื่อการแสดง ใน viewer โดยการเปลี่ยนค่าตัวแปรเป็น text ตัวอย่าง
+	$arr_obj = explode("|", $text1);
+   	$text2 = "";
+	for($i = 0; $i < count($arr_obj); $i++) {
+		$arr_part = explode(",", $arr_obj[$i]);
+		if ($arr_part[0]=="variable") {
+    	    $fldname=$arr_part[1];
+            
+            if ($fldname=="pername1") $vartext = $fullname1;
+            elseif ($fldname=="pername2") $vartext = $fullname2;
+            elseif ($fldname=="address1") $vartext = $ADDRESS1;
+            elseif ($fldname=="address2") $vartext = $ADDRESS2;
+            elseif ($fldname=="perposline") $vartext = $TMP_PL_NAME;
+            elseif ($fldname=="perposmng") $vartext = $TMP_PM_NAME;
+            elseif ($fldname=="poslevel") $vartext = $TMP_LEVEL_NAME;
+            elseif ($fldname=="org") $vartext = $ORG_NAME;
+            elseif ($fldname=="allphone") $vartext = $PER_HOMETEL." ".$PER_OFFTEL." ".$PER_MOBILE;
+            elseif ($fldname=="homephone") $vartext = $PER_HOMETEL;
+            elseif ($fldname=="mobilephone") $vartext = $PER_MOBILE;
+            elseif ($fldname=="officephone") $vartext = $PER_OFFTEL;
+            elseif ($fldname=="faxno") $vartext = $PER_FAX;
+            elseif ($fldname=="email") $vartext = $PER_EMAIL;
+
+			$vartext = str_replace("<br>", " ", $vartext); // กรณีที่มี <br> ใน String ใช้ไม่ได้ใน PDF จึงตัดทิ้ง
+			$arr_part[1] = $vartext.",".$vartext;
+            $text3 = implode(",",$arr_part);
+			$new_text = str_replace("variable", "text", $text3);
+//			echo "$fldname:$new_text<br>";
+           	$text2 = ($text2)?"$text2|$new_text":$new_text;
+			$arr_select[] = $var_name[$fldname];
+	   		$arr_select1[] = $vartext;
+		} else if ($arr_part[0]=="per_pic") {
+    	    $fldname=$arr_part[1];
+			$arr_part[1] = $PER_PIC;
+ 			$arr_obj[$i] = implode(",",$arr_part);
+           	$text2 = ($text2)?"$text2|".$arr_obj[$i]:$arr_obj[$i];
+			$arr_select[] = "Personal Picture";
+	   		$arr_select1[] = $PER_PIC;
+   		} else if ($arr_part[0]=="text" && $f_eng) {
+			$arr_part[1] = $arr_part[2];
+            $new_text = implode(",",$arr_part);
+//			echo "$new_text<br>";
+           	$text2 = ($text2)?"$text2|$new_text":$new_text;
+			$arr_select[] = $arr_part[1];
+	   		$arr_select1[] = $arr_part[1];
+		} else { 
+        	$text2 = ($text2)?"$text2|".$arr_obj[$i]:$arr_obj[$i];
+			$arr_select[] = $arr_part[1];
+	   		$arr_select1[] = $fldname;
+		}
+//		$arr_obj[$i] = implode(",",$arr_part);
+	} // end loop for $i
+//	echo "text2=$text2<br>";
+	// จบการ จัดข้อมูลใหม่เพื่อการแสดง ใน viewer
+
+	// สร้าง PDF file บัตรข้าราชการ เพื่อมาแสดงใน EMBED PDF tag เพื่อเป็น viewer
+	define('FPDF_FONTPATH','../PDF/font/');
+	include ("../PDF/fpdf.php");
+	include ("../PDF/pdf_extends_DPIS.php");
+	include ("../PDF/PDF_NameCard.php");
+    
+	$pdf = new PDF_NameCard($tformat);
+
+	if ($ruler == 1) $f_ruler = true; else $f_ruler = false;
+    $pdf->Print_PERCard($text2,1,$f_ruler);
+
+	$pdf->Output("../PDF/tmp_CARD.pdf", "F");
+	// จบการ สร้าง PDF file บัตรข้าราชการ เพื่อมาแสดงใน EMBED PDF tag
+
+	// พิมพ์บัตรข้าราชการ
+	if ($command=="PRINT") {
+		$pdf1 = new PDF_NameCard($sel_paper[$papersize]);
+
+    	$pdf1->Print_PERCard($text2, $numpage);
+
+		$pdf1->Output("../PDF/print_CARD.pdf", "F");
+    }
+	// จบการพิมพ์บัตรข้าราชการ
+    
+   	// กระจายข้อมูลรายละเอียดใน text1 เพื่อแสดงในจอภาพ
+//	echo "$command,$field_data,$fld_type<br>";
+	$arr_part = explode(",",$arr_obj[$field_data]);
+   	if (!$fld_type)	$fld_type=$arr_part[0];
+//	echo "fld_type=$fld_type<br>";
+	if ($fld_type=="text") {
+		$fixtext=$arr_part[1];
+		$fixetext=$arr_part[2];
+		$fld_x=$arr_part[3];
+		$fld_y=$arr_part[4];
+		$fld_w=$arr_part[5];
+		$font_name="".$arr_part[6].",".$arr_part[7].",".$arr_part[8];
+        $text_align = $arr_part[9];
+		$font_color="".$arr_part[10].",".$arr_part[11].",".$arr_part[12];
+	} else if ($fld_type=="variable") {
+		$fldname=$arr_part[1];
+		$fld_x=$arr_part[2];
+		$fld_y=$arr_part[3];
+		$fld_w=$arr_part[4];
+		$font_name="".$arr_part[5].",".$arr_part[6].",".$arr_part[7];
+        $text_align = $arr_part[8];
+		$font_color="".$arr_part[9].",".$arr_part[10].",".$arr_part[11];
+		$multiline=$arr_part[12];
+//		echo "font=$font_name,color=$font_color<br>";
+	} else if ($fld_type=="image" || $fld_type=="background") {
+		$imagename=$arr_part[1];
+		$fld_x=$arr_part[2];
+		$fld_y=$arr_part[3];
+		$fld_w=$arr_part[4];
+		$fld_h=$arr_part[5];
+	} else if ($fld_type=="per_pic") {
+//    	echo ">>".implode(",",$arr_part);
+		$per_pic=$arr_part[1];
+		$fld_x=$arr_part[2];
+		$fld_y=$arr_part[3];
+		$fld_w=$arr_part[4];
+		$fld_h=$arr_part[5];
+	} else if ($fld_type=="line") {
+		$linename=$arr_part[1];
+		$fld_x1=$arr_part[2];
+		$fld_y1=$arr_part[3];
+		$fld_x2=$arr_part[4];
+		$fld_y2=$arr_part[5];
+		$line_color="".$arr_part[6].",".$arr_part[7].",".$arr_part[8];
+		$line_w=$arr_part[9];
+	} else if ($fld_type=="rect") {
+		$boxname=$arr_part[1];
+		$fld_x1=$arr_part[2];
+		$fld_y1=$arr_part[3];
+		$fld_x2=$arr_part[4];
+		$fld_y2=$arr_part[5];
+		$line_color="".$arr_part[6].",".$arr_part[7].",".$arr_part[8];
+		$line_w=$arr_part[9];
+		$box_style=$arr_part[10];
+	}
+	// จบการ กระจายข้อมูลรายละเอียดใน text1
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+
+function getdata() {
+	// เมื่อเลือกรายละเอียดใหม่ ก็จะดึงข้อมูลรายการที่เลือกใหม่ จาก text1 มาแสดง
+	var d = document;
+
+	// update รายการรายละเอียดที่ทำรายการสุดท้ายลงใน text1 ก่อน ทำ viewer
+	var lfld=d.form1.last_field_index.value;
+	if (lfld) 	mixtext();
+	// จบการ update รายการรายละเอียด
+
+	d.form1.command.value="UPDATE";
+	d.form1.submit();
+}
+
+function call_save() {
+	// บันทึก บัตรข้าราชการ
+	var d = document;
+
+	// update รายการรายละเอียดที่ทำรายการสุดท้ายลงใน text1 ก่อน ทำ viewer
+	var lfld=d.form1.last_field_index.value;
+	if (lfld) 	mixtext();
+	// จบการ update รายการรายละเอียด
+	
+	d.form1.command.value = "SAVE";
+	d.form1.submit();
+}
+
+function refresh_viewer() {
+//	alert(document.getElementById('PC_viewer').innerHTML);
+	var d = document;
+
+	// update รายการรายละเอียดที่ทำรายการสุดท้ายลงใน text1 ก่อน ทำ viewer
+	var lfld=d.form1.last_field_index.value;
+	if (lfld) 	mixtext();
+	// จบการ update รายการรายละเอียด
+
+	d.form1.command.value="UPDATE";
+	d.form1.submit();
+}
+
+function call_orginalform() {
+	var d = document;
+	d.form1.text1.value = "";
+	d.form1.command.value="ORIGINAL";
+	d.form1.submit();
+}
+
+function call_det_cancel() {
+	var d = document;
+	if (confirm("ยกเลิกการแก้ไขรายการข้อมูล และดึงข้อมูลเก่า แน่นอน?")) {
+		d.form1.command.value="UPDATE";
+		d.form1.submit();
+	}
+}
+
+function call_ruler() {
+	mixtext();
+	document.form1.submit();
+}
+
+function call_search_CARD() {
+		parameter = "";
+	    call_openDialog("search_percard.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ค้นหาบัตรประจำตัวเจ้าหน้าที่ของรัฐ");		
+}
+
+function call_print_CARD() {
+	var d = document;
+
+	// update รายการรายละเอียดที่ทำรายการสุดท้ายลงใน text1 ก่อน ทำ viewer
+	var lfld=d.form1.last_field_index.value;
+	if (lfld) 	mixtext();
+	// จบการ update รายการรายละเอียด
+
+	form1.command.value="PRINT";
+	form1.submit();
+}
+
+function mixtext() {
+	// แก้ไข text1 จากข้อมูลบนจอที่แก้ไข ตาม last_field_index
+	var d = document;
+	var fldtype = d.getElementById("fld_type");
+	var l_fld_idx = d.form1.last_field_index;
+	var text_data = d.getElementById("text1");
+	arr_data = text_data.value.split("|");
+	var thistext=arr_data[l_fld_idx.value];
+//	alert("fldtype="+fldtype.value+", arr_data.length="+arr_data.length+", "+l_fld_idx.value+"="+thistext);
+	arr_part = thistext.split(",");
+	if (fldtype.value=="text") {
+		arr_part[3] = d.form1.fld_x.value;
+		arr_part[4] = d.form1.fld_y.value;
+		arr_part[5] = d.form1.fld_w.value;
+		thistext = arr_part.toString();
+	} else if (fldtype.value=="variable") {
+		arr_part[2] = d.form1.fld_x.value;
+		arr_part[3] = d.form1.fld_y.value;
+		arr_part[4] = d.form1.fld_w.value;
+		thistext = arr_part.toString();
+	} else if (fldtype.value=="image" || fldtype.value=="background") {
+		arr_part[2] = d.form1.fld_x.value;
+		arr_part[3] = d.form1.fld_y.value;
+		arr_part[4] = d.form1.fld_w.value;
+		arr_part[5] = d.form1.fld_h.value;
+		thistext = arr_part.toString();
+	} else if (fldtype.value=="per_pic") {
+		arr_part[2] = d.form1.fld_x.value;
+		arr_part[3] = d.form1.fld_y.value;
+		arr_part[4] = d.form1.fld_w.value;
+		arr_part[5] = d.form1.fld_h.value;
+		thistext = arr_part.toString();
+	} else if (fldtype.value=="line") {
+		arr_part[2] = d.form1.fld_x1.value;
+		arr_part[3] = d.form1.fld_y1.value;
+		arr_part[4] = d.form1.fld_x2.value;
+		arr_part[5] = d.form1.fld_y2.value;
+		thistext = arr_part.toString();
+	} else if (fldtype.value=="rect") {
+		arr_part[2] = d.form1.fld_x1.value;
+		arr_part[3] = d.form1.fld_y1.value;
+		arr_part[4] = d.form1.fld_x2.value;
+		arr_part[5] = d.form1.fld_y2.value;
+		thistext = arr_part.toString();
+	}
+	arr_data[l_fld_idx.value] = thistext;
+	var f_text_data = "";
+	for(i=0; i < arr_data.length; i++)
+		f_text_data = (f_text_data) ? f_text_data + "|" + arr_data[i] : arr_data[i];
+	text_data.value = f_text_data;
+//	alert("2.."+l_fld_idx.value+"="+arr_data[l_fld_idx.value]);
+}
+
+function call_select_person () {	
+	parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;
+    call_openDialog("select_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1000,800,"รายชื่อ<?=$PERSON_TITLE?>");		
+}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_percard") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				var d = document;
+				d.form1.PC_ID.value = arrValue[0];
+				d.form1.PC_NAME.value = arrValue[1];
+				var text_data = d.getElementById("text1");
+				text_data.value = "";
+				d.form1.submit();
+			} // end if
+		} else if  (src.indexOf("select_person") > -1) {
+			if(returnValue){
+				form1.SELECTED_PER_ID.value = returnValue;
+				var a = childReturn.split(",");
+				form1.PER_ID.value = a[0];
+				form1.submit();
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="per_percard_print.html" enctype="multipart/form-data">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+        <input type="hidden" name="command" value="">
+        <input type="hidden" id="text1" name="text1" value="<?=$text1?>">
+		<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		<? if($$SELECTED_PER_ID != ""){ $SELECTED_PER_ID = $SESS_PER_ID; } ?>
+		<input type="hidden" name="SELECTED_PER_ID" value="<?=$SELECTED_PER_ID?>">
+&nbsp;
+  <table width="98%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  <? if($readerr) { ?>
+    <tr>
+		<td>
+			<fieldset style="float:left;"><legend><label for="PC_part">ค้นหารายชื่อที่ต้องการพิมพ์</label></legend>
+				<input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:70%" class="textbox">
+        		&nbsp;&nbsp;
+		        <input name="btnperson" type="button" class="button" value="ค้นหา" onClick="call_select_person();">
+	            &nbsp;&nbsp;
+    	        <input name="f_eng" type="checkbox" value="1" onClick="form1.submit();" <?=($f_eng ? "checked" : "")?>>&nbsp;&nbsp;&nbsp;&nbsp;พิมพ์ภาษา English
+			</fieldset>
+		</td>
+    </tr>
+  <? } ?>
+        
+ <!-- ส่วนการออกแบบ บัตรข้าราชการ -->
+    <tr>
+      <td><table width="95%"><tr><td width="100%" align="center">
+      	<fieldset style="float:left;width:900;height:400;">
+        	<legend id="nc"><label for="tmp_CARD">รูปแบบบัตรข้าราชการ</label></legend>
+			<div id="PC_viewer">
+	        <embed src="../PDF/tmp_CARD.pdf#toolbar=0&navpanes=0&scrollbar=0&zoom=100" width="900" height="400"/>
+            </div>
+        </fieldset>
+        </td></tr>
+        <tr><td width="100%" align="center">
+		<fieldset style="float:left;"><legend><label for="PC_part">ข้อมูลบัตรข้าราชการ</label></legend>
+			<input type="text" name="PC_NAME" value="<?=$PC_NAME?>" style="width:50%" class="textbox">
+			<input type="hidden" name="PC_ID" value="<?=$PC_ID?>">
+        	&nbsp;&nbsp;
+	        <input name="btnsearch" type="button" class="button" value="ค้นหา" onClick="call_search_CARD();">
+			<?if($PAGE_AUTH["edit"]=="Y"){ ?>
+	        	&nbsp;&nbsp;
+				<input name="btn_save" type="button" value="บันทึก" class="button" onClick="call_save();">
+			<? } ?>
+	        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            &nbsp;&nbsp;&nbsp;&nbsp;
+			<input name="btn_cancel" type="button" value="ดึงข้อมูลเดิม" class="button" onClick="call_orginalform();">
+		</fieldset>
+        </td></tr>
+        <tr><td width="100%" align="center">
+		<input type="hidden" name="last_field_index" value="<?=$last_field_index?>">
+		<fieldset style="float:left;"><legend><label for="field_data">รายละเอียดข้อมูล</label></legend>
+			<select class="selectbox" id="field_data" name="field_data" onkeydown="if(window.event.keyCode===46) { var a = this.options, i = a.length; while(i--) { if(a[i].selected) { a[i] = null; } }; }" onChange="getdata();" size="9" multiple="multiple">
+            <? for($i=0; $i < count($arr_select); $i++) { ?>
+				<option value="<?=$i?>" <?=($field_data)==$i ? "selected":""?>><?=$arr_select[$i]?></option>
+				<? 
+                   	if ($i==$field_data)	$showfixtext = $arr_select1[$i]; 
+				?>
+			<? } ?>
+			</select>&nbsp;&nbsp;
+		</fieldset>
+		หน่วย&nbsp;:&nbsp;
+        <input type="text" name="unit" value="<?=$unit?>" style="width:10%" class="textbox" readonly>
+		&nbsp;&nbsp;&nbsp;&nbsp;กว้าง&nbsp;:&nbsp;
+        <input type="text" name="PC_w" value="<?=$PC_w?>" style="width:10%" class="textbox" readonly>
+        &nbsp;&nbsp;&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+        <input type="text" name="PC_h" value="<?=$PC_h?>" style="width:10%" class="textbox" readonly>
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		<input name="ruler" type="checkbox" value="1" onClick="call_ruler();" <?=($ruler=="1")?"checked":""?>>เส้นหน่วย
+        <br>
+		ประเภท&nbsp;:&nbsp;
+		<select class="selectbox" name="fld_type" onChange="" disabled>
+			<option value="text" <?=($fld_type)=="text"?"selected":""?>>ข้อความ</option>
+			<option value="variable" <?=($fld_type)=="variable"?"selected":""?>>ตัวแปรข้อมูล</option>
+			<option value="image" <?=($fld_type)=="image"?"selected":""?>>รูปภาพ</option>
+			<option value="background" <?=($fld_type)=="background"?"selected":""?>>ภาพพื้นหลัง</option>
+			<option value="line" <?=($fld_type)=="line"?"selected":""?>>เส้นตรง</option>
+			<option value="rect" <?=($fld_type)=="rect"?"selected":""?>>กล่อง</option>
+			<option value="per_pic" <?=($fld_type)=="per_pic"?"selected":""?>>รูปข้าราชการ</option>
+		</select>&nbsp;&nbsp;
+		<input name="btn_upd" type="button" value="เก็บรูปแบบและแสดงผล" class="button" onClick="refresh_viewer();">
+		<fieldset style="float:left;"><legend><label for="detail_frame"><?=$fld_type?></label></legend>
+        <? if ($command!="ADD") {
+           		if ($fld_type=="text") { ?>
+            		ข้อความ&nbsp;:&nbsp;
+					<input type="text" name="fixtext" value="<?=$fixtext?>" style="width:80%" class="textbox" disabled><br>
+            		English&nbsp;:&nbsp;
+					<input type="text" name="fixetext" value="<?=$fixetext?>" style="width:80%" class="textbox" disabled><br>
+					ตำแหน่ง  X&nbsp;:&nbsp;
+					<input type="text" name="fld_x" value="<?=$fld_x?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y" value="<?=$fld_y?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;ข้อความยาว&nbsp;:&nbsp;
+					<input type="text" name="fld_w" value="<?=$fld_w?>" style="width:10%" class="textbox"><br>
+					จัดตำแหน่ง&nbsp;:&nbsp;
+					<input type="radio" name="text_align" value="L" disabled <?=($text_align=="L")?"checked":""?>>&nbsp;ชิดซ้าย&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="radio" name="text_align" value="C" disabled <?=($text_align=="C")?"checked":""?>>&nbsp;กลาง&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="radio" name="text_align" value="R" disabled <?=($text_align=="R")?"checked":""?>>&nbsp;ชิดขวา<br>
+					ตัวอักษร&nbsp;:&nbsp;
+					<input type="text" name="font_name" value="<?=$font_name?>" style="width:40%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_font1" value="ตัวอักษร" class="button" onClick="call_font('<?=$font_name?>,<?=$text_align?>');"><br>-->
+					สีตัวอักษร&nbsp;:&nbsp;
+					<input type="text" name="font_color" value="<?=$font_color?>" style="width:25%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_fcol1" value="สีตัวอักษร" class="button" onClick="call_color(1);"><br>-->
+					&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">
+        	<? } elseif ($fld_type=="variable") { ?>
+					ชื่อ&nbsp;:&nbsp;
+					<select class="selectbox" name="fldname" onChange="" disabled>
+                    <? foreach($var_name as $key => $value) { ?>
+						<option value="<?=$key?>" <?=($fldname)=="$key"?"selected":""?>>
+                        	<?=$value?>
+						</option>
+					<? } ?>
+					</select>&nbsp;&nbsp;<br>
+            		ข้อความ&nbsp;:&nbsp;
+					<input type="text" name="fixtext1" value="<?=$showfixtext?>" style="width:80%" class="textbox" disabled>
+                    <br>
+                    ตำแหน่ง  X&nbsp;:&nbsp;
+					<input type="text" name="fld_x" value="<?=$fld_x?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y" value="<?=$fld_y?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;ข้อความยาว&nbsp;:&nbsp;
+					<input type="text" name="fld_w" value="<?=$fld_w?>" style="width:10%" class="textbox"><br>
+					จัดตำแหน่ง&nbsp;:&nbsp;
+					<input type="radio" name="text_align" value="L" disabled <?=($text_align=="L")?"checked":""?>>&nbsp;ชิดซ้าย&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="radio" name="text_align" value="C" disabled <?=($text_align=="C")?"checked":""?>>&nbsp;กลาง&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="radio" name="text_align" value="R" disabled <?=($text_align=="R")?"checked":""?>>&nbsp;ชิดขวา<br>
+					ตัวอักษร&nbsp;:&nbsp;
+					<input type="text" name="font_name" value="<?=$font_name?>" style="width:40%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_font2" value="ตัวอักษร" class="button" onClick="call_font('<?=$font_name?>,<?=$text_align?>');"><br>-->
+					สีตัวอักษร&nbsp;:&nbsp;
+					<input type="text" name="font_color" value="<?=$font_color?>" style="width:25%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_fcol2" value="สีตัวอักษร" class="button" onClick="call_color(1);">-->
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <input name="multiline" type="checkbox" value="lines" disabled <?=($multiline=="lines")?"checked":""?>>หลายบรรทัด<br>
+					&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">
+        	<? } elseif ($fld_type=="image") { ?>
+					ชื่อแฟ้มภาพ&nbsp;:&nbsp;
+					<input type="text" name="imagename" value="<?=$imagename?>" style="width:70%" class="textbox" disabled>
+                    <br>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_upload" value="Upload" class="button" onClick="call_upload();"><br>-->
+					ตำแหน่ง  X&nbsp;:&nbsp;
+					<input type="text" name="fld_x" value="<?=$fld_x?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y" value="<?=$fld_y?>" style="width:10%" class="textbox" disabled><br>
+					ขนาด  กว้าง&nbsp;:&nbsp;
+					<input type="text" name="fld_w" value="<?=$fld_w?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+					<input type="text" name="fld_h" value="<?=$fld_h?>" style="width:10%" class="textbox" disabled><br>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">-->
+        	<? } elseif ($fld_type=="background") { ?>
+					ชื่อแฟ้มพื้นหลัง&nbsp;:&nbsp;
+					<input type="text" name="imagename" value="<?=$imagename?>" style="width:70%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_upload" value="Upload" class="button" onClick="call_upload();"><br>-->
+					ตำแหน่ง  X&nbsp;:&nbsp;
+					<input type="text" name="fld_x" value="<?=$fld_x?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y" value="<?=$fld_y?>" style="width:10%" class="textbox" disabled><br>
+					ขนาด  กว้าง&nbsp;:&nbsp;
+					<input type="text" name="fld_w" value="<?=$fld_w?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+					<input type="text" name="fld_h" value="<?=$fld_h?>" style="width:10%" class="textbox" disabled><br>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">-->
+        	<? } elseif ($fld_type=="line") { ?>
+<!--				ชื่อเส้น&nbsp;:&nbsp;-->
+					<input type="hidden" name="linename" value="<?=$linename?>">
+					ตำแหน่ง 1 X&nbsp;:&nbsp;
+					<input type="text" name="fld_x1" value="<?=$fld_x1?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y1" value="<?=$fld_y1?>" style="width:10%" class="textbox" disabled><br>
+					ตำแหน่ง 2 X&nbsp;:&nbsp;
+					<input type="text" name="fld_x2" value="<?=$fld_x2?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y2" value="<?=$fld_y2?>" style="width:10%" class="textbox" disabled><br>
+					สีเส้น&nbsp;:&nbsp;
+					<input type="text" name="line_color" value="<?=$line_color?>" style="width:35%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_fcol3" value="..สีเส้น.." class="button" onClick="call_color(2);"><br>-->
+					เส้นหนา&nbsp;:&nbsp;
+					<input type="text" name="line_w" value="<?=$line_w?>" style="width:10%" class="textbox" disabled><br>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">-->
+        	<? } elseif ($fld_type=="rect") { ?>
+<!--				ชื่อกล่อง&nbsp;:&nbsp;
+					<input type="hidden" name="boxname" value="<?=$boxname?>" style="width:80%" class="textbox"><br>-->
+					<input type="hidden" name="boxname" value="<?=$boxname?>">
+					ตำแหน่ง 1 X&nbsp;:&nbsp;
+					<input type="text" name="fld_x1" value="<?=$fld_x1?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y1" value="<?=$fld_y1?>" style="width:10%" class="textbox" disabled><br>
+					ตำแหน่ง 2 X&nbsp;:&nbsp;
+					<input type="text" name="fld_x2" value="<?=$fld_x2?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y2" value="<?=$fld_y2?>" style="width:10%" class="textbox" disabled><br>
+					สีเส้น&nbsp;:&nbsp;
+					<input type="text" name="line_color" value="<?=$line_color?>" style="width:35%" class="textbox" disabled>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_fcol4" value="..สีเส้น.." class="button" onClick="call_color(2);"><br>-->
+					เส้นหนา&nbsp;:&nbsp;
+					<input type="text" name="line_w" value="<?=$line_w?>" style="width:10%" class="textbox" disabled>
+					&nbsp;&nbsp;&nbsp;&nbsp;แบบเส้น&nbsp;:&nbsp;
+					<input type="text" name="box_style" value="<?=$box_style?>" style="width:10%" class="textbox" disabled>
+                    <br>
+<!--				&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">-->
+        	<? } elseif ($fld_type=="per_pic") { ?>
+					ชื่อแฟ้มภาพ&nbsp;:&nbsp;
+					<input type="text" name="per_pic" value="<?=$per_pic?>" style="width:90%" class="textbox" readonly>
+					ตำแหน่ง  X&nbsp;:&nbsp;
+					<input type="text" name="fld_x" value="<?=$fld_x?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;Y&nbsp;:&nbsp;
+					<input type="text" name="fld_y" value="<?=$fld_y?>" style="width:10%" class="textbox"><br>
+					ขนาด  กว้าง&nbsp;:&nbsp;
+					<input type="text" name="fld_w" value="<?=$fld_w?>" style="width:10%" class="textbox">
+					&nbsp;&nbsp;&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+					<input type="text" name="fld_h" value="<?=$fld_h?>" style="width:10%" class="textbox"><br>
+					<input type="button" name="btn_remove" value="ลบข้อมูล" class="button" onClick="call_deldetail();" <?=$command=="ADD"?"disabled":""?>>
+					&nbsp;&nbsp;
+					<input type="button" name="btn_det_cancel" value="ยกเลิกแก้ไข" class="button" onClick="call_det_cancel();">
+        <? 	 } // end if check $fld_type
+        	 } //	end if ($command!="ADD")
+		?>
+        </fieldset></td></tr></table>
+        </td>
+    </tr>
+ <!-- จบส่วนการออกแบบ บัตรข้าราชการ -->
+ 	<tr>
+    	<td>
+		<fieldset style="float:left;"><legend><label for="PC_part">การพิมพ์</label></legend>
+	        กระดาษ&nbsp;:&nbsp;
+			<select class="selectbox" name="papersize">
+				<option value="A4" <?=($papersize=="A4")?"selected":""?>>A4</option>
+				<option value="Letter" <?=($papersize=="Letter")?"selected":""?>>Letter</option>
+			</select>
+        	&nbsp;&nbsp;
+	        จำนวนหน้า&nbsp;:&nbsp;<input name="numpage" type="text" class="textbox" value="1" width="3">
+        	&nbsp;&nbsp;
+	        <input name="btnprint" type="button" class="button" value="พิมพ์" onClick="call_print_CARD();">
+		</fieldset>
+	  </td>
+    </tr>
+    <?if($command=="PRINT"){?>
+	    <tr>
+    		<td>
+      		<fieldset style="float:left;width:100%;height:100%;">
+        		<legend id="ncp"><label for="print_CARD">พิมพ์บัตรข้าราชการ</label></legend>
+				<div id="PC_print">
+			        <embed src="../PDF/print_CARD.pdf#zoom=100" width="100%" height="1000" />
+	            </div>
+    	    </fieldset>
+	        </td>
+		</tr>
+	<?}?>
+  </table> 
+  </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

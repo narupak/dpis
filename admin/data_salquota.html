@@ -1,0 +1,569 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_salquota.php");
+
+	if ($command == "VIEW") { 
+		if ($SALQDTL_TYPE == 1) {			// โครงสร้างตามกฎหมาย
+				if($current_page > 1){
+					if($DPISDB=="odbc"){
+						$cmd = " select 	TOP ". ($current_page-1)*$data_per_page ." ORG_ID from PER_ORG 
+								where 	ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1 
+								order by 	ORG_SEQ_NO, ORG_CODE ";
+						$limit_data = " and ORG_ID not in ($cmd)";
+					}elseif($DPISDB=="mysql"){
+						$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+					}
+				} // end if 
+				
+				if($DPISDB=="odbc"){
+					$cmd = "	select 	TOP $data_per_page ORG_ID, ORG_NAME 
+							from 	PER_ORG 
+							where 	ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1 
+									$limit_data
+							order by 	ORG_SEQ_NO, ORG_CODE ";									
+				}elseif($DPISDB=="oci8"){		
+					$rec_start = (($current_page-1) * $data_per_page) + 1;
+					$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+					$cmd = "select * from (
+									   select rownum rnum, q1.* from ( 
+											  select 		ORG_ID, ORG_NAME 
+											  from 		PER_ORG
+											  where		ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1 
+														$search_condition
+											  order by 	ORG_SEQ_NO, ORG_CODE 
+									   )  q1
+								) where rnum between $rec_start and $rec_end  ";							
+				}elseif($DPISDB=="mysql"){
+					$cmd = "	select 	ORG_ID, ORG_NAME
+									from			PER_ORG
+									where		ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1  
+									order by 		ORG_SEQ_NO, ORG_CODE
+									$limit_data
+								";	
+				} // end if
+		
+		} elseif ($SALQDTL_TYPE == 2) {		// โครงสร้างตามมอบหมายงาน
+				if($current_page > 1){
+					if($DPISDB=="odbc"){	
+						$cmd =" 	select 	TOP ". ($current_page-1)*$data_per_page ." ORG_ID from PER_ORG_ASS 
+								where 	OL_CODE='03' and ORG_ACTIVE=1 
+								order by 	ORG_SEQ_NO, ORG_CODE ";
+						$limit_data = " and ORG_ID not in ($cmd)";
+					}elseif($DPISDB=="mysql"){
+						$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+					}		
+				} // end if 
+
+				if($DPISDB=="odbc"){					
+					$cmd = "	select 	TOP $data_per_page ORG_ID from PER_ORG_ASS 
+							where 	OL_CODE='03' and ORG_ACTIVE=1
+									$limit_data  
+							order by 	ORG_SEQ_NO, ORG_CODE ";								
+							
+				}elseif($DPISDB=="oci8"){		
+					$rec_start = (($current_page-1) * $data_per_page) + 1;
+					$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+					$cmd = "select * from (
+									   select rownum rnum, q1.* from ( 
+											  select 		ORG_ID, ORG_NAME 
+											  from 		PER_ORG_ASS
+											  where		OL_CODE='03' and ORG_ACTIVE=1 
+														$search_condition
+											  order by 	ORG_SEQ_NO, ORG_CODE
+									   )  q1
+								) where rnum between $rec_start and $rec_end  ";							
+				}elseif($DPISDB=="mysql"){
+					$cmd = "	select		ORG_ID, ORG_NAME
+							from			PER_ORG_ASS
+							where		OL_CODE='03' and ORG_ACTIVE=1  
+							order by 		ORG_SEQ_NO, ORG_CODE
+							$limit_data	";	
+				} // end if	
+		
+		}	// 		if ($SALQDTL_TYPE == 1) {
+		$cmdlistshow = $cmd;
+		$count_page_data = $db_dpis->send_cmd($cmd);
+	} // endif ($command == "VIEW") 
+//	$db_dpis->show_error();
+//	echo "  $count_page_data - $SALQDTL_TYPE : $command : $cmd<br>";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(){
+		var salq_name = form1.SALQ_YEAR.value ;
+		for (var i = 0; i < form1.SALQ_TYPE1.length; ++i) {
+			if (form1.SALQ_TYPE1[i].selected == true) {
+				if (i == 0)			salq_name += " : ข้าราชการ ";
+				else if (i == 1)		salq_name += " : ลูกจ้างประจำ ";
+				else if (i == 2)		salq_name += " : พนักงานราชการ ";	
+			}
+		}
+		for (var i = 0; i < form1.SALQ_TYPE2.length; ++i) {
+			if (form1.SALQ_TYPE2[i].checked == true) {
+				if (i == 0)				salq_name = salq_name + " : เลื่อนครั้งที่ 1";
+				else if (i == 1)			salq_name = salq_name + " : เลื่อนครั้งที่ 2";
+			}
+		}	
+	
+		if(confirm("ต้องการลบโควตาและหลักเกณฑ์การเลื่อนขั้นเงินเดือนนี้ใช่หรือไม่ [ " + salq_name + " ]?")){ 
+			for (var i = 0; i < form1.SALQ_TYPE1.length; ++i) {
+				form1.SALQ_TYPE1[i].disabled = false;
+			}
+			for (var i = 0; i < form1.SALQ_TYPE2.length; ++i) {
+				form1.SALQ_TYPE2[i].disabled = false;
+			}
+			form1.command.value = "DELETE";
+			form1.submit();
+		} // end if
+	}
+		
+	function call_data_salquota_search () {	
+		parameter = "";
+	    call_openDialog("data_salquota_search.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"โควตาและหลักเกณฑ์การเลื่อนขั้นเงินเดือน");		
+	}	
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function check_submit () {	
+		var salq_type1;
+		var salq_type2;
+//		if ( form1.SALQ_YEAR.value != ""  && form1.SALQ_PERCENT.value != "" && form1.SALQ_DATE.value != "" && form1.MINISTRY_ID.value != "" && form1.DEPARTMENT_ID.value != "") {
+		if ( form1.SALQ_YEAR.value != ""  && form1.SALQ_PERCENT.value != "" && form1.SALQ_DATE.value != "" && form1.MINISTRY_ID.value != "" ) {
+			if(form1.SALQ_TYPE1){		
+				for (var i = 0; i < form1.SALQ_TYPE1.length; ++i) {
+					if (form1.SALQ_TYPE1[i].selected == true)     
+							salq_type1 = form1.SALQ_TYPE1[i].value;
+				}
+			}
+			if(form1.SALQ_TYPE2)	{	
+				for (var i = 0; i < form1.SALQ_TYPE2.length; ++i) {
+					if (form1.SALQ_TYPE2[i].checked == true)  
+							salq_type2 = form1.SALQ_TYPE2[i].value;
+				}
+			}		
+
+			document.all.PROCESS_IFRAME.src = "find_salquota.html?SALQ_YEAR=" + form1.SALQ_YEAR.value + "&SALQ_TYPE1=" + salq_type1 + "&SALQ_TYPE2=" + salq_type2 + "&DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+		} else {
+			alert("กรอกข้อมูลที่จำเป็นไม่ครบ");
+		} // end if
+		return ProcessUploading();
+	}
+	
+	function check_view () {	
+		if ( form1.SALQ_YEAR.value != ''  && form1.SALQ_PERCENT.value != '' && form1.SALQ_DATE.value != '' ) {
+			form1.command.value = "VIEW";
+			form1.submit();
+		}
+	}	
+	
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "โควตาและหลักเกณฑ์การเลื่อนขั้นเงินเดือน<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_salquota.php?report_title=" + report_title + "&SALQ_TYPE=<?=$SALQ_TYPE?>&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_salquota.html";
+	} 
+	
+	function call_export_file() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "โควตาและหลักเกณฑ์การเลื่อนขั้นเงินเดือน<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_salquota_xls.php?report_title=" + report_title + "&SALQ_TYPE=<?=$SALQ_TYPE?>&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_salquota.html";
+	}		
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("data_salquota_search") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.SALQ_YEAR.value = arrValue[0];
+				form1.SALQ_PERCENT.value = arrValue[1];
+				form1.SALQ_DATE.value = arrValue[2];
+				
+				if(form1.SALQ_TYPE1){
+					for (var i = 0; i < form1.SALQ_TYPE1.length; ++i) {
+						form1.SALQ_TYPE1[i].disabled = false;
+					}
+				}
+				form1.SALQ_TYPE2[0].disabled = false;
+				form1.SALQ_TYPE2[1].disabled = false;
+				
+				if (arrValue[3] == 1) {
+					if(form1.SALQ_TYPE1[0])		form1.SALQ_TYPE1[0].selected = true;
+					form1.SALQ_TYPE2[0].checked = true;
+				} else if (arrValue[3] == 2) {
+					if(form1.SALQ_TYPE1[0])		form1.SALQ_TYPE1[0].selected = true;
+					form1.SALQ_TYPE2[1].checked = true;			
+				} else if (arrValue[3] == 3) {
+					if(form1.SALQ_TYPE1[1])		form1.SALQ_TYPE1[1].selected = true;
+					form1.SALQ_TYPE2[0].checked = true;
+				} else if (arrValue[3] == 4) {
+					if(form1.SALQ_TYPE1[1])		form1.SALQ_TYPE1[1].selected = true;
+					form1.SALQ_TYPE2[1].checked = true;			
+				} else if (arrValue[3] == 5) {
+					if(form1.SALQ_TYPE1[2])		form1.SALQ_TYPE1[2].selected = true;
+					form1.SALQ_TYPE2[0].checked = true;			
+				} else if (arrValue[3] == 6) {
+					if(form1.SALQ_TYPE1[2])		form1.SALQ_TYPE1[2].selected = true;
+					form1.SALQ_TYPE2[1].checked = true;			
+				}
+				form1.DEPARTMENT_ID.value = arrValue[4];
+				form1.DEPARTMENT_NAME.value = arrValue[5];
+				
+				form1.command.value = "VIEW";
+				form1.submit();
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_salquota.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="command" value="<?=$command?>">
+		<input type="hidden" name="chksave_salquota" value="">
+		<input type="hidden" name="pass_value_salq_type1" value="<?=$pass_value_salq_type1?>">
+		<input type="hidden" name="pass_value_salq_type2" value="<?=$pass_value_salq_type2?>">
+        &nbsp;&nbsp; 
+		<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">คำนวณผล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal" onKeyPress="return keyEnter(event,document.form1.Submit2);">  
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		  			<tr><td height="3"></td></tr>
+                      <tr>
+                        <td width="28%" align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td width="25%">
+							<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:80%" class="textbox" readonly>
+							<input type="hidden" name="MINISTRY_ID" value="<?=trim($MINISTRY_ID)?>">
+						  <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+						  <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()"><? } // end if ?>
+						</td>
+                        <td width="10%" align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:80%" class="textbox" readonly>&nbsp;
+            <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+			<input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()"><? } // end if ?>
+            <input type="hidden" name="DEPARTMENT_ID" value="<?=trim($DEPARTMENT_ID)?>"></td>
+                      </tr>
+                      <tr> 
+                        <td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+						<td><input type="text" name="SALQ_YEAR" value="<?=$SALQ_YEAR?>" class="textbox" 
+						onKeyPress="return DigitOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+             <td height="22" align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+						<? if($SESS_PER_TYPE==0){ $SALQ_TYPE1 = (isset($SALQ_TYPE1))?  $SALQ_TYPE1 : $SAL_PER_TYPE;	} ?>
+						<select name="SALQ_TYPE1" id="SALQ_TYPE1" 
+						<?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"disabled"?>>
+							<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($SALQ_TYPE1==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+						</select>
+						</td>
+                      </tr>
+			 <tr>
+			 	<td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;โควตาการเลื่อนขั้นเงินเดือนหนึ่งขั้นได้ไม่เกินร้อยละ&nbsp;:&nbsp;</td>
+				<td><input type="text" name="SALQ_PERCENT" value="<?=$SALQ_PERCENT?>" class="textbox" 
+				onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+			 	<td>&nbsp;</td>
+				<td>
+					<input name="SALQ_TYPE2" id="SALQ_TYPE2" type="radio" value="1" 
+					<?=($SALQ_TYPE2==1)?"checked":""?> <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"disabled"?>>&nbsp;เลื่อนครั้งที่ 1&nbsp;&nbsp;
+					<input name="SALQ_TYPE2" id="SALQ_TYPE2" type="radio" value="2" 
+					<?=($SALQ_TYPE2==2)?"checked":""?> <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"disabled"?>>&nbsp;เลื่อนครั้งที่ 2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;				</td>				
+			 </tr>
+			 <tr>
+			 	<td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ของจำนวนข้าราชการ ณ วันที่&nbsp;:&nbsp;</td>
+				<td>
+					<input type="text" name="SALQ_DATE" id="SALQ_DATE" value="<?=$SALQ_DATE?>" class="textbox" 
+					onKeyPress="return DateOnly();"
+					onBlur="changedateformat(form1.SALQ_DATE,this.value)" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>>
+					<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>						
+					<input type="reset" class="button" onClick="return showCalendar('SALQ_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">                        
+					<? endif; ?>				</td>
+				<td>&nbsp;</td>
+				<td>
+					<input name="SALQDTL_TYPE" type="radio" value="1" onClick="check_view();" <?=($SALQDTL_TYPE==1)?"checked":"";?> <?=($command=="PROCESS" || $command=="VIEW")? "":"disabled";?>>&nbsp;โครงสร้างตามกฎหมาย&nbsp;&nbsp; 
+					<input name="SALQDTL_TYPE" type="radio" value="2" onClick="check_view();" <?=($SALQDTL_TYPE==2)?"checked":"";?> <?=($command=="PROCESS" || $command=="VIEW")? "":"disabled";?>>&nbsp;โครงสร้างตามคำสั่งมอบหมายงาน				</td>				
+			 </tr>		 
+			 <tr>
+			 	<td></td>
+			 	<td colspan="3">				</td>
+			 </tr>
+			<tr>
+			  <td height="3" colspan="4" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">ตรวจสอบการบันทึกข้อมูลลง per_salquota </iframe></td>
+			  </tr>	 
+			 <tr><td colspan="4" align="center" height="25">
+			<? if ($command != "PROCESS" && $command != "VIEW") { ?>						 
+			 	<input name="Submit2" type="button" class="button" onClick="check_submit();" value="คำนวณผล">
+			<? } elseif ($command == "PROCESS" || $command == "VIEW") { ?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			 	<input name="Submit4" type="button" class="button" onClick="confirm_delete();" value="<?=$COM_DEL_TITLE?>">
+				<?  } else { ?>
+              <img src="images/delete.gif" alt="<?=$COM_DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete();">
+              <? } echo "&nbsp; &nbsp;";?>
+				<? if ($BUTTON_DISPLAY==1) { ?>
+			 	<input name="Submit1" type="submit" class="button" onClick="form1.command.value='CANCEL';" value="<?=$CANCEL_TITLE?>">	 
+				<? } else { ?>
+              <input type="image" src="images/cancel.gif" border="0" alt="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';">
+      		  <?}  echo "&nbsp; &nbsp;"; ?> 
+			<? } ?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+			 	<input name="Submit3" type="button" class="button" onClick="form1.current_page.value='';call_data_salquota_search()" value="<?=$SEARCH_TITLE?>">		
+			<?  } else { ?>
+			  <input name="image2" type="image" onClick="form1.current_page.value='';call_data_salquota_search()" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>		
+			</td></tr>
+             </table></td>
+	 </tr>
+      </table></td>
+    </tr>
+  </table>
+   
+&nbsp;	
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr><td>
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+              <td width="15%"><? if($PAGE_AUTH["print"]=="Y" && $COUNT_DATA){ ?><? if ($BUTTON_DISPLAY==1) { ?>
+	<input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE?>" onClick="call_pdf_report();"><?  } else { ?>
+	<img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_pdf_report();"><? } ?>
+              <? }else{ echo "&nbsp;"; } ?></td> 
+		<? if ($COUNT_DATA) { ?>
+              <td align="center">ข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($COUNT_DATA + 0)?> รายการ</td>
+		<? } ?>			  
+              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y" && $COUNT_DATA){ ?><? if ($BUTTON_DISPLAY==1) { ?>
+	<input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();"><?  } else { ?>
+	<img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();"><? } ?>
+              <? }else{ echo "&nbsp;"; } ?></td> 
+            </tr>
+          </table>  
+	</td></tr>
+</table> 
+<?
+	if ($count_page_data) {
+?>
+        <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+          <tr align="center" class="table_head"> 
+            <td width="8%" height="25"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+            <td height="25"><strong><?=$ORG_TITLE;?></strong></td>
+            <td width="20%"><strong><?=($SALQ_TYPE2==1)? "จำนวนคนที่ได้ 1 ขั้น" : "วงเงินที่เพิ่ม";?></strong></td>
+            <td width="20%"><strong><?=($SALQ_TYPE2==1)? "จำนวนคนที่จัดสรร" : "วงเงินที่จัดสรร";?></strong></td>
+	     <? if ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") : ?>
+	     <? endif; ?>
+          </tr>
+<?
+	$cnt = $db_dpis->send_cmd($cmdlistshow);		//เรียก query ใหม่อีกครั้ง
+//	echo "cmdlistshow=".$cmdlistshow."<br>";
+	$current_list = "";
+	//$data_count = $SUM_COUNT_PER = $SUM_COUNT_RPER = 0;
+	$data_count =  0;
+	$data_num = ($current_page -1) * $data_per_page;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_ORG_ID = $data[ORG_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_ORG_ID;
+		$TMP_ORG_NAME = $data[ORG_NAME];
+
+		if ($command == "PROCESS") {
+		} elseif ($command == "VIEW") {
+			if ($SALQDTL_TYPE == 1) {			// โครงสร้างตามกฎหมาย
+					$cmd = "	select SALQD_QTY1, SALQD_QTY2 from PER_SALQUOTADTL1 
+							where SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and DEPARTMENT_ID=$DEPARTMENT_ID and ORG_ID=$TMP_ORG_ID ";
+			} elseif ($SALQDTL_TYPE == 2) {		// โครงสร้างตามมอบหมายงาน
+					$cmd = "	select SALQD_QTY1, SALQD_QTY2 from PER_SALQUOTADTL2 
+							where SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and DEPARTMENT_ID=$DEPARTMENT_ID and ORG_ID=$TMP_ORG_ID ";
+			}	// endif ($SALQ_TYPE2 == 1)
+			$db_dpis2->send_cmd($cmd);
+			///echo "$command : $SALQDTL_TYPE $cmd<br>";
+			$data2 = $db_dpis2->get_array();
+			$COUNT_PER = $data2[SALQD_QTY1];
+			//$SUM_COUNT_PER += $COUNT_PER;
+			${"COUNT_RPER$TMP_ORG_ID"}  = $data2[SALQD_QTY2];
+			//$SUM_COUNT_RPER += ${"COUNT_RPER$TMP_ORG_ID"};
+		}
+		$COUNT_PER = number_format($COUNT_PER, 2, '.', ',');	
+		${"COUNT_RPER$TMP_ORG_ID"}  = number_format(${"COUNT_RPER$TMP_ORG_ID"}, 2, '.', ',');			
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($ORG_ID==$TMP_ORG_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if	
+?>
+          <tr class="<?=$class?>" <?=$onmouse_event?>> 
+            <td height="25" align="center"><?=$data_num?></td>
+            <td>&nbsp; <?=$TMP_ORG_NAME?> </td>
+            <td align="right"><?="$COUNT_PER"?>&nbsp;&nbsp;&nbsp; </td>
+            <td align="center"><input type="text" name="COUNT_RPER<?=$TMP_ORG_ID?>" value="<?=${"COUNT_RPER$TMP_ORG_ID"}?>" style="text-align:right" onKeyPress="return NumOnly();">
+				<input type="hidden" name="COF_ORG_ID[]" value="<?=$TMP_ORG_ID?>">
+		</td>
+	      <?if($PAGE_AUTH["edit"]=="Y"){?>
+	      <?}?>      
+          </tr>
+<? } 	// end while 
+		$REST_COUNT_RPER = $SUM_COUNT_PER - $SUM_COUNT_RPER; 
+		$SUM_COUNT_PER = number_format($SUM_COUNT_PER, 2, '.', ',');
+		$SUM_COUNT_RPER = number_format($SUM_COUNT_RPER, 2, '.', ',');
+		$REST_COUNT_RPER = number_format($REST_COUNT_RPER, 2, '.', ',');
+?>
+		  <tr class="<?=$class?>" height="25" <?=$onmouse_event?>><td colspan="2" align="right"><strong>รวม</strong>&nbsp;&nbsp;&nbsp; </td>
+		  		<td align="right"><?=$SUM_COUNT_PER?>&nbsp;&nbsp;&nbsp; </td>
+				<td align="right"><?=$SUM_COUNT_RPER?>&nbsp;&nbsp;&nbsp; </td>
+		  </tr>
+		  <tr class="<?=$class?>" height="25" <?=$onmouse_event?>><td colspan="2" align="right"><strong>คงเหลือ</strong>&nbsp;&nbsp;&nbsp; </td>
+		  		<td align="center"></td>
+				<td align="right"><?=$REST_COUNT_RPER?>&nbsp;&nbsp;&nbsp; </td>
+		  </tr>		  
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <tr class="table_footer" height="21"> 
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td align="center">
+    	     	<? if ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") : ?>
+				<? if ($BUTTON_DISPLAY==1) { ?>
+				<input type="submit" name="" value="<?=$EDIT_TITLE?>" class="button" style="width:80" onClick="form1.action+='?UPD=1';form1.command.value='VIEW'">
+				<? } else { ?>
+                <input name="image22" type="image" onClick="form1.action+='?UPD=1';form1.command.value='VIEW'" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+                <?}  echo "&nbsp; &nbsp;"; ?>			 
+			    <? endif; ?>			</td>		 
+          </tr>
+          <?}?>
+        </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

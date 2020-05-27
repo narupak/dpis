@@ -1,0 +1,177 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/function_repgen.php");	
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+//	echo "sendtext=$sendtext, sendtab=$sendtab<br>";
+?>
+<html>
+<head>
+<title>รายการเงื่อนไข</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+
+	function call_add2list() { 
+		var tab1 = document.form1.tab_name1;
+		var tab2 = document.form1.tab_name2;
+
+		var data1 = document.getElementById("SEARCHDDIC_left");
+		var data2 = document.getElementById("SEARCHDDIC_right");
+
+		var tabidx = document.form1.tab_idx.value;
+		var jointype = document.getElementById("jointype");
+
+		var datajoin = document.getElementById("data_join");
+
+		var qlink = document.form1.Q_LINK;
+		if (qlink.value.length > 0) {
+			var tablink = qlink.value.split("|");
+
+			var dlink = tablink[tabidx].split("@");
+			dlink[0] = tab1.value;
+			dlink[1] = tab2.value;
+			var strlink = "";
+			var strshow = "";
+
+			datashow = data1.value + "=" + data2.value;
+			if (dlink[4].length > 0) {
+				var subdlink = dlink[4].split(",");
+				var founded1 = false;
+				for(i=0; i < subdlink.length; i++) {
+					if (subdlink[i]==datashow) {
+							founded1 = true;
+							break;
+					}
+				}
+				if (!founded1) {
+					dlink[4] += ","+datashow;
+					var option = document.createElement("option");
+					option.text = datashow;
+					option.value = datashow;
+					try {       
+						 datajoin.add(option, null); //Standard
+					} catch(error) {        
+						datajoin.add(option); // IE only    
+					}
+				}
+			} else {
+				dlink[4] = datashow;
+				var option = document.createElement("option");
+				option.text = datashow;
+				option.value = datashow;
+				try {       
+					 datajoin.add(option, null); //Standard
+				} catch(error) {        
+					datajoin.add(option); // IE only    
+				}
+			}
+			tablink[tabidx] = dlink.join("@");
+			document.form1.Q_LINK.value = tablink.join("|");
+			alert("1="+document.form1.Q_LINK.value);
+		} else {
+			datashow = data1.value + "=" + data2.value;
+			document.form1.Q_LINK.value = tab1.value+"@"+tab2.value+"@1@"+jointype.value+"@"+datashow;
+			alert("2="+document.form1.Q_LINK.value);
+			var option = document.createElement("option");
+			option.text = datashow;
+			option.value = datashow;
+			try {       
+				 datajoin.add(option, null); //Standard
+			} catch(error) {        
+				datajoin.add(option); // IE only    
+			}
+		}
+	}
+	
+	function call_sel_data_join() {
+		var ind = document.form1.data_join.selectedIndex;
+		var selected = document.form1.data_join.options[ind].value; 
+		
+		if (confirm("ต้องการลบ ข้อมูลเชื่อมโยงรายการนี้ ("+selected+") แน่นอน?")==true) {
+			document.form1.data_join.remove(ind);
+		}
+	}
+
+	function call_return(flag) {
+		var returnValue="";
+		if (flag==1) { // return save
+			var qcond = document.form1.Q_CONDITION;
+			returnValue = "0<::>"+qcond.value;
+		} else { // return cancel
+			returnValue = "1<::>";
+		}
+		parent.refresh_opener(returnValue);
+	}
+
+</script>
+<body>
+<form action="repgen_querycond.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="TABSELECTS" value="<?=$TABSELECTS?>">
+  <input type="hidden" name="command">
+&nbsp;
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">ข้อมูลเงื่อนไข สำหรับ <?=$sendtext?></td>
+	</tr>
+</table>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">ข้อมูล&nbsp;:&nbsp;</td>
+    <td align="left">
+		<input type="text" name="sendtext" value="<?=$sendtext?>" size="60" class="textbox" readonly>
+    </td>
+    <td width="20%" align="left">
+			<select name="Operator_lst" id="Operator_lst" style="width:90%">
+         		<option value=''>== Operators ==</option>
+				<option value='>' <?=$selected; ?>>มากกว่า (>)</option>
+				<option value='>=' <?=$selected; ?>>มากกว่าและเท่ากับ (>=)</option>
+				<option value='=' <?=$selected; ?>>เท่ากับ (=)</option>
+				<option value='!=' <?=$selected; ?>>ไม่เท่ากับ (!=)</option>
+				<option value='<' <?=$selected; ?>>น้อยกว่า (<)</option>
+				<option value='<=' <?=$selected; ?>>น้อยกว่าและเท่ากับ (<=)</option>
+				<option value='IS NULL' <?=$selected; ?>>ไม่มีค่า (IS NULL)</option>
+				<option value='IS NOT NULL' <?=$selected; ?>>มีค่า (IS NOT NULL)</option>
+			</select>
+    </td>
+  </tr>
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">เงื่อนไข&nbsp;:&nbsp;</td>
+    <td align="left" colspan="2">
+			<textarea id="Q_CONDITION" name="Q_CONDITION" cols="100" rows="7" onFocus="fieldFocus='Q_CONDITION'"; readonly><?=$Q_CONDITION?></textarea>
+	</td>
+  </tr>
+  <tr>
+  	 <td colspan="3" align="center">
+		<? 
+		  		if ($BUTTON_DISPLAY==1) { ?>
+        		    <input type="submit" name="Reset" value="<?=$CANCEL_TITLE?>" onClick="call_return(0);" class="button" >
+            <? } else { ?>
+            		<input name="image" type="image" onClick="call_return(0);" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+            <? }
+            
+         ?>
+         <?if($PAGE_AUTH["edit"]=="Y"){
+			if ($BUTTON_DISPLAY==1) { ?>
+        	    <input name="Submit22" type="button" class="button" onClick="call_return(1);" value=" บันทึกกลับไปหน้าแรก">
+          <? } else { ?>
+          		<input name="image" type="image" onClick="call_return(1);" src="images/save.png" alt="บันทึกกลับไปหน้าแรก" border="0">
+		  <?}?>
+         <?}?>
+       </td>
+     </tr>
+</table>
+</form>
+</body>
+</html>

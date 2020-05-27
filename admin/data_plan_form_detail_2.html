@@ -1,0 +1,176 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_plan_form_detail_2.php");	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("ต้องการลบข้อมูลนี้ ใช่หรือไม่ [ " + data_label + " ]?")){
+			form1.command.value = "DELETE";
+			if(form1.SUBPAGE.value == 1) form1.PG_ID.value = data_id;
+			else form1.KC_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+		
+	function call_menu_desc (file,tr_class,tr_code,proj_id) {
+		
+		//document.all.KPI_FORM_DETAIL_IFRAME.src = file + "?KF_ID=" + kf_id + "&PER_ID=" + per_id + "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1&getdate=<?=date('YmdHis')?>";
+		parent.KPI_FORM_DETAIL_IFRAME.location.href = file + "?UPD=1&TR_CODE=" + tr_code + "&TR_CLASS=" + tr_class + "&PROJ_ID=" + proj_id + "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1&getdate=<?=date('YmdHis')?>";
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top"><? $OPTIONAL_TITLE="".(($HIDE_HEADER)?"ส่วนที่ 2. รายละเอียดค่าใช้จ่าย":"") ; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_plan_form_detail_2.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+	  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+	  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+	  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PROJ_ID" value="<?=$PROJ_ID?>">
+          <input type="hidden" name="TR_CODE" value="<?=$TR_CODE?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+          <input type="hidden" name="TR_CLASS" value="<?=$TR_CLASS?>">
+	  <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+	  <input type="hidden" name="SUBPAGE" value="<?=$SUBPAGE?>">
+  <? if($VIEW || $USER_AUTH){ ?>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" class="label_normal">
+        <tr>
+          <td height="5" colspan="3"></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">แหล่งงบประมาณ</td>
+          <td>หมวดค่าใช้จ่าย</td>
+          <td>จำนวนเงิน</td>
+        </tr>
+        <?
+        $cmd = "SELECT PP_ID, BUDGET_SOURCE, OTHER_PAYMENT , PAY_AMOUNT FROM PER_TRAIN_PROJECT_PAYMENT
+        WHERE PROJ_ID = $PROJ_ID AND TR_CODE = $TR_CODE AND TR_CLASS = $TR_CLASS";
+        $count_page_data = $db_dpis->send_cmd($cmd);
+        while ($data = $db_dpis->get_array()) {
+        	$t_pp_id = $data[PP_ID];
+        	$temp_budget[$t_pp_id][budget] = $data[BUDGET_SOURCE];
+            $temp_budget[$t_pp_id][other] = $data[OTHER_PAYMENT];
+            $temp_budget[$t_pp_id][amount] = $data[PAY_AMOUNT];
+        }
+   		$cmd = "SELECT PP_ID,PP_NAME FROM PER_PROJECT_PAYMENT WHERE PP_ACTIVE = '1' and PP_ID <> 16";
+        $count_page_data = $db_dpis->send_cmd($cmd);
+        while ($data = $db_dpis->get_array()) {
+        	$t_pp_id = $data[PP_ID];
+        ?>
+        <tr>
+          <td width="28%" height="22" align="right"><select name="SOURCE[<?=$data[PP_ID]?>]" id="SOURCE[<?=$data[PP_ID]?>]">
+            <option value="BUDGET" <? if($temp_budget[$t_pp_id][budget] == 'BUDGET') { ?>selected<? } ?>>เงินงบประมาณ</option>
+            <option value="LOCAL_TAX" <? if($temp_budget[$t_pp_id][budget] == 'LOCAL_TAX') { ?>selected<? } ?>>เงินนอกงบประมาณ</option>
+            <option value="PER_DEVELOP_FUND" <? if($temp_budget[$t_pp_id][budget] == 'PER_DEVELOP_FUND') { ?>selected<? } ?>>เงินรายได้</option>
+            <option value="OTHER_BUDGET" <? if($temp_budget[$t_pp_id][budget] == 'OTHER_BUDGET') { ?>selected<? } ?>>เงินอื่นๆ</option>
+          </select></td>
+          <td><?=$data[PP_NAME]?></td>
+          <td><input type="text" name="AMOUNT[<?=$data[PP_ID]?>]" value="<?=$temp_budget[$t_pp_id][amount]?>" style="text-align:right" size="10" class="textbox" onKeyPress="return DigitOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>>
+            <span class="label_alert">&nbsp;&nbsp;</span></td>
+        </tr>
+        <? } ?>
+        <tr>
+          <td height="20" align="right"><select name="SOURCE[16]" id="SOURCE[16]">
+            <option value="BUDGET" <? if($temp_budget[16][budget] == 'BUDGET') { ?>selected<? } ?>>เงินงบประมาณ</option>
+            <option value="LOCAL_TAX" <? if($temp_budget[16][budget] == 'LOCAL_TAX') { ?>selected<? } ?>>เงินนอกงบประมาณ</option>
+            <option value="PER_DEVELOP_FUND" <? if($temp_budget[16][budget] == 'PER_DEVELOP_FUND') { ?>selected<? } ?>>เงินรายได้</option>
+            <option value="OTHER_BUDGET" <? if($temp_budget[16][budget] == 'OTHER_BUDGET') { ?>selected<? } ?>>เงินอื่นๆ</option>
+          </select></td>
+          <td>อื่นๆ ระบุ&nbsp;&nbsp;
+            <input type="text" name="OTHER[16]" value="<?=$temp_budget[16][other]?>" style="width:80%" class="textbox"></td>
+          <td><input type="text" name="AMOUNT[16]" value="<?=$temp_budget[16][amount]?>" style="text-align:right" size="10" class="textbox" onKeyPress="return DigitOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>></td>
+        </tr>
+        <? if($PROJ_ID) { ?>
+        <tr align="center">
+          <td height="25" colspan="3"><input type="button" class="button" name="input" value="กลับไปส่วนหลัก" alt="กลับไปส่วนหลัก" style="width:140" onClick="call_menu_desc('data_plan_form_detail_1.html', '<?=$TR_CLASS?>', '<?=$TR_CODE?>', '<?=$PROJ_ID?>')">
+            <? if ($UPD || $VIEW) { ?>
+            <?	if ($BUTTON_DISPLAY==1) { ?>
+            <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.PG_ID.value='';" class="button" >
+            <? } else { ?>
+            <input name="image22" type="image" onClick="form1.command.value='CANCEL'; form1.PG_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">            &nbsp;&nbsp;&nbsp;
+<?}?>
+            <?if($PAGE_AUTH["edit"]=="Y" && $UPD && $USER_AUTH){?>
+            <?	if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+            <? } else { ?>
+            <input name="image2" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+            &nbsp;&nbsp;&nbsp;
+            <?}?>
+            <?}?>
+            <? } else { ?>
+            <? 	if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+            <? } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+            <?}?>
+            <?if($PAGE_AUTH["add"]=="Y" && $USER_AUTH){?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE ?>">
+            <? } else { ?>
+            <input name="image" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+            <?}?>
+            <?}?>
+            <?}?></td>
+        </tr>
+        <? } ?>
+        <tr>
+          <td height="5" colspan="3"></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  &nbsp;
+  <? } // end if($VIEW || $USER_AUTH) ?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

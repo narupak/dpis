@@ -1,0 +1,1427 @@
+<? 
+	include("../php_scripts/connect_database.php");
+        
+	include("php_scripts/alter_table.php");
+        
+	include("php_scripts/chk_alter_table.php"); /*Release 5.2.1.19*/
+$isCloseOption = 0;  /* 0=ปิด ,1=เปิด */
+
+/*ตรวจสอบเรื่องกาติดตั้ง ความเชี่ยวชาญ*/
+$CNT_SP=0;
+$cmdChk ="  SELECT COUNT(*)AS CNT FROM user_tables WHERE  UPPER(TABLE_NAME) = 'PER_SPECIAL_SKILLMIN' ";
+$db_dpis->send_cmd($cmdChk);
+$dataChk = $db_dpis->get_array();
+if($dataChk[CNT]=="0"){
+    $CNT_SP += 1;
+}else{
+    $CNT_SP += 0;
+}
+
+$cmdChk ="  SELECT COUNT(*)AS CNT FROM user_tables WHERE  UPPER(TABLE_NAME) = 'PER_MAPPING_SKILLMIN' ";
+$db_dpis->send_cmd($cmdChk);
+$dataChk = $db_dpis->get_array();
+if($dataChk[CNT]=="0"){
+    $CNT_SP += 1;
+}else{
+    $CNT_SP += 0;
+}
+
+$cmdChk = "SELECT COUNT(*)AS CNT FROM user_tables WHERE  UPPER(TABLE_NAME) = 'PER_LEVELSKILL'";
+$db_dpis->send_cmd($cmdChk);
+$dataChk = $db_dpis->get_array();
+if($dataChk[CNT]=="0"){
+    $CNT_SP += 1;
+}else{
+    $CNT_SP += 0;
+}
+
+$cmdChk ="  SELECT COUNT(COLUMN_NAME) AS CNT
+            FROM USER_TAB_COLS
+            WHERE  TABLE_NAME = 'PER_SPECIAL_SKILLGRP'
+            AND UPPER(COLUMN_NAME) IN('REF_CODE')";
+            $db_dpis->send_cmd($cmdChk);
+            $dataChk = $db_dpis->get_array();
+if($dataChk[CNT]=="0"){
+    $CNT_SP += 1;
+}else{
+    $CNT_SP += 0;
+}
+
+$cmdChk ="  SELECT COUNT(COLUMN_NAME) AS CNT
+            FROM USER_TAB_COLS
+            WHERE  TABLE_NAME = 'GMIS_GPIS'
+            AND UPPER(COLUMN_NAME) 
+            IN('TEMPMPERSPSKILL1','TEMPSPERSPSKILL1','TEMPSKILLLEVEL1','TEMPPERSPSKILLDES1',
+            'TEMPMPERSPSKILL2','TEMPSPERSPSKILL2','TEMPSKILLLEVEL2','TEMPPERSPSKILLDES2',
+            'TEMPMPERSPSKILL3','TEMPSPERSPSKILL3','TEMPSKILLLEVEL3','TEMPPERSPSKILLDES3')";
+$db_dpis->send_cmd($cmdChk);
+$dataChk = $db_dpis->get_array();
+if($dataChk[CNT]=="0"){
+    $CNT_SP += 1;
+}else{
+    $CNT_SP += 0;
+}
+//$CNT_SP=1;// ลบก่อนส่ง
+$CNT_MENU=0;
+if($CNT_SP=="0"){
+    $sql="SELECT MENU_LABEL FROM BACKOFFICE_MENU_BAR_LV2 WHERE linkto_web ='master_table_special_skillmin.html?table=PER_SPECIAL_SKILLMIN'";
+    $count_menu= $db_dpis->send_cmd($sql);
+    
+    if(!$count_menu){
+        $CNT_MENU+=1;
+    }
+    $sql="SELECT MENU_LABEL FROM BACKOFFICE_MENU_BAR_LV2 WHERE linkto_web ='master_table.html?table=PER_LEVELSKILL'";
+    $count_menu= $db_dpis->send_cmd($sql);
+    
+    if(!$count_menu){
+        $CNT_MENU+=1;
+    }
+}
+//$CNT_MENU=1;// ลบก่อนส่ง
+/**/
+
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script language="JavaScript">
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.search_department_id.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+
+	
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+					form1.search_department_code.value = arrValue[2];
+				} else if (arrValue[7]=="search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<span id="defaultTheme"></span> 
+<body>
+<table  width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+        <tr> 
+          <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+		</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="alter_table.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+&nbsp;
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr class="table_head">
+          <td height="25" colspan="9"\>&nbsp;โปรแกรมปรับเปลี่ยนฐานข้อมูล</td>
+        </tr>
+        <tr>
+                        <td width="100%" colspan="2" align="left">&nbsp;</td>
+        </tr>
+		<? if($BKK_FLAG==1) { ?>
+		<tr>
+          <td width="28%" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+          <td colspan="4">
+		  	<input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:70%" class="textbox" readonly>
+            <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+			<input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_ministry_name.value=''; form1.search_ministry_id.value=''; form1.search_department_name.value=''; form1.search_department_id.value=''; return false;" align="center" alt="ล้างค่า">
+			<? } // end if ?>
+            <input type="hidden" name="search_ministry_id" value="<?=trim($search_ministry_id)?>">          </td>
+		</tr>
+		<tr>
+          <td align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+          <td colspan="4">
+		  	<input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:70%" class="textbox" readonly>
+            <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+			<input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_department_name.value=''; form1.search_department_id.value=''; return false;" align="center" alt="ล้างค่า">
+			<? } // end if ?>
+            <input type="hidden" name="search_department_id" value="<?=trim($search_department_id)?>">          
+            <input type="hidden" name="search_department_code" value="<?=trim($search_department_code)?>">          </td>
+		</tr>
+            <tr>
+              <td height="22" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+              <td colspan="4"><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:70%" class="textbox"  readonly="true">
+                  <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                  <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                  <input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()" >
+                  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+                  <? } // end if ?></td>
+            </tr>
+		<? } ?>
+                <?php /*ปิดตั้งแต่ v.5.1.0.3*/
+                if($isCloseOption==1){
+                ?>
+                      <tr> 
+                        <td width="28%" align="right"><?=$COM_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td colspan="4"><input type="text" name="search_comno" value="<?=$search_comno?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                       </tr>
+               <?php }?>        
+        <tr align="center">
+          <td height="30" colspan="2">
+              
+				<?if($PAGE_AUTH["edit"]=="Y"){?>
+				   <?php
+						 /*Release 5.2.1.42*/
+						$cmdChk = "SELECT count(*) AS CNT FROM PER_CONTROL where CTRL_ALTER = 23";
+						$db_dpis->send_cmd($cmdChk);
+						$dataChk = $db_dpis->get_array();
+						if($dataChk[CNT]=="0"){
+					?>
+						<hr>
+						<input name="Submit21" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ ปรับปรุงข้อมูล ใช่หรือไม่')){form1.command.value='ALTER'; return ProcessUploading();}else{return false;}" value="  ปรับปรุงข้อมูล  ">
+						<br>
+						<font color="red">(กดปุ่มปรับปรุงข้อมูล กรณีที่ติดตั้งระบบใหม่)</font><br><hr><br>
+					<?php } ?>
+                  
+                  <?php
+                  $CNT=0;
+                  $cmdCnt1 ="SELECT COUNT(*) AS CNT1 FROM PER_POSITIONHIS WHERE OT_NAME1 IS NULL";
+                    $db_dpis->send_cmd($cmdCnt1);
+                    $dataCnt = $db_dpis->get_array();
+                    $CNT+=$dataCnt[CNT1];
+
+                    $cmdCnt2 ="SELECT COUNT(*) AS CNT2 FROM PER_POSITIONHIS WHERE OT_NAME2 IS NULL";
+                    $db_dpis->send_cmd($cmdCnt2);
+                    $dataCnt = $db_dpis->get_array();
+                    $CNT+=$dataCnt[CNT2];
+                    
+                    $cmdCnt3 ="SELECT COUNT(*) AS CNT3 FROM PER_POSITIONHIS WHERE OT_NAME3 IS NULL";
+                    $db_dpis->send_cmd($cmdCnt3);
+                    $dataCnt = $db_dpis->get_array();
+                    $CNT+=$dataCnt[CNT3];
+                    $CNT;
+                    if($CNT>0){
+                  ?>
+                        <input name="Submit21" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ ปรังปรุงค่าสังกัดของประวัติการดำรงตำแหน่ง ใช่หรือไม่\nการดำเนินการอาจจะใช่เวลานานกรณีที่มีข้อมูลประวัติการดำรงตำแหน่งปริมาณมาก')){form1.command.value='UPDATEOT_NAME'; return ProcessUploading();}else{return false;}" value="  ปรังปรุงค่าสังกัดของประวัติการดำรงตำแหน่ง  ">
+                  <?
+                    }
+                    if($CNT_SP>0){
+                  ?>
+                       <input name="Submit21" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ ปรังปรุงโคร้งสร้างความเชี่ยวชาญพิเศษ ใช่หรือไม่')){form1.command.value='CREATE_SPECIAL_SKILL'; return ProcessUploading();}else{return false;}" value="  ปรังปรุงโครงสร้างความเชี่ยวชาญพิเศษ  "> 
+                  <?php  
+                   }
+                   if($CNT_MENU>0){
+                   ?>
+                        <input name="Submit21" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ เพิ่มเมนูM0505 และ M0506 ใช่หรือไม่')){form1.command.value='UPDATE_MENU_SPECIAL_SKILL'; return ProcessUploading();}else{return false;}" value="  เพิ่มเมนูM0505 และ M0506  "> 
+                   <?php
+                   }
+                  echo "<br>".$strAlert;
+                  
+                  }?>  
+                  
+		<? if($BKK_FLAG!=1 && $ISCS_FLAG!=1) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){
+                    if($isCloseOption==1){
+                  ?>
+                  <input name="Submit21" type="submit" class="button" onClick="form1.command.value='MAP_EMP'; return ProcessUploading();" value="จัดระบบตำแหน่งลูกจ้างประจำ">
+                  <?
+                    }
+                  }?>          
+		<? } ?>
+		<? if($BKK_FLAG==1) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit21" type="submit" class="button" onClick="form1.command.value='DEPARTMENT'; return ProcessUploading();" value="ปรับปรุงโครงสร้าง"><?}?>          
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit21" type="submit" class="button" onClick="form1.command.value='DOCNO'; return ProcessUploading();" value="ใส่คำว่า ที่ ในคำสั่ง"><?}?>          
+		<? } ?>
+		<? if($BKK_FLAG!=1 && $ISCS_FLAG!=1) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){
+                    if($isCloseOption==1){
+                  ?>
+                  <input name="Submit21" type="submit" class="button" onClick="form1.command.value='EMPSER'; return ProcessUploading();" value="พนักงานราชการ">
+                  <? }
+                  }?>         
+		<? } ?>
+		<!--? if($BKK_FLAG==1) { ?-->
+              <?if($PAGE_AUTH["edit"]=="Y"){
+                if($isCloseOption==1){
+              ?>
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='SALARYHIS'; return ProcessUploading();" value="ปรับปรุงประวัติเงินเดือน">
+              <? }
+              }?>        
+		<!--? } ?-->
+		<? if ($SESS_DEPARTMENT_NAME=="สำนักพระราชวัง" || $SESS_DEPARTMENT_NAME=="สำนักราชเลขาธิการ") { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit23" type="submit" class="button" onClick="form1.command.value='MAP_PER'; return ProcessUploading();" value="จัดคนลง"><?}?>
+      <?}?>
+		<? if ($SESS_DEPARTMENT_NAME=="สำนักงานศาลยุติธรรม" || $SESS_DEPARTMENT_NAME=="สำนักพระราชวัง" || $SESS_MINISTRY_NAME=="กรุงเทพมหานคร") { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit23" type="submit" class="button" onClick="form1.command.value='LAYER_UP'; return ProcessUploading();" value="เลื่อนเงินเดือนใหม่ตาม ว5/2552"><?}?>          
+      <?}?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){
+                  if($isCloseOption==1){
+                  ?>
+                  <input name="Submit23" type="submit" class="button" onClick="form1.command.value='MENU'; return ProcessUploading();" value="เพิ่มเมนูใหม่">
+                  <? }
+                  }?>          
+		  	<?if(strtoupper($dpisdb_user)=="EXCISE"){?>  
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit24" type="submit" class="button" onClick="form1.command.value='TRAIN'; return ProcessUploading();" value="ระบบงานฝึกอบรม"><?}?>          
+			  <?}?>
+		  	<?if($SCOMPETENCY[$PER_ID_DEPARTMENT_ID]=="Y" || $BKK_FLAG==1){?>  
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit24" type="submit" class="button" onClick="form1.command.value='COMPETENCY'; return ProcessUploading();" value="ระบบการประเมินสมรรถนะ"><?}?>         
+			  <?}?>
+		  	<?if($BKK_FLAG==1){?>  
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATE_POS_EMP_BKK'; return ProcessUploading();" value="เลขที่ตำแหน่งลูกจ้างประจำ">
+			  <?}?>
+		<? if($CTRL_TYPE==1) { ?>
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='ISCS'; return ProcessUploading();" value="ISCS">
+		  <?}?>
+		<? if($BKK_FLAG==1) { ?>
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATESAL'; return ProcessUploading();" value="ปรับปรุงเงินเดือน">
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATEPOS'; return ProcessUploading();" value="ปรับปรุงตำแหน่ง">
+		  	<?if($SESS_DEPARTMENT_NAME=="กรมการปกครอง"){?>  
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATESAL_KP7'; return ProcessUploading();" value="ปรับปรุงเงินเดือน (<?=$KP7_TITLE;?>)">
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATEPOS_KP7'; return ProcessUploading();" value="ปรับปรุงตำแหน่ง (<?=$KP7_TITLE;?>)">
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='OLDSALARY'; return ProcessUploading();" value="เงินเดือนเดิม">
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATEMOV'; return ProcessUploading();" value="ปรับปรุงความเคลื่อนไหว">
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='UPDATEPAY'; return ProcessUploading();" value="ปรับปรุงเลขถือจ่าย">
+			  <?}?>
+			  <?}?>
+		  	<?if($SESS_DEPARTMENT_NAME=="สำนักงาน ก.พ." || $BKK_FLAG==1 || $ISCS_FLAG==1 || $MFA_FLAG==1 || $DOH_FLAG==1){
+                        if($isCloseOption==1){
+                        ?>  
+                            <input name="Submit32" type="submit" class="button" onClick="form1.command.value='JETHRO'; return ProcessUploading();" value="Jethro">
+			  <? }
+                          }?>
+		  	<?if($SESS_DEPARTMENT_NAME=="สำนักงาน ก.พ." || $BKK_FLAG==1 || $ISCS_FLAG==1 || $MFA_FLAG==1){
+                        if($isCloseOption==1){
+                        ?>  
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='EAF'; return ProcessUploading();" value="EAF">
+			  <? }
+                          }?>
+                          <?php if($isCloseOption==1){?>
+                          <input name="Submit32" type="submit" class="button" onClick="form1.command.value='HELP'; return ProcessUploading();" value="Help">
+                          <?php }?>
+		<? if($BKK_FLAG!=1 && $ISCS_FLAG!=1) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){
+                  if($isCloseOption==1){
+                  ?>
+                  <input name="Submit23" type="submit" class="button" onClick="form1.command.value='LAYER_NEW'; return ProcessUploading();" value="บัญชีเงินเดือนลูกจ้างประจำใหม่">
+                  <? }
+                  }?>
+		  <? } ?>
+              <?if($PAGE_AUTH["edit"]=="Y"){ 
+              if($isCloseOption==1){
+              ?>
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='SALARYHIS_MIDPOINT'; return ProcessUploading();" value="ปรับปรุงประวัติการรับเงินเดือน (ฐานในการคำนวณ)">
+              <? }
+              }?>
+              <?if($PAGE_AUTH["edit"]=="Y"){
+              if($isCloseOption==1){
+              ?>
+              <input name="Submit322" type="submit" class="button" onClick="form1.command.value='P0304'; return ProcessUploading();" value="ปรับปรุง P0304">
+              <? }
+              }?>
+              <?if($SESS_DEPARTMENT_NAME=="สำนักงานอัยการสูงสุด"){?>
+              <?if($PAGE_AUTH["edit"]=="Y"){?>
+              <input name="Submit322" type="submit" class="button" onClick="form1.command.value='P0311'; return ProcessUploading();" value="ปรับปรุง P0311">
+              <?}?>
+              <? } ?>
+              <?if($SESS_DEPARTMENT_NAME=="กรมพัฒนาธุรกิจการค้า"){?>
+              <?if($PAGE_AUTH["edit"]=="Y"){?>
+              <input name="Submit32" type="submit" class="button" onClick="form1.command.value='P0311_POSITIONHIS'; return ProcessUploading();" value="ปรับปรุงประวัติการดำรงตำแหน่งจาก P0311"><?}?>        
+		  <? } ?>
+             <?php if($isCloseOption==1){ ?>     
+             <input name="SubmitP0502" type="submit" class="button" onClick="form1.command.value='P0502_PER_COMMAND'; return ProcessUploading();" value="ปรับปรุง P0502"> 
+             <?php }?>
+          <!--td height="30">
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit24" type="submit" class="button" onClick="form1.command.value='E_HR'; return ProcessUploading();" value="E-HR"><?}?>          </td-->          
+          <?php
+          /*Release 5.2.1.19 Begin*/
+            $cmdChk ="  SELECT DATA_SCALE
+                      FROM USER_TAB_COLS 
+                      WHERE TABLE_NAME = 'PER_KPI' AND 
+                    UPPER(COLUMN_NAME)IN('KPI_TARGET_LEVEL1','KPI_TARGET_LEVEL2','KPI_TARGET_LEVEL3','KPI_TARGET_LEVEL4','KPI_TARGET_LEVEL5')";
+            $countChk = $db_dpis->send_cmd($cmdChk);
+            $ChkAlert_PER_KPI_Release_5_2_1_19=0;
+            if($countChk){
+                while($dataAlter = $db_dpis->get_array()){
+                    $COL_DATA_SCALE=$dataAlter[DATA_SCALE];
+                    if($COL_DATA_SCALE==0){
+                        $ChkAlert_PER_KPI_Release_5_2_1_19=1;
+                    }
+                }
+            }
+            if($ChkAlert_PER_KPI_Release_5_2_1_19==1){
+          ?>
+          <hr>
+          <input name="SubmitK02_52119" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ ปรับปรุงโครงสร้างเมนู K02 ค่าเป้าหมาย(เป้าหมาย 1 - 5)ในรูปแบบทศนิยม ใช่หรือไม่\nการดำเนินการอาจจะใช่เวลานานกรณีที่มีข้อมูลปริมาณมาก')){form1.command.value='K02_PER_KPI_ALERT'; return ProcessUploading();}else{return false;}"  value="ปรับปรุงโครงสร้างเมนู K02 ค่าเป้าหมาย(เป้าหมาย 1 - 5)ในรูปแบบทศนิยม">
+          <br>
+          <?php
+            }
+          /*Release 5.2.1.19 End*/
+          ?>
+         
+          <?php
+          $ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20=0;
+          $ChkAlert_TA_UNKNOWN_PIC_Release_5_2_1_20=0;
+          if($IS_OPEN_TIMEATT_ES=="OPEN"){
+          
+          	
+
+                $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE,TABLE_NAME
+                            FROM USER_TAB_COLS 
+                            WHERE TABLE_NAME = 'PER_TIME_ATTENDANCE' ";
+                $countChk = $db_dpis2->send_cmd($cmdChk);                
+                $isTable=1;
+                $srtAlert='';
+                if($countChk==0){
+                    $isTable=0;
+                }
+                
+                if($isTable==1){
+                    $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE
+                                    FROM USER_TAB_COLS 
+                                    WHERE TABLE_NAME = 'PER_TIME_ATTENDANCE' AND UPPER(COLUMN_NAME)IN('RECORD_BY')";
+                    $countChk = $db_dpis2->send_cmd($cmdChk);
+                    if($countChk==0){
+                        $ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20=1;
+                    }
+                }
+                
+                 ////////////////////////
+            $cmdChk ="  SELECT COUNT(*)AS CNT FROM user_tables WHERE  UPPER(TABLE_NAME) = 'TA_UNKNOWN_PIC' ";
+            $db_dpis2->send_cmd($cmdChk);
+            $dataChk = $db_dpis2->get_array();
+            if($dataChk[CNT]=="0"){
+                    $ChkAlert_TA_UNKNOWN_PIC_Release_5_2_1_20=1;
+            }else{
+                 
+                 $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE,TABLE_NAME
+                            FROM USER_TAB_COLS 
+                            WHERE TABLE_NAME = 'TA_UNKNOWN_PIC' ";
+                $countChk = $db_dpis2->send_cmd($cmdChk);                
+                $isTable_pic=1;
+                $srtAlert='';
+                if($countChk==0){
+                    $isTable_pic=0;
+                }
+                
+                if($isTable_pic==1){
+                    $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE
+                                    FROM USER_TAB_COLS 
+                                    WHERE TABLE_NAME = 'TA_UNKNOWN_PIC' AND UPPER(COLUMN_NAME)IN('PER_ID','UPDATE_USER','UPDATE_DATE')";
+                    $countChk = $db_dpis2->send_cmd($cmdChk);
+                    if($countChk==0){
+                        $ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20=1;
+                    }
+                }
+                
+                ///////////////// เมนู 
+                $cmdChk ="  SELECT LINKTO_WEB
+                                    FROM BACKOFFICE_MENU_BAR_LV2
+                                    WHERE LINKTO_WEB = 'es_importfilecsv.html' ";
+                $countChk = $db_dpis2->send_cmd($cmdChk);
+                if($countChk==0){
+                    $ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20=1;
+                }
+                
+                
+             }
+            
+            //echo $ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20."|".$ChkAlert_TA_UNKNOWN_PIC_Release_5_2_1_20;
+        }
+        
+            if($ChkAlert_PER_TIME_ATTENDANCE_Release_5_2_1_20==1 || $ChkAlert_TA_UNKNOWN_PIC_Release_5_2_1_20==1){
+          ?>
+          <hr>
+          <input name="SubmitT0304_52120" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการ ปรับปรุงโครงสร้างเมนู T0304,T0207 ใช่หรือไม่')){form1.command.value='T0304_PER_TIME_ATTENDANCE'; return ProcessUploading();}else{return false;}"  value="ปรับปรุงโครงสร้างตารางลงเวลา(T0304,T0207)">
+          <?php
+            }
+          ?>
+          <br>
+        <?
+             /*Release 5.2.1.21*/
+            $cmdChk = "SELECT count(*)AS CNT FROM user_tables WHERE  TABLE_NAME = 'PER_BEHAVIOR'";
+            $db_dpis->send_cmd($cmdChk);
+            $dataChk = $db_dpis->get_array();
+            if($dataChk[CNT]=="0"){
+            //if(1==0){
+        ?>
+          <hr>
+          <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการดำเนินการเพิ่มโครงสร้างตารางพฤติกรรม และ สร้างเมนูพฤติกรรม ใช่หรือไม่')){form1.command.value='Behavior_PER_BEHAVIOR'; return ProcessUploading();}else{return false;}"  value="เพิ่มโครงสร้างตารางพฤติกรรม และ สร้างเมนูพฤติกรรม">
+        <br>
+          <? }
+          /*Release 5.2.1.7*/
+            $cmdChk = "SELECT menu_label FROM BACKOFFICE_MENU_BAR_LV2 WHERE linkto_web ='es_t0205_ot_person_list.html' ";
+            $count_menu = $db_dpis->send_cmd($cmdChk);
+            if($count_menu){
+                $data_menu = $db_dpis->get_array();
+                $data_menu = array_change_key_case($data_menu, CASE_LOWER);
+                $menu_labeldb = $data_menu[menu_label];
+                if($menu_labeldb=='T0203 กำหนดบุคคลที่ทำ OT'){
+          ?>
+          <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการเปลี่ยนชื่อเมนูจาก T0203 กำหนดบุคคลที่ทำ OT เป็น T0203 จัดการข้อมูล OT ใช่หรือไม่ ')){form1.command.value='UPDATE_LABELMENU_T0203'; return ProcessUploading();}else{return false;}"  value="ปรับปรุงชื่อเมนู T0203 กำหนดบุคคลที่ทำ OT เป็น T0203 จัดการข้อมูล OT">
+          <?php
+                }
+            }
+            $file_tableName='tableNameSTD_list.json';
+            $file_indexName='indexNameSTD_list.json';
+            if($IS_OPEN_TIMEATT_ES=="OPEN"){
+                $file_tableName='tableName_list.json';
+                $file_indexName='indexName_list.json';
+            } 
+            //if(is_file("../php_scripts/".$file_tableName)){
+            if(1==0){
+          ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการตรวจสอบรายชื่อตารางในฐานข้อมูล ใช่หรือไม่ ')){form1.command.value='CHECK_LIST_TABLE'; return ProcessUploading();}else{return false;}"  value="ตรวจสอบรายชื่อตารางในฐานข้อมูล">
+          <?php
+            echo $strMSGBOX;
+            }
+          ?>
+          <?php
+          //if(is_file("../php_scripts/".$file_indexName)){
+          if(1==0){
+          ?>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการตรวจสอบรายชื่อ index ในตารางฐานข้อมูล ใช่หรือไม่ ')){form1.command.value='CHECK_LIST_INDEX'; return ProcessUploading();}else{return false;}"  value="ตรวจสอบรายชื่อ INDEX ในตารางฐานข้อมูล">
+            <br>
+          <?php
+          echo $strMSGBOX_INDEX;
+          }
+          ?>
+          <?php
+          if(1==0){
+          ?>
+          <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างไฟล์ Json ของรายชื่อตาราง ใช่หรือไม่ ')){form1.command.value='GEN_JSON_TABLENAME'; return ProcessUploading();}else{return false;}"  value="สร้างไฟล์ Json ของรายชื่อตาราง">
+          <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างไฟล์ Json ของรายชื่อ index ใช่หรือไม่ ')){form1.command.value='GEN_JSON_INDEXNAME'; return ProcessUploading();}else{return false;}"  value="สร้างไฟล์ Json ของรายชื่อ index">
+          <?php
+          }
+          ?>
+          <!-- P0402 ตรวจสอบผู้สมควร/ไม่สมควรได้เลื่อนขั้นเงินเดือน -->
+          <?php 
+          $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_POS_LEVEL_SALARY' AND UPPER(COLUMN_NAME) IN('GROUP_SALARY')";
+          $db_dpis2->send_cmd($cmdChk1);
+          $dataChk2 = $db_dpis2->get_array();
+          
+          $cmdChk ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_POS_LEVEL_SALARY'AND UPPER(COLUMN_NAME)IN('UP_SALARY')";
+          $db_dpis2->send_cmd($cmdChk);
+          $dataChk = $db_dpis2->get_array();
+          if($dataChk[CNT]=="0" || $dataChk2[CNT]=="0"){
+          ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0402  ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0402'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0402 ตรวจสอบผู้สมควร/ไม่สมควรได้เลื่อนขั้นเงินเดือน">
+            <br>
+            <font color="red">(P0402 ตรวจสอบผู้สมควร/ไม่สมควรได้เลื่อนขั้นเงินเดือน หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+          <?php
+          }
+          ?>
+          <!-- ระบบลงเวลา -->
+          <?php
+          if($IS_OPEN_TIMEATT_ES=="OPEN"){
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME='TA_PER_OT' AND UPPER(COLUMN_NAME) IN('OT_STATUS')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME='TA_PER_OT' AND UPPER(COLUMN_NAME) IN('START_TIME_BFW')";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+
+            $cmdChk3 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME='TA_PER_OT' AND UPPER(COLUMN_NAME) IN('END_TIME_BFW')";
+            $db_dpis2->send_cmd($cmdChk3);
+            $dataChk3 = $db_dpis2->get_array();
+            
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0" || $dataChk3[CNT]=="0"){
+          ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน T0203  ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_T0203'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน T0203 จัดการข้อมูล OT">
+            <br>
+            <font color="red">(T0203 จัดการข้อมูล OT หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+          <?php
+            }
+          }
+          ?>
+          <!-- K08 การประเมิน KPI รายบุคคล	 -->
+          <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('SCORE_STATUS_DATE')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('ACCEPT_DATE')";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+            
+            $cmdChk3 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('DATE_REVIEW1')";
+            $db_dpis2->send_cmd($cmdChk3);
+            $dataChk3 = $db_dpis2->get_array();
+            
+            $cmdChk4 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS  WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('DATE_REVIEW2')";
+            $db_dpis2->send_cmd($cmdChk4);
+            $dataChk4 = $db_dpis2->get_array();
+            
+            $cmdChk5 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('OTH_DESC')";
+            $db_dpis2->send_cmd($cmdChk5);
+            $dataChk5 = $db_dpis2->get_array();
+            
+            $cmdChk6 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)IN('DATE_REVIEW0')";
+            $db_dpis2->send_cmd($cmdChk6);
+            $dataChk6 = $db_dpis2->get_array();
+            
+            $cmdChk7 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)  IN('ACCEPT_FLAG')";
+            $db_dpis2->send_cmd($cmdChk7);
+            $dataChk7 = $db_dpis2->get_array();
+            
+            $cmdChk8 ="SELECT DATA_PRECISION , DATA_SCALE FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)  IN('SUM_COMPETENCE')";
+            $db_dpis2->send_cmd($cmdChk8);
+            $dataChk8 = $db_dpis2->get_array();
+            
+            $cmdChk9 ="SELECT DATA_PRECISION , DATA_SCALE FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_KPI_FORM' AND UPPER(COLUMN_NAME)  IN('SCORE_COMPETENCE')";
+            $db_dpis2->send_cmd($cmdChk9);
+            $dataChk9 = $db_dpis2->get_array();
+            
+            $cmdChk10 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_COMPETENCE' AND UPPER(COLUMN_NAME) IN('DEF_WEIGHT')";
+            $db_dpis2->send_cmd($cmdChk10);
+            $dataChk10 = $db_dpis2->get_array();
+            
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0" || $dataChk3[CNT]=="0" || $dataChk4[CNT]=="0" || $dataChk5[CNT]=="0" || 
+                $dataChk6[CNT]=="0" || $dataChk7[CNT]=="0" || $dataChk8[CNT]=="0" || $dataChk9[CNT]=="0" || $dataChk10[CNT]=="0"){
+          ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน K08 การประเมิน KPI รายบุคคล  ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_K08'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน K08 การประเมิน KPI รายบุคคล">
+            <br>
+            <font color="red">(K08 การประเมิน KPI รายบุคคล หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php 
+            }
+            ?>
+            
+            <!-- P0102 ประวัติการดำรงตำแหน่ง	  -->
+            <?php
+            $cmdChk1 ="  SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_POSITIONHIS' AND UPPER(COLUMN_NAME) IN('POH_ASS_MINISTRY')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0102 ประวัติการดำรงตำแหน่ง  ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0102'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0102 ประวัติการดำรงตำแหน่ง">
+            <br>
+            <font color="red">(P0102 ประวัติการดำรงตำแหน่ง หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- P0108 ความเชี่ยวชาญพิเศษ  -->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_SPECIAL_SKILL' AND UPPER(COLUMN_NAME) IN('LEVELSKILL_CODE')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_SPECIAL_SKILL' AND UPPER(COLUMN_NAME) IN('SPS_FLAG')";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0108 ความเชี่ยวชาญพิเศษ ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0108'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0108 ความเชี่ยวชาญพิเศษ">
+            <br>
+            <font color="red">(P0108 ความเชี่ยวชาญพิเศษ หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- P0601 การลา  -->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_ABSENT'
+                      AND UPPER(COLUMN_NAME) IN('OABS_STARTDATE','OABS_STARTPERIOD','OABS_ENDDATE', 'OABS_ENDPERIOD','OAPPROVE_PER_ID','OAPPROVE_DATE',
+                                                 'OAUDIT_PER_ID','OAUDIT_DATE','OREVIEW1_PER_ID', 'OREVIEW1_DATE','OREVIEW2_PER_ID','OREVIEW2_DATE')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_ABSENT' AND UPPER(COLUMN_NAME) IN('ORI_ABS_STARTDATE','ORI_ABS_STARTPERIOD', 'ORI_ABS_ENDDATE','ORI_ABS_ENDPERIOD')";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+            
+            $cmdChk3 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_ABSENT' AND UPPER(COLUMN_NAME) IN('ORI_ABS_DAY','OABS_DAY')";
+            $db_dpis2->send_cmd($cmdChk3);
+            $dataChk3 = $db_dpis2->get_array();
+            
+            $cmdChk4 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_ABSENT' AND UPPER(COLUMN_NAME) IN('POS_STATUS','POS_APPROVE')";
+            $db_dpis2->send_cmd($cmdChk4);
+            $dataChk4 = $db_dpis2->get_array();
+            
+            $cmdChk5 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_ABSENT' AND UPPER(COLUMN_NAME) IN('REVIEW1_NOTE','REVIEW2_NOTE','AUDIT_NOTE','APPROVE_NOTE')";
+            $db_dpis2->send_cmd($cmdChk5);
+            $dataChk5 = $db_dpis2->get_array();
+            
+            $cmdChk6 ="select count(*) as CNT from SYSTEM_CONFIG WHERE UPPER(CONFIG_NAME)= 'ORG_SHORT_NAME'";
+            $db_dpis2->send_cmd($cmdChk6);
+            $dataChk6 = $db_dpis2->get_array();
+        
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0" || $dataChk3[CNT]=="0" || $dataChk4[CNT]=="0" || $dataChk5[CNT]=="0" || $dataChk6[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0601 การลา ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0601'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0601 การลา">
+            <br>
+            <font color="red">(P0601 การลา หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- P1502 บัญชีแนบท้ายคำสั่งมอบหมายงาน/ปฏิบัติราชการแทน  -->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_ACTINGHIS' AND UPPER( COLUMN_NAME) IN('ACTH_ORG6_ASSIGN','ACTH_ORG7_ASSIGN','ACTH_ORG8_ASSIGN')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P1502 บัญชีแนบท้ายคำสั่งมอบหมายงาน/ปฏิบัติราชการแทน ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P1502'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P1502 บัญชีแนบท้ายคำสั่งมอบหมายงาน/ปฏิบัติราชการแทน">
+            <br>
+            <font color="red">(P1502 บัญชีแนบท้ายคำสั่งมอบหมายงาน/ปฏิบัติราชการแทน หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            <!-- A06 สร้างบัญชีแนบท้ายคำสั่งเลื่อนเงินเดือน ,A05 การบริหารวงเงินงบประมาณเลื่อนเงินเดือน	 -->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_LAYER' AND UPPER(COLUMN_NAME) IN('LAYER_SALARY_TEMPUP')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน A06 สร้างบัญชีแนบท้ายคำสั่งเลื่อนเงินเดือน ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_A06'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน A06 สร้างบัญชีแนบท้ายคำสั่งเลื่อนเงินเดือน">
+            <br>
+            <font color="red">(A06 สร้างบัญชีแนบท้ายคำสั่งเลื่อนเงินเดือน,A05 การบริหารวงเงินงบประมาณเลื่อนเงินเดือน หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- ปรับปรุงโครงส้รางคำสั่งต่างๆ-->
+            <?php
+            $cmdModify = "SELECT COLUMN_NAME, DATA_TYPE ,DATA_LENGTH
+                      FROM USER_TAB_COLUMNS
+                      WHERE TABLE_NAME = 'PER_COMDTL'
+                        AND UPPER(COLUMN_NAME) IN('CMD_ORG_ASS3','CMD_ORG_ASS4','CMD_ORG_ASS5',
+                                                'CMD_ORG_ASS6','CMD_ORG_ASS7','CMD_ORG_ASS8',
+                                                'CMD_ORG1','CMD_ORG2','CMD_ORG3','CMD_ORG4',
+                                                'CMD_ORG5','CMD_ORG6','CMD_ORG7','CMD_ORG8') ";
+            $db_dpis2->send_cmd($cmdModify);
+            $isModify_A=1;
+            while ($dataModify = $db_dpis2->get_array_array()) {
+                $data_length = $dataModify[2];
+                if($data_length==100){
+                   $isModify_A=0;
+                }
+            }
+            
+            $cmdModify = "SELECT COLUMN_NAME, DATA_TYPE ,DATA_LENGTH
+                      FROM USER_TAB_COLUMNS
+                      WHERE TABLE_NAME = 'PER_POSITIONHIS'
+                        AND UPPER(COLUMN_NAME) IN('POH_ASS_ORG3','POH_ASS_ORG4','POH_ASS_ORG5',
+                                                  'POH_ASS_DEPARTMENT','OT_NAME1','OT_NAME2',
+                                                  'OT_NAME3','POH_ASS_ORG','POH_ASS_ORG1','POH_ASS_ORG2') ";
+            $db_dpis2->send_cmd($cmdModify);
+            $isModify_B=1;
+            while ($dataModify = $db_dpis2->get_array_array()) {
+                $data_length = $dataModify[2];
+                if($data_length==100){
+                    $isModify_B=0;
+                }
+            }
+            
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_COMDTL' AND UPPER(COLUMN_NAME) IN('CL_NAME')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_COMDTL' AND UPPER(COLUMN_NAME) IN('CMD_DATE4')";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+            
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0" || $isModify_A=="0" || $isModify_B=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน ปรับปรุงโครงสร้างคำสั่งต่างๆ ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_COMMAND'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน ปรับปรุงโครงสร้างคำสั่งต่างๆ">
+            <br>
+            <font color="red">(ปรับปรุงโครงสร้างคำสั่งต่างๆ หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- M1101 สมรรถนะ	-->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_COMPETENCE' AND UPPER(COLUMN_NAME) IN('DEF_WEIGHT')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน M1101 สมรรถนะ ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_M1101'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน M1101 สมรรถนะ">
+            <br>
+            <font color="red">(M1101 สมรรถนะ หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- ปรับปรุงโครงสร้างข้อมูลหลัก ความเชี่ยวชาญ,บัญชีเงินเดือน,ตำแหน่ง -->
+            <?php
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_SPECIAL_SKILLGRP' AND UPPER(COLUMN_NAME)  IN('REF_CODE')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            
+            $cmdChk2 ="SELECT count(*)AS CNT FROM user_tables WHERE  TABLE_NAME = 'PER_LEVELSKILL'";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+            
+            $cmdChk3 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_LAYER' AND UPPER(COLUMN_NAME) IN('LAYER_SALARY_TEMPUP')";
+            $db_dpis2->send_cmd($cmdChk3);
+            $dataChk3 = $db_dpis2->get_array();
+            
+            $cmdChk4 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_LAYER_NEW' AND UPPER(COLUMN_NAME) IN('LAYER_SALARY_TEMPUP')";
+            $db_dpis2->send_cmd($cmdChk4);
+            $dataChk4 = $db_dpis2->get_array();
+            
+            $cmdChk5 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_POSITION' AND UPPER(COLUMN_NAME)  IN('FLAG_LEVEL')";
+            $db_dpis2->send_cmd($cmdChk5);
+            $dataChk5 = $db_dpis2->get_array();
+            
+            $cmdChk6 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_POSITION' AND UPPER(COLUMN_NAME)  IN('FLAG_LEVEL')";
+            $db_dpis2->send_cmd($cmdChk6);
+            $dataChk6 = $db_dpis2->get_array();
+            
+            $cmdChk7 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_SPECIAL_SKILL' AND UPPER(COLUMN_NAME)  IN('SPS_FLAG')";
+            $db_dpis2->send_cmd($cmdChk7);
+            $dataChk7 = $db_dpis2->get_array();
+            
+            if($dataChk1[CNT]=="0" || $dataChk2[CNT]=="0" || $dataChk3[CNT]=="0"|| $dataChk4[CNT]=="0"|| $dataChk5[CNT]=="0" || $dataChk6[CNT]=="0" || $dataChk7[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน ข้อมูลหลัก ความเชี่ยวชาญ,บัญชีเงินเดือน,ตำแหน่ง ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_MASTER'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน ข้อมูลหลัก ความเชี่ยวชาญ,บัญชีเงินเดือน,ตำแหน่ง">
+            <br>
+            <font color="red">(ปรับปรุงโครงสร้างข้อมูลหลัก ความเชี่ยวชาญ,บัญชีเงินเดือน,ตำแหน่ง หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            <!-- C15 ผู้มีหน้าที่จ่ายเงิน-->
+            <?php 
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_SIGN' AND UPPER(COLUMN_NAME)  IN('SIGN_ACTING')";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+            if($dataChk1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน C15 ผู้มีหน้าที่จ่ายเงิน ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_C15'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน C15 ผู้มีหน้าที่จ่ายเงิน">
+            <br>
+            <font color="red">(ปรับปรุงโครงสร้างข้อมูลหลัก C15 ผู้มีหน้าที่จ่ายเงิน หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+             <!-- P0701 ข้อมูลการสอบข้อเท็จจริง	-->
+            <?php 
+            $cmdChk1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_INVEST1'";
+            $db_dpis2->send_cmd($cmdChk1);
+            $dataChk1 = $db_dpis2->get_array();
+			  
+			$cmdChk1_1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_INVEST1DTL'";
+            $db_dpis2->send_cmd($cmdChk1_1);
+            $dataChk1_1 = $db_dpis2->get_array();  
+            if($dataChk1[CNT]=="0" || $dataChk1_1[CNT] =="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0701 ข้อมูลการสอบข้อเท็จจริง ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0701'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0701 ข้อมูลการสอบข้อเท็จจริง">
+            <br>
+            <font color="red">(ปรับปรุงโครงสร้างข้อมูลหลัก P0701 ข้อมูลการสอบข้อเท็จจริง หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- P0702 ข้อมูลการสอบทางวินัย	-->
+            <?php 
+            $cmdChk2 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_INVEST2' ";
+            $db_dpis2->send_cmd($cmdChk2);
+            $dataChk2 = $db_dpis2->get_array();
+			
+			$cmdChk2_1 ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE  TABLE_NAME = 'PER_INVEST2DTL' ";
+            $db_dpis2->send_cmd($cmdChk2_1);
+            $dataChk2_1 = $db_dpis2->get_array();  
+            if($dataChk2[CNT]=="0" || $dataChk2_1[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0702 ข้อมูลการสอบทางวินัย ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0702'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0702 ข้อมูลการสอบทางวินัย">
+            <br>
+            <font color="red">(ปรับปรุงโครงสร้างข้อมูลหลัก P0702 ข้อมูลการสอบทางวินัย หากไม่ทำการปรับปรุงหน้างานนี้จะส่งผลต่อการทำงานไม่สมบูรณ์)</font>
+            <?php
+            }
+            ?>
+            
+            <!-- S0203 ตำแหน่งพนักงานราชการ  -->
+            <?php
+            $cmdChkModify ="SELECT CHAR_LENGTH FROM USER_TAB_COLS  WHERE TABLE_NAME = 'PER_POS_EMPSER' AND  UPPER(COLUMN_NAME) IN ('POEMS_SKILL')";
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+            if($dataModify[CHAR_LENGTH]!='2000'){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน S0203 ตำแหน่งพนักงานราชการ ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_S0203'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน S0203 ตำแหน่งพนักงานราชการ">
+            <br>
+            <font color="red">(S0203 ตำแหน่งพนักงานราชการ กดเพื่อปรับปรุงคอลัมน์ ทักษะประสบการณ์ ให้สามารถกรอกข้อมูลได้ 2000 ตัวอักษร หากไม่กดสามารถกรอกได้ 255 ตัวอักษร)</font>
+            <?php
+            }
+            ?>
+            <!-- p0101 ข้อมูลทั่วไป  -->
+            <?php
+            $cmdChkModify ="SELECT COLUMN_NAME, DATA_TYPE ,DATA_LENGTH
+                     FROM USER_TAB_COLUMNS
+                     WHERE TABLE_NAME = 'PER_PERSONAL'
+                     AND UPPER(COLUMN_NAME)= 'PER_POS_ORGMGT'";
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+            if($dataModify[DATA_LENGTH]!='2000'){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างฐานข้อมูลของหน้างาน P0101 ข้อมูลบุคคล ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_PER_POS_ORGMGT'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างฐานข้อมูล หน้างาน P0101 ข้อมูลบุคคล">
+            <br>
+            <font color="red">(P0101 ข้อมูลบุคคล กดเพื่อปรับปรุงคอลัมน์ หมายเหตุตำแหน่ง ให้สามารถกรอกข้อมูลได้ 2000 ตัวอักษร หากไม่กดสามารถกรอกได้ 255 ตัวอักษร)</font>
+            <?php
+            }
+            ?>
+             <!-- ทดสอบ -->
+            <?php
+            $cmdChkModify ="  SELECT count(LINKTO_WEB) as CNT
+                            FROM BACKOFFICE_MENU_BAR_LV2
+                            WHERE LINKTO_WEB = 'rpt_R0090033.html' ";;
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitR0903 "type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู R0903 รายงานการประเมินสมรรถนะรายบุคคล ใช่หรือไม่ ')){form1.command.value='GEN_MENU_R0903'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู R0903 รายงานการประเมินสมรรถนะรายบุคคล">
+            <br>
+            <font color="red">(สร้างเมนู R0903 รายงานการประเมินสมรรถนะรายบุคคล)</font>
+            <?php
+            }
+            ?>
+            <?php
+            $cmdChkModify ="  SELECT count(LINKTO_WEB) as CNT
+                            FROM BACKOFFICE_MENU_BAR_LV2
+                            WHERE LINKTO_WEB = 'user_log_lastaccess.html' ";
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitC0710 "type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู C0710 บันทึกการเข้าใช้งานระบบ ใช่หรือไม่ ')){form1.command.value='GEN_MENU_C0710'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู C0710 บันทึกการเข้าใช้งานระบบ">
+            <br>
+            <font color="red">(สร้างเมนู C0710 บันทึกการเข้าใช้งานระบบ **เมื่อทำการสร้างเสร็จแล้วให้ไปกำหนดสิทธิการใช้งานที่ C02กลุ่มผู้ใช้งาน)</font>
+            <?php
+            }
+            ?>
+              
+            <?php
+				if($db_type == "oci8"){
+                    $cmdChkModify =" SELECT COLUMN_NAME, DATA_TYPE ,DATA_LENGTH
+                                     FROM USER_TAB_COLUMNS
+                                     WHERE TABLE_NAME = 'USER_DETAIL'
+                                     AND UPPER(COLUMN_NAME)= 'USER_FLAG'";
+                    $db_dpis2->send_cmd($cmdChkModify);
+                    $dataModify = $db_dpis2->get_array();
+				}elseif ($db_type == "mysql"){
+					$cmdChkModify="SELECT user_flag as COLUMN_NAME FROM user_detail"; 
+					$db -> send_cmd($cmdChkModify);
+                    $dataModify = $db->get_array();
+				}      
+                //
+              
+            if($dataModify[COLUMN_NAME]==""){
+            ?>
+            <hr>
+            <input name="Submit_user_detail "type="submit" class="button" onClick="if(confirm('คุณต้องการสร้าง Flag สถานะการใช้งาน ใช่หรือไม่ ')){form1.command.value='GEN_Flag_user'; return ProcessUploading();}else{return false;}"  value="สร้าง Flag สถานะการใช้งาน ">
+            <br>
+              <?="DPISDB:$DPISDB==db_type:$db_type"?>
+              
+              <br>
+            <font color="red">(สร้าง Flag สถานะการใช้งาน)</font>
+            <?php
+            }
+            ?>
+            <?php
+            $SQL ="WITH STU_PER_ORG AS (
+                                SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH,DATA_PRECISION,DATA_SCALE
+                                FROM USER_TAB_COLUMNS
+                                WHERE TABLE_NAME = 'PER_ORG' ORDER BY COLUMN_ID
+                              ), STU_PER_ORG_ASS AS (
+                                SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH,DATA_PRECISION,DATA_SCALE
+                                FROM USER_TAB_COLUMNS
+                                WHERE TABLE_NAME = 'PER_ORG_ASS'  ORDER BY COLUMN_ID
+                              )
+                              SELECT COUNT(*) AS CNT
+                              FROM STU_PER_ORG O 
+                              LEFT JOIN STU_PER_ORG_ASS OAS ON(O.COLUMN_NAME=OAS.COLUMN_NAME)
+                              WHERE OAS.TABLE_NAME IS NULL";
+            $db_dpis2->send_cmd($SQL);
+            $dataAlter = $db_dpis2->get_array();
+            if($dataAlter[CNT]>0){
+            ?>
+            <hr>
+            <input name="Submit_ALTERORG"type="submit" class="button" onClick="if(confirm('คุณต้องการปรับโครงสร้างตามมอบหมายให้เท่ากับโครงสร้างตามกฏหมาย ใช่หรือไม่ ')){form1.command.value='ALTERORGASS'; return ProcessUploading();}else{return false;}"  value="ปรับโครงสร้างตามมอบหมายให้เท่ากับโครงสร้างตามกฏหมาย">
+            <br><font color="red">ตรวจพบโครงสร้างหน่วยงานตามมอบหมายไม่สมบูรณ์</font>
+            <?php
+            }
+            ?>
+			
+		
+		 <!-- เพิ่มสิทธิพิเศษวันลาสะสม จว. ชายแดนใต  -->
+            <?php
+            $cmdChkModify ="select config_name from system_config where config_name = 'EXTRA_ABSEN_DAY'";
+            $count_data = $db_dpis2->send_cmd($cmdChkModify);
+           
+            if($count_data==0){
+            ?>
+            <hr>
+            <input name="SubmitBehavior" type="submit" class="button" onClick="if(confirm('คุณต้องการเพิ่มค่า config ได้รับสิทธิพิเศษวันลาสะสม จังหวัดชายแดนใต้  ใช่หรือไม่ ')){form1.command.value='SET_CONFIG_NAME'; return ProcessUploading();}else{return false;}"  value="ได้รับสิทธิพิเศษวันลาสะสม จังหวัดชายแดนใต้ ">
+            <br>
+            <font color="red">(ได้รับสิทธิพิเศษวันลาสะสม จังหวัดชายแดนใต้  )</font>
+            <?php
+            }
+            ?>
+			<!-- end เพิ่มสิทธิพิเศษวันลาสะสม จว. ชายแดนใต  -->
+			
+			<!-- generate menu -->
+            <?php
+            $cmdChkModify ="  SELECT count(LINKTO_WEB) as CNT
+                            FROM BACKOFFICE_MENU_BAR_LV2
+                            WHERE LINKTO_WEB = 'rpt_R004094.html' ";
+			if($db_type == "oci8"){
+				$db_dpis2->send_cmd($cmdChkModify);
+				$dataModify = $db_dpis2->get_array();
+			}elseif ($db_type == "mysql"){
+				$db->send_cmd($cmdChkModify);
+				$dataModify = $db->get_array();
+			}
+            
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitR0494" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู R0494 ใบอนุญาตประกอบวิชาชีพ ใช่หรือไม่ ')){form1.command.value='GEN_MENU_R0494'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู R0494 ใบอนุญาตประกอบวิชาชีพ">
+            <br>
+            <font color="red">(สร้างเมนู R0494 ใบอนุญาตประกอบวิชาชีพ)</font>
+            <?php
+            }
+            ?>
+                <!-- end generate menu   -->
+
+		<!-- generate menu P1121-->
+            <?php
+			$cmdChkModify ="  	SELECT count(LINKTO_WEB) as CNT
+									FROM BACKOFFICE_MENU_BAR_LV2
+									WHERE LINKTO_WEB = 'export_data_dochis_to_seis.html' ";
+			if($db_type == "oci8"){
+				$db_dpis2->send_cmd($cmdChkModify);
+				$dataModify = $db_dpis2->get_array();
+			}elseif ($db_type == "mysql"){
+				$db->send_cmd($cmdChkModify);
+				$dataModify = $db->get_array();
+			}   
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitP1121" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู P1121 ถ่ายโอนข้อมูลประวัติการดำรงตำแหน่ง (SEIS) ใช่หรือไม่ ')){form1.command.value='GEN_MENU_P1121'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู P1121 ถ่ายโอนข้อมูลประวัติการดำรงตำแหน่ง (SEIS)">
+            <br>
+            <font color="red">(สร้างเมนู P1121 ถ่ายโอนข้อมูลประวัติการดำรงตำแหน่ง (SEIS))</font>
+            <?php
+            }
+            ?>
+			<!-- end generate menu P1121  -->
+                        
+            <!-- generate menu P1122-->
+            <?php
+			$cmdChkModify ="  	SELECT count(LINKTO_WEB) as CNT
+									FROM BACKOFFICE_MENU_BAR_LV2
+									WHERE LINKTO_WEB = 'seis_convert_texttodb.html' ";
+			if($db_type == "oci8"){
+				$db_dpis2->send_cmd($cmdChkModify);
+				$dataModify = $db_dpis2->get_array();
+			}elseif ($db_type == "mysql"){
+				$db->send_cmd($cmdChkModify);
+				$dataModify = $db->get_array();
+			}
+			
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitP1122" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู P1122 รับโอนข้อมูล (SEIS) ใช่หรือไม่ ')){form1.command.value='GEN_MENU_P1122'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู P1122 รับโอนข้อมูล (SEIS)">
+            <br>
+            <font color="red">(สร้างเมนู P1122 รับโอนข้อมูล (SEIS))</font>
+            <?php
+            }
+            ?>
+			<!-- end generate menu P1122  -->            
+                        
+                        <!-- generate  P0601-->
+            <?php
+            $cmdChkModify ="  SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME='PER_ABSENT' AND UPPER(COLUMN_NAME) IN('ORI_APPROVE_DATE','ORI_APPROVE_PER_ID','CANCEL_DATE','CANCEL_BY') ";
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitP0601NEW" type="submit" class="button" onClick="if(confirm('คุณต้องการปรับปรุงฐานข้อมูล P0601 การลา ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_P0601_NEW'; return ProcessUploading();}else{return false;}"  value="ปรับปรุงฐานข้อมูล P0601 การลา">
+            <br>
+            <font color="red">(ปรับปรุงฐานข้อมูล P0601 การลา)</font>
+            <?php
+            }
+            ?>
+            <!-- end generate  P0601  --> 
+            <!-- generate  P0601-->
+			
+            <?php
+				if (version_compare(PHP_VERSION, '5.0.0', '>')) {
+					
+				
+					$cmdChkModify ="    SELECT COUNT(a.CONFIG_NAME) AS CNT  from SYSTEM_CONFIG a 
+										WHERE  a.CONFIG_NAME = 'GMIS_START_TIME_PROCESS' 
+										   OR  a.CONFIG_NAME = 'GMIS_END_TIME_PROCESS'
+										   OR  a.CONFIG_NAME = 'GMIS_STATUS_PROCESS' ";
+					if($db_type == "oci8"){
+						$db_dpis2->send_cmd($cmdChkModify);
+						$dataModify = $db_dpis2->get_array();
+					}elseif ($db_type == "mysql"){
+						$db->send_cmd($cmdChkModify);
+						$dataModify = $db->get_array();
+					}
+					if($dataModify[CNT]==0){
+            ?>
+                    <hr>
+                    <input name="SubmitGMIS" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้าง ปุ่มประมวลผลข้าราชการรายงาน GMIS ใช่หรือไม่ ')){form1.command.value='ALTER_TABLE_PROCESS_NEW_GMIS'; return ProcessUploading();}else{return false;}"  value="สร้าง ปุ่มประมวลผลข้าราชการรายงาน GMIS">
+                    <br>
+                    <font color="red">(สร้าง ปุ่มประมวลผลข้าราชการรายงาน GMIS)</font><br>
+                    <font color="red"> <?php if(count($return) > 0){ echo "Process not success. ";var_dump($return); }else{ echo ""; } ?></font>
+                    
+            <?php } 			
+			} ?>
+            <!-- end generate P0601  --> 
+			<!-- generate menu P1122-->
+            <?php
+			      $cmdChkModify ="  	SELECT count(LINKTO_WEB) as CNT
+									FROM BACKOFFICE_MENU_BAR_LV2
+									WHERE LINKTO_WEB = 'personal_quest.html' ";
+			if($db_type == "oci8"){
+				$db_dpis2->send_cmd($cmdChkModify);
+				$dataModify = $db_dpis2->get_array();
+			}elseif ($db_type == "mysql"){
+				$db->send_cmd($cmdChkModify);
+				$dataModify = $db->get_array();
+			}
+			
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู  P0147 สอบถามข้อมูลบุคคล ใช่หรือไม่ ')){form1.command.value='GEN_MENU_P0147'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู P0147 สอบถามข้อมูลบุคคล">
+            <br>
+            <font color="red">(สร้างเมนู P0147 สอบถามข้อมูลบุคคล )</font>
+            <?php
+            }
+            ?>
+            
+            <!-- generate menu R0620 -->
+            <?php
+			$cmdChkModify ="  	SELECT count(LINKTO_WEB) as CNT
+									FROM BACKOFFICE_MENU_BAR_LV2
+									WHERE LINKTO_WEB = 'rpt_R006020.html' ";
+			if($db_type == "oci8"){
+				$db_dpis2->send_cmd($cmdChkModify);
+				$dataModify = $db_dpis2->get_array();
+			}elseif ($db_type == "mysql"){
+				$db->send_cmd($cmdChkModify);
+				$dataModify = $db->get_array();
+			}
+			
+            if($dataModify[CNT]==0){
+            ?>
+            <hr>
+            <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู  R0620 เงินเพิ่มพิเศษ ใช่หรือไม่ ')){form1.command.value='GEN_R0620'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู R0620 เงินเพิ่มพิเศษ">
+            <br>
+            <font color="red">(สร้างเมนู R0620 เงินเพิ่มพิเศษ )</font>
+            <?php
+            }
+            ?>
+
+
+        <?php
+           // if($IS_OPEN_TIMEATT_ES=="OPEN"){
+              $cmdChkModify ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'TA_REQUESTTIME' AND UPPER(COLUMN_NAME) IN('POS_STATUS','POS_APPROVE')";
+                $db_dpis2->send_cmd($cmdChkModify);
+                $dataModify = $db_dpis2->get_array();
+
+              if($dataModify[CNT]==0){
+        ?> 
+                <hr>
+              <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างช่องบันทึก เงื่อนไขของผู้อนุญาต ใช่หรือไม่ ')){form1.command.value='GEN_POS_APPROVE'; return ProcessUploading();}else{return false;}"  value="สร้างช่องบันทึก เงื่อนไขของผู้อนุญาต">
+              <br>
+              <font color="red">(สร้างช่องบันทึก เงื่อนไขของผู้อนุญาต T0204 บันทึกคำร้องไม่ได้ลงเวลา)</font>
+         <?php
+            }
+         // }
+         ?>  
+		 
+		  <?php 
+            
+                $cmdChkModify ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'PER_PUNISHMENT' AND UPPER(COLUMN_NAME) IN('PUN_VIOLATEDATE_END')";
+                $db_dpis2->send_cmd($cmdChkModify);
+                $dataModify = $db_dpis2->get_array();
+
+              if($dataModify[CNT]==0){
+        ?> 
+               <hr> 
+              <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างช่องบันทึก วันที่กระทำผิด ถึงวันที่ ใช่หรือไม่ ')){form1.command.value='GEN_PUN_VIOLATEDATE_END'; return ProcessUploading();}else{return false;}"  value="สร้างช่องบันทึก วันที่กระทำผิด ถึงวันที่ ">
+              <br>
+              <font color="red">(สร้างช่องบันทึก วันที่กระทำผิด ถึงวันที่)</font>
+         <?php } ?>
+     
+         <?php 
+            
+            $cmdChkModify ="SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME = 'TA_REQUESTTIME' AND UPPER(COLUMN_NAME) IN('REQ_SPEC','REQ_SPEC_NOTE')";
+            //echo $db_type;
+            if($db_type == "oci8"){
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+          }elseif ($db_type == "mysql"){
+            $db->send_cmd($cmdChkModify);
+            $dataModify = $db->get_array();
+          }
+          if($dataModify[CNT]==0){
+        ?> 
+           <hr> 
+          <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างช่องติก Work from Home ใช่หรือไม่ ')){form1.command.value='GEN_REQ_SPEC'; return ProcessUploading();}else{return false;}"  value="สร้างช่องติก  Work from Home T0204 ">
+          <br>
+          <font color="red">(สร้างช่องติก  Work from Home T0204)</font>
+         <?php } ?>
+
+            <?php
+                 /*Release 5.2.1.42*/
+                $cmdChk = "SELECT count(*)AS CNT FROM user_tables WHERE  TABLE_NAME = 'PER_WORKHOME'";
+                $db_dpis->send_cmd($cmdChk);
+                $dataChk = $db_dpis->get_array();
+                if($dataChk[CNT]=="0"){
+            ?>
+            <hr>
+            <input name="SubmitWorkhome" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างเมนู K17 แบบการมอบหมายงาน ใช่หรือไม่')){form1.command.value='GEN_MENU_K17'; return ProcessUploading();}else{return false;}"  value="สร้างเมนู K17 แบบการมอบหมายงาน">
+            <br>
+            <font color="red">(สร้างเมนู K17 แบบการมอบหมายงาน)</font>
+            <?php } ?>
+
+
+           <?php 
+            $cmdChkModify ="SELECT count(*)AS CNT  FROM tabs where table_name ='TA_REQUESTTIME'";
+            // echo $db_type;
+            if($db_type == "oci8"){
+            $db_dpis2->send_cmd($cmdChkModify);
+            $dataModify = $db_dpis2->get_array();
+          }elseif ($db_type == "mysql"){
+            $db->send_cmd($cmdChkModify);
+            $dataModify = $db->get_array();
+          }
+
+          $cmdChkModify1 ="SELECT count(*)AS CNT FROM BACKOFFICE_MENU_BAR_LV2 where MENU_LABEL ='P0605 บันทึกคำร้องไม่ได้ลงเวลา'";
+          if($db_type == "oci8"){
+            $db_dpis2->send_cmd($cmdChkModify1);
+            $datachk1 = $db_dpis2->get_array();
+          }elseif ($db_type == "mysql"){
+            $db->send_cmd($cmdChkModify1);
+            $datachk1 = $db->get_array();
+          }
+
+          $cmdChkModify2 ="SELECT count(*)AS CNT FROM BACKOFFICE_MENU_BAR_LV2 where MENU_LABEL ='T0204 บันทึกคำร้องไม่ได้ลงเวลา'";
+          if($db_type == "oci8"){
+            $db_dpis2->send_cmd($cmdChkModify2);
+            $datachk2 = $db_dpis2->get_array();
+          }elseif ($db_type == "mysql"){
+            $db->send_cmd($cmdChkModify2);
+            $datachk2 = $db->get_array();
+          }
+          $cmdChkModify2 ="SELECT count(*) as CNT_SYS FROM SYSTEM_CONFIG where CONFIG_NAME='IS_OPEN_TIMEATT_ES'";
+          if($db_type == "oci8"){
+            $db_dpis2->send_cmd($cmdChkModify2);
+            $datachk3 = $db_dpis2->get_array();
+          }elseif ($db_type == "mysql"){
+            $db->send_cmd($cmdChkModify2);
+            $datachk3 = $db->get_array();
+          }
+          if($datachk3[CNT_SYS]!=0){
+            $IS_OPEN_TIMEATT_ES = $IS_OPEN_TIMEATT_ES;
+          }else{
+            $IS_OPEN_TIMEATT_ES = "CLOSE";
+          }
+           if($dataModify[CNT]==0 || ($datachk1[CNT]==0 && $datachk2[CNT]==0) && $IS_OPEN_TIMEATT_ES!="OPEN"){    
+            ?> 
+        
+           <hr> 
+          <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างช่องติก Work from Home ใช่หรือไม่ ')){form1.command.value='GEN_Work_from_Home'; return ProcessUploading();}else{return false;}"  value="สร้างหน้างาน  Work from Home ">
+          <br>
+          <font color="red">(สร้างหน้างาน  Work from Home)</font>
+         <?php } ?>
+            
+         <?php 
+
+              $cmd = " SELECT CONFIG_VALUE FROM SYSTEM_CONFIG  where config_name = 'P_ESIGN_ATT' ";
+              if($db_type == "oci8"){
+              $db_dpis2->send_cmd($cmd);
+              $datachk1 = $db_dpis2->get_array();
+              }elseif ($db_type == "mysql"){
+                $db->send_cmd($cmd);
+                $datachk1 = $db->get_array();
+              }
+              $P_ESIGN_ATT = $datachk1[CONFIG_VALUE];
+              //echo $P_ESIGN_ATT;
+              if($P_ESIGN_ATT == "" || $P_ESIGN_ATT=="N"){
+            ?>
+          <hr> 
+          <input name="SubmitP147" type="submit" class="button" onClick="if(confirm('คุณต้องการสร้างการแสดงลายเซ็นอิเล็คทรอนิกส์ในรายงาน ใช่หรือไม่ ')){form1.command.value='GEN_HAND'; return ProcessUploading();}else{return false;}"  value="แสดงลายเซ็นอิเล็คทรอนิกส์ในรายงาน เมนูP0605">
+          <br>
+          <font color="red">(แสดงลายเซ็นอิเล็คทรอนิกส์ในรายงาน เมนูP0605)</font>
+          <?}?>
+          </td>
+
+        </tr>
+      </table>
+      </td>
+    </tr>
+  </table>
+&nbsp;
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+<tr>
+	<td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+	<tr height="21">
+		<td align="center" colspan="2">
+		<? if ($command == "ALTER") : ?>
+		<?=$MENU_TITLE_LV2?> เรียบร้อยแล้ว
+		<? elseif ($command == "MAP_EMP") : ?>
+		จัดระบบตำแหน่งลูกจ้างประจำเรียบร้อยแล้ว
+		<? elseif ($command == "EMPSER") : ?>
+		พนักงานราชการเรียบร้อยแล้ว
+		<? elseif ($command == "LAYER_UP") : ?>
+		เลื่อนเงินเดือนใหม่ตาม ว5/2552 เรียบร้อยแล้ว
+		<? elseif ($command == "MENU") : ?>
+		เพิ่มเมนูใหม่ เรียบร้อยแล้ว
+		<? elseif ($command == "LAYER_NEW") : ?>
+		ปรับเป็น เงินเดือนใหม่ เรียบร้อยแล้ว
+		<? elseif ($command == "E_HR") : ?>
+		เพิ่มระบบเครื่องบันทึกเวลาอิเล็กทรอนิกส์ เรียบร้อยแล้ว
+		<? endif; ?>
+		</td>
+	</tr>
+	</table></td>
+</tr>
+</table>
+        </form>	
+		</td>
+	</tr>
+</table>&nbsp;
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<!-- Layer for uploading -->
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+
+var hasFlash = false;
+try {
+    hasFlash = Boolean(new ActiveXObject('ShockwaveFlash.ShockwaveFlash'));
+} catch(exception) {
+    hasFlash = ('undefined' != typeof navigator.mimeTypes['application/x-shockwave-flash']);
+}
+if(hasFlash==false){
+    var height=document.body.clientHeight;
+    var width=document.body.clientWidth;
+    document.write('<div style="position:absolute;top: 0;bottom: 0;width:'+width+';height:'+height+'; background-color: #d0cfcc;opacity: 0.5;filter: Alpha(opacity=80); visibility:hidden; display:none;" id="obj_uploading">');
+    document.write('    <img style="text-align: center;position: absolute;margin-left: auto;margin-right: auto;top: 50%;left: 50%;" src="images/ProcessingDPIS.gif" alt="DPIS Processing..." >');
+    document.write('    <br><img style="text-align: center;position: absolute;margin-left: auto;margin-right: auto;top: 55%;left: 45%;" src="images/wait.png" alt="DPIS Processing..." >');
+    //document.write('    <br><label style="text-align: center;position: absolute;margin-left: auto;margin-right: auto;top: 55%;left: 48%;">กำลังดำเนินการ...</label>');
+    document.write('</div>');
+}else{
+    document.write('<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">');
+    document.write('    <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">');
+    document.write('        <param name="movie" value="images/uploading.swf">');
+    document.write('        <param name="quality" value="high">');
+    document.write('        <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>');
+    document.write('    </object>');
+    document.write('</div>');
+}
+function ProcessUploading() {
+        document.getElementById("obj_uploading").style.display = "block";
+        if(hasFlash==true){
+            document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+            document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+        }
+        document.getElementById("obj_uploading").style.visibility = "visible";
+        return true;
+}
+</script>
+<!-- Layer for uploading -->
+</html>

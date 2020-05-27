@@ -1,0 +1,237 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_pos_mgtsalaryhis_form.php");
+	include("php_scripts/load_per_control.php");
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(pmh_id , ex_name){
+		if(confirm("ต้องการลบประวัติการรับเงินประจำตำแหน่งนี้ ใช่หรือไม่ [ " + ex_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.PMH_ID.value = pmh_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_search_extratype () {	
+		parameter = "";
+	    call_openDialog("search_extratype.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ประเภทเงินเพิ่มพิเศษ");		
+	}
+
+	function check(f) {
+		if(f.PMH_EFFECTIVEDATE.value=="") {
+			alert("กรุณาระบุวันที่มีผลบังคับใช้");
+			f.PMH_EFFECTIVEDATE.focus();
+			return false;
+		} else if(f.PMH_AMT.value=="") {
+			alert("กรุณาระบุจำนวนเงิน");
+			f.PMH_AMT.focus();
+			return false;
+		} else if(f.EX_NAME.value=="") {
+			alert("กรุณาระบุประเภทเงินประจำตำแหน่ง");
+			f.EX_NAME.focus();
+			return false;
+		} else  
+			return true;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_extratype") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.EX_CODE.value = arrValue[0];
+				form1.EX_NAME.value = arrValue[1];
+				form1.PMH_AMT.value = arrValue[2];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_pos_mgtsalaryhis_form.html" enctype="multipart/form-data" onSubmit="return check(this);"
+		onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="PMH_ID" value="<?=$PMH_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":$ADDTAB_TITLE?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="15%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;วันที่มีผลบังคับใช้&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PMH_EFFECTIVEDATE" id="PMH_EFFECTIVEDATE" value="<?=$PMH_EFFECTIVEDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PMH_EFFECTIVEDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td>&nbsp;&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('PMH_EFFECTIVEDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td width="15%" align="right"><?=$TO_DATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+                    <input type="text" name="PMH_ENDDATE" id="PMH_ENDDATE" value="<?=$PMH_ENDDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PMH_ENDDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>		</td>
+                  <td>&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('PMH_ENDDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ประเภทเงินประจำตำแหน่ง&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="EX_NAME" value="<?=$EX_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="EX_CODE" value="<?=$EX_CODE?>">
+					<?  //list_per_extratype("ex_code1", $EX_CODE1); ?>				  </td>
+                  <td width="20%">&nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทเงินประจำตำแหน่ง" onClick="call_search_extratype('EX_CODE', 'EX_NAME');">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.EX_NAME.value=''; form1.EX_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;จำนวนเงิน&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+				  	<input type="text" name="PMH_AMT" value="<?=$PMH_AMT?>" style="width:100%" class="textbox" onKeyPress="return NumOnly();" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>				  </td>
+                  <td width="20%" align="center">&nbsp;</td>
+                </tr>
+              </table></td>
+            </tr>
+	     <tr height="8"><td colspan="4"></td></tr>
+            <tr>
+              <td height="22" align="right"><?=$REMARK_TITLE?>&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="PMH_REMARK" value="<?=$PMH_REMARK?>" style="width:90%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+            </tr>	          
+            <tr>
+              <td width="20%" align="right">&nbsp;</td>
+              <td><input name="PMH_ACTIVE" type="radio" value="1" <?=($PMH_ACTIVE==1 || !isset($PMH_ACTIVE))?"checked":""?>> ใช้งาน
+			  		  <input name="PMH_ACTIVE" type="radio" value="0" <?=($PMH_ACTIVE==0 && isset($PMH_ACTIVE))?"checked":""?>> ยกเลิก</td>
+            </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:80%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25">
+		  		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?> 
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_edit" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+				<? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="parent.refresh_opener('C<::>0');" class="button" >
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="parent.refresh_opener('C<::>0');" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_add" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+			  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+                  <? } echo "&nbsp; &nbsp;";?>
+              <?}?>
+          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table> 
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

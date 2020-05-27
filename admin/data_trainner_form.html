@@ -1,0 +1,255 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_trainner_form.php"); 
+	
+	$TN_INOUT_ORG = (isset($TN_INOUT_ORG))? $TN_INOUT_ORG : 1;
+	$TN_STATUS = (isset($TN_STATUS))?  $TN_STATUS : 1;
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+
+	function confirm_delete(TRAINNER_ID , TRAINNER_NAME){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + TRAINNER_NAME + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.TRAINNER_ID.value = TRAINNER_ID;
+			form1.submit();
+		} // end if
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function check_require_field(){
+		if(form1.TRAINNER_NAME.value.trim()==""){
+			alert("กรุณาใส่ชื่อ");
+			form1.TRAINNER_NAME.focus();
+			return false;
+		} // end if
+
+		return true;
+	}
+	
+	function show_hide(val) {
+		var sec = document.getElementById('posdate_sec');
+		if (val == 2) { 	// out
+			sec.style.display='block';
+		} else {
+			sec.style.display='none';
+			form1.TN_POSDATE.value = "";
+		}
+		//sec.style.display=sec.style.display=='none'?'block':'none';
+	} 
+	
+	function change_prename(PN_CODE) {
+		var objSelect = document.getElementsByName("PN_CODE");
+		var PN_NAME = objSelect[0].options[objSelect[0].selectedIndex].text;
+		if(PN_NAME == "นาย") form1.TN_GENDER[0].checked = true;
+		else if(PN_NAME == "นาง" || PN_NAME.trim() == "นางสาว") form1.TN_GENDER[1].checked = true;
+	} 
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="102%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if($MAIN_VIEW){ ?>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลบุคคล":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>	</tr>
+	<? } // end if ?>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_trainner_form.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="TRAINNER_ID" value="<?=$TRAINNER_ID?>">
+&nbsp;
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="25" class="table_head">&nbsp;&nbsp;ข้อมูลวิทยากร</td>
+        </tr>
+        <tr>
+          <td height="5" colspan="4"></td>
+        </tr>
+	 <? if($err_text){ ?>
+        <tr>
+          <td height="22" colspan="4" align="center" class="label_alert"><?=$err_text?></td>
+        </tr>
+        <tr>
+          <td height="5" colspan="4"></td>
+        </tr>
+	 <? } // end if ?>
+        <tr>
+          <td><table width="100%" border="0" class="label_normal">
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="70%">
+                <input type="text" name="TRAINNER_NAME" value="<?=$TRAINNER_NAME?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td width="20%" height="22" align="right"><?=$SEX_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="30%">
+                <input name="TN_GENDER" type="radio" value="1" <?=($TN_GENDER==1)?"checked":""?>>&nbsp;ชาย
+                &nbsp;&nbsp;&nbsp;
+                <input name="TN_GENDER" type="radio" value="2" <?=($TN_GENDER==2)?"checked":""?>>&nbsp;หญิง			  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+                <input type="radio" name="TN_INOUT_ORG" value="0" <?=($TN_INOUT_ORG==0)?"checked":""?>> 
+                ในองค์กร
+                <input type="radio" name="TN_INOUT_ORG" value="1" <?=($TN_INOUT_ORG==1)?"checked":""?>> 
+                นอกองค์กร           			    </td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$BIRTHDATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+                <? if($TN_BIRTHDATE1){ $TN_BIRTHDATE=$TN_BIRTHDATE1; }  ?>
+                <input name="TN_BIRTHDATE" type="text" class="textbox" id="TN_BIRTHDATE" value="<?=$TN_BIRTHDATE?>" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TN_BIRTHDATE,this.value)" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>>
+                <input type="hidden" name="TN_BIRTHDATE1" id="TN_BIRTHDATE1" value="<?=$TN_BIRTHDATE ?>">
+                <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                <input type="reset" class="button" onClick="return showCalendar('TN_BIRTHDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+                <? endif; ?>			  </td>
+            </tr>
+	     <? if (!$RPT_N) { ?>
+            <? } ?>
+		<tr>
+		  <td height="5" align="right">ประวัติการศึกษา 1&nbsp;:&nbsp;</td>
+		  <td colspan="3"><input type="text" name="TN_EDU_HIS1" value="<?=$TN_EDU_HIS1?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+		  </tr>
+            <tr>
+              <td align="right" height="5">ประวัติการศึกษา 2&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="TN_EDU_HIS2" value="<?=$TN_EDU_HIS2?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td align="right" height="5">ประวัติการศึกษา 3&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="TN_EDU_HIS3" value="<?=$TN_EDU_HIS3?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="5" align="right">ตำแหน่งปัจจุบัน&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="TN_POSITION" value="<?=$TN_POSITION?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="5" align="right">สถานที่ทำงาน&nbsp;:&nbsp;</td>
+              <td><input type="text" name="TN_WORK_PLACE" value="<?=$TN_WORK_PLACE?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="5" align="right">โทรศัพท์ที่ทำงาน&nbsp;:&nbsp;</td>
+              <td><input type="text" name="TN_WORK_TEL" value="<?=$TN_WORK_TEL?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="5" align="right">ประสบการณ์การทำงาน&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="TN_WORK_EXPERIENCE" value="<?=$TN_WORK_EXPERIENCE?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="5" align="right">ประวัติการอบรมดูงาน&nbsp;:&nbsp;</td>
+              <td colspan="3"><input type="text" name="TN_TRAIN_EXPERIENCE" value="<?=$TN_TRAIN_EXPERIENCE?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td align="right" height="5">ที่อยู่&nbsp;:&nbsp;</td>
+		<td><input type="text" name="TN_ADDRESS" value="<?=$TN_ADDRESS?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+		<td height="5" align="right">โทรศัพท์&nbsp;:&nbsp;</td>
+		<td><input type="text" name="TN_ADDRESS_TEL" value="<?=$TN_ADDRESS_TEL?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td align="right" height="5">ผลงานด้านวิชาการ&nbsp;:&nbsp;</td>
+		<td colspan="3"><input type="text" name="TN_TECHNOLOGY_HIS" value="<?=$TN_TECHNOLOGY_HIS?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+            </tr>	          
+	     <tr>
+	     	<td height="22" align="right">หัวข้อบรรยายที่ถนัด 1&nbsp;:&nbsp;</td>
+	     	<td colspan="3"><input type="text" name="TN_TRAIN_SKILL1" value="<?=$TN_TRAIN_SKILL1?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+              </tr>	     
+	     <tr>
+	     	<td height="22" align="right">หัวข้อบรรยายที่ถนัด 2&nbsp;:&nbsp;</td>
+	     	<td colspan="3"><input type="text" name="TN_TRAIN_SKILL2" value="<?=$TN_TRAIN_SKILL2?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+              </tr>	     
+	     <tr height="22">
+	     	<td align="right">หัวข้อบรรยายที่ถนัด 3&nbsp;:&nbsp;</td>
+	     	<td colspan="3"><input type="text" name="TN_TRAIN_SKILL3" value="<?=$TN_TRAIN_SKILL3?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+		 </tr>	     	     
+	     <tr height="22">
+	       <td align="right">หน่วยงานที่เคยไปบรรยาย&nbsp;:&nbsp;</td>
+	       <td colspan="3"><input type="text" name="TN_DEPT_TRAIN" value="<?=$TN_DEPT_TRAIN?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+	       </tr>
+	     <tr height="22">
+	     	<td align="right">ความสามารถพิเศษ&nbsp;:&nbsp;</td>
+		<td colspan="3"><input type="text" name="TN_SPEC_ABILITY" value="<?=$TN_SPEC_ABILITY?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+	     </tr>
+	     <tr height="22">
+	     	<td align="right">งานอดิเรก&nbsp;:&nbsp;</td>
+		<td colspan="3"><input type="text" name="TN_HOBBY" value="<?=$TN_HOBBY?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+	     </tr>
+          </table></td>
+        </tr>
+		<? if(!$MAIN_VIEW){ ?>
+        <tr align="center">
+          <td height="30">
+<? if ($TRAINNER_ID) { ?>
+              <? if ($UPD || $UPD1) { ?>
+			  <input type="hidden" name="UPD1" value="<? if($UPD1){ echo $UPD1; }else{ echo $UPD; } ?>">
+              <?if($PAGE_AUTH["edit"]=="Y"){?><?	if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>"><? } else { ?>
+            		 <input name="image" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">&nbsp;&nbsp;&nbsp;<?}?>
+			  <input type="hidden" name="PAGE_AUTH['edit']" value="<?=$PAGE_AUTH['edit'] ?>"><?}?> 
+      		  <?if($PAGE_AUTH["del"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="button" class="button" onClick="confirm_delete(<?=$TRAINNER_ID?> , '<?="$TRAINNER_NAME $TN_SURNAME"?>');" value="<?=$DEL_TITLE?>">
+			  <?  } else { ?>
+              <img src="images/delete.gif" alt="<?=$DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete(<?=$TRAINNER_ID?> , '<?="$TRAINNER_NAME $TN_SURNAME"?>');">
+              <? } echo "&nbsp; &nbsp;";?>
+              <input type="hidden" name="PAGE_AUTH['del']" value="<?=$PAGE_AUTH['del'] ?>">
+			  <?}?> 
+	<? } 		
+} else { ?>
+      		  <?	if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+      		  <? } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+              <?}?> 
+		  <?if($PAGE_AUTH["add"]=="Y"){?>
+		  <?	if ($BUTTON_DISPLAY==1) { ?>
+		  <input name="Submit2" type="submit" class="button" onClick="if(check_require_field()){ form1.command.value='ADD'; }else{ return false; }" value="<?=$ADD_TITLE?>">
+		  <?  } else { ?>
+          <img src="images/save.png" alt="<?=$ADD_TITLE?>" width="32" height="32" border="0" onClick="if(check_require_field()){ form1.command.value='ADD'; }else{ return false; }">
+          <? } echo "&nbsp; &nbsp;";?>
+          <?}?> 
+<? } ?>		</td>
+        </tr>
+		<? } // end if ?>
+      </table></td>
+    </tr>
+  </table> 
+        </form>	
+	  </td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

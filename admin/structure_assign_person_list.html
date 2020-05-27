@@ -1,0 +1,356 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/structure_assign_person_list.php"); 
+	
+	ini_set("max_execution_time", "120");	
+
+	$search_per_status = (isset($search_per_status))?$search_per_status : 1;
+	$search_per_type = (isset($search_per_type))?$search_per_type : 1;
+	
+  	if(trim($search_name)) 		$arr_search_condition[] = "(PER_NAME like '$search_name%')";
+  	if(trim($search_surname)) 	$arr_search_condition[] = "(PER_SURNAME like '$search_surname%')";
+	$PER_TYPE=$search_per_type;
+	if(trim($search_pos_no)) 
+		if ($PER_TYPE == 1 || $PER_TYPE == 0)
+			$arr_search_condition[] = "(POS_NO = '$search_pos_no')";
+		elseif ($PER_TYPE == 2 || $PER_TYPE == 0) 
+			$arr_search_condition[] = "(POEM_NO = '$search_pos_no')";		
+	if(trim($search_per_type)) $arr_search_condition[] = "(PER_TYPE = $search_per_type)";
+	if(trim($search_per_status) != "")  $arr_search_condition[] = "(PER_STATUS = $search_per_status)";	
+	if($DPISDB=="odbc") $arr_search_condition[] = "a.PER_ID in ($ASSIGNED_PER_ID)";
+	elseif($DPISDB=="oci8") $arr_search_condition[] = "a.PER_ID in (select distinct PER_ID from PER_ORG_JOB)";
+	elseif($DPISDB=="mysql") $arr_search_condition[] = "a.PER_ID in ($ASSIGNED_PER_ID)";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+  
+  	if($DPISDB=="odbc"){
+		$cmd = " select 	count(PER_ID) as count_data 
+						 from 		(	PER_PERSONAL a
+											left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+										) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+										$search_condition
+					  ";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$cmd = " select 	count(PER_ID) as count_data 
+						from 		PER_PERSONAL a, PER_POSITION c, PER_POS_EMP d
+						where		a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+)
+										$search_condition
+					  ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	count(PER_ID) as count_data 
+						 from 		(	PER_PERSONAL a
+											left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+										) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+										$search_condition
+					  ";
+	} // end if
+	$db_dpis->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("Do you want to delete this record [ " + data_label + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.PER_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+
+	function call_assign_structure (per_id) {
+		parameter = "";
+		if(per_id > 0) parameter = "&PER_ID=" + per_id;
+		childReturn = window.showModalDialog("structure_assign_person_frame.html?UPD=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1000px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn) document.form1.submit();
+	}
+	
+	function call_view_assigned_structure (per_id) {
+		parameter = "";
+		if(per_id > 0) parameter = "&PER_ID=" + per_id;
+		childReturn = window.showModalDialog("structure_assign_person_frame.html?VIEW=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1000px; status: No; resizable: No; help: No; statusbar: No;");
+		// if(childReturn) document.form1.submit();		
+	}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="structure_assign_person_list.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="PER_ID" value="">
+&nbsp;
+  <table align="center" width="90%"  border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="17%" height="22" align="right"><?=$NAME_TITLE;?>&nbsp;:&nbsp;</td>
+              <td width="30%"><input type="text" name="search_name" value="<?=$search_name?>" style="width:98%" class="textbox"></td>
+              <td width="10%" align="right"><?=$SURNAME_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_surname" value="<?=$search_surname?>" style="width:80%" class="textbox"></td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$POS_NO_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_pos_no" value="<?=$search_pos_no?>" style="width:98%" class="textbox" onKeyPress="DigitOnly();"></td>
+              <td colspan="2">
+			  	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			  	<? 
+				foreach($PERSON_TYPE as $key=>$value){ ?>
+						<input name="search_per_type" type="radio" value="<?=$key; ?>" <?=($search_per_type==$key)?"checked":""?>>&nbsp;<?=$value; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<? } ?>
+				<input name="search_per_type" type="radio" value="0" <?=($search_per_type==0)?"checked":""?>>&nbsp;ทั้งหมด&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			  </td>
+              </tr>
+            <tr>
+              <td height="22" align="right"><?=$PER_STATUS_TITLE?>&nbsp;:&nbsp;</td>
+              <td colspan="3">
+			  	<input name="search_per_status" type="radio" value="1" <?=($search_per_status==1)?"checked":""?>>&nbsp;ปกติ&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="0" <?=($search_per_status!="" && $search_per_status==0)?"checked":""?>>&nbsp;รอบรรจุ&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="2" <?=($search_per_status==2)?"checked":""?>>&nbsp;<?=$RETIRE_TITLE?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="" <?=($search_per_status=="")?"checked":""?>>&nbsp;ทั้งหมด&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			  </td>
+            </tr>
+            <tr align="center">
+              <td height="25" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+			<input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+			<input name="btn3" type="submit" class="button" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_pos_no.value=''; form1.search_per_type[3].checked=true; form1.search_per_status[3].checked=true;" value="<?=$SHOW_ALL_TITLE ?>"><? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_pos_no.value=''; form1.search_per_type[3].checked=true; form1.search_per_status[3].checked=true;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE ?>">
+                <?}?>
+			<?if($PAGE_AUTH["add"]=="Y"){?>
+		<? if ($BUTTON_DISPLAY==1) { ?>
+			<input name="Submit2" type="button" class="button" onClick="call_assign_structure(0);" value="<?=$ADD_TITLE?>"> 
+			 <? } else { ?>
+			 <img src="images/save.png" alt="<?=$ADD_TITLE?>" width="32" height="32" border="0" onClick="call_assign_structure(0);">
+			 <?}?>
+			<?}?>		</td>
+              </tr>
+          </table></td>
+    </tr>
+  </table>
+  &nbsp;  
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+<!--	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+	<td align="center">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+<?
+	if($DPISDB=="odbc"){
+		if($current_page > 1){
+			$cmd = " 	select 		top $start_record trim(PER_ID) as concat_pk 
+							from 			(	PER_PERSONAL a
+												left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+											) 	left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+											$search_condition 
+							order by 	PER_NAME, PER_SURNAME ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = $data[concat_pk];
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(PER_ID) not in (". implode(", ", $arr_exclude) .")";																
+		} // end if	
+	
+		$cmd = " select 	top $data_per_page
+										PER_ID, a.PN_CODE, PER_NAME, PER_SURNAME, a.POS_ID, a.POEM_ID, LEVEL_NO, PER_TYPE 
+						 from 		(	PER_PERSONAL a
+											left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+										) 	left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+						$search_condition
+						$limit_data
+						 order by PER_NAME, PER_SURNAME  ";
+
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+						
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select * 
+						from (
+						   select 	rownum as rnum, temp1.* 
+						   from ( 
+								  select 		a.* 
+								  from 			PER_PERSONAL a, PER_POSITION b, PER_POS_EMP c
+								  where 		a.POS_ID=b.POS_ID(+) and a.POEM_ID=c.POEM_ID(+) 
+								  		 			$search_condition
+								  order by 	PER_NAME, PER_SURNAME
+						   )  temp1
+						   where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum
+				  	  ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	PER_ID, a.PN_CODE, PER_NAME, PER_SURNAME, a.POS_ID, a.POEM_ID, LEVEL_NO, PER_TYPE 
+						 from 		(	PER_PERSONAL a
+											left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+										) 	left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+						$search_condition
+						 order by PER_NAME, PER_SURNAME
+						 $limit_data";
+	} // end if
+
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo "$cmd<br>";
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+      <td width="7%" height="21"><strong><?=$POS_NO_TITLE;?></strong></td>
+      <td colspan="3"><strong><?=$FULLNAME_TITLE;?></strong></td>
+      <td width="21%"><strong><?=$CMD_POSITION_TITLE;?></strong></td>    
+      <td width="21%"><strong><?=$ORG_TITLE;?></strong></td>
+      <td width="5%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="5%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="5%"><?=$DEL_TITLE?></td><?}?>
+    </tr>
+    <?
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+
+		$temp_PER_ID = trim($data[PER_ID]);
+		$LEVEL_NO = trim($data[LEVEL_NO]);
+		$PER_NAME = $data[PER_NAME];
+		$PER_SURNAME = $data[PER_SURNAME];
+		$FULLNAME = "$PER_NAME $PER_SURNAME";
+		
+		$PN_CODE = trim($data[PN_CODE]);
+		if ($PN_CODE) {
+			$cmd = "	select PN_NAME, PN_SHORTNAME from PER_PRENAME where PN_CODE='$PN_CODE'";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$PN_NAME = $data2[PN_NAME];
+			$PN_SHORTNAME = $data2[PN_SHORTNAME];
+		}
+				
+		$PER_TYPE = $data[PER_TYPE];
+		$POSEM_NO = "";
+		if ($PER_TYPE == 1) {
+			$POS_ID = $data[POS_ID];
+			if ($POS_ID) {
+				$cmd = " 	select		POS_NO, pl.PL_NAME, po.ORG_NAME  
+						from			PER_POSITION pp, PER_LINE pl, PER_ORG po 
+						where		pp.POS_ID=$POS_ID and pp.ORG_ID=po.ORG_ID and pp.PL_CODE=pl.PL_CODE  ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$POSEM_NO = $data2[POS_NO];
+				$PL_NAME = $data2[PL_NAME];
+				$ORG_NAME = $data2[ORG_NAME];
+			}
+		} elseif ($PER_TYPE == 2) {
+			$POEM_ID = $data[POEM_ID];
+			if ($POEM_ID) {
+				$cmd = " 	select		POEM_NO, pl.PL_NAME, po.ORG_NAME  
+						from			PER_POSITION pp, PER_LINE pl, PER_ORG po 
+						where		pp.POS_ID=$POS_ID and pp.ORG_ID=po.ORG_ID and pp.PL_CODE=pl.PL_CODE  ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$POSEM_NO = $data2[POEM_NO];
+				$PL_NAME = $data2[PL_NAME];
+				$ORG_NAME = $data2[ORG_NAME];			
+			}
+		}
+		
+		$cmd = "select LEVEL_NAME, POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$LEVEL_NO'";
+		$db_dpis2->send_cmd($cmd);
+		$Level = $db_dpis2->get_array();
+		$LEVEL_NAME=$Level[LEVEL_NAME];
+		$POSITION_LEVEL = $Level[POSITION_LEVEL];
+		if (!$POSITION_LEVEL) $POSITION_LEVEL = $LEVEL_NAME;
+		
+		$TMP_PL_NAME = (trim($PL_NAME))? "$PL_NAME".$POSITION_LEVEL : " ".$LEVEL_NAME;
+	
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		
+		if($PER_ID==$temp_PER_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      	<td align="right"><?=$POSEM_NO?>&nbsp;</td>
+		<td align="left">&nbsp;<?=(($PN_SHORTNAME)?$PN_SHORTNAME:$PN_NAME)?></td>
+		<td align="left">&nbsp;<?=$PER_NAME?></td>
+		<td align="left">&nbsp;<?=$PER_SURNAME?></td>     
+      	<td>&nbsp;<?=$TMP_PL_NAME?></td>
+      	<td>&nbsp;<?=$ORG_NAME?></td>
+      <td align="center">&nbsp;<a href="<?=("javascript:call_view_assigned_structure(".$temp_PER_ID.");")?>"><img src="images/icon_eye.gif" alt="ดูข้อมูลการแบ่งงานตามคำสั่งมอบหมายงาน" width="16" height="16" border="0"></a></td> 
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?=("javascript:call_assign_structure(".$temp_PER_ID.");")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลการแบ่งงานตามคำสั่งมอบหมายงาน"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('".$temp_PER_ID."', '$PER_NAME $PER_SURNAME')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลการแบ่งงานตามคำสั่งมอบหมายงาน"></a></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td colspan="3">&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>  
+  			<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

@@ -1,0 +1,180 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");		
+
+	$cmd = " select KPI_ID from PER_KPI ";
+	$HAVE_KPI = $db_dpis->send_cmd($cmd);
+
+	function list_tree_kpi ($pre_image, $kpi_parent, $sel_kpi_id, $tree_depth) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd;
+		global $LIST_OPENED_KPI;
+		
+		$opened_kpi = substr($LIST_OPENED_KPI, 1, -1);
+		$arr_opened_kpi = explode(",", $opened_kpi);
+		
+		$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+		
+		$cmd = " select 	KPI_ID , KPI_NAME, KPI_ID_REF, PFR_ID 
+						 from 		PER_KPI 
+						 where 	".(trim($kpi_parent)?"KPI_ID_REF = $kpi_parent":"(KPI_ID_REF = 0 or KPI_ID_REF is null)")."
+						 order by KPI_NAME 
+					   ";
+		$count_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_data){
+			echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"black_normal\">";		
+			while($data = $db_dpis->get_array()){
+				$cmd = " select KPI_ID from PER_KPI where KPI_ID_REF=". $data[KPI_ID];
+				$count_sub_tree = $db_dpis2->send_cmd($cmd);
+
+				$cmd = " select PFR_NAME from PER_PERFORMANCE_REVIEW where PFR_ID=". $data[PFR_ID];
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+
+				$class = "table_body";
+				if($data[KPI_ID] == $sel_kpi_id) $class = "table_body_over";
+				$icon_name = "icon_plus.gif";
+				$onClick = "add_opened_kpi(". $data[KPI_ID] .");";
+				if(in_array($data[KPI_ID], $arr_opened_kpi)){ 
+					$icon_name = "icon_minus.gif";
+					$onClick = "remove_closed_kpi(". $data[KPI_ID] .");";
+				} // end if
+				if(!$count_sub_tree) $icon_name = "";
+				$returnValue = "$data[KPI_ID]<::>$data[KPI_ID_REF]<::>$data[KPI_NAME]<::>$data2[PFR_NAME]";
+				echo "<tr>";
+				echo "<td width=\"15\" align=\"center\"><img src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\"></td>";
+				echo "<td class=\"$class\" height=\"22\">&nbsp;<span onClick=\"parent.refresh_opener('$returnValue');\" style=\"cursor:hand\">" . $data[KPI_NAME] . "</span></td>";
+				echo "</tr>";
+				
+				if($count_sub_tree && in_array($data[KPI_ID], $arr_opened_kpi)){
+					echo "<tr>";
+					echo "<td width=\"15\" align=\"center\"></td>";
+					echo "<td>";
+					$display = "none";
+					if(in_array($data[KPI_ID], $arr_opened_kpi)) $display = "block";
+					echo "<div id=\"DIV_". $data[KPI_ID] ."\" style=\"display:$display\">";
+					list_tree_kpi("", $data[KPI_ID], $sel_kpi_id, ($tree_depth + 1));
+					echo "</div>";
+					echo "</td>";
+					echo "</tr>";
+				} // end if
+			} // end while						
+			echo "</table>";
+		} // end if
+	} // function
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function select_kpi(kpi_id, kpi_id_ref){
+//		var returnValue = kpi_id + "<::>" + kpi_id_ref;
+//		parent.refresh_opener(returnValue);
+	}
+
+	function add_opened_kpi(opened_kpi_id){
+		opened_kpi = form1.LIST_OPENED_KPI.value;
+		if(opened_kpi==""){
+			opened_kpi = "," + opened_kpi_id + ",";
+		}else{
+			opened_kpi += (opened_kpi_id + ",");
+		}
+		form1.LIST_OPENED_KPI.value = opened_kpi;
+	//	alert(form1.LIST_OPENED_KPI.value);
+	//	form1.KPI_ID.value = opened_kpi_id;
+	//	form1.KPI_ID_REF.value = "";
+		form1.submit();
+	}
+	
+	function remove_closed_kpi(closed_kpi_id){
+		opened_kpi = form1.LIST_OPENED_KPI.value;
+		if(opened_kpi==""){
+			opened_kpi = "";
+		}else{
+			search_str = "," + closed_kpi_id + ",";
+			pos = opened_kpi.indexOf(search_str);
+	//		alert(pos);
+			opened_kpi = opened_kpi.substring(0, pos) + opened_kpi.substring((pos + search_str.length - 1), opened_kpi.length);
+			if(opened_kpi=="," || opened_kpi==",,") opened_kpi = "";
+		}
+		form1.LIST_OPENED_KPI.value = opened_kpi;	
+	//	alert(form1.LIST_OPENED_KPI.value);
+	//	form1.KPI_ID.value = form1.KPI_ID_REF.value;
+	//	form1.KPI_ID_REF.value = "";
+		form1.submit();
+	}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_kpi_list.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="KPI_ID_REF" value="<?=$KPI_ID_REF?>">
+          <input type="hidden" name="KPI_ID" value="<?=$KPI_ID?>">
+          <input type="hidden" name="LIST_OPENED_KPI" value="<?=$LIST_OPENED_KPI?>">
+&nbsp;
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+    <? if($HAVE_KPI){ ?>
+	<tr>
+      <td height="10" colspan="2"></td>
+    </tr>
+    <tr class="table_body">
+	  <!--td width="25%" height="21" align="center" valign="top"><table width="98%" border="0" cellspacing="0" cellpadding="0" class="table_body_3">
+        <tr>
+          <td height="22" align="center" class="table_head">&nbsp;</td>
+        </tr>
+		<? 
+			foreach($arr_pfr_year as $value){ 
+				$class = "table_body_3";
+				if($value==$PFR_YEAR) $class = "table_body_3_over";
+		?>
+        <tr>
+          <td height="22" class="<?=$class?>" align="center"><span onClick="form1.PFR_YEAR.value='<?=$value?>'; form1.submit();" style="cursor:hand;"><?=$value?></span></td>
+        </tr>
+		<? } // end foreach ?>
+      </table></td-->
+	  <td align="center" valign="top"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <?
+						$class = "table_head";
+						if(!$KPI_ID) $class = "table_body_over";
+		  ?>
+          <td height="22" class="<?=$class?>">&nbsp;<span onClick="select_kpi(0,0);" style="cursor:hand;">ตัวชี้วัด</span></td>
+        </tr>
+        <tr>
+          <td height="22"><? list_tree_kpi("", $START_KPI_ID, $KPI_ID, 1); ?></td>
+        </tr>
+      </table></td>
+	</tr>
+    <tr>
+      <td height="10" colspan="2"></td>
+    </tr>
+	<? }else{ ?>
+    <tr>
+      <td height="25" colspan="2" align="center">ไม่มีตัวชี้วัด</td>
+    </tr>
+	<? } // end if ?>
+  </table>
+   
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+    <tr>
+      <td align="center" class="menu_inactive"><span style="cursor:hand; " onClick="self.close();">Close</span></td>
+    </tr>
+  </table>
+  &nbsp;
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

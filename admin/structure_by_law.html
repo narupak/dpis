@@ -1,0 +1,337 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/structure_by_law.php");
+    include("php_scripts/load_per_control.php");
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function select_head_org(org_id){
+		form1.ORG_ID.value = org_id;
+		form1.current_page.value=0;
+		form1.total_page.value=0;
+		form1.submit();
+	}
+
+	function select_org(org_id){
+		form1.ORG_ID.value = org_id;
+		form1.submit();
+	}
+	
+	function call_add(org_id){
+//		alert("add-"+org_id);
+		parameter = "&ORG_ID1=" + org_id;
+		childReturn = window.showModalDialog("structure_by_law_add_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			if (arrValue[0]==1) {
+				form1.submit();
+			}
+		} // end if
+	}
+
+	function call_edit(org_id){
+//		alert("edit-"+org_id);
+		parameter = "&ORG_ID1=" + org_id;
+		childReturn = window.showModalDialog("structure_by_law_edit_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			if (arrValue[0]==1) {
+				if (arrValue[1])
+					form1.ORG_ID.value = arrValue[1];
+				form1.submit();
+			}
+		} // end if
+	}
+
+	function call_print(org_id){
+//		alert("edit-"+org_id);
+		parameter = "&ORG_ID1=" + org_id;
+		childReturn = window.showModalDialog("rpt_structure_by_law_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+//		if(childReturn){
+//			arrValue = childReturn.split("<::>");
+//			if (arrValue[0]==1) {
+//				if (arrValue[1])
+//					form1.ORG_ID.value = arrValue[1];
+//				form1.submit();
+//			}
+//		} // end if
+	}
+
+	function call_search(){
+//		alert("search="+form1.search_org_name.value);
+		if (!form1.search_org_name.value) {
+			alert('ระบุชื่อที่ต้องการค้นหา');
+		} else {
+			search_org = form1.search_org_name.value;
+			search_ol = ""+form1.search_ol_code.value;
+			if (search_ol.length==1) { search_ol = "0"+search_ol; }
+			parameter = "&search_org_name=" + search_org+"&search_ol_code="+search_ol;
+			childReturn = window.showModalDialog("structure_by_law_search_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.ORG_ID.value = arrValue[0];
+//				form1.search_ol_code.value = arrValue[1];
+				form1.submit();
+			} // end if
+		}
+	}
+	
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+				  // สำหรับกรณีลบข้อมูล
+                  // เพิ่มส่วนนี้เพื่อ ตรวจสอบ ระดับต่ำกว่า ORG_ID ถ้าไม่มี ก็ขยับระดับขึ้นไป  1 ระดับ 
+					$cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID_REF = $ORG_ID";
+					$count_ORG_ID_REF_data = $db_dpis->send_cmd($cmd);
+//					echo "*** $cmd<br>";
+                    if ($count_ORG_ID_REF_data == 0 && $PARENT_ORG_ID > 0) { $ORG_ID = $PARENT_ORG_ID; }
+                  // เพิ่มส่วนนี้เพื่อ ตรวจสอบ ระดับต่ำกว่า ORG_ID ถ้าไม่มี ก็ขยับระดับขึ้นไป  1 ระดับ
+?>
+	  </td>
+  </tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="structure_by_law.html" enctype="multipart/form-data">
+		  <input type="hidden" name="current_page" value="<?=$current_page?>">
+		  <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+          <input type="hidden" name="SEL_ORG_ID" value="<?=SEL_ORG_ID?>">
+&nbsp;   
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" valign="top">
+          <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="input_table">
+		    <tr><td><table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:98%" class="textbox"><input type="hidden" name="search_ol_code" value="<?=$search_ol_code?>"></td>
+                <td width="15%" align="right">
+                <? if ($BUTTON_DISPLAY==1) { ?>
+<!--					<input name="SubmitSearch" type="submit" class="button" onClick="if(document.form1.search_org_name.value.trim()){ document.form1.command.value='SEARCH_ORG'; document.form1.search_ol_code.value=''; document.form1.ORG_ID.value=''; document.form1.ORG_ID_REF.value=''; document.form1.action+='#searchORG'; }else{ alert('ระบุชื่อที่ต้องการค้นหา'); return false; }" value="ค้นหา">-->
+					<input name="SubmitSearch" type="button" class="button" onClick="call_search();" value="ค้นหา">
+                <? } else { ?>
+                	<img src="images/search.png" alt="ค้นหา" width="32" height="32" border="0" onClick="if(document.form1.search_org_name.value.trim()){ document.form1.command.value='SEARCH_ORG'; document.form1.search_ol_code.value=''; document.form1.ORG_ID.value=''; document.form1.ORG_ID_REF.value=''; document.form1.action+='#searchORG'; }else{ alert('ระบุชื่อที่ต้องการค้นหา'); return false; } form1.submit();">
+                <?}?>				
+                </td>
+              </tr>
+            </table></td></tr>
+		  </table>
+		  <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+            <tr><td height="10"></td></tr>
+			<tr align="center">
+              <td height="25"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+				  <?
+                	$tab = "";
+                	$TMP_ORG_ID = $ORG_ID;
+					$arr_org = (array) null;
+                    $firstloop=1;
+                	while ($TMP_ORG_ID >= 1) {                        
+				  		$cmd = " select ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID=$TMP_ORG_ID ";
+						$db_dpis->send_cmd($cmd);
+						if ($data = $db_dpis->get_array()) {
+							$arr_org[id][] = $TMP_ORG_ID;
+							$arr_org[name][] = $data[ORG_NAME];
+							$arr_org[id_ref][] = $data[ORG_ID_REF];
+							if ($TMP_ORG_ID==$data[ORG_ID_REF] && $TMP_ORG_ID==1) {
+                	        	$TMP_ORG_ID = 0;
+                    	    } else {
+								$TMP_ORG_ID = $data[ORG_ID_REF];
+							}
+// เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น
+    	                    if ($firstloop == 1) {
+        	                	$firstloop=0; 
+								$PARENT_ORG_ID=$data[ORG_ID_REF];
+                    	    } // end if ($firstloop == 1)
+//						} else { // ถ้าอ่านข้อมูลไม่เจอ ขยับ ORG_ID เป็น PARENT_ORG_ID
+//                        	$ORG_ID = $PARENT_ORG_ID;
+//							$TMP_ORG_ID = $PARENT_ORG_ID;
+//		                    echo "TMP_ORG_ID=$TMP_ORG_ID<br>";
+// เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น
+						} // end if ($data = $db_dpis->get_array())
+					} // end loop while
+					array_multisort($arr_org[id], SORT_ASC, $arr_org[name], SORT_ASC, $arr_org[id_ref], SORT_ASC);
+				?>
+<!-- เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น-->
+				<input type="hidden" name="PARENT_ORG_ID" value="<?=$PARENT_ORG_ID?>">
+<!-- เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น-->
+                <tr>
+                  <td height="22">
+				  <?
+					$cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID_REF = $ORG_ID 
+									order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE ";
+					$count_data = $db_dpis->send_cmd($cmd);
+//					$db_dpis->show_error();
+					for($i=0; $i < count($arr_org[id]); $i++) {
+   	                   	$class = "table_body_over";
+                        $i_edit="";
+						if($arr_org[id][$i]==$ORG_ID && $count_data==0) {
+							$sel_org = "select_head_org(". $arr_org[id][$i] .");";
+							$class = "table_body";
+							$i_edit = "&nbsp;&nbsp;<img src=\"images/b_edit.png\" width=\"16\" height=\"16\" onClick=\"call_edit(".$arr_org[id][$i].");\" style=\"cursor:hand;\">&nbsp;&nbsp;<img src=\"images/add_down_level_s.png\" width=\"16\" height=\"16\" onClick=\"call_add(".$arr_org[id][$i].");\" style=\"cursor:hand;\">";
+						} elseif($arr_org[id][$i]==$ORG_ID) {
+                        	$sel_org = "";
+//							$i_edit = "&nbsp;&nbsp;&nbsp;&nbsp;<img src=\"images/add_down_level_s.png\" width=\"16\" height=\"16\" onClick=\"call_add(".$arr_org[id][$i].");\" style=\"cursor:hand;\">";
+							$i_edit = "&nbsp;&nbsp;<img src=\"images/b_edit.png\" width=\"16\" height=\"16\" onClick=\"call_edit(".$arr_org[id][$i].");\" style=\"cursor:hand;\">&nbsp;&nbsp;<img src=\"images/print01.gif\" width=\"20\" height=\"20\" onClick=\"call_print(".$arr_org[id][$i].");\" style=\"cursor:hand;\">&nbsp;&nbsp;<img src=\"images/add_down_level_s.png\" width=\"16\" height=\"16\" onClick=\"call_add(".$arr_org[id][$i].");\" style=\"cursor:hand;\">";
+						} else {
+                        	$sel_org = "select_head_org(". $arr_org[id][$i] .");";
+						}
+					?>
+						<tr>
+           	  				<td height="10" class="<?=$class?>">&nbsp;<?=$tab?><span onClick="<?=$sel_org?>" style="cursor:hand;"><?=$arr_org[name][$i]?></span><?=$i_edit?></td>
+               			</tr>
+                	<?
+                       	$tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+               		} // end for $i
+					if ($count_data) {
+						$total_page = ceil( $count_data / $data_per_page );
+						$page_link = create_link_page($total_page, $current_page);
+						$limit_data = "";
+                        
+						if($DPISDB=="odbc"){	
+							$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+							/****$cmd = "	select		*
+											from		(
+															select top $select_top *
+																from		(
+																				select top ". ($data_per_page * $current_page) ."
+																							ORG_ID , ORG_NAME, ORG_ID_REF 
+                                                                                  from PER_ORG where ORG_ID_REF = $ORG_ID 
+																				 order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+																			) 
+															order by	PER_NAME desc, PER_SURNAME desc
+														)
+											order by	PER_NAME, PER_SURNAME
+				  						";	****/
+							$cmd = "	select top ". ($data_per_page * $current_page) ."
+																	ORG_ID , ORG_NAME, ORG_ID_REF 
+										  from PER_ORG where ORG_ID_REF = $ORG_ID 
+										  order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+					  						";	
+						}elseif($DPISDB=="oci8"){
+							$search_condition = str_replace(" where ", " and ", $search_condition);  
+							$rec_start = (($current_page-1) * $data_per_page) + 1;
+							$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+							$cmd = "select * from (
+											   select rownum rnum, q1.* from ( 
+																				select ORG_ID , ORG_NAME, ORG_ID_REF 
+                                                                                 from PER_ORG where ORG_ID_REF = $ORG_ID 
+																				order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE							
+																			  )  q1
+										) where rnum between $rec_start and $rec_end  ";						
+						}elseif($DPISDB=="mysql"){
+							$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+							$cmd = "	select ORG_ID , ORG_NAME, ORG_ID_REF from PER_ORG 
+                            				where ORG_ID_REF = $ORG_ID 
+											order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+											$limit_data
+										";
+						} // end if
+		
+						$count_page_data = $db_dpis->send_cmd($cmd);
+//						$db_dpis->show_error();
+//						echo "<hr>".$cmd."<br>";
+//						echo "<input name='' type='text' value='$cmd'>";
+						if($count_page_data){
+							$tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+							echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";	
+                            if($total_page > 1) :
+								echo "<table width=\"95%\" border=\"0\" align=\"center\" cellpadding=\"2\" cellspacing=\"2\" class=\"table_footer\">";
+								echo "<tr><td>$page_link</td></tr>";
+								echo "</table>";
+							endif;
+							$current_list = "";
+							$data_count = 0;
+							while($data = $db_dpis->get_array()) {
+                            	if ($data[ORG_ID]!=$START_ORG_ID) {
+									$data_count++;
+									if($data_count > $data_per_page) break;
+									$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=". $data[ORG_ID];
+//									echo "$cmd<br>";
+									$count_sub_tree = $db_dpis2->send_cmd($cmd);
+									$class = "table_body";
+									if ($data[ORG_ID] == $sel_org_id) $class = "table_body_over";
+									$current_list .= ((trim($current_list))?",":"") . $data[ORG_ID];
+
+									$tclass = "table_body";
+									if(!$count_sub_tree) {
+										$icon_name = "";
+										$onClick = "";
+									} else {
+										$icon_name = "icon_plus.gif";
+										$onClick = "select_org(". $data[ORG_ID] .");";
+										if ($SEL_ORG_ID==$data[ORG_ID]) { 
+											$icon_name = "icon_minus.gif";
+											$tclass = "table_body_over2";
+										} // end if
+									}
+									echo "<tr id=\"tr".$data[ORG_ID]."\" class=\"".$tclass."\">";
+									echo "<td width=\"90%\" align=\"left\">&nbsp;$tab<img id=\"img".$data[ORG_ID]."\" src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\">";
+									echo "&nbsp;<span onClick=\"$onClick\" style=\"cursor:hand\">" . $data[ORG_NAME] . "</span>";
+									echo "&nbsp;&nbsp;<img src=\"images/b_edit.png\" width=\"16\" height=\"16\" onClick=\"call_edit(".$data[ORG_ID].");\" style=\"cursor:hand;\">";
+									echo "&nbsp;&nbsp;<img src=\"images/print01.gif\" width=\"20\" height=\"20\" onClick=\"call_print(".$data[ORG_ID].");\" style=\"cursor:hand;\">";
+									echo "&nbsp;&nbsp;<img src=\"images/add_down_level_s.png\" width=\"16\" height=\"16\" onClick=\"call_add(".$data[ORG_ID].");\" style=\"cursor:hand;\">";
+									echo "</td></tr>";
+                                } // end if ($data[ORG_ID]!=$START_ORG_ID)
+							} // end while						
+							echo "</table>";
+                            if($total_page > 1) :
+								echo "<table width=\"95%\" border=\"0\" align=\"center\" cellpadding=\"2\" cellspacing=\"2\" class=\"table_footer\">";
+								echo "<tr><td>$page_link</td></tr>";
+								echo "</table>";
+							endif; echo "&nbsp;";
+						} // end if($count_page_data)
+					} // end if ($count_data)
+                    ?>
+                  </td>
+                </tr>
+              </table></td>
+			</tr>
+            <tr><td height="10"></td></tr>
+          </table>
+	  </td>
+    </tr>
+  </table>
+    <input type="hidden" name="current_list" value="<?=$current_list?>">
+  </form>	
+	  </td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

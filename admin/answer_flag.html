@@ -1,0 +1,126 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+    include("php_scripts/session_start.php");
+    include("php_scripts/answer_flag.php");
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+    $db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+?>
+<html>
+<head>
+<title></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script>
+<script type="text/javascript" src="java_scripts/jquery-1.10.2.js"></script>
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function chksetvalues(idchk,idtxt,val){
+    
+    if(document.getElementById(idchk).checked==true){
+	//console.log(idchk+','+idtxt+',Y_'+val);
+        document.getElementById(idtxt).value='Y_'+val;
+    }else{
+	//console.log(idchk+','+idtxt+',N_'+val);
+        document.getElementById(idtxt).value='N_'+val;
+    }
+    
+}	
+</script>
+<body>
+<form name="form1" method="post" action="answer_flag.html" enctype="multipart/form-data" >
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="totss_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="id_discheck" value="<?=$id_discheck?>">
+  <input type="hidden" name="command">
+ <table width="95%" border="0"  align="center" cellpadding="20" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+    <tr>
+        <td></td>
+    </tr>
+  </table>
+<table width="60%"  border="0" align="center" cellpadding="2" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+      <td width="10%" height="25" align="center"><strong>รหัส</strong></td>
+      <td width="20%" align="center"><strong>ชื่อผู้ใช้งาน</strong></td>
+      <td width="5%" align="center"><strong>สถานะภาพ</strong></td>
+    	  <td width="5%" align="center"><strong><?=$ACTIVE_TITLE?></strong></td>
+  </tr>
+    <?
+
+          $id  =  $id_discheck;
+
+          $cmd = "select id, fullname, username, user_flag, USER_LINK_ID from user_detail where id in($id)";
+          $db_dpis->send_cmd($cmd);
+          while($data = $db_dpis->get_array()){
+          $fullanme = $data[FULLNAME];
+          $username = $data[USERNAME];
+          $USER_LINK_ID = $data[USER_LINK_ID];
+          $user_flag  = $data[USER_FLAG];
+          $tmp_id = $data[ID];   
+
+          $cmd = "select PER_STATUS, PER_POSDATE, PER_NAME, PER_SURNAME from PER_PERSONAL where per_id = '$USER_LINK_ID' ";
+          $db_dpis1->send_cmd($cmd);
+          $data1 = $db_dpis1->get_array();
+          $PER_POSDATE 	= $data1[PER_POSDATE];
+          $per_status   = $data1[PER_STATUS];  
+			
+          if($PER_POSDATE && ($per_status==2)){
+                $nam_status = "พ้นจากส่วนราชการ";
+          }else{	
+			    $nam_status = "ปกติ";
+          }
+              
+        $class = "table_body";
+        $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+    ?>
+      
+  <tr class="<?=$class?>"  style="cursor:hand;"  <?=$onmouse_event?> >
+    <td height="22" align="center"> <?= $username?></td>
+    <td height="22" align=""><?=$fullanme?></td>
+    <td height="22" align="center"><?=$nam_status?></td>
+    <td height="22" align="center">
+        <input onclick="chksetvalues('listcheck_<?=$tmp_id?>','TXTCODE_<?=$tmp_id?>','<?=$tmp_id.'_'.$USER_LINK_ID;?>')" type="checkbox" name="listcheck_<?=$tmp_id;?>" id="listcheck_<?=$tmp_id;?>" <?=(($user_flag=="Y")?"checked":"")?>>
+		  
+		<input  type="hidden" name="TXTCODE[]" id="TXTCODE_<?=$tmp_id?>" value="<?=$user_flag.'_'.$tmp_id.'_'.$USER_LINK_ID?>">
+        <input type="hidden" name="hid_flag_old[]"     value="<?=$user_flag?>">
+        <input type="hidden" name="list_show_id[<?=$tmp_id?>]"  value="<?=$USER_LINK_ID?>">
+        <input type="hidden" name="list_status[<?=$tmp_id?>]"   value="<?=$PER_POSDATE?>">
+      </td>
+      
+  </tr >
+ <? } //end while?> 
+  
+    <tr class="table_footer"> 
+	  <td>&nbsp;</td>
+      <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+      <td align="center">
+	  <input type="submit" name="btn3" onClick="form1.command.value='SETFLAG2'" value="<?=$SETFLAG_TITLE?>" id="btn_flag" class="button" >
+      </td>
+    </tr>
+
+</table>
+    
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+
+</table>
+<? endif; ?>&nbsp;
+
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

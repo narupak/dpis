@@ -1,0 +1,288 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);	
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_wl_code)) $arr_search_condition[] = "(WL_CODE like '$search_wl_code%')";
+  	if(trim($search_wl_name)) $arr_search_condition[] = "(WL_NAME like '%$search_wl_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+	$StmWLID="";
+   	if(!empty($WLID)){$StmWLID= " AND WL_CODE not in(".$WLID.") ";}
+  	$cmd = " select 	count(WL_CODE) as count_data 
+					 from 		PER_WORK_LOCATION 
+					 where 	WL_ACTIVE=1
+					 				$search_condition
+                                    $StmWLID
+				   ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>สถานที่ปฏิบัติราชการ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+
+function selValue(){
+var Oldval = '';
+var OldvalID = '';
+var OldXid = 0;
+OldvalID = eval("form1.WLID.value");
+var strWLID = form1.WLID.value;
+var arrWLID= strWLID.split(',');
+for(i=1;i<=document.getElementById('CntEncode').value;i++){
+		OldXid++;
+				var OldStChk="<input value='"+arrWLID[i-1]+"' name='WL_ID"+OldXid+"' id='WL_ID"+OldXid+"' type='checkbox' onClick='return selValue();' checked>";
+				var OldStName=eval("form1.OldLBNAME"+i+".value");
+				var OpStr ="";
+				if(i%1!=0){OpStr="&nbsp;";}else{OpStr ="<br>";}
+				Oldval = Oldval+OldStChk+'&nbsp;'+OldStName+ " "+OpStr;				
+}
+
+	var val = '';
+	var valID = '';
+	var StrChk = false;
+	var Xid = OldXid;
+	for(i=1;i<=form1.hdnLine.value;i++){
+	
+			if(eval("form1.Chk"+i+".checked")==true){
+				Xid++;
+				var StChk="<input value='"+eval("form1.Chk"+i+".value")+"' name='WL_ID"+Xid+"' id='WL_ID"+Xid+"' type='checkbox' onClick='return selValue();' checked>";
+				var StName=eval("form1.LBNAME"+i+".value");
+				var OpStr ="";
+				if(Xid%1!=0){OpStr="&nbsp;";}else{OpStr ="<br>";}
+				val = val +StChk+'&nbsp;'+StName+ " "+OpStr;
+				valID = valID +eval("form1.Chk"+i+".value")+",";
+				StrChk = true;
+			}
+	}
+	
+	if(StrChk== false){
+		alert('กรุณาเลือกข้อมูล');
+		return false;
+	}
+	
+	var valStrID = valID.substr(0,valID.length - 1); 
+	if(OldvalID!=""){OldvalID=OldvalID+",";}
+	parent.refresh_opener(Oldval+val+'<::>'+OldvalID+valStrID);
+}
+
+function ChkAll(obj){
+	var count = document.forms[0].elements.length;
+    for (i=0; i<count; i++) 
+      {
+			var element = document.forms[0].elements[i]; 
+			if(element.type == 'checkbox' && obj.checked){
+				
+				if(element.type == 'checkbox' && element.name.substr(0,3)=="Chk" )
+				 {
+					 	element.checked=true;	
+				   }
+				  
+			}else{
+				
+				if(element.type == 'checkbox' && element.name.substr(0,3)=="Chk" )
+				 {
+					 element.checked=false; 
+				  }
+			}
+            
+    	}
+}
+
+function CheckDel(){
+    var Total = document.form1.hdnLine.value;
+    var count = document.forms[0].elements.length;
+   
+   var iNum=0; 
+    for (i=0; i<count; i++) 
+      {
+        var element = document.forms[0].elements[i]; 
+        
+        if(element.type == 'checkbox' && element.type != document.getElementById("ChkALL") && element.checked == true )
+        {
+            iNum=iNum+1;
+         }
+        
+         if(element.checked == false )
+         {
+            document.getElementById("ChkALL").checked=false;
+          }  
+               
+    }
+    
+ 	if(iNum==Total){
+		document.getElementById("ChkALL").checked=true;
+	}else{
+		document.getElementById("ChkALL").checked=false;
+	}  
+    
+}
+
+function ResetData(f){
+	
+	f.search_wc_name.value="";
+	f.search_wc_code.value="";
+	
+	
+}
+
+</script>
+<body>
+<form action="es_search_add_work_location.html" method="post" enctype="multipart/form-data" name="form1">
+
+        <?
+                $DataIDOld="";
+                if($DPISDB=="oci8"){
+                    $cmd = " select 	WL_CODE, WL_NAME 
+                                  from  PER_WORK_LOCATION
+                                  where 	WL_CODE in($WLID) ";
+                } // end if
+                $count_page_data = $db_dpis->send_cmd($cmd);
+                    $Olddata_count = 0;
+                    while($data = $db_dpis->get_array()) :
+                        $Olddata_count++;
+                        $Old_WL_CODE = $data[WL_CODE];
+                        $Old_WL_NAME = trim($data[WL_NAME]);
+                        echo '<input type="hidden" name="OldLBNAME'.$Olddata_count.'" 
+                        id="OldLBNAME'.$Olddata_count.'" value="'.$Old_WL_NAME.'">';
+                     endwhile;
+             
+        ?>
+
+
+  <input type="hidden" name="current_page" value="<?=$current_page;?>">
+  <input type="hidden" name="total_page" value="<?=$total_page;?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by;?>">
+  <input type="hidden" name="WLID" value="<?=$WLID;?>">
+  <input type="hidden" name="CntEncode" id="CntEncode" value="<?=$Olddata_count;?>">
+&nbsp;
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="100%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="1" cellspacing="1" class="label_normal">
+            <tr>
+              <td width="21%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="17%"><input type="text" name="search_wl_code" value="<?=$search_wl_code;?>" style="width:90%" class="textbox"></td>
+              <td width="20%" align="right">สถานที่ปฏิบัติราชการ&nbsp;:&nbsp;</td>
+              <td width="42%"><input type="text" name="search_wl_name" value="<?=$search_wl_name;?>" style="width:65%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td align="center" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE;?>" onClick="form1.current_page.value=0;">
+                <input name="Reset" type="button" class="button" onClick="return ResetData(form1);" value="<?=$CLEAR_TITLE;?>">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE;?>">
+                <input name="image" type="image" onClick="return ResetData(form1);" src="images/cancel.gif" alt="<?=$CANCEL_TITLE;?>" border="0">
+                
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล สถานที่ปฏิบัติราชการ ทั้งสิ้น <?=($count_data + 0);?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+    	
+		if($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		WL_CODE, WL_NAME 
+									from 			PER_WORK_LOCATION
+									where 		WL_ACTIVE=1
+													$search_condition
+                                                    $StmWLID
+									order by	WL_SEQ_NO, WL_CODE 
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";				   
+							   
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+  <tr>
+  <td>
+  <input name="btn2" type="button" class="button" value=" เลือกสถานที่ปฏิบัติราชการ " onClick="return selValue()">
+  </td>
+  </tr>        
+ </table>  
+        
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" align="center"><input name="ChkALL" id="ChkALL" type="checkbox" onClick="return ChkAll(form1.ChkALL);"></td>
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">สถานที่ปฏิบัติราชการ</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_WL_CODE = $data[WL_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_WL_CODE'";
+				$TMP_WL_NAME = trim($data[WL_NAME]);
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_WL_CODE<::>$TMP_WL_NAME<::>$send_by";
+  ?>
+  <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+    <td align="center"><input name="Chk<?=$data_count;?>" id="Chk<?=$data_count;?>" type="checkbox" value="<?=$TMP_WL_CODE;?>" onClick="return CheckDel();"></td>
+    <td height="22" align="center"><?=$TMP_WL_CODE;?></td>
+    <td>&nbsp;<?=$TMP_WL_NAME;?>
+    <input type="hidden" name="LBNAME<?=$data_count;?>" id="LBNAME<?=$data_count;?>" value="<?=$TMP_WL_NAME;?>">
+    </td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link;?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+<input name="hdnLine" type="hidden" value="<?=$data_count;?>">
+  <input type="hidden" name="current_list" value="<?=$current_list;?>">
+</form>
+</body>
+</html>

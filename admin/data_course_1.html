@@ -1,0 +1,447 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_course.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if( !$data_per_page ) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_co_id)) $arr_search_condition[] = "(CO_ID=$search_co_id)";
+  	if(trim($search_co_fund)) $arr_search_condition[] = "(CO_FUND like '%$search_co_fund%')";
+  	if(trim($search_co_org)) $arr_search_condition[] = "(CO_ORG like '%$search_co_org%')";
+
+	if($search_department_id){
+		$arr_search_condition[] = "(DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select count(CO_ID) as count_data from PER_COURSE $search_condition  ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+?>
+<html>
+<head>
+<title>การอบรม</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="javascript">
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+	}
+
+function call_search_train() {	
+	parameter = "";
+	childReturn = window.showModalDialog("search_train_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+	if(childReturn){
+		arrValue = childReturn.split("<::>");
+		form1.TR_CODE.value = arrValue[0];
+		form1.TR_NAME.value = arrValue[1];
+	} // end if 
+}
+
+function call_search_country(code, name) {	
+	var ct_code = eval("form1." + code);
+	var ct_name = eval("form1." + name);	
+	parameter = "";
+	childReturn = window.showModalDialog("search_country_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+	if(childReturn){
+		arrValue = childReturn.split("<::>");
+		ct_code.value = arrValue[0];
+		ct_name.value = arrValue[1];
+	} // end if 
+}
+
+function confirm_delete(data_id , data_label){
+	if(confirm("Do you want to delete this record [ " + data_label + " ] ?")){
+		form1.command.value = "DELETE";
+		form1.CO_ID.value = data_id;
+		form1.submit();
+	} // end if
+}
+
+function confirm_view(data_id) {
+	form1.action+='?VIEW=1';
+	form1.CO_ID.value = data_id;
+	form1.submit();		
+}
+
+function confirm_update (data_id) {
+	form1.action+='?UPD=1';
+	form1.CO_ID.value = data_id;
+	form1.submit();		
+}
+
+	function call_select_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_select_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_ministry_id.value = arrValue[0];
+			form1.search_ministry_name.value = arrValue[1];
+			form1.search_department_id.value = "";
+			form1.search_department_name.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_department_id.value = arrValue[0];
+				form1.search_department_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<form action="data_course.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="CO_ID" value="<?=$CO_ID?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+    <tr>
+      <td><table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+	    <tr>
+	      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr><td colspan="2" height="5"></td></tr>
+        <tr>
+          <td align="right"><span class="text_alert">*</span>&nbsp;กระทรวง : &nbsp;</td>
+          <td>
+		  	<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width=85%" class="textbox" readonly>&nbsp;&nbsp;
+			<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+			<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?><input type="button" name="btn_ministry" class="button" value="...." alt="เลือกกระทรวง" onClick="call_select_ministry();"><? } // end if ?>		  </td>
+          <td align="right"><span class="text_alert">*</span>&nbsp;กรม : &nbsp;</td>
+          <td>
+		  	<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width=85%" class="textbox" readonly>&nbsp;&nbsp;
+			<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+			<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?><input type="button" name="btn_department" class="button" value="...." alt="เลือกกรม" onClick="call_select_department();"><? } // end if ?>		  </td>
+        </tr>
+        <tr>
+          <td width="15%" align="right"><span class="text_alert">*</span>&nbsp;หลักสูตร : &nbsp;</td>
+          <td width="35%"><input type="text" name="TR_NAME" value="<?=$TR_NAME?>" style="width=85%" class="textbox">&nbsp;&nbsp;
+		<input type="hidden" name="TR_CODE" value="<?=$TR_CODE?>">
+	   	<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	   	<input type="button" name="Submit" class="button" value="...." alt="เลือกหลักสูตรการอบรม" onClick="call_search_train();">
+		<? } ?>	   </td>
+	   <td width="15%" align="right">สถานที่ : &nbsp;</td>
+	   <td><input type="text" name="CO_PLACE" value="<?=$CO_PLACE?>" style="width=85%" class="textbox"></td>
+        </tr>
+        <tr>
+          <td align="right"><span class="text_alert">*</span>&nbsp;รุ่นที่ : &nbsp;</td>
+          <td><input type="text" name="CO_NO" value="<?=$CO_NO?>" class="textbox"></td>
+	   <td align="right">ประเทศ : &nbsp;</td>
+	   <td><input type="text" name="CT_NAME" value="<?=$CT_NAME?>" style="width=85%" class="textbox" readonly>&nbsp;&nbsp;
+	   	<input type="hidden" name="CT_CODE" value="<?=$CT_CODE?>">
+		<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	   	<input type="button" name="Submit" class="button" value="...." alt="เลือกประเภททุน" onClick="call_search_country('CT_CODE', 'CT_NAME');">
+		<? } ?></td>
+        </tr>
+        <tr>
+          <td align="right"><span class="text_alert">*</span>&nbsp;ตั้งแต่วันที่ : &nbsp;</td>
+          <td><input type="text" name="CO_STARTDATE" value="<?=$CO_STARTDATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.CO_STARTDATE,this.value)">&nbsp;&nbsp;
+		  <input type="button" class="button" onClick="return showCalendar('CO_STARTDATE', 'dd/mm/y');" value="...."></td>
+	   <td align="right"><span class="text_alert">*</span>&nbsp;ถึงวันที่ : &nbsp;</td>
+	   <td><input type="text" name="CO_ENDDATE" value="<?=$CO_ENDDATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.CO_ENDDATE,this.value)">&nbsp;&nbsp;
+	   	  <input type="button" class="button" onClick="return showCalendar('CO_ENDDATE', 'dd/mm/y');" value="...."></td>
+        </tr>	 
+        <tr>
+          <td align="right">ชื่อทุน : &nbsp;</td>
+          <td><input type="text" name="CO_FUND" value="<?=$CO_FUND?>" style="width=85%" class="textbox"></td>
+	   <td align="right">หน่วยงานที่จัด : &nbsp;</td>
+	   <td><input type="text" name="CO_ORG" value="<?=$CO_ORG?>" style="width=85%" class="textbox"></td>		
+	 </tr>	 
+        <tr>
+          <td align="right">ประเทศเจ้าของทุน : &nbsp;</td>
+          <td><input type="text" name="CT_NAME_FUND" value="<?=$CT_NAME_FUND?>" style="width=85%" class="textbox" readonly>
+	   	  <input type="hidden" name="CT_CODE_FUND" value="<?=$CT_CODE_FUND?>">
+		  <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	   	  <input type="button" name="Submit" class="button" value="...." alt="เลือกประเทศเจ้าของทุน" onClick="call_search_country('CT_CODE_FUND', 'CT_NAME_FUND');">
+		  <? } ?></td><td>&nbsp;</td>
+          <td>
+	   	<input type="radio" name="CO_TYPE" value="1" size="30" <?=($CO_TYPE == 1 || $CO_TYPE == 0)? "checked" : ""; ?>>ดำเนินการจัด&nbsp;&nbsp;&nbsp;
+		<input type="radio" name="CO_TYPE" value="2" size="30" <?=($CO_TYPE == 2)? "checked" : "";?>>ส่งข้าราชการ&nbsp;&nbsp;	   </td>
+        </tr>
+	 <tr>
+	   <td></td>	   
+	   <td>
+	   	<input type="radio" name="CO_CONFIRM" value="0" size="30" <?=($CO_CONFIRM == 0)? "checked" : ""; ?>>ยังไม่ยืนยันข้อมูล&nbsp;&nbsp;&nbsp;
+		<input type="radio" name="CO_CONFIRM" value="1" size="30" <?=($CO_CONFIRM == 1)? "checked" : "";?>>ยืนยันข้อมูลแล้ว&nbsp;&nbsp;	   </td>
+	 </tr>
+        <tr align="center">
+          <td height="30" colspan="4">
+	<input type="submit" name="button1" value="ปิดหน้าต่าง" onClick="window.close();" class="button" >	   
+<? if ($UPD || $VIEW) { ?>
+	<input type="submit" name="Reset2" value="ยกเลิก" onClick="form1.command.value='CANCEL'" class="button" >
+	<?if( ($PAGE_AUTH["edit"]=="Y") &&  !$VIEW){?>
+		<input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE'" value="ปรับปรุง">
+	<?}?> 
+<? } else { ?>
+		<input name="Reset" type="reset" class="button" value="เคลียร์"> 
+	<?if($PAGE_AUTH["add"]=="Y"){?>
+		<input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD'" value="เพิ่ม">
+	<?}?> 
+<?}?>          </td>
+        </tr>
+      </table></td>
+	    </tr>
+	  </table>      </td>
+    </tr>
+    <tr><td>&nbsp;</td></tr>
+    <tr>
+      <td height="25" align="center"><table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+              <tr>
+                <td align="right">กระทรวง&nbsp;&nbsp;</td>
+                <td><input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width=75%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+                  <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+                  <input type="button" name="btn_search_ministry" class="button" value="...." alt="เลือกกระทรวง" onClick="call_search_ministry();">
+                  <input name="image" type="image" onClick="form1.search_ministry_id.value=''; form1.search_ministry_name.value=''; form1.search_department_id.value=''; form1.search_department_name.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="absbottom" width="22" height="22">
+                  <? } // end if ?>                </td>
+                <td align="right">กรม&nbsp;&nbsp;</td>
+                <td><input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width=75%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+                  <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+                  <input type="button" name="btn_search_department" class="button" value="...." alt="เลือกกรม" onClick="call_search_department();">
+                  <input name="image" type="image" onClick="form1.search_department_id.value=''; form1.search_department_name.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="absbottom" width="22" height="22">
+                  <? } // end if ?>                </td>
+                <td width="20%" align="center" rowspan="2"><input name="Submit3" type="submit" class="button" value="ค้นหา" onClick="form1.current_page.value=0;">
+                    <input name="Submit3" type="submit" class="button" value="แสดงทั้งหมด" onClick="form1.search_co_id.value=''; form1.search_co_fund.value=''; form1.search_co_org.value=''; <? if($CTRL_TYPE < 3){ ?>form1.search_ministry_id.value = '';form1.search_ministry_name.value = '';<? } ?><? if($CTRL_TYPE < 4){ ?>form1.search_department_id.value = '';form1.search_department_name.value = '';<? } ?>form1.current_page.value=0;">                </td>
+              </tr>
+              <tr>
+                <td width="12%" align="right">รหัส&nbsp;&nbsp;</td>
+                <td width="28%"><input type="text" name="search_co_id" value="<?=$search_co_id?>" style="width=95%" class="textbox" onKeyPress="NumOnly();"></td>
+                <td width="12%" align="right">ชื่อทุน&nbsp;&nbsp;</td>
+                <td><input type="text" name="search_co_fund" value="<?=$search_co_fund?>" style="width=95%" class="textbox"></td>
+              </tr>
+              <tr>
+                <td align="right">หน่วยงานที่จัด&nbsp;&nbsp;</td>
+                <td><input type="text" name="search_co_org" value="<?=$search_co_org?>" style="width=95%" class="textbox"></td>
+                <td align="right">&nbsp;</td>
+                <td>&nbsp;</td>
+                <td align="center">&nbsp;</td>
+              </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+ 
+    <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+<!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+              <td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+            </tr>
+        </table>  
+	</td></tr>
+</table>    
+<?
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record trim(CO_ID) as concat_pk from PER_COURSE $search_condition order by CO_ID ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+				$limit_data = (trim($search_condition)?" and ":" where ")." trim(CO_ID) not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){		
+				$limit_data = (trim($search_condition)?" and ":" where ")." trim(CO_ID) not in ( select * from (select trim(CO_ID) as concat_pk from PER_COURSE $search_condition order by CO_ID) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select		top $data_per_page
+											CO_ID, TR_CODE, CO_NO, CO_STARTDATE, CO_ENDDATE, CO_FUND, CO_CONFIRM  
+							 from 		PER_COURSE  
+											$search_condition
+											$limit_data
+							 order by CO_STARTDATE desc, CO_ENDDATE desc "; 
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select * 
+							 from (
+								select		CO_ID, TR_CODE, CO_NO, CO_STARTDATE, CO_ENDDATE, CO_FUND, CO_CONFIRM  
+								from 		PER_COURSE
+												$search_condition
+												$limit_data		
+								order by 	CO_STARTDATE desc, CO_ENDDATE desc
+							)  where rownum <= $data_per_page
+						 "; 						
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select		CO_ID, TR_CODE, CO_NO, CO_STARTDATE, CO_ENDDATE, CO_FUND, CO_CONFIRM  
+							 from 		PER_COURSE  
+											$search_condition
+							 order by CO_STARTDATE desc, CO_ENDDATE desc
+							 				$limit_data "; 
+		} // end if
+
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+  <tr class="table_head" align="center">
+    <td width="7%" height="25">รหัส</td>
+    <td>หลักสูตรการอบรม / รุ่น</td>
+    <td width="22%">ชื่อทุน</td>
+    <td width="11%">ตั้งแต่วันที่</td>
+    <td width="11%">ถึงวันที่</td>
+    <td width="6%">ยืนยัน</td>
+    <td width="5%"></td>
+    <?if($PAGE_AUTH["edit"]=="Y"){?><td width="5%">&nbsp;</td><?}?>
+    <?if($PAGE_AUTH["del"]=="Y"){?><td width="5%">&nbsp;</td><?}?>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$data_num = ($current_page - 1) * $data_per_page;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				$data_num++;
+				if($data_count > $data_per_page) break;
+				$TMP_CO_ID = trim($data[CO_ID]);
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_CO_ID'";
+				$TMP_TR_NAME = trim($data[TR_NAME]);
+				$TMP_CO_NO = (trim($data[CO_NO]))? " / ".trim($data[CO_NO]) : "";
+				$CO_FUND = trim($data[CO_FUND]);
+				$CO_STARTDATE =  substr(trim($data[CO_STARTDATE]), 8, 2) ."/". substr(trim($data[CO_STARTDATE]), 5, 2) ."/". (substr(trim($data[CO_STARTDATE]), 0, 4) + 543);
+				$CO_ENDDATE =  substr(trim($data[CO_ENDDATE]), 8, 2) ."/". substr(trim($data[CO_ENDDATE]), 5, 2) ."/". (substr(trim($data[CO_ENDDATE]), 0, 4) + 543);
+				$CO_CONFIRM = trim($data[CO_CONFIRM]);
+				
+				$TR_CODE = trim($data[TR_CODE]);
+				$cmd = "	select TR_NAME from PER_TRAIN where TR_CODE='$TR_CODE'";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$TR_NAME = trim($data2[TR_NAME]);
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+				if( trim($CO_ID) === trim($TMP_CO_ID) ) { 
+					$class = "table_body_over";
+					$onmouse_event = "";
+				} // end if				
+
+				$returnValue = "$TMP_CO_ID<::>$TR_NAME";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center" onClick="parent.refresh_opener('<?=$returnValue?>');"><?=$data_num?></td>
+    <td onClick="parent.refresh_opener('<?=$returnValue?>');">&nbsp;<?="$TR_NAME $TMP_CO_NO"?></td>
+    <td onClick="parent.refresh_opener('<?=$returnValue?>');">&nbsp;<?=$CO_FUND?></td>
+    <td align="center" onClick="parent.refresh_opener('<?=$returnValue?>');"><?=$CO_STARTDATE?></td>
+    <td align="center" onClick="parent.refresh_opener('<?=$returnValue?>');"><?=$CO_ENDDATE?></td>
+    <td align="center" onClick="parent.refresh_opener('<?=$returnValue?>');">
+    	<? if ($CO_CONFIRM == 0) { ?>		<img src="images/false.gif">
+	<? } elseif ($CO_CONFIRM == 1) { ?>	<img src="images/true.gif">	<? } ?>
+    </td>
+    <td align="center"><a href="<?=("javascript:confirm_view('$TMP_CO_ID')")?>"><img src="images/icon_eye.gif" alt="View Record" width="16" height="16" border="0"></a></td>
+<?if($PAGE_AUTH["edit"]=="Y"){?>    
+    <td align="center"><a href="<?=("javascript:confirm_update('$TMP_CO_ID')")?>"><img src="images/b_edit.png" border="0" alt="Update Record"></a></td>
+<?}?>
+<?if($PAGE_AUTH["del"]=="Y"){?>
+    <td align="center"><a href="<?=("javascript:confirm_delete('$TMP_CO_ID','".$TR_NAME." : ".$CO_FUND."')")?>"><img src="images/b_drop.png" border="0" alt="Delete Record"></a></td>
+<?}?>
+  </tr>
+<?  endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

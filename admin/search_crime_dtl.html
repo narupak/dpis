@@ -1,0 +1,270 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+//	include("php_scripts/function_share.php");
+	$table = "PER_CRIME_DTL"; //ตั้งค่าเพื่อส่งข้อมูลในการ เพิ่มข้อมูล
+	$menu_detail = "กรณีความผิด >";  //ส่งค่าให้ insert log
+	include("php_scripts/master_table_crime_dtl.php"); 
+	include("php_scripts/load_per_control.php");
+		
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_crd_code)) $arr_search_condition[] = "(CRD_CODE like '$search_crd_code%')";
+  	if(trim($search_crd_name)) $arr_search_condition[] = "(CRD_NAME like '%$search_crd_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(CRD_CODE) as count_data 
+					 from 		PER_CRIME_DTL 
+					 where 	CRD_ACTIVE=1
+					 				$search_condition
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>กรณีความผิด	</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function call_search_crime () {	
+		parameter = "&send_by=search_crime";
+		call_openDialog("search_crime.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ฐานความผิด");
+	}
+function checkadd_filed(chk_btn){   //ไว้เปิดฟิลด์ให้เพิ่มข้อมูลได้
+		var chk_btn;
+		if(chk_btn == 1)
+  		form1.command.value='ADD_FILED';
+		else 
+		form1.command.value='';
+		return true;
+} // end function 	
+function checkadd(f) {
+	if(f.<?=$arr_fields[0]?>.value=="") {
+		alert("กรุณาระบุ รหัส");
+		f.<?=$arr_fields[0]?>.focus();
+		return false;
+		} 
+		else if(f.<?=$arr_fields[1]?>.value=="") {
+		alert("กรุณาระบุ ชื่อ");
+		f.<?=$arr_fields[1]?>.focus();
+		return false;
+		}
+		else if(f.CR_NAME.value=="") {
+		alert("กรุณาระบุ ฐานความผิด");
+		f.CR_NAME.focus();
+		return false;
+		}
+		else  	
+		form1.command.value='ADD';
+		return true;
+		} // end function
+		function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		if  (src.indexOf("search_crime") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+			    if (arrValue[2]=="search_crime") {
+					form1.CR_CODE.value = arrValue[0];
+				    form1.CR_NAME.value = arrValue[1];
+				} 
+			} // end if
+		}   
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+</script>
+<body>
+<form action="search_crime_dtl.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+<?if($command != "ADD_FILED") {?>
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr><?=$err_text.$success_sql?> 
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_crd_code" value="<?=$search_crd_code?>" style="width:98%" class="textbox"></td>
+              <td width="20%" align="right">ชื่อกรณีความผิด&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_crd_name" value="<?=$search_crd_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" colspan="4" align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_crd_code.value=''; form1.search_crd_name.value=''; form1.current_page.value=0;">
+			  <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_crd_code.value=''; form1.search_crd_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลกรณีความผิด ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+  <?}else{?>
+   <table width="85%" align="center" border="1" cellpadding="1" cellspacing="1" > <!--เริ่ม-->
+			<tr> 
+			<td colspan="4" align="center" class="table_body">เพิ่มข้อมูล</td>
+			</tr>
+			<tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;รหัส&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="text" name="<?=$arr_fields[0]?>" value="" style="width:30%" size="30" class="textbox" ></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;ชื่อ&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><textarea name="<?=$arr_fields[1]?>" rows="3" class="selectbox" style="width:70%"></textarea></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><?=$OTHERNAME_TITLE?>&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><textarea name="<?=$arr_fields[7]?>" rows="3" class="selectbox" style="width:70%"></textarea></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;ฐานความผิด&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="text" name="CR_NAME" value="<?=$CR_NAME?>" style="width:70%" class="textbox"  readonly="true">&nbsp;<input type="button" name="" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_crime()">
+					<input type="hidden" name="CR_CODE" value="<?=$CR_CODE?>"></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><?=$ACTIVE_TITLE?>&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="radio" name="<?=$arr_fields[3]?>" value="1" checked>ใช้งาน&nbsp;&nbsp;&nbsp;
+			 <input type="radio" name="<?=$arr_fields[3]?>" value="0" >ยกเลิก</td>
+			</tr>
+			 <tr> 
+			 <? if ($BUTTON_DISPLAY==1) { ?>
+			<td colspan="2" align="right"><input name="Submit_add_filed" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>"></td>
+			 <td colspan="2" align="left"><input name="Submit_cancel_filed" type="submit" class="button" onClick="return checkadd_filed(0);" value="<?=$CANCEL_TITLE?>"></td>
+			 <?}else {?>
+			 <td colspan="2" align="right"><input name="image" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0"></td>
+			 <td colspan="2" align="left"><input name="image" type="image" onClick="return checkadd_filed(0);" src="images/cancel.png" alt="<?=$CANCEL_TITLE?>" border="0"></td>
+			 <?}?>
+			</tr>
+	</table> <!--เริ่มสิ้นสุด-->
+<?}?>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record CRD_CODE from PER_CRIME_DTL where CRD_ACTIVE=1 $search_condition order by CRD_SEQ_NO, CRD_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[CRD_CODE]'";
+				$limit_data = " and CRD_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and CRD_CODE not in ( select * from (select CRD_CODE from PER_CRIME_DTL where CRD_ACTIVE=1 $search_condition order by CRD_SEQ_NO, CRD_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+		
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											CRD_CODE, CRD_NAME, CR_CODE 
+							 from 		PER_CRIME_DTL
+							 where 	CRD_ACTIVE=1
+											$search_condition
+											$limit_data
+							order by	IIF(ISNULL(CRD_SEQ_NO), 9999, CRD_SEQ_NO), CRD_CODE ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+								 select 	CRD_CODE, CRD_NAME, CR_CODE 
+								 from 		PER_CRIME_DTL
+								 where 	CRD_ACTIVE=1
+												$search_condition
+												$limit_data
+								order by	CRD_SEQ_NO, CRD_CODE
+							) where rownum <= $data_per_page ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	CRD_CODE, CRD_NAME, CR_CODE 
+							 from 		PER_CRIME_DTL
+							 where 	CRD_ACTIVE=1
+											$search_condition
+							order by	CRD_SEQ_NO, CRD_CODE
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">กรณีความผิด</td>
+    <td width="45%" align="center">ฐานความผิด</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_CRD_CODE = $data[CRD_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_CRD_CODE'";
+				$TMP_CRD_NAME = trim($data[CRD_NAME]);
+				$TMP_CR_CODE =  trim($data[CR_CODE]);
+				
+				$cmd = " select CR_NAME from PER_CRIME where CR_CODE='$TMP_CR_CODE' ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$TMP_CR_NAME = $data2[CR_NAME];
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_CRD_CODE<::>$TMP_CRD_NAME<::>$TMP_CR_CODE<::>$TMP_CR_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_CRD_CODE?></td>
+    <td>&nbsp;<?=$TMP_CRD_NAME?></td>
+    <td>&nbsp;<?=$TMP_CR_NAME?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

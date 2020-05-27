@@ -1,0 +1,202 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+
+	$cmd = " select ORG_ID from PER_ORG_ASS where ORG_ID_REF=ORG_ID ";
+	$HAVE_ID_1 = $db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$START_ORG_ID = $data[ORG_ID];
+
+	if(!$ORG_ID && !$ORG_ID_REF){
+		$ORG_ID = $START_ORG_ID;
+		$ORG_ID_REF = $START_ORG_ID;
+	} // end if
+
+	if(!$ORG_ID && !$ORG_ID_REF){
+		$ORG_ID = 1;
+		$ORG_ID_REF = 1;
+	} // end if
+
+	if($ORG_ID && !$ORG_ID_REF)	{
+		if($DPISDB=="odbc"){
+			$cmd = " select top 1 ORG_ID_REF from PER_ORG_ASS where ORG_ID=$ORG_ID ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select ORG_ID_REF from PER_ORG_ASS where ORG_ID=$ORG_ID ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select ORG_ID_REF from PER_ORG_ASS where ORG_ID=$ORG_ID ";
+		} // end if
+		$db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		$ORG_ID_REF = $data[ORG_ID_REF];
+	} // end if
+
+	function list_tree_org ($pre_image, $org_parent, $sel_org_id, $tree_depth) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $LIST_OPENED_ORG, $START_ORG_ID;
+		
+		$opened_org = substr($LIST_OPENED_ORG, 1, -1);
+		$arr_opened_org = explode(",", $opened_org);
+		
+		$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		
+		$cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from PER_ORG_ASS where ORG_ID_REF = $org_parent and ORG_ID <> $START_ORG_ID order by ORG_NAME ";
+		$count_data = $db_dpis->send_cmd($cmd);
+		$db_dpis->show_error();
+		if($count_data){
+			echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";		
+			while($data = $db_dpis->get_array()){
+				$cmd = " select ORG_ID from PER_ORG_ASS where ORG_ID_REF=". $data[ORG_ID];
+				$count_sub_tree = $db_dpis2->send_cmd($cmd);
+
+				$class = "table_body";
+				if($data[ORG_ID] == $sel_org_id) $class = "table_body_over";
+				$icon_name = "icon_plus.gif";
+				$onClick = "add_opened_org(". $data[ORG_ID] .");";
+				if(in_array($data[ORG_ID], $arr_opened_org)){ 
+					$icon_name = "icon_minus.gif";
+					$onClick = "remove_closed_org(". $data[ORG_ID] .");";
+				} // end if
+				if(!$count_sub_tree) $icon_name = "";
+				echo "<tr>";
+				echo "<td width=\"15\" align=\"center\"><img src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\"></td>";
+				echo "<td class=\"$class\" height=\"22\">&nbsp;<span onClick=\"select_org(". $data[ORG_ID] .",". $data[ORG_ID_REF] .");\" style=\"cursor:hand\">" . $data[ORG_NAME] . "</span></td>";
+				echo "</tr>";
+				
+				if($count_sub_tree && in_array($data[ORG_ID], $arr_opened_org)){
+					echo "<tr>";
+					echo "<td width=\"15\" align=\"center\"></td>";
+					echo "<td>";
+					$display = "none";
+					if(in_array($data[ORG_ID], $arr_opened_org)) $display = "block";
+					echo "<div id=\"DIV_". $data[ORG_ID] ."\" style=\"display:$display\">";
+					list_tree_org("", $data[ORG_ID], $sel_org_id, ($tree_depth + 1));
+					echo "</div>";
+					echo "</td>";
+					echo "</tr>";
+				} // end if
+			} // end while						
+			echo "</table>";
+		} // end if
+	} // function
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?formname=form1&fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=520')
+	}
+	
+	function select_org(org_id, org_id_ref){
+		form1.ORG_ID.value = org_id;
+		form1.ORG_ID_REF.value = org_id_ref;
+		form1.submit();
+	}
+	
+	function add_opened_org(opened_org_id){
+		opened_org = form1.LIST_OPENED_ORG.value;
+		if(opened_org==""){
+			opened_org = "," + opened_org_id + ",";
+		}else{
+			opened_org += (opened_org_id + ",");
+		}
+		form1.LIST_OPENED_ORG.value = opened_org;
+	//	alert(form1.LIST_OPENED_ORG.value);
+	//	form1.ORG_ID.value = opened_org_id;
+	//	form1.ORG_ID_REF.value = "";
+		form1.submit();
+	}
+	
+	function remove_closed_org(closed_org_id){
+		opened_org = form1.LIST_OPENED_ORG.value;
+		if(opened_org==""){
+			opened_org = "";
+		}else{
+			search_str = "," + closed_org_id + ",";
+			pos = opened_org.indexOf(search_str);
+	//		alert(pos);
+			opened_org = opened_org.substring(0, pos) + opened_org.substring((pos + search_str.length - 1), opened_org.length);
+			if(opened_org=="," || opened_org==",,") opened_org = "";
+		}
+		form1.LIST_OPENED_ORG.value = opened_org;	
+	//	alert(form1.LIST_OPENED_ORG.value);
+	//	form1.ORG_ID.value = form1.ORG_ID_REF.value;
+	//	form1.ORG_ID_REF.value = "";
+		form1.submit();
+	}
+
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="list_structure_available.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="NEW_ORG_ID_REF">
+          <input type="hidden" name="ORG_ID_REF" value="<?=$ORG_ID_REF?>">
+          <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+          <input type="hidden" name="LIST_OPENED_ORG" value="<?=$LIST_OPENED_ORG?>">
+  <table width="100%"  border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" valign="top">
+          <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+            <tr><td height="10"></td></tr>
+			<tr align="center">
+              <td height="25">
+			  <? if($HAVE_ID_1){ ?>
+			  <table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+				  <?
+				  		$cmd = " select ORG_NAME from PER_ORG_ASS where ORG_ID=$START_ORG_ID and ORG_ID_REF=$START_ORG_ID ";
+						$db_dpis->send_cmd($cmd);
+						$data = $db_dpis->get_array();
+						$TMP_ORG_NAME = $data[ORG_NAME];
+						
+						$class = "table_body";
+						if($ORG_ID==$START_ORG_ID && $ORG_ID_REF==$START_ORG_ID) $class = "table_body_over";
+				  ?>
+                  <td height="22" class="<?=$class?>">&nbsp;<span onClick="select_org(<?=$START_ORG_ID?>,<?=$START_ORG_ID?>);" style="cursor:hand;"><?=$TMP_ORG_NAME?></span></td>
+                </tr>
+                <tr>
+                  <td height="22"><? list_tree_org("", $START_ORG_ID, $ORG_ID, 1); ?></td>
+                </tr>
+              </table>
+			  <? }else{ echo "ไม่มีโครงสร้างตามมอบหมายงาน"; } // end if ?>
+			  </td>
+			</tr>
+            <tr><td height="10"></td></tr>
+          </table>
+	  </td>
+    </tr>
+  </table> 
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

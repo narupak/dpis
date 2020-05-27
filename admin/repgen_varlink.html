@@ -1,0 +1,306 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+	if ($command=="CHANGEMAIN") {
+    	$tab_name_sel = explode(",",$TABSELECTS);
+		$buff = $tab_name_sel[0];
+		$tab_name_sel[0] = $tab_name_sel[1];
+		$tab_name_sel[1] = $buff;
+        $TABSELECTS = implode(",",$tab_name_sel);
+        if ($tab_idx) {
+			$arr1 = explode("|",$VAR_LINK);
+			$arr2 = explode("@",$arr1[$tab_idx]);
+            $arr2[0]=$tab_name_sel[0];
+			$arr2[1]=$tab_name_sel[1];
+            $dlink = explode(",",$arr2[4]);
+            for($i=0; $i < count($dlink); $i++) {
+            	$dd = explode("=",$dlink[$i]);
+                $dd1 = explode(".",$dd[0]);
+                $dd2 = explode(".",$dd[1]);
+                if ($dd1[0]==$tab_name_sel[1] && $dd2[0]==$tab_name_sel[0])
+                	$dlink[$i] = $dd2."=".$dd1;                    
+            }
+            $arr2[4] = implode(",",$dlink);
+			$arr1[$tab_idx] = implode("@",$arr2);
+			$VAR_LINK = implode("|",$arr1[$tab_idx]);
+		}
+        $command = "";
+	}
+
+	if ($tab_idx) {
+		$arr1 = explode("|",$VAR_LINK);
+		$arr2 = explode("@",$arr1[$tab_idx]);
+		$tab_name1 = $arr2[0];
+		$tab_name2 = $arr2[1];
+		$tab_main = $arr2[2];
+		$tab_jointype = $arr2[3];
+		$tab_columnjoin = $arr2[4];
+	    $f_upd = true;
+	} else {		// else if ($tab_idx)
+		$tab_name_sel = explode(",",$TABSELECTS);
+        
+	    $tab_name1 = $tab_name_sel[0];
+    	$tab_name2 = $tab_name_sel[1];
+		$tab_main = "1";
+		$tab_jointype = "1";
+		$tab_columnjoin = "";
+		if ($VAR_LINK) {
+			$arr1 = explode("|",$VAR_LINK);
+    		for($i=0; $i < count($arr1); $i++) {
+    			$arr2 = explode("&",$arr1[$i]);
+            	$idx1 = array_search($arr2[0], $tab_name_sel);
+            	$idx2 = array_search($arr2[1], $tab_name_sel);
+    	    	if ($idx1 && $idx2) {
+        			$tab_idx = $i;
+    	        	$tab_name1 = $arr2[0];
+    	        	$tab_name2 = $arr2[1];
+                	$tab_main = $arr2[2];
+    	        	$tab_jointype = $arr2[3];
+        	    	$tab_columnjoin = $arr2[4];
+                    if ($tab_name_sel[0]==$arr2[1] && $tab_name_sel[1]==$arr2[0]) {
+						$tab_name_sel[0] = $arr2[0];
+						$tab_name_sel[1] = $arr2[1];
+				        $TABSELECTS = implode(",",$tab_name_sel);
+					}
+            	}
+    		}
+	    	if ($tab_idx == -1) {
+            	$f_upd = false; 
+				$newlink = $tab_name1."@".$tab_name2."@".$tab_main."@".$tab_jointype."@".$tab_columnjoin;
+                $VAR_LINK .= "|".$newlink;
+                $tab_idx = count($arr1);
+			} else $f_upd = true;
+		} // end if ($VAR_LINK)
+	} // end if if ($tab_idx)
+//	echo "$TABSELECTS<br>";
+?>
+<html>
+<head>
+<title>รายการเชื่อมโยงของตาราง</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+
+	function call_add2list() { 
+		var tab1 = document.form1.tab_name1;
+		var tab2 = document.form1.tab_name2;
+
+		var data1 = document.getElementById("SEARCHDDIC_left");
+		var data2 = document.getElementById("SEARCHDDIC_right");
+
+		var tabidx = document.form1.tab_idx.value;
+		var jointype = document.getElementById("jointype");
+
+		var datajoin = document.getElementById("data_join");
+
+		var varlink = document.form1.VAR_LINK;
+		if (varlink.length > 0) {
+			var tablink = varlink.value.split("|");
+
+			var dlink = tablink[tabidx].split("@");
+			dlink[0] = tab1.value;
+			dlink[1] = tab2.value;
+			var strlink = "";
+			var strshow = "";
+
+			datashow = data1.value + "=" + data2.value;
+			if (dlink[4].length > 0) {
+				var subdlink = dlink[4].split(",");
+				var founded1 = false;
+				for(i=0; i < subdlink.length; i++) {
+					if (subdlink[i]==datashow) {
+							founded1 = true;
+							break;
+					}
+				}
+				if (!founded1) {
+					dlink[4] += ","+datashow;
+					var option = document.createElement("option");
+					option.text = datashow;
+					option.value = datashow;
+					try {       
+						 datajoin.add(option, null); //Standard
+					} catch(error) {        
+						datajoin.add(option); // IE only    
+					}
+				}
+			} else {
+				dlink[4] = datashow;
+				var option = document.createElement("option");
+				option.text = datashow;
+				option.value = datashow;
+				try {       
+					 datajoin.add(option, null); //Standard
+				} catch(error) {        
+					datajoin.add(option); // IE only    
+				}
+			}
+			tablink[tabidx] = dlink.join("@");
+			document.form1.VAR_LINK.value = tablink.join("|");
+		} else {
+			datashow = data1.value + "=" + data2.value;
+			document.form1.VAR_LINK.value = tab1.value+"@"+tab2.value+"@1@"+jointype.value+"@"+datashow;
+			var option = document.createElement("option");
+			option.text = datashow;
+			option.value = datashow;
+			try {       
+				 datajoin.add(option, null); //Standard
+			} catch(error) {        
+				datajoin.add(option); // IE only    
+			}
+		}
+	}
+	
+	function call_sel_data_join() {
+		var ind = document.form1.data_join.selectedIndex;
+		var selected = document.form1.data_join.options[ind].value; 
+		
+		if (confirm("ต้องการลบ ข้อมูลเชื่อมโยงรายการนี้ ("+selected+") แน่นอน?")==true) {
+			document.form1.data_join.remove(ind);
+		}
+	}
+
+	function call_return(flag) {
+		var returnValue="";
+		if (flag==1) { // return save
+			var varlink = document.form1.VAR_LINK;
+			returnValue = "0<::>"+varlink.value;
+		} else { // return cancel
+			returnValue = "1<::>";
+		}
+		parent.refresh_opener(returnValue);
+	}
+
+</script>
+<body>
+<form action="repgen_varlink.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="TABSELECTS" value="<?=$TABSELECTS?>">
+  <input type="hidden" name="VAR_LINK" value="<?=$VAR_LINK?>">
+  <input type="hidden" name="tab_idx" value="<?=$tab_idx?>">
+  <input type="hidden" name="command">
+&nbsp;
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">ข้อมูลการเชื่อมโยงของตาราง <?=$TABSELECT?></td>
+	</tr>
+</table>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">ตารางหลัก&nbsp;:&nbsp;</td>
+    <td align="left">
+    	<input type="text" name="tab_name1" value="<?=$tab_name1?>" width="100" readonly>&nbsp;&nbsp;
+<!--        <input type="radio" name="tab_main" id="tab_main" value="1" <?=($tab_main=="1"?"checked":"")?>>&nbsp;เป็นตารางหลัก-->
+    </td>
+    <td width="20%" align="left">
+			<select name="SEARCHDDIC_left" id="SEARCHDDIC_left" style="width:80%">
+         		<option value=''>== Data Dictionary ==</option>
+		<?	
+			$cmd =" select DATA_NO, DATA_THAI_NAME, DATA_ENG_NAME, MAP_TABLE_NAME, MAP_COLUMN_NAME from DATA_DICTIONARY where MAP_TABLE_NAME = '$tab_name1' ";
+
+			$db_dpis->send_cmd($cmd);
+			while( $data = $db_dpis->get_array() ){
+				$data = array_change_key_case($data, CASE_LOWER);
+				$T_DATA_NO = $data[data_no];
+				$T_DATA_THAI = trim($data[data_thai_name]);
+				$T_DATA_ENG = trim($data[data_eng_name]);
+				$T_MAP_DATA = trim($data[map_table_name]).".".trim($data[map_column_name]);                   
+		?>
+				<option value='<?=$T_MAP_DATA;?>' <?=$selected; ?>><?=$T_DATA_THAI;?></option>
+		<?				
+				} //end while
+		?>
+			</select>
+    </td>
+  </tr>
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">ตารางรอง&nbsp;:&nbsp;</td>
+    <td align="left">
+    	<input type="text" name="tab_name2" value="<?=$tab_name2?>" width="100" readonly>&nbsp;&nbsp;
+<!--        <input type="radio" name="tab_main" id="tab_main" value="2" <?=($tab_main!="1"?"checked":"")?>>&nbsp;เป็นตารางหลัก-->
+        <input type="submit" name="changemain" value="เปลี่ยนเป็นตารางหลัก" onClick="form1.command.value='CHANGEMAIN';">
+    </td>
+    <td align="left">
+			<select name="SEARCHDDIC_right" id="SEARCHDDIC_right" style="width:80%">
+         		<option value=''>== Data Dictionary ==</option>
+		<?	
+			$cmd =" select DATA_NO, DATA_THAI_NAME, DATA_ENG_NAME, MAP_TABLE_NAME, MAP_COLUMN_NAME from DATA_DICTIONARY where MAP_TABLE_NAME = '$tab_name2' ";
+
+			$db_dpis->send_cmd($cmd);
+			while( $data = $db_dpis->get_array() ){
+				$data = array_change_key_case($data, CASE_LOWER);
+				$T_DATA_NO = $data[data_no];
+				$T_DATA_THAI = trim($data[data_thai_name]);
+				$T_DATA_ENG = trim($data[data_eng_name]);
+				$T_MAP_DATA = trim($data[map_table_name]).".".trim($data[map_column_name]);
+		?>
+				<option value='<?=$T_MAP_DATA;?>' <?=$selected; ?>><?=$T_DATA_THAI;?></option>
+		<?				
+				} //end while
+		?>
+			</select>
+	</td>
+  </tr>
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">แบบการเชื่อมต่อ&nbsp;:&nbsp;</td>
+    <td align="left">
+		<input type="radio" name="jointype" id="jointype" value="1" <?=($tab_jointype=="1"?"checked":"")?>>คงการอ่านตารางหลักไว้กรณีเชื่อมไม่ได้ (Left Join)</ br>
+		<input type="radio" name="jointype" id="jointype" value="0" <?=($tab_jointype=="0"?"checked":"")?>>ไม่อ่านตารางหลักกรณีเชื่อมไม่ได้ (Join)
+    </td>
+	<td align="left" rowspan="2" valign="top">
+            <input name="Submit98" type="button" class="button" onClick="call_add2list();" value="เพิ่ม">
+	</td>
+  </tr>
+  <tr class="table_head">
+    <td width="10%" height="25" align="right">ข้อมูลเพื่อการเชื่อมต่อ&nbsp;:&nbsp;</td>
+    <td align="left">
+			<select name="data_join" id="data_join" size="3" onDblClick="call_sel_data_join();">
+			<? 
+            	if (strlen($tab_columnjoin) > 0) {
+	            	$arr_col = explode(",",$tab_columnjoin);
+                    if ($arr_col) {
+						for($i=0; $i < count($arr_col); $i++) {
+			?> 
+							<option value="<?=$arr_col[$i]?>"><?=$arr_col[$i]?></option> 
+			<? 
+						}
+					} // end if ($arr_col)
+				} // end if (strlen($tab_columnjoin) > 0)
+			?> 
+			</select>
+	</td>
+  </tr>
+  <tr>
+  	 <td colspan="3" align="center">
+		<? 
+		  		if ($BUTTON_DISPLAY==1) { ?>
+        		    <input type="submit" name="Reset" value="<?=$CANCEL_TITLE?>" onClick="call_return(0);" class="button" >
+            <? } else { ?>
+            		<input name="image" type="image" onClick="call_return(0);" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+            <? }
+            
+         ?>
+         <?if($PAGE_AUTH["edit"]=="Y"){
+			if ($BUTTON_DISPLAY==1) { ?>
+        	    <input name="Submit22" type="button" class="button" onClick="call_return(1);" value=" บันทึกกลับไปหน้าแรก">
+          <? } else { ?>
+          		<input name="image" type="image" onClick="call_return(1);" src="images/save.png" alt="บันทึกกลับไปหน้าแรก" border="0">
+		  <?}?>
+         <?}?>
+       </td>
+     </tr>
+</table>
+</form>
+</body>
+</html>

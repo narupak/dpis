@@ -1,0 +1,467 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_invest1.php");
+	
+  	if(trim($search_inv_date)) {
+		$temp = explode("/", $search_inv_date);
+		$temp_date = ($temp[2] - 543) ."-". $temp[1] ."-". $temp[0];
+		$arr_search_condition[] = "(INV_DATE='$temp_date')";
+	}
+  	if(trim($search_inv_no)) $arr_search_condition[] = "(INV_NO like '%$search_inv_no%')";
+  	if(trim($search_inv_desc)) $arr_search_condition[] = "(INV_DESC like '%$search_inv_desc%')";
+  	if(trim($search_crd_code)) $arr_search_condition[] = "(CRD_CODE like '%$search_crd_code%')";	
+  	if(trim($search_per_id)) {
+		$search_per_id = trim($search_per_id);
+		$cmd = " select distinct(INV_ID) from PER_INVEST1DTL where PER_ID = $search_per_id"; 
+		$db_dpis2->send_cmd($cmd);
+		while ($data = $db_dpis2->get_array()) {	  $temp[] = trim($data[INV_ID]);	}
+		$temp_inv_id = implode(", ", $temp);
+		$arr_search_condition[] = "(INV_ID in ($temp_inv_id))";		
+	}
+	if(trim($search_inv_status)) $arr_search_condition[] = "(INV_STATUS = $search_inv_status)";
+	
+	if($search_department_id){
+		$arr_search_condition[] = "(DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select count(INV_ID) as count_data from PER_INVEST1 $search_condition  ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);	
+?>
+<html>
+<head>
+<title>การสอบข้อเท็จจริง</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="javascript">
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function call_search_crime_dtl() {	
+		parameter = "";
+	    call_openDialog("search_crime_dtl.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กรณีความผิด");		
+	}
+	
+	function call_search_person_search () {	
+		parameter = "";
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}	
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("คุณต้องการลบข้อมูลนี้ [ " + data_label + " ] หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.INV_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function show_all_command () {
+		form1.search_inv_date.value = "";
+		form1.search_inv_no.value = "";
+		form1.search_inv_desc.value = "";
+		form1.search_crd_code.value = "";
+		form1.search_crd_name.value = "";
+		form1.search_cr_name.value = "";
+		form1.search_name.value = "";
+		form1.search_per_id.value = "";
+		form1.search_inv_status[0].checked = true;
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+		form1.search_ministry_id.value = "";
+		form1.search_ministry_name.value = "";
+		<? } ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+		form1.search_department_id.value = "";
+		form1.search_department_name.value = "";
+		<? } ?>
+		form1.submit();
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_crime_dtl") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.search_crd_code.value = arrValue[0];
+				form1.search_crd_name.value = arrValue[1];
+				form1.search_cr_name.value = arrValue[3];
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.search_per_id.value = arrValue[0];
+				form1.search_name.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<form action="data_invest1.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="INV_ID" value="<?=$INV_ID?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	
+      <td>
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+        <tr>
+          <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+              <tr align="center">
+                <td colspan="4" height="5" class="label_alert"><?=$err_text?></td>
+              </tr>
+              <tr>
+                <td align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:80%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+                  <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+                  <input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry();">
+                  <? } // end if ?>                </td>
+                <td align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:80%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+                  <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+                  <input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();">
+                  <? } // end if ?>                </td>
+              </tr>
+              <tr>
+                <td width="21%" align="right">วันที่สั่งให้สอบสวนข้อเท็จจริง&nbsp;:&nbsp;</td>
+                <td width="32%"><input type="text" name="search_inv_date" id="search_inv_date" value="<?=$search_inv_date?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.search_inv_date,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                  &nbsp;&nbsp;
+                  <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+                  <input name="button" type="button" class="button" onClick="return showCalendar('search_inv_date', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                  <? } ?>                </td>
+                <td width="16%" align="right"><span class="label_alert">*</span>&nbsp;<?=$DOCNO_TITLE?>/เลขที่บันทึก&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_inv_no" value="<?=$search_inv_no?>" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+              </tr>
+              <tr>
+                <td align="right">เรื่องที่ดำเนินการ&nbsp;:&nbsp;</td>
+                <td colspan="3"><input type="text" name="search_inv_desc" value="<?=$search_inv_desc?>" style="width:74%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+              </tr>
+              <tr>
+                <td align="right"><span class="label_alert">*</span>&nbsp;กรณี&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_crd_name" value="<?=$search_crd_name?>" style="width:80%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_crd_code" value="<?=$search_crd_code?>">
+                  <input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกรณีความผิด" onClick="call_search_crime_dtl();">                </td>
+                <td align="right">มูลความผิด&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_cr_name" value="<?=$search_cr_name?>" style="width:80%" class="textbox" readonly></td>
+              </tr>
+              <tr>
+                <td align="right">ผู้ถูกกล่าวหา&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_name" value="<?=$search_name?>" style="width:80%" class="textbox" readonly>
+                  &nbsp;&nbsp;
+                  <input type="hidden" name="search_per_id" value="<?=$search_per_id?>">
+                  <input type="button" name="butt_person" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person_search();">                </td>
+                <td colspan="2"></td>
+              </tr>
+              <tr>
+                <td></td>
+                <td colspan="3"><input type="radio" name="search_inv_status" value="0" size="30" <?=($search_inv_status== 0)? "checked" : "";?>>
+                  ทั้งหมด&nbsp;&nbsp;&nbsp;
+                  <input type="radio" name="search_inv_status" value="1" size="30" <?=($search_inv_status== 1)? "checked" : "";?>>
+                  อยู่ระหว่างดำเนินการ&nbsp;&nbsp;&nbsp;
+                  <input type="radio" name="search_inv_status" value="2" size="30" <?=($search_inv_status== 2)? "checked" : "";?>>
+                  ยุติเรื่องไม่มีมูล&nbsp;&nbsp;
+                  <input type="radio" name="search_inv_status" value="3" size="30" <?=($search_inv_status== 3)? "checked" : "";?>>
+                  มีมูล </td>
+              </tr>
+              <tr>
+                <td colspan="4" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">หาข้อมูล "การอบรม"</iframe></td>
+              </tr>
+              <tr align="center">
+                <td height="30" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+				<input name="btn3" type="submit" class="button" value="<?=$SEARCH_TITLE?>">
+					<input type="button" name="btn4" class="button" value="<?=$SHOW_ALL_TITLE?>" alt="ค้นหาข้อมูลการสอบข้อเท็จจริงทั้งหมด" onClick="show_all_command();"> <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="show_all_command();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>"><?}?>
+               </td>
+              </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+ <table width="93%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+    <table width="93%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+	<? if ($count_data) { ?>
+<!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+              <td align="center">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+	<? } ?>			  
+            </tr>
+        </table>  
+	</td></tr>
+</table> 	
+
+  <? if (trim($error_delete_invest1)) { ?>
+<br>
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+			  <tr><td colspan="3" align="center"><font color="#FF0000">พบข้อมูลการสอบทางวินัยอ้างอิงการสอบข้อเท็จจริงนี้  ไม่สามารถลบได้</font></td></tr>
+</table></td></tr></table>
+<br>
+<? }  // end if ?>
+  
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//เลขที่คำสั่ง
+		$order_str = "ORDER BY  INV_NO ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//ลงวันที่
+		$order_str = "ORDER BY INV_DATE   ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//เรื่อง
+		$order_str =  "ORDER BY INV_DESC   ".$SortType[$order_by];
+	}elseif($order_by==4) {	//การดำเนินการ
+		$order_str = "ORDER BY INV_STATUS ".$SortType[$order_by];
+	}
+
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record trim(INV_ID) as concat_pk from PER_INVEST1 $search_condition order by INV_ID ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+				$limit_data = (trim($search_condition)?" and ":" where ")." trim(INV_ID) not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="mysql"){
+			  $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			}
+		} // end if 
+			
+		if($DPISDB=="odbc"){
+			$cmd = " 	select		top $data_per_page
+											INV_ID, INV_NO, INV_DATE, INV_DESC, INV_STATUS 
+							from 			PER_INVEST1  
+											$search_condition
+											$limit_data
+							$order_str";							 
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									  select 		INV_ID, INV_NO, INV_DATE, INV_DESC, INV_STATUS
+									  from 		PER_INVEST1
+													$search_condition
+									  $order_str
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";					 					
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select		INV_ID, INV_NO, INV_DATE, INV_DESC, INV_STATUS 
+							from 			PER_INVEST1  
+											$search_condition
+							$order_str
+											$limit_data";		
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);		
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+
+<table width="93%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head" align="center">
+    <td width="7%" height="25">รหัส</td>
+    <td width="13%" onClick="call_sort(1);"><strong>
+      <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>      <?=$DOCNO_TITLE?></td>
+    <td width="13%" onClick="call_sort(2);"><strong>
+      <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>      <?=$DOCDATE_TITLE?></td>
+    <td onClick="call_sort(3);"><strong>
+      <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>เรื่อง</td>
+    <td width="13%" onClick="call_sort(4);"><strong>
+      <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+    </strong>การดำเนินการ</td>
+    <td width="5%"><?=$INQ_TITLE?></td>
+    <?if($PAGE_AUTH["edit"]=="Y"){?>
+    <td width="5%"><?=$EDIT_TITLE?></td>
+    <?}?>
+    <?if($PAGE_AUTH["del"]=="Y"){?>
+    <td width="5%"><?=$DEL_TITLE?></td>
+    <?}?>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_INV_ID = trim($data[INV_ID]);
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_INV_ID'";
+				$INV_NO = trim($data[INV_NO]);
+				$INV_DESC = trim($data[INV_DESC]);
+				$INV_STATUS = trim($data[INV_STATUS]);
+				
+				$INV_DATE = show_date_format($data[INV_DATE], 1);
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+				if( trim($INV_ID) === trim($TMP_INV_ID) ) { 
+					$class = "table_body_over";
+					$onmouse_event = "";
+				} // end if				
+
+				$cmd = " select INV_ID from PER_INVEST1DTL where INV_ID = $TMP_INV_ID ";
+				$count_invdtl = $db_dpis2->send_cmd($cmd);
+
+				$returnValue = "$TMP_INV_ID<::><::>$count_invdtl";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_INV_ID?></td>
+    <td>&nbsp;<?="$INV_NO"?></td>
+    <td align="center"><?=$INV_DATE?></td>
+    <td>&nbsp;<?=$INV_DESC?></td>
+	
+	<? $returnValueA=""; $ST='?ST=1';	$returnValueA=$returnValue."<::>$ST"; ?>
+    <td onClick="parent.refresh_opener('<?=$returnValueA?>');">&nbsp;
+    	<? if ($INV_STATUS == 1) { ?>		อยู่ระหว่างดำเนินการ
+	<? } elseif ($INV_STATUS == 2) { ?>	ยุติเรื่องไม่มีมูล
+	<? } elseif ($INV_STATUS == 3) { ?>	มีมูล	<? } ?>	
+    </td>
+    <td align="center">&nbsp;
+	<? $returnValueA=""; $VIEW='?VIEW=1';	$returnValueA="2<::>".$returnValue."<::>$VIEW"; ?>
+	<a href="<?=("javascript:parent.refresh_opener('$returnValueA')")?>"><img src="images/icon_eye.gif" alt="เรียกดูข้อมูล" width="16" height="16" border="0"></a></td>
+<?if($PAGE_AUTH["edit"]=="Y"){?>    
+    <td align="center">&nbsp;
+	<? $returnValueA="";  $UPD='?UPD=1';	$returnValueA="2<::>".$returnValue."<::>$UPD";  ?>
+	<a href="<?=("javascript:parent.refresh_opener('$returnValueA')")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>
+<?}
+//echo $returnValueA;
+?>
+<?if($PAGE_AUTH["del"]=="Y"){?>
+    <td align="center"><a href="<?=("javascript:confirm_delete('$TMP_INV_ID','".$INV_NO." : ".$INV_NO."')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a></td>
+<?}?>
+  </tr>
+<?  endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="93%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

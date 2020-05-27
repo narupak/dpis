@@ -1,0 +1,672 @@
+<?php include("../../php_scripts/connect_database.php");
+    include("../php_scripts/pdf_wordarray_thaicut.php");
+    include("../../php_scripts/calendar_data.php");
+    include ("../php_scripts/function_share.php");
+    define('FPDF_FONTPATH','../../PDF/font/');
+    include ("../../PDF/fpdf.php");
+    include ("../../PDF/pdf_extends_DPIS.php"); 
+    
+    ini_set("max_execution_time", $max_execution_time);
+    $db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    
+    function getNamePersonal($db_dpis,$perId){
+        global $PER_STARTDATE,$month_full;
+        $cmd = "SELECT PP.PN_NAME,PPN.PER_NAME,PPN.PER_SURNAME,PER_STARTDATE 
+                FROM PER_PERSONAL PPN
+                LEFT JOIN PER_PRENAME PP ON(PP.PN_CODE=PPN.PN_CODE)
+                WHERE PER_ID = $perId ";
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $fullname = $data2[PN_NAME].$data2[PER_NAME].' '.$data2[PER_SURNAME];
+        //$month_full[($arr_tempsubmit[1] + 0)
+        $Arrdate = explode("-", trim($data2[PER_STARTDATE]));
+        $PER_STARTDATE = trim($Arrdate[2]+0).' '.($month_full[($Arrdate[1] + 0)][TH]).' '.($Arrdate[0]+543);
+        return $fullname;
+    }
+    function getPositionName($db_dpis,$perId){
+        $cmd = "SELECT POS_ID,POEM_ID ,POEMS_ID,POT_ID,PER_TYPE,LEVEL_NO
+                FROM PER_PERSONAL 
+                WHERE PER_ID = $perId ";
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $dbPOS_ID = $data2[POS_ID];
+        $dbPOEM_ID = $data2[POEM_ID];
+        $dbPOEMS_ID = $data2[POEMS_ID];
+        $dbPOT_ID = $data2[POT_ID];
+        $TMP_PL_NAME='';
+        $perType=$data2[PER_TYPE];
+        $dbLevelNo=$data2[LEVEL_NO];
+        if($perType==1){//POS_ID
+            $cmd = " 	select	pl.PL_NAME,po.ORG_NAME
+                        from	PER_POSITION pp, PER_LINE pl, PER_ORG po
+                        where	pp.POS_ID=$dbPOS_ID and pp.ORG_ID=po.ORG_ID and pp.PL_CODE=pl.PL_CODE ";
+            $db_dpis->send_cmd($cmd);
+            $dataPOS = $db_dpis->get_array();
+            $TMP_PL_NAME = TRIM($dataPOS[PL_NAME]);
+            $TMP_ORG_NAME = trim($dataPOS[ORG_NAME]);
+        }elseif($perType==2){ //POEM_ID
+            $cmd = " 	select	pl.PN_NAME,po.ORG_NAME 
+                        from PER_POS_EMP pp, PER_POS_NAME pl, PER_ORG po 
+                        where pp.POEM_ID=$dbPOEM_ID and pp.ORG_ID=po.ORG_ID and pp.PN_CODE=pl.PN_CODE  ";
+            $db_dpis->send_cmd($cmd);
+            $dataPOS = $db_dpis->get_array();
+            $TMP_PL_NAME = trim($dataPOS[PN_NAME]);
+            $TMP_ORG_NAME = trim($dataPOS[ORG_NAME]);
+        }elseif($perType==3){//POEMS_ID
+            $cmd = " 	select	pl.EP_NAME ,po.ORG_NAME
+                        from PER_POS_EMPSER pp, PER_EMPSER_POS_NAME pl, PER_ORG po, PER_LEVEL le
+                        where pp.POEMS_ID=$dbPOEMS_ID and pp.ORG_ID=po.ORG_ID and pp.EP_CODE=pl.EP_CODE  and pl.LEVEL_NO = le.LEVEL_NO";
+            $db_dpis->send_cmd($cmd);
+            $dataPOS = $db_dpis->get_array();
+            $TMP_PL_NAME = trim($dataPOS[EP_NAME]);
+            $TMP_ORG_NAME = trim($dataPOS[ORG_NAME]);
+        }elseif($perType==4){//POT_ID
+            $cmd = " 	select pl.TP_NAME ,po.ORG_NAME
+                        from	PER_POS_TEMP pp, PER_TEMP_POS_NAME pl, PER_ORG po 
+                        where	pp.POT_ID=$dbPOT_ID and pp.ORG_ID=po.ORG_ID and pp.TP_CODE=pl.TP_CODE  ";
+            $db_dpis->send_cmd($cmd);
+            $dataPOS = $db_dpis->get_array();
+            $TMP_PL_NAME = trim($dataPOS[TP_NAME]);
+            $TMP_ORG_NAME = trim($dataPOS[ORG_NAME]);
+        }
+        $TMP_LEVEL_NAME='';
+        $cmd = " select POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$dbLevelNo' ";
+        $db_dpis->send_cmd($cmd);
+        $dataLvl = $db_dpis->get_array();
+        $TMP_LEVEL_NAME = $dataLvl[POSITION_LEVEL];
+        
+        
+        return $TMP_PL_NAME.' ระดับ'.$TMP_LEVEL_NAME." หน่วยงาน ".$TMP_ORG_NAME;
+    }
+    function getAddress($db_dpis,$perId){
+        $PER_ADD2="";
+        $cmd = " select ADR_NO, ADR_ROAD, ADR_SOI, ADR_MOO, ADR_VILLAGE, ADR_BUILDING, ADR_DISTRICT, DT_CODE, 
+                 AP_CODE, PV_CODE, ADR_HOME_TEL, ADR_OFFICE_TEL, ADR_FAX, ADR_MOBILE, ADR_EMAIL, ADR_POSTCODE 
+                from PER_ADDRESS where PER_ID=$perId and ADR_TYPE=1 ";
+        $db_dpis->send_cmd($cmd);
+        $data_dpis1 = $db_dpis->get_array();
+        
+        $DT_CODE_ADR = trim($data_dpis1[DT_CODE]);
+        $cmd = " select DT_NAME from PER_DISTRICT where trim(DT_CODE)='$DT_CODE_ADR' ";
+        $db_dpis->send_cmd($cmd);
+        $data_dpis2 = $db_dpis->get_array();
+        $DT_NAME_ADR = trim($data_dpis2[DT_NAME]);
+        if (!$DT_NAME_ADR) $DT_NAME_ADR = $data_dpis1[ADR_DISTRICT];
+
+        $AP_CODE_ADR = trim($data_dpis1[AP_CODE]);
+        $cmd = " select AP_NAME from PER_AMPHUR where trim(AP_CODE)='$AP_CODE_ADR' ";
+        $db_dpis->send_cmd($cmd);
+        $data_dpis2 = $db_dpis->get_array();
+        $AP_NAME_ADR = trim($data_dpis2[AP_NAME]);
+
+        $PV_CODE_ADR = trim($data_dpis1[PV_CODE]);
+        $cmd = " select PV_NAME from PER_PROVINCE where trim(PV_CODE)='$PV_CODE_ADR' ";
+        $db_dpis->send_cmd($cmd);
+        $data_dpis2 = $db_dpis->get_array();
+        $PV_NAME_ADR = trim($data_dpis2[PV_NAME]);
+                
+        if($data_dpis1[ADR_VILLAGE]) $PER_ADD2 .= "หมู่บ้าน".$data_dpis1[ADR_VILLAGE]." ";
+        if($data_dpis1[ADR_BUILDING]) $PER_ADD2 .= "อาคาร".$data_dpis1[ADR_BUILDING]." ";
+        if($data_dpis1[ADR_NO]) $PER_ADD2 .= "เลขที่ ".$data_dpis1[ADR_NO]." ";
+        if($data_dpis1[ADR_MOO]) $PER_ADD2 .= "ม.".$data_dpis1[ADR_MOO]." ";
+        if($data_dpis1[ADR_SOI]) $PER_ADD2 .= "ซ.".str_replace("ซ.","",str_replace("ซอย","",$data_dpis1[ADR_SOI]))." ";
+        if($data_dpis1[ADR_ROAD]) $PER_ADD2 .= "ถ.".str_replace("ถ.","",str_replace("ถนน","",$data_dpis1[ADR_ROAD]))." ";
+        if($DT_NAME_ADR) {
+            if ($PV_CODE_ADR=="1000") {
+                $PER_ADD2 .= "แขวง".$DT_NAME_ADR." ";
+            } else {
+                $PER_ADD2 .= "ต.".$DT_NAME_ADR." ";
+            }
+        }
+        if($AP_NAME_ADR) {
+            if ($PV_CODE_ADR=="1000") {
+                $PER_ADD2 .= "เขต".$AP_NAME_ADR." ";
+            } else {
+                $PER_ADD2 .= "อ.".$AP_NAME_ADR." ";
+            }
+        }
+        if($PV_NAME_ADR) {
+            if ($PV_CODE_ADR=="1000") {
+                $PER_ADD2 .= $PV_NAME_ADR." ";
+            } else {
+                $PER_ADD2 .= "จ.".$PV_NAME_ADR." ";
+            }
+        }
+        return $PER_ADD2;
+    }
+    //echo getNamePersonal($db_dpis2,14508);
+    
+   
+    
+    
+    
+    
+    $unit="mm";
+    $paper_size="A4";
+    $lang_code="TH";
+    $orientation='L';
+    
+
+    $report_title = "สถิติการลาของข้าราชการ||สำนักงาน ก.พ.";
+    $report_code = "R1210";
+    include ("es_rpt_pdf_R1204_04_format.php");	// กำหนดหัวและตัวแปรสำหรับการเปลี่ยนรูปแบบรายงาน
+    session_cache_limiter("private");
+    session_start();
+    
+    $company_name="";
+    $pdf = new PDF($orientation,$unit,$paper_size,$lang_code,$company_name,$report_title,$report_code,$heading,$heading_width,$heading_align);
+    
+    $pdf->Open();
+    $pdf->SetFont($font,'',14);
+    $pdf->SetMargins(5,5,5);
+    $pdf->AliasNbPages();
+    $pdf->SetTextColor(0, 0, 0);
+    $ORG_ID  =$search_org_id;
+    $PER_TYPE=$search_per_type;
+    $LAW_OR_ASS = $select_org_structure+1;
+   
+   
+    $cmd = file_get_contents('../es_rpt_R1204_04.sql');	
+    if($list_person_type=="SELECT"){
+        $PERID_VAL = "  $SELECTED_PER_ID ";
+    }else{
+        $PERID_VAL = " SELECT * FROM PERSONINDEPART ";
+    }
+   
+    $cmd=str_ireplace(":YEARBGN","'".(($search_yearBgn-543)-1)."-10-01'",$cmd);
+    $cmd=str_ireplace(":YEAREND","'".($search_yearBgn-543)."-09-30'",$cmd);
+    $cmd=str_ireplace(":CONDITION_PER_ID",$PERID_VAL,$cmd);
+
+    $cmd=str_ireplace(":LAW_OR_ASS",$LAW_OR_ASS,$cmd);
+    $cmd=str_ireplace(":PER_TYPE",$PER_TYPE,$cmd);
+    $cmd=str_ireplace(":ORG_ID",$ORG_ID,$cmd);
+        
+    //die('<pre>'.$cmd);
+    $db_dpis2->send_cmd($cmd);
+    $CurPerId=-1;
+    $page_start_x = $pdf->x;
+    $page_start_y = $pdf->y;
+
+    $head_text1 = implode(",", $heading_text);
+    $head_width1 = implode(",", $heading_width);
+    $head_align1 = implode(",", $heading_align);
+    $col_function = implode(",", $column_function);
+    $pdf->AutoPageBreak = false;
+    
+    while ($data = $db_dpis2->get_array()) {
+        $unit="mm";
+        $paper_size="A4";
+        $lang_code="TH";
+        $orientation='L';
+        $pdf->SetFont($font,'',14);
+        $pdf->SetTextColor(0, 0, 0);
+        
+        $pdf->AddPage();
+        $page_start_x = $pdf->x;
+        $page_start_y = $pdf->y;
+
+        $head_text1 = implode(",", $heading_text);
+        $head_width1 = implode(",", $heading_width);
+        $head_align1 = implode(",", $heading_align);
+        $col_function = implode(",", $column_function);
+        $pdf->AutoPageBreak = false;
+       
+        
+        $pdf->Cell(20, 7, getNamePersonal($db_dpis,$data[0])." ตำแหน่ง ".getPositionName($db_dpis,$data[0]), 0, 50, 'L', 0);
+        $pdf->Cell(20, 7, "เข้ารับราชการเมื่อ ".$PER_STARTDATE." ".getAddress($db_dpis,$data[0]), 0, 50, 'L', 0);
+        $pdf->Cell(20, 7, "ปีงบประมาณ ".$search_yearBgn, 0, 50, 'L', 0);
+        $result = $pdf->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "10", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+        $data_align = array("L","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");    
+        $data_alignSum = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+        $data_alignSum2 = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+        $loop=0;
+        
+        /**/
+       // การลาพักผ่อน ยอดยกมา
+        $AS_YEAR = $search_yearBgn-1;
+        $cmd = " select VC_DAY from PER_VACATION where VC_YEAR='$AS_YEAR'and PER_ID=".$data[0];
+        $count = $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $AB_COUNT_TOTAL_04 = $data2[VC_DAY]; 	// วันลาพักผ่อนที่ลาได้ทั้งหมดในปีงบประมาณ
+        //$AB_COUNT_04 = $AB_COUNT_TOTAL_04 - $SUM_CODE_04 + $ABS_DAY_MFA;		// วันลาสะสมที่เหลือ
+        $TMP_START_DATE =  (($AS_YEAR-543)-1).'-10-01';
+        $TMP_END_DATE =  ($AS_YEAR-543).'-09-30';
+
+        $cmd = " select sum(ABS_DAY) as abs_day
+            from PER_ABSENTHIS 
+            where PER_ID=".$data[0]." and trim(AB_CODE)='04' 
+            and ABS_STARTDATE >= '$TMP_START_DATE' and ABS_ENDDATE <= '$TMP_END_DATE' ";
+        
+        $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $data2 = array_change_key_case($data2, CASE_LOWER);
+        $SUM_CODE_04 = $data2[abs_day]+0; 
+        
+        $TotalCODE_04 =$AB_COUNT_TOTAL_04-$SUM_CODE_04;
+        
+        
+        /*ยอดปีนี้*/
+        $AS_YEAR = $search_yearBgn;
+        $cmd = " select VC_DAY from PER_VACATION where VC_YEAR='$AS_YEAR'and PER_ID=".$data[0];
+        $count = $db_dpis->send_cmd($cmd);
+        $data2 = $db_dpis->get_array();
+        $AB_COUNT_TOTAL_04NOW = $data2[VC_DAY]; 	// วันลาพักผ่อนที่ลาได้ทั้งหมดในปีงบประมาณ
+        
+        $SumAB_COUNT = $AB_COUNT_TOTAL_04NOW+$TotalCODE_04+0;
+       /**/ 
+        $TotalsumSick=0;
+        $TotalsumLaKid=0;
+        $TotalsumPak=0;
+        $TotalsumSai=0;
+        $TotalsumKad=0;
+        
+        $TotalsumSick6=0;
+        $TotalsumLaKid6=0;
+        $TotalsumPak6=0;
+        $TotalsumSai6=0;
+        $TotalsumKad6=0;
+        /**/
+        $curYY=0;
+        do {
+             $arr_data = (array) null; //$month_full[($Arrdate[1] + 0)][TH]
+             $arrMMYYYY = explode('-', $data[1]);
+             $YY = substr(($arrMMYYYY[0]+543),2,2);
+             $txtYY = '';
+             if($curYY!=$YY){
+                 $txtYY = '-'.$YY;
+             }
+             $arr_data[] = $month_full[($arrMMYYYY[1] + 0)][TH].$txtYY;//เดือน
+             $curYY = $YY;
+            $sumSick=0;
+            $sumLaKid=0;
+            $sumPak=0;
+            $sumSai=0;
+            $sumKad=0;
+
+            $RectHoliday = array (null);
+            $CurRowX = $pdf->GetX();
+            $CurRowY = $pdf->GetY();
+            
+             for($idx=2;$idx<33;$idx++){
+                 
+                 if(strlen($data[$idx])==1){
+                     if($data[$idx]=='1' ){
+                        $arr_data[] ='X';
+                        $RectHoliday[] = ($idx-2);
+                         //$pdf->SetFillColor('RED');                        
+                     }else{
+                         $arr_data[] ='';
+                     }
+                 }else{
+                    $ArrData = explode(',',$data[$idx]);
+
+                    if($ArrData[1]=='1' || $ArrData[1]=='2' || $ArrData[1]=='3'){ 
+                        if($ArrData[2]=='01' || $ArrData[2]=='12'){
+                            $arr_data[] ='ป';
+                            $sumSick++;
+                        }elseif($ArrData[2]=='03'){
+                            $arr_data[] ='ก';
+                            $sumLaKid++;
+                        }elseif($ArrData[2]=='04'){
+                            $arr_data[] ='พ';
+                            $sumPak++;
+                        }else{
+                            $arr_data[]='';
+                        }
+                    }else{
+                       if($ArrData[3]=='1'){
+                           $arr_data[] ='ส';
+                           $sumSai++;
+                       }elseif($ArrData[3]=='2'){
+                           $arr_data[] ='ข';
+                           $sumKad++;
+                       }else{
+                            $arr_data[]='';
+                        }
+                    }
+                    //$arr_data[] =$data[$idx];
+                }
+             }
+            $TotalsumSick+=$sumSick;
+            $TotalsumLaKid+=$sumLaKid;
+            $TotalsumPak+=$sumPak;
+            $TotalsumSai+=$sumSai;
+            $TotalsumKad+=$sumKad;
+            
+            $TotalsumSick6+=$sumSick;
+            $TotalsumLaKid6+=$sumLaKid;
+            $TotalsumPak6+=$sumPak;
+            $TotalsumSai6+=$sumSai;
+            $TotalsumKad6+=$sumKad;
+            
+            $arr_data[] = ($sumSick==0)?'':$sumSick;
+            $arr_data[] = ($sumLaKid==0)?'':$sumLaKid;
+            $arr_data[] = ($sumPak==0)?'':$sumPak;
+            $arr_data[] = ($sumSai==0)?'':$sumSai;
+            $arr_data[] = ($sumKad==0)?'':$sumKad;
+            // var_dump($data);die();
+            $pdf->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+            $pdf->SetFillColor(218,218,218);
+            for ($i=0; $i < count($RectHoliday); $i++) {
+              $x = $CurRowX + 25 + ($RectHoliday[$i] * 6);
+              $pdf->Rect($x,$CurRowY,6,7,'FD');   
+            }
+
+            
+            
+            /*แทรก ครั้งปีแรก*/
+            if($loop==5 ){//6
+                $arr_dataRowSum = (array) null;
+                for($day=1;$day<=32;$day++){
+                    $arr_dataRowSum[] = '<**1**>ยอดรวมตั้งแต่เดือนตุลาคม-เดือนมีนาคม(1)';
+                }
+                $arr_dataRowSum[] = ($TotalsumSick6==0)?'':$TotalsumSick6;
+                $arr_dataRowSum[] = ($TotalsumLaKid6==0)?'':$TotalsumLaKid6;
+                $arr_dataRowSum[] = ($TotalsumPak6==0)?'':$TotalsumPak6;
+                $arr_dataRowSum[] = ($TotalsumSai6==0)?'':$TotalsumSai6;
+                $arr_dataRowSum[] = ($TotalsumKad6==0)?'':$TotalsumKad6;
+                $arr_dataRowSum[] = '';
+                
+                
+               
+
+                $pdf->add_data_tab($arr_dataRowSum, 7, "TRHBL", $data_alignSum, "", "10", "b", "000000", "");
+                $TotalsumSick6=0;
+                $TotalsumLaKid6=0;
+                $TotalsumPak6=0;
+                $TotalsumSai6=0;
+                $TotalsumKad6=0;
+            }
+            $loop++;
+        } while ($loop<12 && ($data = $db_dpis2->get_array()));
+        
+        $arr_dataRowSum2 = (array) null;
+        for($day=1;$day<=32;$day++){
+            $arr_dataRowSum2[] = '<**2**>ยอดรวมตั้งแต่เดือนเมษายน-เดือนกันยายน(2)';
+        }
+        $arr_dataRowSum2[] = ($TotalsumSick6==0)?'':$TotalsumSick6;
+        $arr_dataRowSum2[] = ($TotalsumLaKid6==0)?'':$TotalsumLaKid6;
+        $arr_dataRowSum2[] = ($TotalsumPak6==0)?'':$TotalsumPak6;
+        $arr_dataRowSum2[] = ($TotalsumSai6==0)?'':$TotalsumSai6;
+        $arr_dataRowSum2[] = ($TotalsumKad6==0)?'':$TotalsumKad6;
+        
+        $result = $pdf->add_data_tab($arr_dataRowSum2, 7, "TRHBL", $data_alignSum2, "", "10", "b", "000000", "");
+        
+        $arr_dataRowSum3 = (array) null;
+        for($day=1;$day<=32;$day++){
+            $arr_dataRowSum3[] = '<**3**>ยอดรวมทั้งปี(1)+(2)';
+        }
+        $arr_dataRowSum3[] = ($TotalsumSick==0)?'':$TotalsumSick;
+        $arr_dataRowSum3[] = ($TotalsumLaKid==0)?'':$TotalsumLaKid;
+        $arr_dataRowSum3[] = ($TotalsumPak==0)?'':$TotalsumPak;
+        $arr_dataRowSum3[] = ($TotalsumSai==0)?'':$TotalsumSai;
+        $arr_dataRowSum3[] = ($TotalsumKad==0)?'':$TotalsumKad;
+        $arr_dataRowSum3[] = '';
+        $data_align = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+        $pdf->add_data_tab($arr_dataRowSum3, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+        
+        $pdf->close_tab("");
+        
+        //$pdf->add_text_line(" ", 7, "", "L", "", "10", "", 0, 0);
+        //$pdf->add_text_line("**ลาป่วยและลากิจ รวมกันไม่เกิน 45 วันต่อปี (ครึ่งปีไม่เกิน 23 วัน)            [X] = วันหยุดราชการ     ป = ลาป่วย     ก = ลากิจ     พ = พักผ่อน", 7, "", "L", "", "10", "", 0, 0);
+        //$pdf->add_text_line("  มาสายไม่เกิน 30 วันต่อปี (ครึ่งปีไม่เกิน 15 วัน)                                              ส = สาย       ข = ขาด", 7, "", "L", "", "10", "", 0, 0);
+        
+        $pdf->SetFillColor(218,218,218);
+        $pdf->Rect(78,160,6,7,'FD');
+        $pdf->Text(10,165,"**ลาป่วยและลากิจ รวมกันไม่เกิน 45 วันต่อปี (ครึ่งปีไม่เกิน 23 วัน)");
+        $pdf->Text(85,165,"= วันหยุดราชการ");
+        $pdf->Text(110,165,"ป = ลาป่วย");
+        $pdf->Text(130,165,"ก = ลากิจ");
+        $pdf->Text(150,165,"พ = พักผ่อน");
+        $pdf->Text(10,170,"  มาสายไม่เกิน 30 วันต่อปี (ครึ่งปีไม่เกิน 15 วัน)");
+        $pdf->Text(110,170,"ส = สาย");
+        $pdf->Text(130,170,"ข = ขาด");
+        /*$pdf->Text(225,15,"วันลาพักผ่อนสะสม");*/
+    
+        $pdf->Rect(222,10,70,30);
+        $pdf->Text(225,15,"วันลาพักผ่อนสะสม");
+        $pdf->Text(225,20,"ยอดยกมา");$pdf->Text(225+25,20,$TotalCODE_04);$pdf->Text(225+50,20,"วัน");
+        $pdf->Text(225,24,"ปีนี้");$pdf->Text(225+25,24,$AB_COUNT_TOTAL_04NOW);$pdf->Text(225+50,24,"วัน");
+        $pdf->Text(225,28,"รวมเป็น");$pdf->Text(225+25,28,$SumAB_COUNT);$pdf->Text(225+50,28,"วัน");
+        $pdf->Text(225,32,"รับราชการเกิน 10 ปี ยอดยกมาได้ 20 วัน");
+        $pdf->Text(225,36,"รับราชการไม่ถึง 10 ปี ยอดยกมาได้ 10 วัน");
+    }
+    
+    $pdf->close();
+    $fname = "R1210รายงานประวัติการมาปฏิบัติงานฯแบบที่4.pdf";
+    $pdf->Output($fname,'D');
+    die();
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    //////////////////////
+    for($idx=0;$idx<2;$idx++){ //Per_Personal
+        $pdf->AddPage();
+        $page_start_x = $pdf->x;
+        $page_start_y = $pdf->y;
+
+        $head_text1 = implode(",", $heading_text);
+        $head_width1 = implode(",", $heading_width);
+        $head_align1 = implode(",", $heading_align);
+        $col_function = implode(",", $column_function);
+        $pdf->AutoPageBreak = false;
+        
+        
+        $pdf->Cell(20, 7, "นายพิทักษ์ แสนหาญ ตำแหน่ง นักวิชาการ ระดับชำนาญการ หน่วยงาน ศูนย์เทคโนโลยีสารสนเทศและการสื่อสาร", 0, 50, 'L', 0);
+        $pdf->Cell(20, 7, "เข้ารับราชการเมื่อ 1 มกราคม 2545 ที่อยู่ 245 หมู่บ้านแสนสุข ถนนติวานนท์ ต.ตลาดขวัญ อ.เมือง จ.นนทบุรี", 0, 50, 'L', 0);
+        $pdf->Cell(20, 7, "ปีงบประมาณ 2559", 0, 50, 'L', 0);
+        $result = $pdf->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "10", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+        for($loop=0;$loop<=12;$loop++){
+            $arr_data = (array) null;
+            $arr_data[] = 'พฤศจิกายน-59';
+            for($day=1;$day<=31;$day++){
+                $arr_data[] = 'ก';
+            }
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = 'หมาหสาด่ฟวกดหสาหฟ';
+            $data_align = array("L","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+            
+            $result = $pdf->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+            /*แทรก ครั้งปีแรก*/
+            if($loop==5 ){//6
+                $arr_dataRowSum = (array) null;
+                for($day=1;$day<=32;$day++){
+                    $arr_dataRowSum[] = '<**1**>ยอดรวมตั้งแต่เดือนตุลาคม-เดือนมีนาคม(1)';
+                }
+                $arr_dataRowSum[] = '';
+                $arr_dataRowSum[] = '';
+                $arr_dataRowSum[] = '';
+                $arr_dataRowSum[] = '';
+                $arr_dataRowSum[] = '';
+                $arr_dataRowSum[] = '';
+                $data_align = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+                $result = $pdf->add_data_tab($arr_dataRowSum, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+            }
+        }
+        $arr_dataRowSum2 = (array) null;
+        for($day=1;$day<=32;$day++){
+            $arr_dataRowSum2[] = '<**2**>ยอดรวมตั้งแต่เดือนเมษายน-เดือนกันยายน(2)';
+        }
+        $arr_dataRowSum2[] = '';
+        $arr_dataRowSum2[] = '';
+        $arr_dataRowSum2[] = '';
+        $arr_dataRowSum2[] = '';
+        $arr_dataRowSum2[] = '';
+        $arr_dataRowSum2[] = '';
+        $data_align = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+        $result = $pdf->add_data_tab($arr_dataRowSum2, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+        
+        $arr_dataRowSum3 = (array) null;
+        for($day=1;$day<=32;$day++){
+            $arr_dataRowSum3[] = '<**3**>ยอดรวมทั้งปี(1)+(2)';
+        }
+        $arr_dataRowSum3[] = '';
+        $arr_dataRowSum3[] = '';
+        $arr_dataRowSum3[] = '';
+        $arr_dataRowSum3[] = '';
+        $arr_dataRowSum3[] = '';
+        $arr_dataRowSum3[] = '';
+        $data_align = array("R","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","L");
+        $result = $pdf->add_data_tab($arr_dataRowSum3, 7, "TRHBL", $data_align, "", "10", "b", "000000", "");
+        
+        $result = $pdf->add_text_line(" ", 7, "", "L", "", "10", "", 0, 0);
+        $result = $pdf->add_text_line("**ลาป่วยและลากิจ รวมกันไม่เกิน 45 วันต่อปี (ครึ่งปีไม่เกิน 23 วัน)            [X] = วันหยุดราชการ     ป = ลาป่วย     ก = ลากิจ     พ = พักผ่อน", 7, "", "L", "", "10", "", 0, 0);
+        $result = $pdf->add_text_line("  มาสายไม่เกิน 30 วันต่อปี (ครึ่งปีไม่เกิน 15 วัน)                                              ส = สาย       ข = ขาด", 7, "", "L", "", "10", "", 0, 0);
+    
+        $pdf->Rect(222,10,70,30);
+        $pdf->Text(225,15,"วันลาพักผ่อนสะสม");
+        $pdf->Text(225,20,"ยอดยกมา");$pdf->Text(225+25,20,"88");$pdf->Text(225+50,20,"วัน");
+        $pdf->Text(225,24,"ปีนี้");$pdf->Text(225+25,24,"88");$pdf->Text(225+50,24,"วัน");
+        $pdf->Text(225,28,"รวมเป็น");$pdf->Text(225+25,28,"88");$pdf->Text(225+50,28,"วัน");
+        $pdf->Text(225,32,"รับราชการเกิน 10 ปี ยอดยกมาได้ 20 วัน");
+        $pdf->Text(225,36,"รับราชการไม่ถึง 10 ปี ยอดยกมาได้ 10 วัน");
+        
+    }//
+    
+    $pdf->close_tab("");
+    
+    $pdf->close();
+    $fname = "R1210รายงานประวัติการมาปฏิบัติงานฯแบบที่4.pdf";
+    $pdf->Output($fname,'D');
+    //////////////////// 
+    /*for($idx=0;$idx<5;$idx++){ //Per_Personal
+        $pdf->AddPage();
+        $page_start_x = $pdf->x;
+        $page_start_y = $pdf->y;
+
+        $head_text1 = implode(",", $heading_text);
+        $head_width1 = implode(",", $heading_width);
+        $head_align1 = implode(",", $heading_align);
+        $col_function = implode(",", $column_function);
+        $pdf->AutoPageBreak = false;
+        $pdf->Cell(20, 7, "ชื่อ นายพิทักษ์ แสนหร", 0, 50, 'L', 0);
+        $result = $pdf->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "14", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+        for($idata=0;$idata<3;$idata++){
+            $arr_data = (array) null;
+            $arr_data[] = $idata;
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = '';
+            $arr_data[] = 'หมาหสาด่ฟวกดหสาหฟ';
+            $data_align = array("C","L","C","C","C","C","C","L");
+            
+            $result = $pdf->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "14", "b", "000000", "");
+        }
+        $pdf->close_tab(""); 
+    }
+        $pdf->close();
+        $pdf->Output(); 
+    
+    */
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    /*$no=0;    
+    $sumAB_CODE_04=0;
+    $sumAB_CODE_01=0;
+    $sumAB_CODE_03=0;
+    $sumAB_CODE_99=0;
+    $sumAB_CODE_10=0;
+    while ($data = $db_dpis2->get_array()) {
+        $no++;
+        if($CurPerId!=$data[PER_ID]){
+            if($CurPerId!=0){
+                $no=1; 
+                $arr_dataSum = (array) null;
+                $arr_dataSum[] = '<**1**>รวม';
+                $arr_dataSum[] = '<**1**>รวม';
+                $arr_dataSum[] = $sumAB_CODE_04==0?'':$sumAB_CODE_04;
+                $arr_dataSum[] = $sumAB_CODE_01==0?'':$sumAB_CODE_01;
+                $arr_dataSum[] = $sumAB_CODE_03==0?'':$sumAB_CODE_03;
+                $arr_dataSum[] = $sumAB_CODE_99==0?'':$sumAB_CODE_99;
+                $arr_dataSum[] = $sumAB_CODE_10==0?'':$sumAB_CODE_10;
+                $arr_dataSum[] = '';
+                $data_align = array("C","L","C","C","C","C","C","L");
+                $result = $pdf->add_data_tab($arr_dataSum, 7, "TRHBL", $data_align, "", "14", "b", "000000", "");
+                $sumAB_CODE_04=0;
+                $sumAB_CODE_01=0;
+                $sumAB_CODE_03=0;
+                $sumAB_CODE_99=0;
+                $sumAB_CODE_10=0;
+    
+                $pdf->close_tab(""); 
+                $pdf->AddPage();
+                $page_start_x = $pdf->x;
+                $page_start_y = $pdf->y;
+
+                $head_text1 = implode(",", $heading_text);
+                $head_width1 = implode(",", $heading_width);
+                $head_align1 = implode(",", $heading_align);
+                $col_function = implode(",", $column_function);
+            }
+            $pdf->Cell(20, 7, "ชื่อ ".getNamePersonal($db_dpis,$data[PER_ID]), 0, 50, 'L', 0);
+            $CurPerId=$data[PER_ID];
+            //$Lastcnt=0;
+            $result = $pdf->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "14", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+        }
+        
+        $arr_data = (array) null;
+        $arr_data[] = $no;
+        $arr_data[] = $data[AS_YEAR]==0?'':$data[AS_YEAR];
+        $arr_data[] = $data[AB_CODE_04]==0?'':$data[AB_CODE_04];
+        $arr_data[] = $data[AB_CODE_01]==0?'':$data[AB_CODE_01];
+        $arr_data[] = $data[AB_CODE_03]==0?'':$data[AB_CODE_03];
+        $arr_data[] = $data[AB_CODE_99]==0?'':$data[AB_CODE_99];
+        $arr_data[] = $data[AB_CODE_10]==0?'':$data[AB_CODE_10];
+        $arr_data[] = '';
+        $data_align = array("C","L","C","C","C","C","C","L");
+        $result = $pdf->add_data_tab($arr_data, 7, "TRHBL", $data_align, "", "14", "b", "000000", "");
+        
+        $sumAB_CODE_04+=$data[AB_CODE_04];
+        $sumAB_CODE_01+=$data[AB_CODE_01];
+        $sumAB_CODE_03+=$data[AB_CODE_03];
+        $sumAB_CODE_99+=$data[AB_CODE_99];
+        $sumAB_CODE_10+=$data[AB_CODE_10];
+    }
+    
+    $arr_dataSum = (array) null;
+    $arr_dataSum[] = '<**1**>รวม';
+    $arr_dataSum[] = '<**1**>รวม';
+    $arr_dataSum[] = $sumAB_CODE_04==0?'':$sumAB_CODE_04;
+    $arr_dataSum[] = $sumAB_CODE_01==0?'':$sumAB_CODE_01;
+    $arr_dataSum[] = $sumAB_CODE_03==0?'':$sumAB_CODE_03;
+    $arr_dataSum[] = $sumAB_CODE_99==0?'':$sumAB_CODE_99;
+    $arr_dataSum[] = $sumAB_CODE_10==0?'':$sumAB_CODE_10;
+    $arr_dataSum[] = '';
+    $data_align = array("C","L","C","C","C","C","C","L");
+    $result = $pdf->add_data_tab($arr_dataSum, 7, "TRHBL", $data_align, "", "14", "b", "000000", "");
+    
+    
+    $pdf->close_tab("");
+    $pdf->close();
+    $fname = "R1210รายงานประวัติการมาปฏิบัติงานฯแบบที่4.pdf";
+    $pdf->Output($fname,'D');*/	
+    
+    
+    
+   
+?>

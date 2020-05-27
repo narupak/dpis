@@ -1,0 +1,753 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	
+	switch($CTRL_TYPE){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if($isLock){
+		$search_ministry_id = $MINISTRY_ID;
+		$search_ministry_name = $MINISTRY_NAME;
+		$search_department_id = $DEPARTMENT_ID;
+		$search_department_name = $DEPARTMENT_NAME;
+	} // end if
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	$search_per_status = (isset($search_per_status))?  $search_per_status : 1;
+	//$search_per_type = (isset($search_per_type))?  $search_per_type : 1;
+
+	if(trim($SELECTED_LIST)) $ARR_SELECTED = explode(",", $SELECTED_LIST);
+	if(trim($EXCEPT_LIST)) $ARR_EXCEPT = explode(",", $EXCEPT_LIST);
+//	echo "$EXCEPT_LIST<br>";
+
+  	if($search_org_id){
+		if($SESS_ORG_STRUCTURE==1){	
+			unset($arr_org);
+			$arr_org[] = $search_org_id;	//ถ้าเค้ากำหนดเป็นสำนักกองตรงๆเลย
+			//===ต้องหาเหนือขึ้นไปอีกด้วยทั้ง สำนักกอง -> กรม -> กระทรวง
+			//==กรม
+			$cmd = "select ORG_ID_REF from PER_ORG_ASS where ORG_ID=$search_org_id and OL_CODE='03' ";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$arr_org[] = $data[ORG_ID_REF];		//กรม
+			//==กระทรวง
+			$cmd = "select ORG_ID_REF from PER_ORG where ORG_ID=$data[ORG_ID_REF] and OL_CODE='02' ";		//****//
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$arr_org[] = $data[ORG_ID_REF];		//กระทรวง
+			//-----------------------------------------------------------------------------------
+			//==หาต่ำกว่าสำนักกอง 1 ภายใต้สำนักกอง ลงไปอีก
+			$cmd = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$search_org_id and OL_CODE='04' ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()){
+				$arr_org[] = $data[ORG_ID];		 //$data[ORG_ID] = ORG_ID_1
+				//==หาต่ำกว่าสำนักกอง 2 ภายใต้สำนักกอง ลงไปอีก
+				$cmd1 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$data[ORG_ID] and OL_CODE='05' ";
+				$db_dpis1->send_cmd($cmd1);
+				while($data1 = $db_dpis1->get_array()){
+					$arr_org[] = $data1[ORG_ID];		 //$data1[ORG_ID] = ORG_ID_2
+				}
+			}
+			$arr_search_condition[] = "(a.ORG_ID in (". implode(",", $arr_org) ."))";	
+		}else{
+			$arr_search_condition[] = "(c.ORG_ID=$search_org_id or d.ORG_ID=$search_org_id or e.ORG_ID=$search_org_id)";
+  		}
+	}elseif($search_department_id){
+		if($SESS_ORG_STRUCTURE==1){	
+			unset($arr_org);
+			$arr_org[] = $search_department_id;	//ถ้าเค้ากำหนดเป็นกรมตรงๆเลย
+			//-----------------------------------------------------------------------------------			
+			//หาสำนักกองใต้กรมนี้ทั้งหมด
+			$cmd = " select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$search_department_id and OL_CODE='03' ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()){
+				$arr_org[] = $data[ORG_ID];		//$data[ORG_ID] = ORG_ID	
+				//==หาต่ำกว่าสำนักกอง 1 ภายใต้สำนักกอง ลงไปอีก
+				$cmd1 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$search_org_id and OL_CODE='04' ";
+				$db_dpis1->send_cmd($cmd1);
+				while($data1 = $db_dpis1->get_array()){
+					$arr_org[] = $data1[ORG_ID];		 //$data1[ORG_ID] = ORG_ID_1
+					//==หาต่ำกว่าสำนักกอง 2 ภายใต้สำนักกอง ลงไปอีก
+					$cmd2 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$data1[ORG_ID] and OL_CODE='05' ";
+					$db_dpis2->send_cmd($cmd2);
+					while($data2 = $db_dpis2->get_array()){
+						$arr_org[] = $data2[ORG_ID];		 //$data2[ORG_ID] = ORG_ID_2
+					}
+				}
+			}
+			$arr_search_condition[] = "(a.ORG_ID in (". implode(",", $arr_org) ."))";								
+		}else{
+			$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+		}
+	}elseif($search_ministry_id){
+		if($SESS_ORG_STRUCTURE==1){	
+			$db_dpis3 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+			unset($arr_org);
+			//==หากรมภายใต้กระทรวง ลงไปอีก
+			$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id and OL_CODE='02' ";		//หากรม ไม่มีในตาราง PER_ORG_ASS
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()){
+			 	$arr_org[] = $data[ORG_ID];		  //$data[ORG_ID] = DEPARTMENT_ID
+				//==หาสำนักกองภายใต้กรม ลงไปอีก
+				$cmd1 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$data[ORG_ID] and OL_CODE='03' ";
+				$db_dpis1->send_cmd($cmd1);
+				while($data1 = $db_dpis1->get_array()){
+					$arr_org[] = $data1[ORG_ID];		 //$data1[ORG_ID] = ORG_ID	
+					//==หาต่ำกว่าสำนักกอง 1 ภายใต้สำนักกอง ลงไปอีก
+					$cmd2 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$data1[ORG_ID] and OL_CODE='04' ";
+					$db_dpis2->send_cmd($cmd2);
+					while($data2 = $db_dpis2->get_array()){
+						$arr_org[] = $data2[ORG_ID];		 //$data2[ORG_ID] = ORG_ID_1
+						//==หาต่ำกว่าสำนักกอง 2 ภายใต้สำนักกอง ลงไปอีก
+						$cmd3 = "select ORG_ID from PER_ORG_ASS where ORG_ID_REF=$data2[ORG_ID] and OL_CODE='05' ";
+						$db_dpis3->send_cmd($cmd3);
+						while($data3 = $db_dpis3->get_array()){
+							$arr_org[] = $data3[ORG_ID];		 //$data3[ORG_ID] = ORG_ID_2
+						}
+					}
+				} //end while
+			}		
+			$arr_search_condition[] = "(a.ORG_ID in (". implode(",", $arr_org) ."))";	
+		}else{
+			unset($arr_department);
+			$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id and OL_CODE='02' ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_department[] = $data[ORG_ID];
+			$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_department) ."))";
+		}
+	}elseif($PROVINCE_CODE){
+		$cmd = " select ORG_ID_REF from PER_ORG where PV_CODE='$PROVINCE_CODE' and OL_CODE='03' ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_department[] = $data[ORG_ID_REF];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_department) ."))";
+	} // end if
+
+	if(trim($EXCEPT_PER_ID)) $arr_search_condition[] = "a.PER_ID not in ($EXCEPT_PER_ID)";
+
+  	if(trim($search_name)) $arr_search_condition[] = "(a.PER_NAME like '$search_name%')";
+  	if(trim($search_surname)) $arr_search_condition[] = "(a.PER_SURNAME like '$search_surname%')";
+  	if(trim($search_pos_no)) $arr_search_condition[] = "(c.POS_NO = '$search_pos_no' or d.POEM_NO = '$search_pos_no' or e.POEMS_NO = '$search_pos_no' or i.POT_NO = '$search_pos_no')";
+	if($search_per_type) $arr_search_condition[] = "(a.PER_TYPE=$search_per_type)";
+	if($search_pv_code) 
+		if ($search_per_type==0 || $search_per_type==1) $arr_search_condition[] = "(f.PV_CODE='$search_pv_code')";
+		elseif ($search_per_type==0 || $search_per_type==2) $arr_search_condition[] = "(g.PV_CODE='$search_pv_code')";
+		elseif ($search_per_type==0 || $search_per_type==3) $arr_search_condition[] = "(h.PV_CODE='$search_pv_code')";
+		elseif ($search_per_type==0 || $search_per_type==4) $arr_search_condition[] = "(j.PV_CODE='$search_pv_code')";
+	if(trim($search_per_status)!="") $arr_search_condition[] = "(a.PER_STATUS=$search_per_status)";
+	if(trim($executive)=="Y") 
+		if(trim($RPT_N)=="N")
+			$arr_search_condition[] = "(a.LEVEL_NO in ('O4','K5','D1','D2','M1','M2'))";
+		else
+			$arr_search_condition[] = "(a.LEVEL_NO in ('09','10','11'))";
+	if(trim($hipps)=="Y") $arr_search_condition[] = "((a.PER_HIP_FLAG like '%||1||%'))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	if($command == "SEARCH"){
+  	if($DPISDB=="odbc"){
+		$cmd = " select 	count(PER_ID) as count_data 
+				   from (
+								(
+									(
+										(
+											(
+												(
+													(
+														PER_PERSONAL a
+														left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+													) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+												) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+											) left join PER_ORG f on (c.ORG_ID=f.ORG_ID)
+										) left join PER_ORG g on (d.ORG_ID=g.ORG_ID)
+									) left join PER_ORG h on (e.ORG_ID=h.ORG_ID)
+								) left join PER_POS_TEMP i on (a.POT_ID=i.POT_ID)
+							) left join PER_ORG j on (i.ORG_ID=j.ORG_ID)
+				   $search_condition ";
+	}elseif($DPISDB=="oci8"){
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+		$cmd = " select 	count(PER_ID) as count_data 
+				   from 		PER_PERSONAL a, PER_POSITION c, PER_POS_EMP d, PER_POS_EMPSER e, 
+				   					PER_ORG f, PER_ORG g, PER_ORG h, PER_POS_TEMP i, PER_ORG j
+				   where	a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+) and a.POEMS_ID=e.POEMS_ID(+) and 
+													c.ORG_ID = f.ORG_ID(+) and d.ORG_ID = g.ORG_ID(+) and e.ORG_ID = h.ORG_ID(+) and 
+													a.POT_ID=i.POT_ID(+) and i.ORG_ID = j.ORG_ID(+)
+							$search_condition ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	count(PER_ID) as count_data 
+				   from (
+								(
+									(
+										(
+											(
+												(
+													(
+														PER_PERSONAL a
+														left join PER_POSITION c on (a.POS_ID=c.POS_ID) 
+													) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID)
+												) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+											) left join PER_ORG f on (c.ORG_ID=f.ORG_ID)
+										) left join PER_ORG g on (d.ORG_ID=g.ORG_ID)
+									) left join PER_ORG h on (e.ORG_ID=h.ORG_ID)
+								) left join PER_POS_TEMP i on (a.POT_ID=i.POT_ID)
+							) left join PER_ORG j on (i.ORG_ID=j.ORG_ID)
+				   $search_condition ";
+	} 
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+	} // end if $command == "SEARCH"
+?>
+<html>
+<head>
+<title>รายชื่อข้าราชการ/ลูกจ้างประจำ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.command.value = "SEARCH";
+		form1.isSubmit.value = true;
+		form1.submit();
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_ministry_id.value = arrValue[0];
+			form1.search_ministry_name.value = arrValue[1];
+			form1.search_department_id.value = "";
+			form1.search_department_name.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_department_id.value = arrValue[0];
+				form1.search_department_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.search_department_id.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_province () {	
+		parameter = "&CT_CODE=140";
+		childReturn = window.showModalDialog("search_province_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_pv_code.value = arrValue[0];
+			form1.search_pv_name.value = arrValue[1];
+		} // end if
+	}
+
+	function control_all(isChecked){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "SELECT_PER";
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+//			alert(objName);
+			if( search_str == objName ){ 
+				if(getObj[i].disabled == false) getObj[i].checked = isChecked;
+				PER_ID = getObj[i].name.substr(getObj[i].name.lastIndexOf( "_" ) + 1);
+//				alert(PER_ID);
+				if(isChecked && getObj[i].disabled == false){
+					if(SELECTED_LIST.indexOf("," + PER_ID + ",") == -1){
+//						SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+//						if(SELECTED_LIST==",") SELECTED_LIST = "";
+
+						if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+						else SELECTED_LIST += (PER_ID + ",");
+					} // end if
+				}else{
+					SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+					if(SELECTED_LIST==",") SELECTED_LIST = "";
+				} // end if
+			} // end if
+		}	// end for
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+//		alert(form1.SELECTED_LIST.value);
+	} 
+	
+	function update_list(isChecked, PER_ID, dataCount){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		if(isChecked){
+			var countChecked = 0;
+			if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+			else SELECTED_LIST += (PER_ID + ",");
+			
+			getObj = document.getElementsByTagName("input");
+			search_str = "SELECT_PER";
+			for(i=0; i<getObj.length; i++){
+				if(getObj[i].type != "checkbox") continue;
+				objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+				if( search_str == objName && getObj[i].checked ) countChecked++;
+				if( countChecked == dataCount ) form1.CHECKALL.checked = true;
+			} // end for
+		}else{
+			SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+			if(SELECTED_LIST==",") SELECTED_LIST = "";
+			if(form1.CHECKALL.checked) form1.CHECKALL.checked = false;
+		} // end if
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+//		alert(form1.SELECTED_LIST.value);
+	}
+</script>
+<body onUnload="if(!form1.isSubmit.value){ parent.refresh_opener(form1.SELECTED_LIST.value); }">
+<form action="select_person.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <input type="hidden" name="EXCEPT_PER_ID" value="<?=$EXCEPT_PER_ID?>">
+  <input type="hidden" name="EXCEPT_LIST" value="<?=$EXCEPT_LIST?>">
+  <input type="hidden" name="isSubmit">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="12%" height="22" align="right">กระทรวง&nbsp;:&nbsp;</td>
+              <td width="38%">
+			    <input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:80%" class="textbox"  readonly="true">
+			    <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+				<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && !($isLock && $LOCK_MINISTRY_ID)){ ?>
+			    <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()" >
+			    <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_ministry_name.value=''; form1.search_ministry_id.value=''; form1.search_department_name.value=''; form1.search_department_id.value=''; form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+				<? } // end if ?>			  </td>
+              <td width="12%" align="right">กรม&nbsp;:&nbsp;</td>
+              <td>
+			    <input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:80%" class="textbox"  readonly="true">
+			    <input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+			    <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && !($isLock && $LOCK_DEPARTMENT_ID)){ ?>
+				<input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()" >
+			    <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_department_name.value=''; form1.search_department_id.value=''; form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+				<? } // end if ?>			  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right">สำนัก/กอง&nbsp;:&nbsp;</td>
+              <td>
+			<input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:80%" class="textbox"  readonly="true">
+			<input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+			<? if($SESS_USERGROUP_LEVEL < 5){ ?>
+			<input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()" >
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+			<? } // end if ?>		</td>
+          <td align="right">จังหวัด&nbsp;:&nbsp;</td>
+          <td>
+		  	<input type="text" name="search_pv_name" value="<?=$search_pv_name?>" style="width:80%" class="textbox" readonly>&nbsp;
+			<input type="button" name="bnt_province" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_province()">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_pv_name.value=''; form1.search_pv_code.value=''; return false;" align="center" alt="ล้างค่า">
+            <input type="hidden" name="search_pv_code" value="<?=trim($search_pv_code)?>">		  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right">ชื่อ&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_name" value="<?=$search_name?>" style="width:80%" class="textbox"></td>
+              <td align="right">นามสกุล&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_surname" value="<?=$search_surname?>" style="width:80%" class="textbox"></td>
+            </tr>
+            <tr>
+              <td height="22" align="right">เลขที่ตำแหน่ง&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_pos_no" value="<?=$search_pos_no?>" style="width:80%" class="textbox" onKeyPress="DigitOnly();"></td>
+			  </tr>
+			  <tr>
+              <td height="22" align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+              <td colspan="3">
+			  <select name="search_per_type">
+					<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($search_per_type==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+					<option value="0"<?=($search_per_type==0)?"selected":""?>>ทั้งหมด</option>
+				</select></td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$PER_STATUS_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+			  	<!---<input name="search_per_status" type="radio" value="1" <?=($search_per_status==1)?"checked":""?>>&nbsp;ปกติ&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="0" <?=($search_per_status==0 && $search_per_status!="")?"checked":""?>>&nbsp;รอบรรจุ&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="2" <?=($search_per_status==2)?"checked":""?>>&nbsp;พ้นจากส่วนราชการ&nbsp;&nbsp;
+				<input name="search_per_status" type="radio" value="" <?=($search_per_status=="")?"checked":""?>>&nbsp;ทั้งหมด--->
+				<? $PER_STATUS=array(1=>"ปกติ",0=>"รอบรรจุ",2=>"พ้นจากส่วนราชการ",""=>"ทั้งหมด"); ?>
+				<select name="search_per_status">
+					<?  foreach($PER_STATUS as $key=>$value){  ?><option value="<?=$key; ?>"<?=($search_per_status==$key)?"selected":""?> <?=($HAVEPOS_ONLY)?"disabled":""?>><?=$value; ?></option><?  } ?>
+				</select>
+				</td>
+          <td align="left"><input type="checkbox" name="hipps" value="Y" <? if($hipps=='Y'){ echo "checked"; }?>>&nbsp;HiPPS</td>
+          <td align="left"><input type="checkbox" name="executive" value="Y" <? if($executive=='Y'){ echo "checked"; }?>>&nbsp;ข้อมูลผู้บริหารระดับสูง</td>
+            </tr>
+            <tr align="center">
+              <td height="25" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="button" type="button" class="button" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="self.close();">		<?  } else { ?>
+              <input name="image2" type="image" onClick="self.close();"  src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+              <? if ($BUTTON_DISPLAY==1) { ?> 
+			  <input name="Submit" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.command.value='SEARCH'; form1.current_page.value=0; form1.isSubmit.value=true;">
+			  <input name="Submit2" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_pos_no.value=''; <? if($SESS_PER_TYPE==0){ ?>form1.search_per_type[3].checked=true; <? } ?> form1.search_per_status[3].checked=true; form1.current_page.value=0; form1.isSubmit.value=true;"><? } else { ?>
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.current_page.value=0; form1.isSubmit.value=true;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_pos_no.value=''; form1.search_per_type[3].checked=true; form1.search_per_status[3].checked=true; form1.current_page.value=0; form1.isSubmit.value=true;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?>			  </td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+	  </td>
+    </tr>
+	<? if($command == "SEARCH"){ ?>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบรายชื่อบุคลากร ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		top ". ($data_per_page * $current_page) ."
+											a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO as EMP_POS_NO, e.POEMS_NO as EMPSER_POS_NO, 
+											i.POT_NO as TEMP_POS_NO, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE, a.PER_STATUS, 
+											a.PER_CARDNO, a.PER_BIRTHDATE, c.ORG_ID, d.ORG_ID as EMP_ORG_ID, e.ORG_ID as EMPSER_ORG_ID, 
+											j.ORG_ID as TEMP_ORG_ID, c.PL_CODE, d.PN_CODE, e.EP_CODE, i.TP_CODE, a.PER_SALARY, a.LEVEL_NO, c.PT_CODE
+							from 	(
+											(
+												(
+													(
+														(
+															(
+																(
+																	(
+																		PER_PERSONAL a
+																		inner join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+																	) left join PER_POSITION c on (a.POS_ID = c.POS_ID)
+																) left join PER_POS_EMP d on (a.POEM_ID = d.POEM_ID)
+															) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+														) left join PER_ORG f on (c.ORG_ID=f.ORG_ID)
+													) left join PER_ORG g on (d.ORG_ID=g.ORG_ID)
+												) left join PER_ORG h on (e.ORG_ID=h.ORG_ID)
+											) left join PER_POS_TEMP i on (a.POT_ID = i.POT_ID)
+										) left join PER_ORG j on (i.ORG_ID=j.ORG_ID)
+										$search_condition 
+							$limit_data
+							order by 	PER_NAME, PER_SURNAME ";	
+		}elseif($DPISDB=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO as EMP_POS_NO, e.POEMS_NO as EMPSER_POS_NO, 
+													i.POT_NO as TEMP_POS_NO, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE, a.PER_STATUS, 
+													a.PER_CARDNO, a.PER_BIRTHDATE, c.ORG_ID, d.ORG_ID as EMP_ORG_ID, e.ORG_ID as EMPSER_ORG_ID, 
+													j.ORG_ID as TEMP_ORG_ID, c.PL_CODE, d.PN_CODE, e.EP_CODE, i.TP_CODE, a.PER_SALARY, a.LEVEL_NO, c.PT_CODE
+									from 		PER_PERSONAL a, PER_PRENAME b, PER_POSITION c, PER_POS_EMP d, 
+													PER_POS_EMPSER e, PER_ORG f, PER_ORG g, PER_ORG h, PER_POS_TEMP i, PER_ORG j
+									where 		a.PN_CODE=b.PN_CODE and a.POS_ID=c.POS_ID(+) and a.POEM_ID=d.POEM_ID(+) and 
+													a.POEMS_ID=e.POEMS_ID(+) and c.ORG_ID = f.ORG_ID(+) and d.ORG_ID = g.ORG_ID(+) 
+													and e.ORG_ID = h.ORG_ID(+) and a.POT_ID=i.POT_ID(+) and i.ORG_ID = j.ORG_ID(+)
+												$search_condition
+												$limit_data
+									order by	PER_NAME, PER_SURNAME
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	select		a.PER_ID, a.POS_ID, c.POS_NO, d.POEM_NO as EMP_POS_NO, e.POEMS_NO as EMPSER_POS_NO, 
+											i.POT_NO as TEMP_POS_NO, b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE, a.PER_STATUS, 
+											a.PER_CARDNO, a.PER_BIRTHDATE, c.ORG_ID, d.ORG_ID as EMP_ORG_ID, e.ORG_ID as EMPSER_ORG_ID, 
+											j.ORG_ID as TEMP_ORG_ID, c.PL_CODE, d.PN_CODE, e.EP_CODE, i.TP_CODE, a.PER_SALARY, a.LEVEL_NO, c.PT_CODE
+							from 	(
+											(	
+												(
+													(
+														(
+															(
+																(
+																	(
+																		PER_PERSONAL a
+																		inner join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+																	) left join PER_POSITION c on (a.POS_ID = c.POS_ID)
+																) left join PER_POS_EMP d on (a.POEM_ID = d.POEM_ID)
+															) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID)
+														) left join PER_ORG f on (c.ORG_ID=f.ORG_ID)
+													) left join PER_ORG g on (d.ORG_ID=g.ORG_ID)
+												) left join PER_ORG h on (e.ORG_ID=h.ORG_ID)
+											) left join PER_POS_TEMP i on (a.POT_ID = i.POT_ID)
+										) left join PER_ORG j on (i.ORG_ID=j.ORG_ID)
+										$search_condition 
+							order by	PER_NAME, PER_SURNAME ";	
+		} // end if
+		//echo "$cmd<br>";
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="6%" height="25" align="center">เลขที่ตำแหน่ง</td>
+    <td width="8%" align="center">คำนำหน้า</td>
+    <td width="12%" align="center">ชื่อ</td>
+    <td width="12%" align="center">นามสกุล</td>
+    <td width="15%" align="center">ตำแหน่ง</td>
+    <td width="10%" align="center">ระดับตำแหน่ง</td>
+    <td align="center">สังกัด</td>
+    <td width="8%" align="center">ประเภท</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_PER_ID = $data[PER_ID];
+				$current_list .= ((trim($current_list))?",":"") . $TMP_PER_ID;
+				$PER_TYPE = $data[PER_TYPE];
+				$TMP_LEVEL_NO = $data[LEVEL_NO];
+				$PER_STATUS = $data[PER_STATUS];
+
+				$TMP_POS_NO = $TMP_POSITION = $TMP_PL_NAME = $TMP_PL_CODE = $TMP_ORG_ID = $TMP_ORG_NAME = "";
+				$TMP_PER_TYPE = $PERSON_TYPE[$PER_TYPE];
+				if($PER_TYPE==1){ 
+					$TMP_POS_ID = $data[POS_ID];
+					$TMP_POS_NO = $data[POS_NO];
+					$TMP_ORG_ID = $data[ORG_ID];
+					$TMP_PL_CODE = $data[PL_CODE];
+					$TMP_PT_CODE = trim($data[PT_CODE]);
+
+					$cmd = " select PL_NAME from PER_LINE where PL_CODE='$TMP_PL_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PL_NAME = $data2[PL_NAME];
+					
+					$cmd = " select PT_NAME from PER_TYPE where trim(PT_CODE)='$TMP_PT_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PT_NAME = $data2[PT_NAME];
+					
+					$TMP_POSITION = trim($TMP_PL_NAME)?($TMP_PL_NAME ." ". level_no_format($TMP_LEVEL_NO) . (($TMP_PT_CODE != "11" && $TMP_LEVEL_NO >= 6)?"$TMP_PT_NAME":"")):"ระดับ ".level_no_format($TMP_LEVEL_NO);
+				}elseif($PER_TYPE==2){ 
+					$TMP_POS_ID = $data[POEM_ID];
+					$TMP_POS_NO = $data[EMP_POS_NO];
+					$TMP_ORG_ID = $data[EMP_ORG_ID];
+					$TMP_PL_CODE = $data[PN_CODE];
+
+					$cmd = " select PN_NAME from PER_POS_NAME where PN_CODE='$TMP_PL_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PL_NAME = $data2[PN_NAME];
+
+					$TMP_POSITION = $TMP_PL_NAME;
+				}elseif($PER_TYPE==3){ 
+					$TMP_POS_ID = $data[POEMS_ID];
+					$TMP_POS_NO = $data[EMPSER_POS_NO];
+					$TMP_ORG_ID = $data[EMPSER_ORG_ID];					
+					$TMP_PL_CODE = $data[EP_CODE];
+
+					$cmd = " select EP_NAME from PER_EMPSER_POS_NAME where EP_CODE='$TMP_PL_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PL_NAME = $data2[EP_NAME];
+
+					$TMP_POSITION = $TMP_PL_NAME;
+				}elseif($PER_TYPE==4){ 
+					$TMP_POS_ID = $data[POT_ID];
+					$TMP_POS_NO = $data[TEMP_POS_NO];
+					$TMP_ORG_ID = $data[TEMP_ORG_ID];					
+					$TMP_PL_CODE = $data[TP_CODE];
+
+					$cmd = " select TP_NAME from PER_TEMP_POS_NAME where TP_CODE='$TMP_PL_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_PL_NAME = $data2[TP_NAME];
+
+					$TMP_POSITION = $TMP_PL_NAME;
+				} // end if
+				
+				$TMP_PN_NAME = $data[PN_NAME];
+				$TMP_PER_NAME = $data[PER_NAME];
+				$TMP_PER_SURNAME = $data[PER_SURNAME];
+				$TMP_PER_FULLNAME = $data[PN_NAME] . $data[PER_NAME] . " " . $data[PER_SURNAME];
+				$TMP_PER_CARDNO = $data[PER_CARDNO];
+				$TMP_PER_BIRTHDATE = $data[PER_BIRTHDATE];
+				$TMP_PER_SALARY = $data[PER_SALARY];
+				
+				$cmd = " select ORG_ID_REF, ORG_NAME from PER_ORG where ORG_ID=$TMP_ORG_ID ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$TMP_ORG_NAME = $data2[ORG_NAME];
+				
+				if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){
+					$TMP_DEPARTMENT_ID = $data2[ORG_ID_REF];
+
+					$cmd = " select ORG_ID_REF, ORG_NAME from PER_ORG where ORG_ID=$TMP_DEPARTMENT_ID ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_DEPARTMENT_NAME = $data2[ORG_NAME];
+					$TMP_MINISTRY_ID = $data2[ORG_ID_REF];
+
+					$cmd = " select ORG_ID_REF, ORG_NAME from PER_ORG where ORG_ID=$TMP_MINISTRY_ID ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_MINISTRY_NAME = $data2[ORG_NAME];
+				}elseif($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){
+					$TMP_DEPARTMENT_ID = $data2[ORG_ID_REF];
+
+					$cmd = " select ORG_ID_REF, ORG_NAME from PER_ORG where ORG_ID=$TMP_DEPARTMENT_ID ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_DEPARTMENT_NAME = $data2[ORG_NAME];
+				} // end if
+				
+				$cmd = " select POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$TMP_LEVEL_NO' ";
+				$db_dpis2->send_cmd($cmd);
+				$data2 = $db_dpis2->get_array();
+				$TMP_LEVEL_NAME = $data2[POSITION_LEVEL];
+
+				if($PER_STATUS == 2){
+					$TMP_POS_NO = "";
+					$TMP_POSITION = "";
+				} // end if
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_PER_ID<::>$TMP_PER_FULLNAME";
+				
+				$checked = "";
+				if(in_array($TMP_PER_ID, $ARR_SELECTED) && !in_array($TMP_PER_ID, $ARR_EXCEPT)){ 
+					$count_selected++;
+					$checked = "checked";
+				} // end if
+				
+				$disabled = "";
+				if(in_array($TMP_PER_ID, $ARR_EXCEPT)) $disabled = "disabled";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><!--<input type="checkbox" name="SELECT_PER_<?=$TMP_PER_ID?>" value="<?=$TMP_PER_ID?>" onClick="update_list(this.checked, <?=$TMP_PER_ID?>, <?=$count_page_data?>);" <?=$checked?> <?=$disabled?>>--><?=$TMP_POS_NO?></td>
+    <td>&nbsp;<?=$TMP_PN_NAME?></td>
+    <td>&nbsp;<?=$TMP_PER_NAME?></td>
+    <td>&nbsp;<?=$TMP_PER_SURNAME?></td>
+    <td>&nbsp;<?=$TMP_PL_NAME?></td>
+    <td>&nbsp;<?=$TMP_LEVEL_NAME?></td>
+    <td>&nbsp;<?=$TMP_ORG_NAME?></td>
+	<td align="center"><?=$TMP_PER_TYPE?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+	} // end if $command == "SEARCH"
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>
+<script>
+<? if($count_selected==$count_page_data && $count_selected){ ?>form1.CHECKALL.checked=true;<? } ?>
+</script>

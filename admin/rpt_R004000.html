@@ -1,0 +1,475 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+	switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+	} // end switch case	
+	
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			if($SESS_ORG_STRUCTURE==0 || $SESS_ORG_STRUCTURE==2){	//ตามกฏหมาย หรือกฏหมายและมอบหมายงาน
+				$search_org_id = $ORG_ID;
+				$search_org_name = $ORG_NAME;			
+			}else if($SESS_ORG_STRUCTURE==1){	//ตามมอบหมายงาน (จาก load_per_control.php)
+				$search_org_ass_id = $ORG_ID;
+				$search_org_ass_name = $ORG_NAME;
+			}
+			break;
+		case 6 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			if($SESS_ORG_STRUCTURE==0 || $SESS_ORG_STRUCTURE==2){	//ตามกฏหมาย หรือกฏหมายและมอบหมายงาน
+				$search_org_id = $ORG_ID;
+				$search_org_name = $ORG_NAME;
+			}else{	//ตามมอบหมายงาน (จาก load_per_control.php)
+				$search_org_ass_id = $ORG_ID;
+				$search_org_ass_name = $ORG_NAME;
+			}
+			if($SESS_ORG_STRUCTURE==0 || $SESS_ORG_STRUCTURE==2){	//ตามกฏหมาย หรือกฏหมายและมอบหมายงาน
+				$search_org_id_1 = $ORG_ID_1;
+				$search_org_name_1 = $ORG_NAME_1;
+			}else{	//ตามมอบหมายงาน (จาก load_per_control.php)
+				$search_org_ass_id_1 = $ORG_ID_1;
+				$search_org_ass_name_1 = $ORG_NAME_1;
+			}
+			break;
+	} // end switch case
+	
+	$search_min_level = 1;
+	$search_max_level = 11;
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+		
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function call_show_person () {	
+		parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;
+	    call_openDialog("show_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}
+
+	function call_report (type) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		for(var i=0; i < document.form1.NUMBER_DISPLAY.length; i++){
+			if(document.form1.NUMBER_DISPLAY[i].checked)	NUMBER_DISPLAY = document.form1.NUMBER_DISPLAY[i].value;
+		}
+		document.form1.target = "_blank";
+			if(type==3){	//ก.พ. 7 อิเล็กทรอนิกส์
+				listtype="SELECT";
+				parameter="&fall=a&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040062.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==4){	//ก.พ. 7 อิเล็กทรอนิกส์
+				if (document.form1.rec_start.value=="") {
+					arr_pertype = document.getElementsByName("search_per_type[]");
+					pertype_selected="";
+					for(i=0; i<arr_pertype.length; i++) {
+						if (arr_pertype[i].checked) {
+							pertype_selected=pertype_selected+arr_pertype[i].value+",";
+						}
+					}
+					pertype_selected = pertype_selected.substr(0,pertype_selected.length-1);
+					listtype="SELECT";
+					parameter="&SELECTED_PER_ID="+document.form1.SELECTED_PER_ID.value+"&search_per_type="+pertype_selected+"&list_type="+listtype;
+//					alert("parameter="+parameter);
+				    call_openDialog("show_rec_for_R0040062.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=($PER_ID)?"แก้ไข":"เพิ่ม"?>เลือกรายการพิมพ์ใบต่อ <?=$KP7_TITLE;?> อิเล็กทรอนิกส์");		
+				} 
+				if (document.form1.line_start.value=="") {
+					alert("โปรดป้อนบรรทัดที่จะพิมพ์ก่อน");
+				} else {
+					listtype="SELECT";
+					parameter="&line="+form1.line_start.value+"&rec="+form1.rec_start.value+"&list_type="+listtype+"&rec_end="+form1.rec_end.value;
+//					alert(parameter);
+					document.form1.action = "report/rpt_R0040062.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+					document.form1.submit();
+				} // end if
+			}else if(type==5){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040063.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==51){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040063_rtf.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==6){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040064.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==7){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040065.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==8){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040064_mso_rtf.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==9){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040064_RTF.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==10){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040064_mfa_rtf.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}else if(type==11){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R007011.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+"&FLAG_RTF=1"+parameter;
+				document.form1.submit();
+			}else if(type==12){
+				listtype="SELECT";
+				parameter="&list_type="+listtype;
+				document.form1.action = "report/rpt_R0040064_seis_rtf.php?UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+parameter;
+				document.form1.submit();
+			}
+	} 
+	
+	function swap_order(ord1, ord2){
+		var tmp_ord1_checked = eval("document.all.HISTORY_ORDER_" + ord1 + ".checked");
+		var tmp_ord1_value = eval("document.all.HISTORY_ORDER_" + ord1 + ".value");
+		var tmp_ord1_label = eval("document.all.HISTORY_LABEL_" + ord1 + ".innerText");
+//		var tmp_ord1_class = eval("document.all.HISTORY_ROW_" + ord1 + ".className");
+
+		var tmp_ord2_checked = eval("document.all.HISTORY_ORDER_" + ord2 + ".checked");
+		var tmp_ord2_value = eval("document.all.HISTORY_ORDER_" + ord2 + ".value");
+		var tmp_ord2_label = eval("document.all.HISTORY_LABEL_" + ord2 + ".innerText");
+//		var tmp_ord2_class = eval("document.all.HISTORY_ROW_" + ord2 + ".className");
+		
+		eval("document.all.HISTORY_ORDER_" + ord1 + ".checked = " + tmp_ord2_checked);
+		eval("document.all.HISTORY_ORDER_" + ord1 + ".value = '" + tmp_ord2_value + "'");
+		eval("document.all.HISTORY_LABEL_" + ord1 + ".innerText = '" + tmp_ord2_label + "'");
+//		eval("document.all.HISTORY_ROW_" + ord1 + ".className = '" + tmp_ord2_class + "'");
+
+		eval("document.all.HISTORY_ORDER_" + ord2 + ".checked = " + tmp_ord1_checked);
+		eval("document.all.HISTORY_ORDER_" + ord2 + ".value = '" + tmp_ord1_value + "'");
+		eval("document.all.HISTORY_LABEL_" + ord2 + ".innerText = '" + tmp_ord1_label + "'");
+//		eval("document.all.HISTORY_ROW_" + ord2 + ".className = '" + tmp_ord1_class + "'");
+	} 
+	
+	function move_order(type, order){
+		if(type == 1){
+			// move it up
+			swap_order(order, (order - 1));
+		}else if(type == 2){
+			// move it down
+			swap_order(order, (order + 1));
+		} 
+	} 
+	
+	function control_all(isChecked){
+		if(isChecked){
+			for(var i=1; i<=17; i++){ 
+				eval("document.all.HISTORY_ORDER_" + i + ".checked=true;");
+//				eval("document.all.HISTORY_ROW_" + i + ".className='table_body';");
+			} // end for
+		}else{
+			for(var i=1; i<=17; i++){ 
+				eval("document.all.HISTORY_ORDER_" + i + ".checked=false;");
+//				eval("document.all.HISTORY_ROW_" + i + ".className='table_body_3';");
+			} // end for
+		}
+	} 
+	
+	function  control_order(isChecked, order){
+		if(isChecked){
+//			eval("document.all.HISTORY_ROW_" + order + ".className='table_body';");
+			for(var i=1; i<=17; i++){				
+				if(!eval("document.all.HISTORY_ORDER_" + i + ".checked")) break;
+			}
+			if(i == 17) document.all.CHECKALL.checked = true;
+		}else{
+			if(document.all.CHECKALL.checked) document.all.CHECKALL.checked = false;
+//			eval("document.all.HISTORY_ROW_" + order + ".className='table_body_3';");
+		}
+	}
+	
+	function disable_field(value){
+//		document.form1.btn_org.disabled = value;
+//		document.form1.btn_org_1.disabled = value;
+//		document.form1.btn_org_2.disabled = value;
+	}
+	
+	function form_initialize(){
+		form1.btn_view_list.style.display = 'none';
+//		for(var i=1; i<=17; i++) eval("document.all.HISTORY_ROW_" + i + ".className='table_body';");
+		document.all.HISTORY_ORDER_1.value = "POSITIONHIS";
+		document.all.HISTORY_LABEL_1.innerText = "ประวัติการรับราชการ (การดำรงตำแหน่ง)";
+		document.all.HISTORY_ORDER_2.value = "SALARYHIS";
+		document.all.HISTORY_LABEL_2.innerText = "ประวัติการเลื่อนขั้นเงินเดือน";
+		document.all.HISTORY_ORDER_3.value = "EXTRA_INCOMEHIS";
+		document.all.HISTORY_LABEL_3.innerText = "ประวัติการรับเงินเพิ่มพิเศษ";
+		document.all.HISTORY_ORDER_4.value = "EDUCATE";
+		document.all.HISTORY_LABEL_4.innerText = "ประวัติการศึกษา";
+		document.all.HISTORY_ORDER_5.value = "TRAINING";
+		document.all.HISTORY_LABEL_5.innerText = "ประวัติการฝึกอบรม สัมมนา และดูงาน";
+		document.all.HISTORY_ORDER_6.value = "ABILITY";
+		document.all.HISTORY_LABEL_6.innerText = "ความสามารถพิเศษ";
+		document.all.HISTORY_ORDER_7.value = "HEIR";
+		document.all.HISTORY_LABEL_7.innerText = "ข้อมูลทายาท";
+		document.all.HISTORY_ORDER_8.value = "ABSENTHIS";
+		document.all.HISTORY_LABEL_8.innerText = "ประวัติการลา สาย ขาด";
+		document.all.HISTORY_ORDER_9.value = "PUNISHMENT";
+		document.all.HISTORY_LABEL_9.innerText = "ประวัติทางวินัย";
+		document.all.HISTORY_ORDER_10.value = "TIMEHIS";
+		document.all.HISTORY_LABEL_10.innerText = "ประวัติเวลาทวีคูณ";
+		document.all.HISTORY_ORDER_11.value = "REWARDHIS";
+		document.all.HISTORY_LABEL_11.innerText = "ประวัติการรับความดีความชอบ";
+		document.all.HISTORY_ORDER_12.value = "MARRHIS";
+		document.all.HISTORY_LABEL_12.innerText = "ประวัติการสมรส";
+		document.all.HISTORY_ORDER_13.value = "NAMEHIS";
+		document.all.HISTORY_LABEL_13.innerText = "ประวัติการเปลี่ยนแปลงชื่อ - สกุล";
+		document.all.HISTORY_ORDER_14.value = "DECORATEHIS";
+		document.all.HISTORY_LABEL_14.innerText = "ประวัติการรับเครื่องราชฯ";
+		document.all.HISTORY_ORDER_15.value = "SERVICEHIS";
+		document.all.HISTORY_LABEL_15.innerText = "ประวัติราชการพิเศษ";
+		document.all.HISTORY_ORDER_16.value = "SPECIALSKILLHIS";
+		document.all.HISTORY_LABEL_16.innerText = "ความเชี่ยวชาญพิเศษ";
+		document.all.HISTORY_ORDER_17.value = "EXTRAHIS";
+		document.all.HISTORY_LABEL_17.innerText = "ประวัติการรับเงินพิเศษ";
+
+		document.all.SEARCH_PER_ORG_ASS.style.display='none';
+		document.all.SEARCH_PER_ORG.style.display='block';
+	}
+	
+	function disable_field(disable_flag){
+		if(disable_flag){
+			document.all.SEARCH_PER_ORG.style.display='none';
+			document.all.SEARCH_PER_ORG_ASS.style.display='block';
+		}else{
+			document.all.SEARCH_PER_ORG_ASS.style.display='none';
+			document.all.SEARCH_PER_ORG.style.display='block';
+		} // end if
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		if  (src.indexOf("show_rec_for_R0040062") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				stat = arrValue[0];
+				recno = arrValue[1];
+				document.form1.rec_start.value=recno;
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<? if($F_HEAD) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+<? } ?>
+  	<tr>
+    	<td align="center" valign="top">
+		<form name="form1" method="post" action="rpt_R004006.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <? if($SESS_PER_ID != "" && $SELECTED_PER_ID != ""){ $SELECTED_PER_ID = $SESS_PER_ID; } ?>
+		  <input type="hidden" name="SELECTED_PER_ID" value="<?=$SELECTED_PER_ID?>">
+          <input type="hidden" name="HISTORY_LIST" value="">
+		&nbsp;
+		<table width="80%"  border="0" cellspacing="0" cellpadding="0">
+		  <tr>
+			<td align="center">
+				<input name="btn2" type="button" class="button" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="parent.refresh_opener(0);">
+                &nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="btn3" type="button" class="button" value="ใบ <?=$KP7_TITLE;?>" onClick="call_report(3);">
+				<input name="btn4" type="button" class="button" value="ใบต่อ <?=$KP7_TITLE;?>" onClick="call_report(4);">
+				<input name="btn5" type="button" class="button" value="<?=$KP7_TITLE;?> ทั้งฉบับ" onClick="call_report(5);">
+				<input name="btn51" type="button" class="button" value="<?=$KP7_TITLE;?> ทั้งฉบับ(RTF)" onClick="call_report(51);">
+				<input name="btn6" type="button" class="button" value="ประวัติย่อ" onClick="call_report(6);">
+				<input name="btn7" type="button" class="button" value="ประวัติย่อ(RTF)" onClick="call_report(9);">
+				<input name="btn8" type="button" class="button" value="ข้อมูลปัจจุบัน" onClick="call_report(7);">
+				<? if ($MSOCIETY_FLAG==1) { ?>
+ 				<input name="btn9" type="button" class="button" value="รายละเอียดบุคคล" onClick="call_report(8);">
+				<? } ?>
+				<? if ($MFA_FLAG==1) { ?>
+ 				<input name="btn9" type="button" class="button" value="รายละเอียดบุคคล" onClick="call_report(10);">
+ 				<input name="btn11" type="button" class="button" value="ประวัติการลา" onClick="call_report(11);">
+				<? } ?>
+				<? if ($ISCS_FLAG==1) { ?>
+ 				<input name="btn9" type="button" class="button" value="ประวัติการศึกษาและการดำรงตำแหน่ง" onClick="call_report(12);">
+				<? } ?>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+				<input name="btn9" type="reset" class="button" value="<?=$CLEAR_TITLE?>" onClick="form_initialize();">
+			<input type="radio" name="NUMBER_DISPLAY" value="1" <?=($NUMBER_DISPLAY==1)?"checked":""?>>เลขอารบิค
+			  <input type="radio" name="NUMBER_DISPLAY" value="2" <?=($NUMBER_DISPLAY==2)?"checked":""?>>เลขไทย
+		  	<select name="CH_PRINT_FONT" class="selectbox">
+					<?  foreach($ARR_PRINT_FONT as $key=>$value){  ?><option value="<?=$key; ?>"<?=($PRINT_FONT==$key)?"selected":""?> ><?=$value; ?></option><?  } ?>
+			</select>
+			</td>
+		  </tr>
+		</table>  
+		&nbsp;
+		<table width="95%" align="center" cellpadding="0" cellspacing="0" height="150">
+    	  <tr>
+		  	<td width="30%" align="center" valign="top"><table width="98%" height="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+              <tr>
+                <td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                    <tr>
+                      <td height="22" colspan="2" align="center" class="table_head"><?=$REPORT_CONDITION?></td>
+                      </tr>
+                    <tr>
+                      <td width="25%" height="22" align="right">&nbsp;</td>
+                      <td nowrap>
+			  	<? 
+				foreach($PERSON_TYPE as $key=>$value){
+						$arr_search_per_type=explode(",",$search_per_type); 
+//						echo "key=$key($search_per_type):".(in_array($key, $arr_search_per_type)).":".(isset($arr_search_per_type)).":".((in_array($key, $arr_search_per_type) || !isset($arr_search_per_type))?"chked":""); 
+				?>
+						<input name="search_per_type[]" type="checkbox" value="<?=$key; ?>" <?=(in_array($key, $search_per_type) || !isset($search_per_type))?"checked":""?>>&nbsp;<?=$value; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<? } ?>
+					  </td>
+                    </tr>
+                </table></td>
+              </tr>
+            </table></td>
+      		<td width="40%" align="center" valign="top" height="150">
+			<table width="98%" height="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+			  <tr>
+			  	<td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                  <tr>
+                    <td height="22" colspan="2" align="center" class="table_head">รายงานของ<? echo $SESS_FIRSTNAME." ".$SESS_LASTNAME; ?></td>
+                  </tr>
+                  <? if($SESS_PER_ID == ""){ ?>
+                    <tr><td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                  	  <tr>
+                        <td><input name="btn_view_list" type="button" class="button" value="ดูรายชื่อที่เลือก" onClick="call_show_person();"></td>
+                      </tr>
+                    </table></td>
+                  </tr>
+				  <? } ?>
+                  <tr>
+		  			<td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+						<tr class="table_head">
+                    		<td colspan="2" align="center">เลือกลักษณะการพิมพ์</td>
+                  		</tr>
+                        <tr>
+                        	<td width="25%" height="22" nowrap="nowrap">&nbsp;รายการที่เริ่มพิมพ์</td>
+                            <td>
+                            	<input type="text" name="rec_start" value="<?=$rec_start?>" style="width:25%"  class="textbox">
+                            </td>
+						</tr>
+                        <tr>
+                        	<td width="25%" height="22" nowrap="nowrap">&nbsp;ถึงรายการที่์</td>
+                            <td>
+                            	<input type="text" name="rec_end" value="<?=$rec_end?>" style="width:25%"  class="textbox">
+                            </td>
+						</tr>
+						<tr>
+                            <td width="25%" height="22" nowrap="nowrap">&nbsp;บรรทัดที่เริ่มพิมพ์</td>
+                            <td>
+                            	<input type="text" name="line_start" value="<?=$line_start?>" style="width:25%"  class="textbox">
+							</td>
+						</tr>
+                	</table></td>
+                    </tr>
+                </table></td>
+			  </tr>
+			</table>
+			</td>
+  		</table> 
+		&nbsp;
+	  </form>	
+	  </td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

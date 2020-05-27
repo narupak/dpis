@@ -1,0 +1,633 @@
+<?
+if ($BYASS=="Y") $ORGTAB = "PER_ORG_ASS"; else $ORGTAB = "PER_ORG";
+
+//echo "ORG_ID_REF=$ORG_ID_REF , ORG_ID=$ORG_ID, ORG_ID_RIGHT=$ORG_ID_RIGHT , PER_ID=$PER_ID , OL_CODE=$OL_CODE<br>";
+
+include("../php_scripts/connect_database.php");
+include("php_scripts/structure_by_law_per.php");
+$ORG_ID_BUFF = $ORG_ID;
+include("php_scripts/load_per_control.php");
+$ORG_ID = $ORG_ID_BUFF;
+/*	if ($BYASS=="Y" && $CTRL_TYPE==4) {
+$cmd = " select ORG_ID from PER_ORG_ASS where ORG_ID=ORG_ID_REF ";
+$db_dpis->send_cmd($cmd);
+$data = $db_dpis->get_array();
+$ORG_ID = $data[ORG_ID];
+} */ 
+
+if( !$current_page ) { $current_page = 1; $current_page_idx=0; $current_page_lvl="1"; }
+$data_per_page = 0;
+if(!$data_per_page) $data_per_page = 30;
+$start_record = ($current_page - 1) * $data_per_page;
+//echo "BYASS=$BYASS + $ORGTAB<br>";
+?>
+<html>
+    <head>
+        <title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+        <meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+        <link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+
+        <script type="text/javascript" src="java_scripts/chk_date.js"></script>
+        <script type="text/javascript" src="java_scripts/calendar.js"></script>
+        <script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+        <script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+        <script language="JavaScript">
+            function change_current_page( page ){
+                var currpage = form1.current_page_lvl.value.split(",");
+                var currpageidx = form1.current_page_idx.value;
+                currpage[currpageidx] = page;
+                form1.current_page_lvl.value = currpage.toString();
+                //		alert("page:"+form1.current_page.value+" = "+page+", "+form1.current_page_lvl.value+", idx="+currpageidx);
+                form1.current_page.value = page;
+                form1.submit();
+            }
+
+            function MM_openBrWindow(theURL,winName,features) { //v2.0
+                window.open(theURL,winName,features);
+            }
+	
+            function select_head_org(org_id){
+                form1.ORG_ID.value = org_id;
+                form1.ORG_ID_RIGHT.value = org_id;
+                form1.current_page.value=0;
+                form1.total_page.value=0;
+                form1.submit();
+            }
+
+            function select_org(org_id, org_id_ref){
+                //alert("org_id="+org_id+", org_id_ref="+org_id_ref);
+                form1.ORG_ID.value = org_id;
+                form1.ORG_ID_REF.value = org_id_ref;
+                form1.ORG_ID_RIGHT.value = org_id;
+                form1.submit();
+            }
+
+            function select_org_per(org_id_ref, org_id, per_id, ol_code){
+                form1.ORG_ID_REF.value = org_id_ref;
+                form1.ORG_ID_RIGHT.value = org_id;
+                form1.PER_ID.value = per_id;
+                form1.OL_CODE.value = ol_code;
+//                alert(form1.ORG_ID_REF.value+":"+form1.ORG_ID_RIGHT.value+":"+form1.PER_ID.value+":"+form1.OL_CODE.value);
+                form1.submit();
+            }
+	
+            /*
+                function select_org(org_id){
+                        //alert(org_id);
+                        form1.ORG_ID.value = org_id;
+                        form1.submit();
+                }
+             */	
+            function call_add(org_id, byass){
+                //		alert("add-"+org_id + "," + byass);
+                parameter = "&ORG_ID1=" + org_id + "&BYASS=" + byass;
+                call_openDialog("structure_org_add.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"สร้างข้อมูลโครงสร้างตาม<?=($BYASS=="Y"?"มอบหมายงาน":"กฏหมาย")?>");		
+            }
+
+            function call_edit(org_id, byass){
+                //		alert("edit-"+org_id+","+byass);
+                parameter = "&ORG_ID1=" + org_id + "&BYASS=" + byass;
+                call_openDialog("structure_org_edit.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"แก้ไขข้อมูลโครงสร้างตาม<?=($BYASS=="Y"?"มอบหมายงาน":"กฏหมาย")?>");		
+            }
+
+            function call_print(org_id, byass){
+                //		alert("print-"+org_id+","+byass);
+                parameter = "&ORG_ID1=" + org_id + "&BYASS=" + byass;
+                call_openDialog("rpt_structure_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายงานโครงสร้างตาม<?=($BYASS=="Y"?"มอบหมายงาน":"กฏหมาย")?> (xls)");		
+            }
+
+            function call_print1(org_id, byass){
+                //		alert("print-"+org_id+","+byass);
+                parameter = "&ORG_ID1=" + org_id + "&BYASS=" + byass;
+                call_openDialog("rpt_structure_org1_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายงานโครงสร้างตาม<?=($BYASS=="Y"?"มอบหมายงาน":"กฏหมาย")?>");		
+            }
+
+            function call_search(){
+                //		alert("search="+form1.search_org_name.value);
+                if (!form1.search_org_name.value) {
+                    alert('ระบุชื่อที่ต้องการค้นหา');
+                } else {
+                    //			alert("check_sel_all:"+form1.check_sel_all.checked);
+                    search_org = form1.search_org_name.value;
+                    search_ol = ""+form1.search_ol_code.value;
+                    if (search_ol.length==1) { search_ol = "0"+search_ol; }
+                    parameter = "&search_org_name=" + search_org+"&search_ol_code="+search_ol+"&check_sel_all="+(form1.check_sel_all.checked?"Y":"N")+"&BYASS=<?=$BYASS; ?>&ORGTAB=<?=$ORGTAB; ?>";
+                    call_openDialog("structure_org_search.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"ค้นหาโครงสร้างตามกฏหมาย");		
+                }
+            }
+	
+            function returnFrom(src, returnValue){
+                //		alert("src="+src+"("+returnValue+")");
+                if  (src.indexOf("structure_org_add") > -1) {
+                    if(returnValue){
+                        arrValue = returnValue.split("<::>");
+                        if (arrValue[0]==1) {
+                            form1.submit();
+                        }
+                    } // end if
+                } else if  (src.indexOf("structure_org_edit") > -1) {
+                    if(returnValue){
+                        arrValue = returnValue.split("<::>");
+                        if (arrValue[0]==1) {
+                            if (arrValue[1])
+                                form1.ORG_ID.value = arrValue[1];
+                            form1.submit();
+                        }
+                    } // end if
+                } else if  (src.indexOf("structure_org_search") > -1) {
+                    if(returnValue){
+                        arrValue = returnValue.split("<::>");
+                        form1.ORG_ID.value = arrValue[0];
+                        //				form1.search_ol_code.value = arrValue[1];
+                        form1.submit();
+                    } // end if
+                } 		
+                //		$( "#d_frame" )[0].src="";
+                //		alert("returnValue="+tt.value);
+                //		tt.value = returnValue;
+            } // end if
+
+            function call_chart( per_id, org_id, org_id_ref, ol_code ){
+                flag_rtf = 0;
+                NUMBER_DISPLAY = "<?=$NUMBER_DISPLAY?>";
+                var currDate = new Date();
+                var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+                rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+                //		alert("per_id="+per_id+" , org_id="+org_id+" , org_id_ref="+org_id_ref+" , ol_code="+ol_code);
+                action_return = document.form1.action;
+                action_target = document.form1.target;
+                document.form1.target = "_blank";
+                //		document.form1.action = "report/rpt_structure_perchart.php?PER_ID="+per_id+"&ORG_ID="+org_id+"&ORG_ID_REF="+org_id_ref+"&OL_CODE="+ol_code+"&UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+"&FLAG_RTF="+flag_rtf;
+                document.form1.action = "report/rpt_structure_lawchart.php?sel_per_id="+per_id+"&sel_org_id="+org_id+"&org_parent="+org_id_ref+"&org_parent_ol_code="+ol_code+"&UTC" + rptDate+'&NUMBER_DISPLAY='+NUMBER_DISPLAY+"&FLAG_RTF="+flag_rtf;
+                document.form1.submit();
+                document.form1.target = action_target;
+                document.form1.action = action_return;
+            }
+
+        </script>
+        <link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+    </head>
+
+    <body>
+        <form name="form1" method="post" action="structure_by_law_per.html" enctype="multipart/form-data">
+            <input type="hidden" name="current_page" value="<?=$current_page?>">
+            <input type="hidden" name="total_page" value="<?=$total_page?>">
+            <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+            <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+            <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+            <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+            <input type="hidden" name="command" value="">
+            <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+            <input type="hidden" name="ORG_ID_RIGHT" value="<?=$ORG_ID_RIGHT?>">
+            <input type="hidden" name="ORG_ID_REF" value="<?=$ORG_ID_REF?>">
+            <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+            <input type="hidden" name="OL_CODE" value="<?=$OL_CODE?>">
+            <input type="hidden" name="SEL_ORG_ID" value="<?=SEL_ORG_ID?>">
+            <input type="hidden" name="BYASS" value="<?=$BYASS?>">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+                <tr>
+                    <td height="10"><? include("header_menu.html")?></td>
+                </tr>
+                <tr> 
+                    <td align="left" valign="top">
+                        <?
+                        if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+
+                        include("current_location.html");
+
+                        // สำหรับกรณีลบข้อมูล
+                        // เพิ่มส่วนนี้เพื่อ ตรวจสอบ ระดับต่ำกว่า ORG_ID ถ้าไม่มี ก็ขยับระดับขึ้นไป  1 ระดับ 
+                        $cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from $ORGTAB where ORG_ID_REF = $ORG_ID";
+                        $count_ORG_ID_REF_data = $db_dpis->send_cmd($cmd);
+                        if ($count_ORG_ID_REF_data == 0){
+                        //กรณีที่ไม่มีย่อยลงไปอีก จัดให้มันแสดง
+                        $cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from $ORGTAB where ORG_ID = $ORG_ID";
+                        $count_ORG_ID_REF_data = $db_dpis->send_cmd($cmd);
+                        if($count_ORG_ID_REF_data==0 && $PARENT_ORG_ID > 0) { $ORG_ID = $PARENT_ORG_ID; }
+                        }
+                        //		เพิ่มส่วนนี้เพื่อ ตรวจสอบ ระดับต่ำกว่า ORG_ID ถ้าไม่มี ก็ขยับระดับขึ้นไป  1 ระดับ
+                        //		echo "ตรวจสอบ head $cmd-($count_ORG_ID_REF_data) + $PARENT_ORG_ID;<br>";
+                        ?>
+                    </td>
+                </tr>
+                <tr><td>&nbsp;&nbsp;</td></tr>
+                <tr>
+                    <td align="center" valign="top">
+                        <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="input_table">
+                            <tr>
+                                <td>
+                                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                        <tr>
+                                            <td colspan="2">
+                                                <input type="text" name="SRCH_MINISTRY_NAME" value="<?=$SRCH_MINISTRY_NAME?>" style="width:30%" class="textbox" readonly><input type="hidden" name="SRCH_MINISTRY_ID" value="<?=$SRCH_MINISTRY_ID?>"><!--&nbsp;&nbsp;<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.SRCH_MINISTRY_NAME.value=''; form1.SRCH_MINISTRY_ID.value=''; return false;" align="center" alt="ล้างค่า">-->&nbsp;&nbsp;&nbsp;&nbsp;
+                                                <input type="text" name="SRCH_DEPARTMENT_NAME" value="<?=$SRCH_DEPARTMENT_NAME?>" style="width:30%" class="textbox" readonly><input type="hidden" name="SRCH_DEPARTMENT_ID" value="<?=$SRCH_DEPARTMENT_ID?>"><!--&nbsp;&nbsp;<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.SRCH_DEPARTMENT_NAME.value=''; form1.SRCH_DEPARTMENT_ID.value=''; return false;" align="center" alt="ล้างค่า">-->&nbsp;&nbsp;&nbsp;&nbsp;แสดงข้อมูลทั้งหมด<input type="checkbox" name="check_sel_all" value="Y" <?=($check_sel_all=="Y"?"checked":"")?>><!--ติ๊ก แสดงข้อมูลทั้งหมด คือค้นหาชื่อที่มีในกรมอื่นด้วย--->
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><input type="text" name="search_org_name"  onKeyPress="return keyEnter(event,document.form1.SubmitSearch);"  value="<?=$search_org_name?>" style="width:98%" class="textbox"><input type="hidden" name="search_ol_code" value="<?=$search_ol_code?>"></td>
+                                            <td width="15%" align="left">
+                                                <? if ($BUTTON_DISPLAY==1) { ?>
+                                                <input name="SubmitSearch" type="button" class="button" onClick="call_search();" value="ค้นหา">
+                                                <? } else { ?>
+                                                <img src="images/search.png" alt="ค้นหา" width="32" height="32" border="0" onClick="if(document.form1.search_org_name.value.trim()){ document.form1.command.value='SEARCH_ORG'; document.form1.search_ol_code.value=''; document.form1.ORG_ID.value=''; document.form1.ORG_ID_REF.value=''; document.form1.action+='#searchORG'; }else{ alert('ระบุชื่อที่ต้องการค้นหา'); return false; } form1.submit();">
+                                                <? } ?>				
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td valign="top">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+                            <tr>
+                                <td height="25" align="center" valign="top">
+                                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                        <tr>
+                                            <td > <!-- block ซ้ายมือ -->
+                                                <?
+                                                $tab = "";
+                                                $TMP_ORG_ID = $ORG_ID;
+                                                $arr_org = (array) null;
+                                                $firstloop=1;
+                                                while ($TMP_ORG_ID >= 1) {
+                                                $cmd = " select ORG_NAME, ORG_ID_REF, OL_CODE from $ORGTAB where ORG_ID=$TMP_ORG_ID ";
+                                                $cnt = $db_dpis->send_cmd($cmd);
+                                                if ($cnt > 0) {
+                                                if ($data = $db_dpis->get_array()) {
+                                                $arr_org[id][] = $TMP_ORG_ID;
+                                                $arr_org[name][] = $data[ORG_NAME];
+                                                $arr_org[id_ref][] = $data[ORG_ID_REF];
+                                                $arr_org[ol_code][] = $data[OL_CODE];
+                                                if ($TMP_ORG_ID==$data[ORG_ID_REF]) {
+                                                $TMP_ORG_ID = 0;
+                                                } else {
+                                                $TMP_ORG_ID = $data[ORG_ID_REF];
+                                                }
+                                                // เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น
+                                                if ($firstloop == 1 && $TMP_ORG_ID>1) {
+                                                $firstloop=0; 
+                                                $PARENT_ORG_ID=$data[ORG_ID_REF];
+                                                } // end if ($firstloop == 1)
+                                                //echo "$firstloop - $PARENT_ORG_ID ===> $cmd<br>";
+                                                // เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น
+                                                } // end if ($data = $db_dpis->get_array())
+                                                } else {
+                                                $TMP_ORG_ID = 0;
+                                                } // end if ($cnt > 0)
+                                                } // end loop while
+                                                array_multisort($arr_org[id], SORT_ASC, $arr_org[name], SORT_ASC, $arr_org[id_ref], SORT_ASC);
+                                                ?>
+                                                <!-- เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น-->
+                                                <input type="hidden" name="PARENT_ORG_ID" value="<?=$PARENT_ORG_ID?>">
+                                                <!-- เพิ่มส่วนนี้เพื่อ เก็บ parant ไว้สำหรับการเลื่อนระดับขึ้น-->
+                                                <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+                                                    <tr><td height="10"></td></tr>
+                                                    <tr align="center">
+                                                        <td height="25">
+                                                            <table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                                                                <?
+                                                                if (strlen($current_page_lvl) > 0) {	// ตรวจสอบ current page จาก หน้าก่อนส่งเข้ามา
+                                                                $arr_current_page = explode(",", $current_page_lvl);
+                                                                }
+                                                                $arr_current_page_new = (array) null;
+                                                                for($i=0; $i < count($arr_org[id]); $i++) {
+                                                                $cmd = " select ORG_ID , ORG_NAME, ORG_ID_REF from $ORGTAB where ORG_ID_REF = ".$arr_org[id][$i]." 
+                                                                order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE ";	// รายการข้อมูล child ของ ORG_ID
+                                                                $count_data = $db_dpis->send_cmd($cmd);
+                                                                //						$db_dpis->show_error();
+                                                                //						echo "part1-$cmd-($count_data)<br>";
+
+                                                                $OL_CODE = $arr_org[ol_code][$i];
+                                                                $orgid_opened_org_per = $arr_org[id][$i];
+
+                                                                $cmd = " select ORG_ID_REF from $ORGTAB where ORG_ID=". $arr_org[id][$i];
+                                                                $db_dpis2->send_cmd($cmd);
+                                                                $data1 = $db_dpis2->get_array();
+                                                                $orgid_ref_opened_org_per = $data1[ORG_ID_REF];
+                                                                //						echo "$i--ORG_ID=".$arr_org[id][$i]." , orgid_ref_opened_org_per=".$orgid_ref_opened_org_per," , orgid_opened_org_per=".$orgid_opened_org_per." , OL_CODE=",$OL_CODE."<br>";
+
+                                                                $class = "table_body_over";
+                                                                $i_edit="";
+                                                                //						echo "arr_org [id] [$i] (".$arr_org[id][$i].")==ORG_ID ($ORG_ID)<br>";
+                                                                if ($arr_current_page[$i])
+                                                                $arr_current_page_new[] = $arr_current_page[$i];
+                                                                else
+                                                                $arr_current_page_new[] = "1";
+                                                                if($arr_org[id][$i]==$ORG_ID && $count_data==0) {
+                                                                $sel_org = "select_head_org(". $arr_org[id][$i] .");";
+                                                                $class = "table_body";
+                                                                } elseif($arr_org[id][$i]==$ORG_ID) {
+                                                                $sel_org = "";
+                                                                } else {
+                                                                $sel_org = "select_head_org(". $arr_org[id][$i] .");";
+                                                                }
+
+                                                                //รวมทั้งข้าราชการ ลูกจ้างฯ และพนักงานฯ
+                                                                $where = " and a.PER_STATUS = 1 ";
+                                                                if ($BKK_FLAG==1) $where .= " and a.PER_TYPE = 1";
+                                                                if($arr_org[ol_code][$i]==02){
+                                                                $cmd_per = " select a.DEPARTMENT_ID,PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.DEPARTMENT_ID=". $orgid_opened_org_per." or d.DEPARTMENT_ID=". $orgid_opened_org_per." or 
+                                                                e.DEPARTMENT_ID=". $orgid_opened_org_per." or g.DEPARTMENT_ID=". $orgid_opened_org_per.") 
+                                                                and (c.ORG_ID IS NULL and d.ORG_ID IS NULL and e.ORG_ID IS NULL and g.ORG_ID IS NULL and c.ORG_ID_1 IS NULL 
+                                                                and d.ORG_ID_1 IS NULL and e.ORG_ID_1 IS NULL and g.ORG_ID_1 IS NULL and c.ORG_ID_2 IS NULL 
+                                                                and d.ORG_ID_2 IS NULL and e.ORG_ID_2 IS NULL and g.ORG_ID_2 IS NULL)
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, 
+                                                                e.ORG_ID, g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, 
+                                                                g.ORG_ID_2, f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                }else if($arr_org[ol_code][$i]==03){
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID=". $orgid_opened_org_per." or d.ORG_ID=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID=". $orgid_opened_org_per." or g.ORG_ID=". $orgid_opened_org_per.") 
+                                                                and (c.DEPARTMENT_ID IS NOT NULL or d.DEPARTMENT_ID IS NOT NULL or e.DEPARTMENT_ID IS NOT NULL 
+                                                                or g.DEPARTMENT_ID IS NOT NULL)
+                                                                and (c.ORG_ID_1 IS NULL and d.ORG_ID_1 IS NULL and e.ORG_ID_1 IS NULL and g.ORG_ID_1 IS NULL 
+                                                                and c.ORG_ID_2 IS NULL and d.ORG_ID_2 IS NULL and e.ORG_ID_2 IS NULL and g.ORG_ID_2 IS NULL)
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";				
+                                                                }else  if ($arr_org[ol_code][$i]==04) {
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF 
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID_1=". $orgid_opened_org_per." or d.ORG_ID_1=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID_1=". $orgid_opened_org_per." or g.ORG_ID_1=". $orgid_opened_org_per.") 
+                                                                and (c.ORG_ID IS NOT NULL or d.ORG_ID IS NOT NULL or e.ORG_ID IS NOT NULL or g.ORG_ID IS NOT NULL)
+                                                                and (c.ORG_ID_2 IS NULL and d.ORG_ID_2 IS NULL and e.ORG_ID_2 IS NULL and g.ORG_ID_2 IS NULL)
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                } else if ($arr_org[ol_code][$i]==05) {
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, 
+                                                                f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID_2=". $orgid_opened_org_per." or d.ORG_ID_2=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID_2=". $orgid_opened_org_per." or g.ORG_ID_2=". $orgid_opened_org_per.") 
+                                                                and (c.ORG_ID_1 IS NOT NULL or d.ORG_ID_1 IS NOT NULL or e.ORG_ID_1 IS NOT NULL or g.ORG_ID_1 IS NOT NULL)
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 	
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                }
+                                                                //echo $cmd_per."<br><br>";
+                                                                $count_sub_tree_per = $db_dpis2->send_cmd($cmd_per);
+                                                                //						echo "<br>$i--ol_code=".$arr_org[ol_code][$i]." (count_sub_tree_per=".$count_sub_tree_per." ) : $cmd_per<br>";			
+                                                                if($count_sub_tree_per){	
+                                                                $data1 = $db_dpis2->get_array();
+                                                                //หาหัวหน้าแต่ละหน่วยงาน เลือกเฉพาะคนแรกที่เรียงตามPER_TYPEน้อยสุด คือ1 (ข้าราชการเท่านั้น) และระดับตำแหน่งมากสุดขึ้นมา) =====
+
+                                                                $TOP_PER_ID[$orgid_opened_org_per]=trim($data1[PER_ID]);
+                                                                }
+                                                                ?>
+
+                                                                <tr>
+                                                                    <!--           	  				<td height="10" class="<?=$class?>">&nbsp;<?=$tab?><span onClick="<?=$sel_org?>" style="cursor:hand;">111<?=$arr_org[name][$i]?></span><?=$i_edit?></td>-->
+                                                                    <td height="10" class="<?=$class?>">&nbsp;<?=$tab?><span onClick="<?=$sel_org?>" style="cursor:hand;"><?=$arr_org[name][$i]?></span><?=($count_sub_tree_per ? "(".$count_sub_tree_per.")" : "")?></td>
+                                                                </tr>
+                                                                <?
+                                                                $tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                                } // end for $i
+                                                                $current_page_lvl = implode(",", $arr_current_page_new);		// ทำ current_page_lvl ให้เป็น list ของ current_page ที่ level ล่าสุด
+                                                                $current_page_idx = count($arr_org[id])-1;
+                                                                $current_page = $arr_current_page_new[$current_page_idx];
+                                                                //					echo "current_page=$current_page, current_page_idx=$current_page_idx, current_page_lvl=$current_page_lvl<br>";
+                                                                ?>
+                                                                <input type="hidden" name="current_page_lvl" value="<?=$current_page_lvl?>">
+                                                                <input type="hidden" name="current_page_idx" value="<?=$current_page_idx?>">
+                                                                <?                    
+                                                                if ($count_data) {
+                                                                $total_page = ceil( $count_data / $data_per_page );
+                                                                $page_link = create_link_page($total_page, $current_page);
+                                                                $limit_data = "";
+
+                                                                if($DPISDB=="odbc"){	
+                                                                $select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+                                                                /****$cmd = "	select		*
+                                                                from		(
+                                                                select top $select_top *
+                                                                from		(
+                                                                select top ". ($data_per_page * $current_page) ."
+                                                                ORG_ID , ORG_NAME, ORG_ID_REF, OL_CODE, ORG_ACTIVE
+                                                                from $ORGTAB where ORG_ID_REF = $ORG_ID 
+                                                                order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+                                                                ) 
+                                                                order by	PER_NAME desc, PER_SURNAME desc
+                                                                )
+                                                                order by	PER_NAME, PER_SURNAME
+                                                                ";	****/
+                                                                $cmd = "	select top ". ($data_per_page * $current_page) ."
+                                                                ORG_ID , ORG_NAME, ORG_ID_REF, OL_CODE, ORG_ACTIVE
+                                                                from $ORGTAB where ORG_ID_REF = $ORG_ID 
+                                                                order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+                                                                ";	
+                                                                }elseif($DPISDB=="oci8"){
+                                                                $search_condition = str_replace(" where ", " and ", $search_condition);  
+                                                                $rec_start = (($current_page-1) * $data_per_page) + 1;
+                                                                $rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+                                                                $cmd = "select * from (
+                                                                select rownum rnum, q1.* from ( 
+                                                                select ORG_ID , ORG_NAME, ORG_ID_REF, OL_CODE, ORG_ACTIVE
+                                                                from $ORGTAB where ORG_ID_REF = $ORG_ID 
+                                                                order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE							
+                                                                )  q1
+                                                                ) where rnum between $rec_start and $rec_end  ";						
+                                                                }elseif($DPISDB=="mysql"){
+                                                                $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+                                                                $cmd = "	select ORG_ID , ORG_NAME, ORG_ID_REF, OL_CODE, ORG_ACTIVE from $ORGTAB 
+                                                                where ORG_ID_REF = $ORG_ID 
+                                                                order by ORG_ACTIVE DESC, ORG_SEQ_NO, ORG_CODE
+                                                                $limit_data
+                                                                ";
+                                                                } // end if
+                                                                //echo $cmd;
+                                                                $count_page_data = $db_dpis->send_cmd($cmd);
+                                                                //						$db_dpis->show_error();
+                                                                //						echo "part2-$cmd-($count_page_data)<br>";
+                                                                //						exit("me terminate");
+                                                                if($count_page_data){
+                                                                $tab .= "&nbsp;&nbsp;&nbsp;&nbsp;";
+                                                                if($total_page > 1) :
+                                                                echo "<table width=\"95%\" border=\"0\" align=\"center\" cellpadding=\"2\" cellspacing=\"2\" class=\"table_footer\">";
+                                                                echo "<tr><td>$page_link</td></tr>";
+                                                                echo "</table>";
+                                                                endif;
+                                                                
+                                                                echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";	
+                                                                
+                                                                $current_list = "";
+                                                                $data_count = 0;
+                                                                while($data = $db_dpis->get_array()) {
+                                                                if (($data[ORG_ID]!=$START_ORG_ID && $data[ORG_ID]!=0 && $data[ORG_ID]!=1) || $START_ORG_ID==$SESS_ORG_ID) {	//---ไม่เอา parent
+                                                                $data_count++;
+                                                                if($data_count > $data_per_page) break;
+                                                                $cmd = " select ORG_ID from $ORGTAB where ORG_ID_REF=". $data[ORG_ID];
+                                                                //									echo "$cmd<br>";
+                                                                $count_sub_tree = $db_dpis2->send_cmd($cmd);
+                                                                $class = "table_body";
+                                                                if ($data[ORG_ID] == $sel_org_id) $class = "table_body_over";
+                                                                $current_list .= ((trim($current_list))?",":"") . $data[ORG_ID];
+
+                                                                $OL_CODE = $data[OL_CODE];
+                                                                $orgid_opened_org_per = $data[ORG_ID];	//ORG_ID= $START_ORG_ID
+                                                                $LIST_ORG_NAME = $data[ORG_NAME];
+
+                                                                $cmd = " select ORG_ID_REF from $ORGTAB where ORG_ID=". $data[ORG_ID];
+                                                                $db_dpis2->send_cmd($cmd);
+                                                                $data1 = $db_dpis2->get_array();
+                                                                $orgid_ref_opened_org_per = $data1[ORG_ID_REF];
+
+                                                                //รวมทั้งข้าราชการ ลูกจ้างฯ และพนักงานฯ
+                                                                $where = " and a.PER_STATUS = 1 ";
+                                                                if ($BKK_FLAG==1) $where .= " and a.PER_TYPE = 1";
+                                                                if($OL_CODE==02){
+                                                                $cmd_per = " select a.DEPARTMENT_ID,PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.DEPARTMENT_ID=". $orgid_opened_org_per." or d.DEPARTMENT_ID=". $orgid_opened_org_per." or 
+                                                                e.DEPARTMENT_ID=". $orgid_opened_org_per." or g.DEPARTMENT_ID=". $orgid_opened_org_per.") 
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, 
+                                                                e.ORG_ID, g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, 
+                                                                g.ORG_ID_2, f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                }else if($OL_CODE==03){
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID=". $orgid_opened_org_per." or d.ORG_ID=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID=". $orgid_opened_org_per." or g.ORG_ID=". $orgid_opened_org_per.") 
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";				
+                                                                }else  if ($OL_CODE==04) {
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF 
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID_1=". $orgid_opened_org_per." or d.ORG_ID_1=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID_1=". $orgid_opened_org_per." or g.ORG_ID_1=". $orgid_opened_org_per.") 
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                } else if ($OL_CODE==05) {
+                                                                $cmd_per = " select a.DEPARTMENT_ID, PER_ID , PER_NAME, PER_SURNAME,a.PN_CODE,a.POS_ID, a.POEM_ID, a.POEMS_ID, a.LEVEL_NO, 
+                                                                f.POSITION_LEVEL, a.PER_TYPE, a.PER_STATUS, a.PER_ID_REF
+                                                                from 	((((	PER_PERSONAL a
+                                                                left join PER_POSITION c on (a.POS_ID=c.POS_ID $where) 
+                                                                ) left join PER_POS_EMP d on (a.POEM_ID=d.POEM_ID $where)
+                                                                ) left join PER_POS_EMPSER e on (a.POEMS_ID=e.POEMS_ID $where)
+                                                                ) left join PER_POS_TEMP g on (a.POT_ID=g.POT_ID $where)
+                                                                ) left  join PER_LEVEL f on (a.LEVEL_NO=f.LEVEL_NO)
+                                                                where (c.ORG_ID_2=". $orgid_opened_org_per." or d.ORG_ID_2=". $orgid_opened_org_per." or 
+                                                                e.ORG_ID_2=". $orgid_opened_org_per." or g.ORG_ID_2=". $orgid_opened_org_per.") 
+                                                                order by a.PER_TYPE, c.POS_SEQ_NO, d.POEM_SEQ_NO, e.POEMS_SEQ_NO, g.POT_SEQ_NO, c.ORG_ID, d.ORG_ID, e.ORG_ID, 
+                                                                g.ORG_ID, c.ORG_ID_1, d.ORG_ID_1, e.ORG_ID_1, g.ORG_ID_1, c.ORG_ID_2, d.ORG_ID_2, e.ORG_ID_2, g.ORG_ID_2, 	
+                                                                f.LEVEL_SEQ_NO DESC, a.PER_SEQ_NO ";
+                                                                }
+                                                                $count_sub_tree_per = $db_dpis2->send_cmd($cmd_per);
+                                                                //									echo "<br>$OL_CODE (".$count_sub_tree_per." ) : $cmd_per<br>";			
+                                                                if($count_sub_tree_per){	
+                                                                $data1 = $db_dpis2->get_array();
+                                                                //หาหัวหน้าแต่ละหน่วยงาน เลือกเฉพาะคนแรกที่เรียงตามPER_TYPEน้อยสุด คือ1 (ข้าราชการเท่านั้น) และระดับตำแหน่งมากสุดขึ้นมา) =====
+
+                                                                $TOP_PER_ID[$orgid_opened_org_per]=trim($data1[PER_ID]);
+                                                                }
+
+                                                                $tclass = "table_body";
+                                                                if(!$count_sub_tree) {
+                                                                $icon_name = "";
+                                                                $onClick = "";
+                                                                } else {
+                                                                $icon_name = "icon_plus.gif";
+                                                                $onClick = "select_org(". $data[ORG_ID] .",". $orgid_ref_opened_org_per .");";
+                                                                if ($SEL_ORG_ID==$data[ORG_ID]) { 
+                                                                $icon_name = "icon_minus.gif";
+                                                                $tclass = "table_body_over2";
+                                                                } // end if
+                                                                }
+                                                                if ($data[ORG_ACTIVE]==0) { 
+                                                                $font_red1 = "<font color=\"#FF0000\">"; $font_red2 = "</font>"; 
+                                                                } else {
+                                                                $font_red1 = ""; $font_red2 = "";
+                                                                }
+                                                                echo "<tr id=\"tr".$data[ORG_ID]."\" class=\"".$tclass."\">";
+                                                                echo "<td width=\"90%\" align=\"left\">&nbsp;$tab<img id=\"img".$data[ORG_ID]."\" src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\">";
+                                                                echo "&nbsp;<span onClick=\"select_org_per($orgid_ref_opened_org_per, $orgid_opened_org_per, ".$TOP_PER_ID[$orgid_opened_org_per].", $OL_CODE);\" style=\"cursor:hand\">".$font_red1. $data[ORG_NAME].$font_red2.($count_sub_tree_per ? " <font color=\"#FF0000\">(".$count_sub_tree_per.")</font>" : "")." </span>";
+                                                                echo "</td></tr>";
+                                                                } // end if ($data[ORG_ID]!=$START_ORG_ID)
+                                                                } // end while						
+                                                                echo "</table>";
+                                                                if($total_page > 1) :
+                                                                echo "<table width=\"95%\" border=\"0\" align=\"center\" cellpadding=\"2\" cellspacing=\"2\" class=\"table_footer\">";
+                                                                echo "<tr><td>$page_link</td></tr>";
+                                                                echo "</table>";
+                                                                endif; echo "&nbsp;";
+                                                                } // end if($count_page_data)
+                                                                } else {
+                                                                echo "<tr><td align='center'>ไม่พบข้อมูลโครงสร้างที่ต้องการ</td></tr>";
+                                                                } // end if ($count_data)
+                                                                ?>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                            <td height="25" valign="top" width="50%">
+                                                <table width="98%"  border="1" cellpadding="0" cellspacing="0" class="table_body_over">
+                                                    <tr>
+                                                        <td  height="22"><? if($ORG_ID_RIGHT) echo "โครงสร้างการบังคับบัญชาตามกฏหมาย ของ <font style=\"text-decoration;color:#000000\" >$SHOW_ORGNAME</font>"; if($ORG_ID_REF && $ORG_ID_RIGHT && $PER_ID && $OL_CODE)  echo "&nbsp;&nbsp;&nbsp;&nbsp;<input name=\"SubmitClear\" type=\"button\" class=\"button\" onClick=\"clear_structure()\" value=\"$CLEAR_TITLE\">&nbsp;<input name=\"SubmitUPD\" type=\"button\" class=\"button\" onClick=\"map_relate()\" value=\"สร้างโครงสร้าง\">"; ?></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td height="22"><? if($ORG_ID_REF && $ORG_ID_RIGHT && $PER_ID && $OL_CODE)  list_tree_org_per("", $ORG_ID_REF, $ORG_ID_RIGHT, $OL_CODE, $PER_ID, 1); //echo "SELECTED_PER_ID=$SELECTED_PER_ID"; ?>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+        <?
+        include("jqModalDialog.html");
+        ?>
+    </body>
+    <script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

@@ -1,0 +1,180 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+
+	if ($command=="SAVE") {
+	  	$cmd = "select * from helptab where MENU_ID_LV0=$MENU_ID_LV0 and MENU_ID_LV1=$MENU_ID_LV1 and MENU_ID_LV2=$MENU_ID_LV2 and MENU_ID_LV3=$MENU_ID_LV3";
+    	$cnt = $db_dpis->send_cmd($cmd);
+//		echo "<textarea cols=\"100\" rows=\"3\">save-$cmd ($cnt)</textarea>";
+        $helptext = urlencode($helptext);
+		if ($cnt) {	// ถ้าอ่านเจอให้ update
+		  	$cmd = "update helptab set helptext='$helptext' where MENU_ID_LV0=$MENU_ID_LV0 and MENU_ID_LV1=$MENU_ID_LV1 and MENU_ID_LV2=$MENU_ID_LV2 and MENU_ID_LV3=$MENU_ID_LV3";
+		} else {
+		  	$cmd = "insert into helptab (MENU_ID_LV0, MENU_ID_LV1, MENU_ID_LV2, MENU_ID_LV3, helptext) values ($MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3, '$helptext')";
+        }
+   		$db_dpis->send_cmd($cmd);
+//		echo "cmd=$cmd<br>";
+    }
+
+//		ถ้า command="CANCEL" และ "EDIT" และ "CLEAR" ก็หมายถึงดึงข้อมูลเก่ามาแสดง
+//
+  	$cmd = "select * from helptab where MENU_ID_LV0=$MENU_ID_LV0 and MENU_ID_LV1=$MENU_ID_LV1 and MENU_ID_LV2=$MENU_ID_LV2 and MENU_ID_LV3=$MENU_ID_LV3";
+    $db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$helptext = stripslashes(urldecode($data[helptext]));
+//	echo "$cmd<br>";
+
+?>
+<html>
+<head>
+<title>ความช่วยเหลือการใช้งานระบบสารสนเทศทรัพยากรบุคคล</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function call_save(f) {
+		document.form1.command.value="SAVE";
+		document.form1.submit();
+	}
+
+	function call_clear(f) {
+		document.form1.command.value="CLEAR";
+		document.form1.submit();
+	}
+
+	function call_edit_help(f) {
+		document.form1.command.value="EDIT";
+		document.form1.submit();
+	}
+
+	function call_cancel_edit() {
+		document.form1.command.value="CANCEL";
+		document.form1.submit();
+	}
+</script>
+<body>
+<form action="help.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+	<tr>
+		<td>
+        	<? 
+				// echo "SESS_USERID=$SESS_USERID, SESS_USERNAME=$SESS_USERNAME, SESS_USERGROUP=$SESS_USERGROUP, SESS_USERGROUP_LEVEL=$SESS_USERGROUP_LEVEL<br>";
+            	if ($SESS_USERGROUP==1 && ($command=="EDIT" || $command=="CLEAR")) {
+			?>
+			        	<textarea name="helptext" rows="20" cols="90"><?=$helptext?></textarea><br>
+                        <input name="Submit01" type="button" class="button" onClick="call_save(form1);" value="บันทึก">
+                        <input name="Submit02" type="button" class="button" onClick="call_clear(form1);" value="ล้าง">
+<!--					&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input name="Submit03" type="button" class="button" onClick="call_clear(form1);" value="ข้อมูลผู้ใช้">-->
+						&nbsp;&nbsp;&nbsp;&nbsp;
+						<input name="Submit00" type="button" class="button" onClick="call_cancel_edit();" value="ยกเลิกแก้ไข">
+			<?
+            	} else {
+					$helptitle = "";
+					$helptextfile = "";
+					$helpclip = "";
+					if (strpos($helptext, "helptitle") !== false && strpos($helptext, "<table") === false) {	// ต้องไม่มีการใส่ Tag <table มา มิฉะนั้นจะหมายถึงให้แสดงเป็น "เมนู" ทางเลือก
+						$helptext = strip_tags($helptext);
+                    	$arr_show = explode("&", $helptext);
+                        for($i = 0; $i < count($arr_show); $i++) {
+                        	$c = strpos($arr_show[$i], "helptitle");
+                            if ($c !== false) $helptitle = substr($arr_show[$i], $c+10);
+                        	$c = strpos($arr_show[$i], "helptextfile");
+                            if ($c !== false) $helptextfile = substr($arr_show[$i], $c+13);
+                        	$c = strpos($arr_show[$i], "helpclip");
+                            if ($c !== false) $helpclip = substr($arr_show[$i], $c+9);
+                        }
+//						echo "$helptitle, $helptextfile, $helpclip (".strlen(trim($helpclip)).") exists(".file_exists($helpclip).")<br>";
+                        if (strlen($helptextfile) > 0 && file_exists($helptextfile) && (strlen($helpclip) > 0 && file_exists($helpclip))) {
+                        // ถ้ามีทั้ง PDF และ Movie Clip ทั้งสองรายการมาให้ ให้แสดงเป็น เมนูทางเลือก
+                        	$f_showmenu = true;
+						} else {
+                        	$f_showmenu = false;
+                        }
+			?>
+               			<table class='label_alert'>
+                			<tr><td valign='top'></td></tr>
+			<?
+            			if (strlen($helptitle) > 0) {
+			?>
+							<tr><td>ความช่วยเหลือการใช้งานระบบสารสนเทศทรัพยากรบุคคล ของ หน้า <?=$helptitle?></td></tr>
+                            <tr><td>&nbsp;</td></tr>
+			<?
+            			}  else {
+			?>
+                            <tr><td valign='top'>ความช่วยเหลือการใช้งานระบบสารสนเทศทรัพยากรบุคคล ของ หน้า <?=$MENU_TITLE_LV0?><? if($MENU_ID_LV1>0){ ?> &gt; <?=$MENU_TITLE_LV1?><? } ?><? if($MENU_ID_LV2>0){ ?> &gt; <?=$MENU_TITLE_LV2?><? } ?><? if($MENU_ID_LV3>0){ ?> &gt; <?=$MENU_TITLE_LV3?><? } ?><?=$OPTIONAL_TITLE?></td></tr>
+                            <tr><td>&nbsp;</td></tr>
+			<?
+            			}                    
+            			if ($f_showmenu) {
+			?>
+							<tr><td>
+     								<a href='<?=$helptextfile?>'>ข้อความ</a><br>
+									<a href='<?=$helpclip?>'>ภาพเคลื่อนไหว</a><br>
+							</td></tr>
+			<?
+            			} else {
+	                        if (strlen($helptextfile) > 0 && file_exists($helptextfile)) {	 
+            ?>
+								<tr><td><embed src="<?=$helptextfile?>" width="800" height="600"></td></tr>
+			<?
+            				} else {
+            ?>
+								<tr><td>
+                                        <object classid="CLSID:6BF52A52-394A-11d3-B153-00C04F79FAA6" 
+                                          id="player" width="320" height="260">
+                                          <param name="url" 
+                                            value="<?=$helpclip?>" />
+                                          <param name="src" 
+                                            value="<?=$helpclip?>" />
+                                          <param name="showcontrols" value="true" />
+                                          <param name="autostart" value="true" />
+                                          <!--[if !IE]>-->
+                                          <object type="video/x-ms-wmv" 
+                                            data="<?=$helpclip?>" 
+                                            width="320" height="260">
+                                            <param name="src" 
+                                              value="<?=$helpclip?>" />
+                                            <param name="autostart" value="true" />
+                                            <param name="controller" value="true" />
+                                          </object>
+										  <!--<![endif]-->
+										</object>
+								</td></tr>
+			<?
+            				}
+            			}
+            ?>
+						</table>
+			<?	} else {	// แสดงเป็นเมนูทางเลือก ตาม รูปแบบ ที่ กำหนดเป็น tag table มา
+	                	echo $helptext;
+					}
+					if ($SESS_USERGROUP==1) {
+			?>
+                        <br>&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input name="Submit00" type="button" class="button" onClick="call_edit_help();" value="แก้ไขความช่วยเหลือ">
+<?
+					}
+                }
+?>
+		</td>
+	</tr>
+</table>
+</form>
+</body>
+</html>

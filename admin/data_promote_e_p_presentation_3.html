@@ -1,0 +1,107 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/function_list.php");
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<body style="background-color:transparent;">
+<table width="800" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_promote_e_p_presentation_3.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+<?
+	if($DPISDB=="odbc"){
+		$cmd = "  select		b.EN_NAME, c.EM_NAME, d.INS_NAME, e.CT_NAME
+						  from			(
+						  						(
+													(
+														PER_EDUCATE a
+														left join PER_EDUCNAME b on (a.EN_CODE=b.EN_CODE)
+													) left join PER_EDUCMAJOR c on (a.EM_CODE=c.EM_CODE)
+												) left join PER_INSTITUTE d on (a.INS_CODE=d.INS_CODE)
+											) left join PER_COUNTRY e on (d.CT_CODE=e.CT_CODE)
+						  where		a.PER_ID=$PER_ID
+						  order by	a.EDU_SEQ
+					   ";
+	}elseif($DPISDB=="oci8"){
+		$cmd = "  select		b.EN_NAME, c.EM_NAME, d.INS_NAME, e.CT_NAME
+						  from			PER_EDUCATE a, PER_EDUCNAME b, PER_EDUCMAJOR c, PER_INSTITUTE d, PER_COUNTRY e
+						  where		a.PER_ID=$PER_ID and a.EN_CODE=b.EN_CODE(+) and a.EM_CODE=c.EM_CODE(+) and a.INS_CODE=d.INS_CODE(+) and d.CT_CODE=e.CT_CODE(+)
+						  order by	a.EDU_SEQ
+					   ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = "  select		b.EN_NAME, c.EM_NAME, d.INS_NAME, e.CT_NAME
+						  from			(
+						  						(
+													(
+														PER_EDUCATE a
+														left join PER_EDUCNAME b on (a.EN_CODE=b.EN_CODE)
+													) left join PER_EDUCMAJOR c on (a.EM_CODE=c.EM_CODE)
+												) left join PER_INSTITUTE d on (a.INS_CODE=d.INS_CODE)
+											) left join PER_COUNTRY e on (d.CT_CODE=e.CT_CODE)
+						  where		a.PER_ID=$PER_ID
+						  order by	a.EDU_SEQ
+					   ";
+	} // end if
+	
+	$count_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+?>
+<table border="0" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="200" height="21"><strong><?=$EN_TITLE?></strong></td>
+      <td width="200"><strong><?=$EM_TITLE?></strong></td>
+      <td width="200"><strong><?=$INS_TITLE?></strong></td>
+      <td width="200"><strong><?=$CT_TITLE?></strong></td>
+    </tr>
+    <?
+if ($count_data) {
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$EN_NAME = trim($data[EN_NAME]);
+		$EM_NAME = trim($data[EM_NAME]);
+		$INS_NAME = trim($data[INS_NAME]);
+		$INS_COUNTRY = trim($data[CT_NAME]);
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+	?>
+          <tr class="<?=$class?>" <?=$onmouse_event?> style="cursor:hand;">
+            <td height="25">&nbsp;<?=$EN_NAME?></td>
+			<td>&nbsp;<?=$EM_NAME?></td>
+			<td>&nbsp;<?=$INS_NAME?></td>
+			<td>&nbsp;<?=$INS_COUNTRY?></td>
+	  </tr>
+	<? } // end while ?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+<? } // end if ?>
+  </table>
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

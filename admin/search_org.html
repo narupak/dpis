@@ -1,0 +1,231 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+
+	if($OL_CODE=="01") $page_title = $MINISTRY_TITLE;
+	elseif($OL_CODE=="02") $page_title = $DEPARTMENT_TITLE;
+	elseif($OL_CODE=="03") $page_title = $ORG_TITLE;
+	elseif($OL_CODE=="04") $page_title = $ORG_TITLE1;
+	elseif($OL_CODE=="05") $page_title = $ORG_TITLE2;
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	if(trim($OL_CODE)) $arr_search_condition[] = "(trim(OL_CODE)='".trim($OL_CODE)."')";
+	if(($OL_CODE=="01" || $OL_CODE=="02" || $OL_CODE=="03") && trim($PV_CODE)){
+		$PV_CODE=trim($PV_CODE);
+		$cmd = " 	select 	a.ORG_ID as MINISTRY_ID, b.ORG_ID as DEPARTMENT_ID, c.ORG_ID
+			 	from   	PER_ORG a, PER_ORG b, PER_ORG c
+				where  	a.OL_CODE='01' and b.OL_CODE='02' and c.OL_CODE='03' and trim(c.PV_CODE)='$PV_CODE' 
+				 		and a.ORG_ID=b.ORG_ID_REF and b.ORG_ID=c.ORG_ID_REF
+				order by 	a.ORG_ID, b.ORG_ID, c.ORG_ID  ";
+		$db_dpis->send_cmd($cmd);
+//$db_dpis->show_error();
+//echo "<br>$cmd<br>";
+		while($data = $db_dpis->get_array()){ 
+			if($OL_CODE=="01") {
+				if(!in_array("$data[MINISTRY_ID]", $arr_org)) $arr_org[] = $data[MINISTRY_ID];
+			} elseif($OL_CODE=="02") {
+				if(!in_array("$data[DEPARTMENT_ID]", $arr_org)) $arr_org[] = $data[DEPARTMENT_ID];
+			} elseif($OL_CODE=="03") {
+				if(!in_array("$data[ORG_ID]", $arr_org)) $arr_org[] = $data[ORG_ID];
+			} // end if
+		} // end while
+		$arr_search_condition[] = "(ORG_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+	if(trim($ORG_ID_REF)) $arr_search_condition[] = "(ORG_ID_REF=$ORG_ID_REF)";
+  	if(trim($search_org_code)) $arr_search_condition[] = "(ORG_CODE like '$search_org_code%')";
+  	if(trim($search_org_name)) $arr_search_condition[] = "(ORG_NAME like '%$search_org_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(ORG_ID) as count_data 
+					 from 		PER_ORG 
+					 where 	ORG_ACTIVE=1
+					 				$search_condition ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	//echo "<br>$cmd<br>";
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];
+?>
+<html>
+<head>
+<title><?=$page_title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+</script>
+<body>
+<form action="search_org.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="OL_CODE" value="<?=$OL_CODE?>">
+  <input type="hidden" name="PV_CODE" value="<?=$PV_CODE?>">
+  <input type="hidden" name="ORG_ID_REF" value="<?=$ORG_ID_REF?>">
+  <input type="hidden" name="command" value="">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_org_code" value="<?=$search_org_code?>" style="width:98%" class="textbox"></td>
+              <td width="20%" align="right">ชื่อ<?=$page_title?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="4">
+              <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+				<input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_org_code.value=''; form1.search_org_name.value=''; form1.current_page.value=0;">
+              <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_org_code.value=''; form1.search_org_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+              <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล<?=$page_title?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record ORG_CODE from PER_ORG where ORG_ACTIVE=1 $search_condition order by ORG_SEQ_NO, ORG_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[ORG_CODE]'";
+				$limit_data = " and ORG_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and ORG_CODE not in ( select * from (select ORG_CODE from PER_ORG where ORG_ACTIVE=1 $search_condition order by ORG_SEQ_NO, ORG_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;		
+			$cmd = " 
+							select	top ". ($data_per_page * $current_page) ."
+									ORG_CODE, ORG_NAME, ORG_ID, CT_CODE, PV_CODE 
+							 from 	PER_ORG 
+							 where 	ORG_ACTIVE=1
+									$search_condition
+							order by	IIF(ISNULL(ORG_SEQ_NO), 9999, ORG_SEQ_NO), ORG_CODE ";
+						   
+		}elseif($DPISDB=="oci8"){
+			$tmp1 = $current_page * $data_per_page;
+			$tmp2 = ($current_page - 1) * $data_per_page;
+			$cmd = "select * from (
+						select alist.*, rownum  rnum from (	
+							select 		ORG_CODE, ORG_NAME, ORG_ID, CT_CODE, PV_CODE 
+							from 		PER_ORG 
+							where 		ORG_ACTIVE=1
+										$search_condition
+							order by	ORG_SEQ_NO, ORG_CODE  ) 
+							alist
+						where rownum <= $tmp1
+					) where rnum > $tmp2   ";			
+						   
+		}elseif($DPISDB=="mysql"){	
+			$cmd = " select	 ORG_CODE, ORG_NAME, ORG_ID, CT_CODE, PV_CODE 
+							 from 	PER_ORG 
+							 where 	ORG_ACTIVE=1
+									$search_condition
+							order by	ORG_SEQ_NO, ORG_CODE ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//echo "<pre>$cmd<br>";
+//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="14%" height="25" align="center">รหัส</td>
+    <td align="center"><?=$page_title?></td>
+  </tr>
+<? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_ORG_ID = $data[ORG_ID];
+				$current_list .= ((trim($current_list))?",":"") . "$TMP_ORG_ID";
+				$TMP_ORG_CODE = $data[ORG_CODE];
+				$TMP_ORG_NAME = trim($data[ORG_NAME]);
+				$TMP_CT_CODE = $data[CT_CODE];
+				$TMP_PV_CODE = $data[PV_CODE];
+				
+				$cmd = "select CT_NAME from PER_COUNTRY where CT_CODE='$TMP_CT_CODE'";
+				$db_dpis2->send_cmd($cmd);
+				$data_dpis2 = $db_dpis2->get_array();
+				$TMP_CT_NAME = $data_dpis2[CT_NAME];
+
+				$cmd = "select PV_NAME from PER_PROVINCE where PV_CODE='$TMP_PV_CODE'";
+				$db_dpis2->send_cmd($cmd);
+				$data_dpis2 = $db_dpis2->get_array();
+				$TMP_PV_NAME = $data_dpis2[PV_NAME];
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_ORG_ID<::>$TMP_ORG_NAME<::>$TMP_ORG_CODE<::>$TMP_CT_NAME<::>$TMP_CT_CODE<::>$TMP_PV_NAME<::>$TMP_PV_CODE<::>$send_by";
+?>
+  
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_ORG_CODE?></td>
+    <td>&nbsp;<?=$TMP_ORG_NAME?></td>
+  </tr>
+  <?	endwhile; ?>
+ </table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

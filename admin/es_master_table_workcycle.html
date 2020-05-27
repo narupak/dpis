@@ -1,0 +1,438 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/es_master_table_workcycle.php"); 
+    if(empty($END_SCAN_HH)){ $END_SCAN_HH="23";}
+    if(empty($END_SCAN_II)){ $END_SCAN_II="59";}
+?>
+<html>
+<head>
+<title><?=$webpage_title;?> - <?=$MENU_TITLE_LV0;?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1;?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2;?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3;?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	
+		
+	function checkupdate(f) {
+		if(f.WC_NAME.value=="") {
+			alert("กรุณาระบุ ชื่อรอบ");
+			f.WC_NAME.focus();
+			return false;
+		}
+		
+		if(f.WC_START_HH.value=="00" && f.WC_START_II.value=="00") {
+			if(confirm("ต้องการใช้เวลา 00.00 เป็นเวลาเข้าใช่หรือไม่?\n กด OK เพื่อยืนยันใช้งาน\n กด Cancel เพื่อกลับไปแก้ไข")){
+			}else{
+				f.WC_START_HH.focus();
+				return false;
+			}
+
+		}
+		
+		
+
+		if(f.ON_TIME_HH.value=="00") {
+			alert("กรุณาระบุ เวลาออก");
+			f.ON_TIME_HH.focus();
+			return false;
+		}
+	
+		var START = f.WC_START_HH.value+''+f.WC_START_II.value;
+		var END = f.ON_TIME_HH.value+''+f.ON_TIME_II.value;
+		if( parseInt(START) >= parseInt(END)){
+			alert("เวลาสิ้นสุดการสแกนต้อง มากกว่า เวลาเริ่มต้นสแกน กรุณาตรวจสอบข้อมูล");
+			f.WC_END_HH.focus();
+			return false;
+		}
+		
+		if(f.END_LATETIME_HH.value=="00") {
+			alert("กรุณาระบุ เวลาสิ้นสุดที่ถือว่ามาสาย");
+			f.END_LATETIME_HH.focus();
+			return false;
+		}
+		
+		
+		var START1 = f.ON_TIME_HH.value+''+f.ON_TIME_II.value;
+		var END1 = f.END_LATETIME_HH.value+''+f.END_LATETIME_II.value;
+		if( parseInt(START1) > parseInt(END1)){
+			alert("เวลาสิ้นสุดที่ถือว่ามาสายต้อง มากกว่า เวลาสิ้นสุดการสแกน กรุณาตรวจสอบข้อมูล");
+			f.END_LATETIME_HH.focus();
+			return false;
+		}
+		
+		if(form1.CHKWC_END.checked== false) {
+			var START2 = f.WC_END_HH.value+''+f.WC_END_II.value;
+			var END2 = f.END_SCAN_HH.value+''+f.END_SCAN_II.value;
+			if( parseInt(START2) > parseInt(END2)){
+				alert("ห้ามสแกนหลังเวลาต้อง มากกว่า กำหนดเวลาออก กรุณาตรวจสอบข้อมูล");
+				f.END_SCAN_HH.focus();
+				return false;
+			}
+			
+		}
+			
+			
+			
+
+	
+						
+		form1.command.value='UPDATE';
+	}
+		
+	
+	 
+	 function ResetDataSave(f){
+	
+		f.WC_NAME.value="";
+		f.WC_START_HH.value="00";
+		f.WC_START_II.value="00";
+		f.ON_TIME_HH.value="00";
+		f.ON_TIME_II.value="00";
+		f.END_LATETIME_HH.value="00";
+		f.END_LATETIME_II.value="00";
+		f.WC_END_HH.value="00";
+		f.WC_END_II.value="00";
+		f.END_SCAN_HH.value="00";
+		f.END_SCAN_II.value="00";
+		f.TIME_LEAVEEARLY_HH.value="13";
+		f.TIME_LEAVEEARLY_II.value="00";
+		f.TIME_LEAVEAFTER_HH.value="12";
+		f.TIME_LEAVEAFTER_II.value="00";
+		document.getElementById('WC_ACTIVE1').checked = true;
+		document.getElementById('CHKWC_END').checked = true;
+		document.getElementById("WC_END_HH").disabled = true;
+		document.getElementById("WC_END_II").disabled = true;
+		document.getElementById("END_SCAN_HH").disabled = true;
+		document.getElementById("END_SCAN_II").disabled = true;
+
+	}
+	
+	
+	function es_chktype(){
+		if(form1.CHKWC_END.checked== false) {
+			document.getElementById("WC_END_HH").disabled = false;
+			document.getElementById("WC_END_II").disabled = false;
+			
+		}else{
+
+			document.getElementById("WC_END_HH").disabled = true;
+			document.getElementById("WC_END_II").disabled = true;
+	   }
+		
+	}
+	
+	
+</script>
+<body onLoad="es_chktype();">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><? include("header_menu.html");?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="es_master_table_workcycle.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page;?>">
+          <input type="hidden" name="total_page" value="<?=$total_page;?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+          <input type="hidden" name="command" value="">
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+  	  <td width="22%"><table width="100%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+  	    <tr>
+  	      <td height="22" align="center" class="table_body"><a href="master_table_workcycle.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>" style="text-decoration: none">กำหนดรอบตามเวลาเข้า-ออก</a></td>
+	      </tr>
+	    </table></td>
+	  <td width="82%"><table width="32%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body_3"><a href="#" style="text-decoration: none">กำหนดรอบตามจำนวนชั่วโมง</a></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+        <tr>
+          <td colspan="4" height="5"></td>
+        </tr>
+        <tr>
+          <td width="25%" align="right">จำนวนชั่วโมงทำงาน (ชม.)&nbsp;:&nbsp;</td>
+          <td width="17%">
+          <font color="663300">
+          <? 
+                        $cmd = " SELECT CONFIG_VALUE FROM SYSTEM_CONFIG  where config_name = 'P_FULLTIME' ";
+                        $db_dpis->send_cmd($cmd);
+                        $data = $db_dpis->get_array();
+                        $TMP_P_FULLTIME = $data[CONFIG_VALUE];
+                        echo $TMP_P_FULLTIME;
+                  ?>
+            </font>
+            <input type="hidden" name="TMP_P_FULLTIME" value="<?=$TMP_P_FULLTIME;?>"></td>
+          <td width="20%" align="right">เช้า (ชม.)&nbsp;:&nbsp;</td>
+          <td width="38%">
+          <font color="663300">
+            <? 
+                        $cmd = " SELECT CONFIG_VALUE FROM SYSTEM_CONFIG  where config_name = 'P_PARTTIME_AM' ";
+                        $db_dpis->send_cmd($cmd);
+                        $data = $db_dpis->get_array();
+                        $TMP_P_PARTTIME_AM = $data[CONFIG_VALUE];
+                        echo $TMP_P_PARTTIME_AM;
+                  ?>
+            </font>
+            <input type="hidden" name="TMP_P_PARTTIME_AM" value="<?=$TMP_P_PARTTIME_AM;?>">
+            &nbsp;&nbsp;&nbsp;
+            บ่าย (ชม.)&nbsp;:&nbsp; <font color="663300">
+              <? 
+                        $cmd = " SELECT CONFIG_VALUE FROM SYSTEM_CONFIG  where config_name = 'P_PARTTIME_PM' ";
+                        $db_dpis->send_cmd($cmd);
+                        $data = $db_dpis->get_array();
+                        $TMP_P_PARTTIME_PM = $data[CONFIG_VALUE];
+                        echo $TMP_P_PARTTIME_PM;
+                  ?>
+              </font>
+            <input type="hidden" name="TMP_P_PARTTIME_PM" value="<?=$TMP_P_PARTTIME_PM;?>">
+            </td>
+        </tr>
+        <tr>
+          <td align="right"><span class="label_alert">*</span>&nbsp;ชื่อรอบ&nbsp;:&nbsp;</td>
+          <td colspan="3" >
+            <input type="text" name="WC_NAME" value="<?=$WC_NAME;?>" style="width:30%" class="textbox">
+          </td>
+          </tr>
+        <tr>
+          <td colspan="4" align="right"><hr size='1'></td>
+        </tr>
+        <tr>
+          <td align="right"><span class="label_alert">*</span> เริ่มนับชั่วโมงตั้งแต่เวลา&nbsp;:&nbsp;</td>
+          <td>
+            <select name="WC_START_HH" >
+              <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+              <option value="<?=$ii;?>" <? if($ii==$WC_START_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+              <? } ?>
+              </select>
+            :
+            <select name="WC_START_II" >
+              <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+              <option value="<?=$ii;?>" <? if($ii==$WC_START_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+              <? } ?>
+              </select>
+            น.
+            
+            </td>
+          <td colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="checkbox" name="CHKWC_END" id="CHKWC_END" value="1" onClick="return es_chktype();" <? if($CHKWC_END==1){ echo 'checked';}?>> 
+            เวลาออกให้ระบบนับชั่วโมงทำงาน
+            </td>
+          </tr>
+        
+        
+        <tr>
+        	<td align="right"><span class="label_alert">*</span> สแกนได้ถึงเวลา&nbsp;:&nbsp;</td>
+          <td><select name="ON_TIME_HH" id="ON_TIME_HH">
+            <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+            <option value="<?=$ii;?>" <? if($ii==$ON_TIME_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+            <? } ?>
+            </select>
+            :
+            <select name="ON_TIME_II" id="ON_TIME_II">
+              <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+              <option value="<?=$ii;?>" <? if($ii==$ON_TIME_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+              <? } ?>
+              </select>
+            น.</td>
+          <td align="right">กำหนดเวลาออก&nbsp;:&nbsp;</td>
+          <td>
+          <select name="WC_END_HH" id="WC_END_HH">
+                      <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                      <option value="<?=$ii;?>" <? if($ii==$WC_END_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                      <? } ?>
+                    </select>
+                    :
+                    <select name="WC_END_II" id="WC_END_II">
+                      <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                      <option value="<?=$ii;?>" <? if($ii==$WC_END_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                      <? } ?>
+                    </select>
+                    น.
+                    
+                    <font color="0000FF">(ห้ามสแกนออกก่อนเวลาที่กำหนด)</font>
+                </td>
+                
+        </tr>
+        
+        <tr>
+          <td align="right"><span class="label_alert">*</span> เวลาสิ้นสุดที่ถือว่ามาสาย&nbsp;:&nbsp;</td>
+          <td><select name="END_LATETIME_HH" >
+                      <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                      <option value="<?=$ii;?>" <? if($ii==$END_LATETIME_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                      <? } ?>
+                    </select>
+                    :
+  <select name="END_LATETIME_II">
+    <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+    <option value="<?=$ii;?>" <? if($ii==$END_LATETIME_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+    <? } ?>
+  </select>
+                  น.</td>
+          <td align="right">ห้ามสแกนหลังเวลา&nbsp;:&nbsp;</td>
+          <td><select name="END_SCAN_HH" id="END_SCAN_HH" >
+                      <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+                      <option value="<?=$ii;?>" <? if($ii==$END_SCAN_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+                      <? } ?>
+                    </select>
+                    :
+  <select name="END_SCAN_II" id="END_SCAN_II">
+    <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+    <option value="<?=$ii;?>" <? if($ii==$END_SCAN_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+    <? } ?>
+  </select>
+                  น. </td>
+        </tr>
+
+        <tr>
+          <td colspan="4" align="right"><hr size='1'></td>
+        </tr>
+        <tr>
+          <td align="right" valign="top">กรณีลาครึ่งวันแรก&nbsp;&nbsp; <br>ลงเวลาเข้างานได้ไม่เกิน&nbsp;:&nbsp;</td>
+          <td valign="bottom"><select name="TIME_LEAVEEARLY_HH" >
+            <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+            <option value="<?=$ii;?>" <? if($ii==$TIME_LEAVEEARLY_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+            <? } ?>
+            </select>
+            :
+            <select name="TIME_LEAVEEARLY_II" >
+              <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+              <option value="<?=$ii;?>" <? if($ii==$TIME_LEAVEEARLY_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+              <? } ?>
+              </select>
+            น. </td>
+          <td align="right" valign="top">กรณีลาครึ่งวันหลัง&nbsp;&nbsp; <br>ลงเวลาออกได้หลังเวลา&nbsp;:&nbsp;</td>
+          <td valign="bottom"><select name="TIME_LEAVEAFTER_HH" >
+            <?
+                      for($i=0; $i<24; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+            <option value="<?=$ii;?>" <? if($ii==$TIME_LEAVEAFTER_HH){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+            <? } ?>
+            </select>
+            :
+            <select name="TIME_LEAVEAFTER_II" >
+              <?
+                      for($i=0; $i<60; $i++){
+                            $ii = substr("0".$i,-2,2);
+                      ?>
+              <option value="<?=$ii;?>" <? if($ii==$TIME_LEAVEAFTER_II){ echo 'selected';}?>>&nbsp;<?=$ii;?></option>
+              <? } ?>
+              </select>
+            น.   เป็นต้นไป</td>
+        </tr>
+        
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td colspan="3"><font color="0000FF">&nbsp;* เวลาเข้า-เวลาออกกรณีลาครึ่งวันแรกและครึ่งวันหลัง ถ้ากำหนดค่า 00:00 ระบบจะนับชั่วโมงทำงาน 3.5 ชม.</font></td>
+          </tr>
+        
+        <tr>
+          <td colspan="4" align="right"><hr size='1'></td>
+        </tr>
+        <tr>
+          <td align="right"><?=$ACTIVE_TITLE;?>&nbsp;:&nbsp;</td>
+          <td colspan="3"><input type="radio" name="WC_ACTIVE" id="WC_ACTIVE1" value="1" <?=($WC_ACTIVE==1)?"checked":"";?>>
+            ใช้งาน&nbsp;&nbsp;&nbsp;
+            <input type="radio" name="WC_ACTIVE" id="WC_ACTIVE2" value="0" <?=($WC_ACTIVE==0)?"checked":"";?>>
+            ยกเลิก</td>
+        </tr>
+        <tr>
+          <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+          <td colspan="3"><input name="SHOW_UPDATE_USER" type="text" style="width:40%" class="textbox" value="<?=$SHOW_UPDATE_USER;?>" readonly></td>
+        </tr>
+        <tr>
+          <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+          <td colspan="3"><input name="SHOW_UPDATE_DATE" type="text" style="width:20%" class="textbox" value="<?=$SHOW_UPDATE_DATE;?>" readonly></td>
+        </tr>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td height="30" colspan="3"><? 
+                    if($PAGE_AUTH["edit"]=="Y"){
+			  		if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit22" type="submit" class="button" onClick="return checkupdate(form1);" value="  <?=$EDIT_TITLE;?>  ">
+            <? } else { ?>
+            <input name="image" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE;?>" border="0">
+            <?}}?>
+
+            <?
+			  	if ($BUTTON_DISPLAY==1) { ?>
+            <input type="submit" name="Reset2" value=" <?=$CANCEL_TITLE;?> " onClick="form1.command.value='CANCEL'" class="button" >
+            <? } else { ?>
+            <input name="image" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE;?>" border="0">
+            <?}?></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+ 
+
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

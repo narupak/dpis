@@ -1,0 +1,393 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/eaf_person_detail_1.php");	
+	include("php_scripts/load_per_control.php");
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top"><? $OPTIONAL_TITLE="".(($HIDE_HEADER)?"ส่วนที่ 1. เป้าหมายการปฏิบัติงาน":"") ; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="eaf_person_detail_1.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+	  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+	  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+	  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="EP_ID" value="<?=$EP_ID?>">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="EAF_ID" value="<?=$EAF_ID?>">
+          <input type="hidden" name="EPS_ID" value="<?=$EPS_ID?>">
+          <input type="hidden" name="EPK_ID" value="<?=$EPK_ID?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+	  <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+	  <input type="hidden" name="SUBPAGE" value="<?=$SUBPAGE?>">
+&nbsp;
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0" class="table_body_3">
+	<tr>
+	  <td width="40%" height="25" align="center" <?=$SUBPAGE==1?"class=\"table_body\"":""?>>
+	  <span style="cursor:hand;" onClick="form1.EPS_ID.value='';form1.EPK_ID.value='';form1.SUBPAGE.value=1;form1.submit();"> โครงสร้างประสบการณ์</span>
+	  </td>      
+	  <td align="center" <?=$SUBPAGE==2?"class=\"table_body\"":""?>><? if($SUBPAGE==2){ ?><?=$DETAIL_TITLE?>โครงสร้างประสบการณ์<? }else{ echo "&nbsp;"; } // end if ?></td>      
+	</tr>
+</table>
+<div style="display:<?=$SUBPAGE==1?"block":"none"?>">
+&nbsp;
+<?
+	$cmd =" select 		EPS_ID
+					from 		EAF_PERSONAL_STRUCTURE
+					where		EP_ID=$EP_ID
+				   ";
+	$count_data = $db_dpis->send_cmd($cmd);
+//	echo "$count_data";
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record EPS_ID from EAF_PERSONAL_STRUCTURE where EP_ID=$EP_ID order by EPS_SEQ_NO, EPS_LEVEL, EPS_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = $data[ELS_ID];
+			$limit_data = " and EPS_ID not in (". implode(", ", $arr_exclude) .")";
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " select		top $data_per_page 
+										EPS_ID, EPS_LEVEL, EPS_PERIOD, MINISTRY_ID, DEPARTMENT_ID, ORG_ID, ORG_ID_1, ORG_ID_2 
+						from			EAF_PERSONAL_STRUCTURE
+						where		EP_ID=$EP_ID
+										$limit_data
+						order by 	EPS_SEQ_NO, EPS_LEVEL, EPS_ID 	";	
+	}elseif($DPISDB=="oci8"){
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select 		temp2.* 
+						from (
+							select 		rownum as rnum, temp1.*
+							from (	
+								select		EPS_ID, EPS_LEVEL, EPS_PERIOD, MINISTRY_ID, DEPARTMENT_ID, ORG_ID, ORG_ID_1, ORG_ID_2 
+								from			EAF_PERSONAL_STRUCTURE
+								where		EP_ID=$EP_ID
+								order by 	EPS_SEQ_NO, EPS_LEVEL, EPS_ID  
+							) temp1
+							where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum   ";						
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//    echo "$cmd<br>";
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+<table width="96%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr align="center" class="table_head">
+    <td width="7%" height="25"><strong><?=$LEVEL_TITLE?></strong></td>
+    <td height="25" ><strong><?=$MINISTRY_TITLE?></strong></td>
+    <td width="15%"><strong><?=$DEPARTMENT_TITLE?></strong></td>
+    <td width="15%"><strong><?=$ORG_TITLE?></strong></td>
+    <td width="15%"><strong><?=$ORG_TITLE1?></strong></td>
+    <td width="15%"><strong><?=$ORG_TITLE2?></strong></td>
+    <td width="10%"><strong>ระยะเวลา</strong></td>
+    <td width="4%"><strong><?=$DETAIL_TITLE?></strong></td>
+  </tr>
+  <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_EPS_ID = $data[EPS_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_EPS_ID;
+		$EPS_LEVEL = $data[EPS_LEVEL];
+        $EPS_PERIOD = $data[EPS_PERIOD];
+        
+        switch($EPS_LEVEL){
+        	case 1 :
+            	$EPS_LEVEL = "ระดับพื้นฐาน";
+            	break;
+            case 2 :
+            	$EPS_LEVEL = "ระดับสูง";
+            	break;
+            case 3 :
+            	$EPS_LEVEL = "ระดับเป็นเลิศ";
+            	break;
+        } // switch case
+        
+        if($EPS_PERIOD < 12){
+        	$SHOW_EPS_PERIOD = "$EPS_PERIOD เดือน";
+        }else{
+        	$SHOW_EPS_PERIOD = floor($EPS_PERIOD / 12)." ปี";
+            $REMAIN_EPS_PERIOD = $EPS_PERIOD % 12;
+            if($REMAIN_EPS_PERIOD > 0) $SHOW_EPS_PERIOD .= " $REMAIN_EPS_PERIOD เดือน";
+        }
+
+		$MINISTRY_ID = $data[MINISTRY_ID];
+        $cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$MINISTRY_NAME = $data_dpis2[ORG_NAME];
+
+		$DEPARTMENT_ID = $data[DEPARTMENT_ID];
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$DEPARTMENT_NAME = $data_dpis2[ORG_NAME];
+
+		$ORG_ID = $data[ORG_ID];
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$ORG_ID ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$ORG_NAME = $data_dpis2[ORG_NAME];
+		
+		$ORG_ID_1 = $data[ORG_ID_1];
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$ORG_ID_1 ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$ORG_NAME_1 = $data_dpis2[ORG_NAME];
+
+		$ORG_ID_2 = $data[ORG_ID_2];
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$ORG_ID_2 ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$ORG_NAME_2 = $data_dpis2[ORG_NAME];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($EPS_ID==$TMP_EPS_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+    <td height="25" align="center"><?=$EPS_LEVEL?></td>
+    <td>&nbsp;<?=$MINISTRY_NAME?></td>
+    <td>&nbsp;<?=$DEPARTMENT_NAME?></td>
+    <td>&nbsp;<?=$ORG_NAME?></td>
+    <td>&nbsp;<?=$ORG_NAME_1?></td>
+    <td>&nbsp;<?=$ORG_NAME_2?></td>
+    <td>&nbsp;<?=$SHOW_EPS_PERIOD?></td>
+    <td align="center">&nbsp;<a href="<?="javascript:form1.EPS_ID.value=$TMP_EPS_ID;form1.SUBPAGE.value=2;form1.submit();"?>"><img src="images/desc.gif" alt="<?=$DETAIL_TITLE?>โครงสร้างประสบการณ์" width="24" height="24" border="0"></a></td>
+  </tr>
+  <? } ?>
+  <?if($PAGE_AUTH["edit"]=="Y"){?>
+  <tr class="table_footer">
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <?}?>
+</table>
+<? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+</div>
+<div style="display:<?=$SUBPAGE==2?"block":"none"?>">
+&nbsp;
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" valign="top"><table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+            <tr>
+              <td height="5"></td>
+            </tr>
+            <tr align="center">
+              <td height="25"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <?
+				  		$cmd = " select EPK_ID, EPK_NAME from EAF_PERSONAL_KNOWLEDGE where EPS_ID=$EPS_ID order by EPS_ID ";
+						$db_dpis->send_cmd($cmd);
+                        
+                        while($data = $db_dpis->get_array()){
+                        	$TMP_EPK_ID = $data[EPK_ID];
+							$TMP_EPK_NAME = $data[EPK_NAME];
+						
+							$class = "table_body";
+							if($EPK_ID==$TMP_EPK_ID) $class = "table_body_over";
+				  ?>
+                  <tr>
+                    <td height="22" class="<?=$class?>">&nbsp;<span onClick="form1.EPK_ID.value='<?=$TMP_EPK_ID?>';form1.submit();" style="cursor:hand;"><?=$TMP_EPK_NAME?></span></td>
+                  </tr>
+                  <?
+                  		} // loop while
+                  ?>
+                  <tr>
+                    <td height="22"></td>
+                  </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td height="5"></td>
+            </tr>
+        </table></td>
+      <td width="60%" align="center" valign="top">
+      	<? if($EPK_ID){ ?>
+        <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td height="25" colspan="2" class="table_head">&nbsp;&nbsp;การเรียนรู้ตามกรอบประสบการณ์</td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td width="35%" align="right" height="22" valign="top">ความรู้งานที่ต้องเรียนรู้&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPK_NAME" rows="3" class="selectbox" style="width:99%" readonly><?=$EPK_NAME?></textarea></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22" valign="top">ตัวบ่งชี้พฤติกรรม&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPK_BEHAVIOR" rows="3" class="selectbox" style="width:99%" readonly><?=$EPK_BEHAVIOR?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">ผู้สอนงาน&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPK_COACH" rows="3" class="selectbox" style="width:99%" readonly><?=$EPK_COACH?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">หลักสูตรฝึกอบรม&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPK_TRAIN" rows="3" class="selectbox" style="width:99%" readonly><?=$EPK_TRAIN?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">งานที่มอบหมาย&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPK_JOB" rows="3" class="selectbox" style="width:99%" readonly><?=$EPK_JOB?></textarea></td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td height="25" colspan="2" class="table_head">&nbsp;&nbsp;การเรียนรู้จริง</td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">กำหนดการเฉพาะ&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPD_NAME" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$EPD_NAME?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">ชื่อหน่วยงานเฉพาะ&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPD_ORG" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$EPD_ORG?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">ตัวบ่งชี้พฤติกรรมเฉพาะ&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPD_BEHAVIOR" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$EPD_BEHAVIOR?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">ผู้สอนงานเฉพาะ&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPD_COACH" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$EPD_COACH?></textarea></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">งานมอบหมายเฉพาะ&nbsp;:&nbsp;</td>
+                  <td><textarea name="EPD_JOB" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$EPD_JOB?></textarea></td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td height="25" colspan="2" class="table_head">&nbsp;&nbsp;การประเมินการเรียนรู้</td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">ผลการประเมิน&nbsp;</td>
+                  <td><input type="radio" name="EPD_EVALUATE" value="1" <?=($EPD_EVALUATE=='1')?"checked":""?>>
+                    ผ่าน&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <input type="radio" name="EPD_EVALUATE" value="0" <?=($EPD_EVALUATE=='0' && $EPD_EVALUATE!='')?"checked":""?>>
+                    ไม่ผ่าน</td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="top">เหตุผลสนับสนุน&nbsp;</td>
+                  <td><textarea name="EPD_EVALUATE_REASON" rows="3" class="selectbox" style="width:99%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_REVIEW_AUTH)?"":"readonly"?>><?=$EPD_EVALUATE_REASON?></textarea></td>
+                </tr>
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <? if($EPK_ID) : ?>
+                <tr align="center">
+                  <td height="30" colspan="2">
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Submit21" type="submit" class="button" onClick="form1.EPK_ID.value='';" value="<?=$CANCEL_TITLE?>">
+                      <? } else { ?>
+                      <input name="image" type="image" onClick="form1.EPK_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+                      <?}?>
+                      <?if($PAGE_AUTH["edit"]=="Y"){?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Submit22" type="submit" class="button" onClick="form1.command.value='SAVE';" value="<?=$EDIT_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image2" type="image" onClick="form1.command.value='SAVE';" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+                      <?}?>                  </td>
+                </tr>
+                <? endif; ?>
+            </table></td>
+          </tr>
+        </table>
+        <? }else{ echo "&nbsp;"; } // end if ?>
+      </td>
+    </tr>
+  </table>    
+   &nbsp;
+</div>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

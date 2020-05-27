@@ -1,0 +1,814 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/set_initial_site.php"); 
+	$BG_PATH = "images/";	
+
+	if (!$current_page) $current_page=1;
+	if (!$data_per_page) $data_per_page=100;
+
+	$cmd =" select count(SITE_ID) as count_data from SITE_INFO ";
+	$db->send_cmd($cmd);
+//	$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script src="java_scripts/AC_RunActiveContent.js" language="javascript"></script>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function call_search_province () {	
+		parameter = "&CT_CODE=140";
+	    call_openDialog("search_province.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PV_TITLE?>");		
+	}
+
+	function call_search_ministry () {	
+		parameter = "&send_by=search_ministry&OL_CODE=01";
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		if(form1.CH_MINISTRY_ID.value != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + form1.CH_MINISTRY_ID.value;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			alert('<?=$MINISTRY_ALERT?>');
+		} // end if
+	}
+	
+	function call_search_org () {	
+		if(form1.CH_DEPARTMENT_ID.value != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + form1.CH_DEPARTMENT_ID.value;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");		
+		}else{
+			alert('<?=$DEPARTMENT_ALERT?>');
+		} // end if
+	}
+	
+	function call_search_org1 () {	
+		if(form1.CH_DEPARTMENT_ID.value != ""){
+			parameter = "&send_by=search_org1&OL_CODE=04&ORG_ID_REF=" + form1.CH_ORG_ID.value;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE1?>");		
+		}else{
+			alert('<?=$ORG_ALERT?>');
+			form1.btn_org.focus();
+		} // end if
+	}
+	
+	function control_type(ctrl_type){
+		if(ctrl_type==1){
+			form1.btn_province.disabled=true;
+			form1.btn_ministry.disabled=true;
+			form1.btn_department.disabled=true;
+			form1.btn_org.disabled=true;
+			form1.btn_org1.disabled=true;
+		} // end if
+		if(ctrl_type==2){
+			form1.btn_province.disabled=false;
+			form1.btn_ministry.disabled=true;
+			form1.btn_department.disabled=true;
+			form1.btn_org.disabled=true;
+			form1.btn_org1.disabled=true;
+		} // end if
+		if(ctrl_type==3){
+			form1.btn_province.disabled=true;
+			form1.btn_ministry.disabled=false;
+			form1.btn_department.disabled=true;
+			form1.btn_org.disabled=true;
+			form1.btn_org1.disabled=true;
+		} // end if
+		if(ctrl_type==4){
+			form1.btn_province.disabled=true;
+			form1.btn_ministry.disabled=false;
+			form1.btn_department.disabled=false;
+			form1.btn_org.disabled=true;
+			form1.btn_org1.disabled=true;
+		} // end if
+		if(ctrl_type==5){
+			form1.btn_province.disabled=true;
+			form1.btn_ministry.disabled=false;
+			form1.btn_department.disabled=false;
+			form1.btn_org.disabled=false;
+			form1.btn_org1.disabled=true;
+		} // end if
+		if(ctrl_type==6){
+			form1.btn_province.disabled=true;
+			form1.btn_ministry.disabled=false;
+			form1.btn_department.disabled=false;
+			form1.btn_org.disabled=false;
+			form1.btn_org1.disabled=false;
+		} // end if
+	}
+	
+	function call_search(){
+		form1.command.value='';
+		form1.submit();
+	}
+	
+	function check_condition(){
+		if(form1.CH_CTRL_TYPE[1].checked){
+//			if(form1.CH_PROVINCE_CODE.value.trim() == ""){
+//				alert("กรุณาระบุจังหวัด");
+//				form1.btn_province.focus();
+//				return false;
+//			} 
+		}else if(form1.CH_CTRL_TYPE[2].checked){
+			if(form1.CH_MINISTRY_ID.value.trim() == ""){
+				alert('<?=$MINISTRY_ALERT?>');
+				form1.btn_ministry.focus();
+				return false;
+			} 
+		}else if(form1.CH_CTRL_TYPE[3].checked){
+			if(form1.CH_MINISTRY_ID.value.trim() == ""){
+				alert('<?=$MINISTRY_ALERT?>');
+				form1.btn_ministry.focus();
+				return false;
+			} 
+			if(form1.CH_DEPARTMENT_ID.value.trim() == ""){
+				alert('<?=$DEPARTMENT_ALERT?>');
+				form1.btn_department.focus();
+				return false;
+			} 
+		}else if(form1.CH_CTRL_TYPE[4].checked){
+			if(form1.CH_MINISTRY_ID.value.trim() == ""){
+				alert('<?=$MINISTRY_ALERT?>');
+				form1.btn_ministry.focus();
+				return false;
+			} 
+			if(form1.CH_DEPARTMENT_ID.value.trim() == ""){
+				alert('<?=$DEPARTMENT_ALERT?>');
+				form1.btn_department.focus();
+				return false;
+			} 
+			if(form1.CH_ORG_ID.value.trim() == ""){
+				alert('<?=$ORG_ALERT?>');
+				form1.btn_org.focus();
+				return false;
+			} 
+		}
+
+		form1.command.value='UPDATE';
+		form1.submit();
+	}
+
+	function check_delete(){
+		form1.command.value='DELETE';
+		form1.submit();
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.CH_MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.CH_DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+					form1.CH_ORG_ID.value = "";
+					form1.ORG_NAME.value = "";
+					form1.CH_ORG_ID_1.value = "";
+					form1.ORG_NAME_1.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.CH_DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+					form1.CH_ORG_ID.value = "";
+					form1.ORG_NAME.value = "";
+					form1.CH_ORG_ID_1.value = "";
+					form1.ORG_NAME_1.value = "";
+				} else if (arrValue[7]=="search_org") {
+					form1.CH_ORG_ID.value = arrValue[0];
+					form1.ORG_NAME.value = arrValue[1];
+					form1.CH_ORG_ID_1.value = "";
+					form1.ORG_NAME_1.value = "";
+				} else if (arrValue[7]=="search_org1") {
+					form1.CH_ORG_ID_1.value = arrValue[0];
+					form1.ORG_NAME_1.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_province") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.CH_PROVINCE_CODE.value = arrValue[0];
+				form1.PROVINCE_NAME.value = arrValue[1];
+			} // end if
+		}
+	} // end if
+	
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+        <tr> 
+          <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+//		if($CTRL_TYPE_MAIN)	$CTRL_TYPE=$CTRL_TYPE_MAIN;
+		$CTRL_TYPE=$CH_CTRL_TYPE;
+?>
+	  </td>
+		</tr>
+  	<tr>
+    	<td align="center" valign="top">
+        <form name="form1" method="post" action="set_initial_site.html" enctype="multipart/form-data">
+		  <input type="hidden" name="current_page" value="<?=$current_page?>">
+		  <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+		  <input type="hidden" name="CTRL_TYPE" value="<?=$CTRL_TYPE?>">
+		  <input type="hidden" name="PROVINCE_CODE" value="<?=$PROVINCE_CODE?>">
+		  <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+		  <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+		  <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+		  <input type="hidden" name="command" value="">
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td colspan="2" height="5"></td>
+        </tr>
+        <tr>
+          <td height="25" align="right">&nbsp;</td>
+          <td><?
+//				echo "ffff".$CTRL_TYPE."-".$PROVINCE_CODE."<br>"; 
+				?>
+		  	<input name="CH_CTRL_TYPE" type="radio" value="1" onClick="control_type(1);" <?=($CTRL_TYPE==1)?"checked":""?>>&nbsp;<?=$CT_TITLE?>&nbsp;&nbsp;&nbsp;
+		  	<input name="CH_CTRL_TYPE" type="radio" value="2" onClick="control_type(2);" <?=($CTRL_TYPE==2)?"checked":""?>>&nbsp;<?=$PV_TITLE?>&nbsp;&nbsp;&nbsp;
+		  	<input name="CH_CTRL_TYPE" type="radio" value="3" onClick="control_type(3);" <?=($CTRL_TYPE==3)?"checked":""?>>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;&nbsp;&nbsp;
+		  	<input name="CH_CTRL_TYPE" type="radio" value="4" onClick="control_type(4);" <?=($CTRL_TYPE==4)?"checked":""?>>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;&nbsp;&nbsp;
+		  	<input name="CH_CTRL_TYPE" type="radio" value="5" onClick="control_type(5);" <?=($CTRL_TYPE==5)?"checked":""?>>&nbsp;<?=$ORG_TITLE?>&nbsp;&nbsp;&nbsp;
+			<input name="CH_CTRL_TYPE" type="radio" value="6" onClick="control_type(6);" <?=($CTRL_TYPE==6)?"checked":""?>>&nbsp;<?=$ORG_TITLE1?>&nbsp;&nbsp;&nbsp;
+		  </td>
+        </tr>
+<?  if($BKK_FLAG != 1){ ?>
+        <tr>
+          <td width="25%" height="22" align="right"><?=$PV_TITLE?>&nbsp;:&nbsp;</td>
+          <td width="75%">
+		  	<input type="text" name="PROVINCE_NAME" value="<?=$PROVINCE_NAME?>" style="width:70%" class="textbox" readonly>
+			<input type="hidden" name="CH_PROVINCE_CODE" value="<?=$PROVINCE_CODE?>">
+			<input type="button" name="btn_province" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกจังหวัด" onClick="call_search_province();" >
+          </td>
+        </tr>
+<? } ?>
+        <tr>
+          <td height="22" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+          <td>
+		  	<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:70%" class="textbox" readonly>
+			<input type="hidden" name="CH_MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+			<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$MINISTRY_TITLE?>" onClick="call_search_ministry();">
+		  </td>
+        </tr>
+        <tr>
+          <td width="25%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+          <td width="75%">
+		  	<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:70%" class="textbox" readonly>
+			<input type="hidden" name="CH_DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+			<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$DEPARTMENT_TITLE?>" onClick="call_search_department();">
+          </td>
+        </tr>
+        <tr>
+          <td width="25%" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+          <td width="75%">
+		  	<input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>" style="width:70%" class="textbox" readonly>
+			<input type="hidden" name="CH_ORG_ID" value="<?=$ORG_ID?>">
+			<input type="button" name="btn_org" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$ORG_TITLE?>" onClick="call_search_org();">
+		  </td>
+        </tr>
+        <tr>
+          <td width="25%" align="right"><?=$ORG_TITLE1?>&nbsp;:&nbsp;</td>
+          <td width="75%">
+		  	<input type="text" name="ORG_NAME_1" value="<?=$ORG_NAME_1?>" style="width:70%" class="textbox" readonly>
+			<input type="hidden" name="CH_ORG_ID_1" value="<?=$ORG_ID_1?>">
+			<input type="button" name="btn_org1" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$ORG_TITLE1?>" onClick="call_search_org1();">
+           </td>
+        </tr>
+<!--        <tr>
+        	<td>&nbsp;
+            </td>
+        	<td align="right"><? if ($BUTTON_DISPLAY==1) { ?>
+        	  <input name="SubmitSearch" type="button" class="button" onClick="call_search();" value="<?=$SEARCH_TITLE?>">
+        	  <?  } else { ?>
+              <img src="images/search.png" alt="<?=$SEARCH_TITLE?>" width="32" height="32" border="0" onClick="call_search();" >
+              <? } echo "&nbsp; &nbsp;"; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;      	  </td>
+        </tr>-->
+        <tr>
+        	<td>&nbsp;</td>
+		</tr>
+        <tr>
+        	<td width="25%" align="right">เลขที่หน่วยงาน&nbsp;:&nbsp;</td>
+			<td width="75%">
+		  		<input type="text" name="SITE_ID" value="<?=$SITE_ID?>" style="width:10%" class="textbox">
+            </td>
+        </tr>
+        <tr>
+        	<td width="25%" align="right">ชื่อหน่วยงาน&nbsp;:&nbsp;</td>
+			<td width="75%">
+		  		<input type="text" name="SITE_NAME" value="<?=$SITE_NAME?>" style="width:95%" class="textbox">
+            </td>
+        </tr>
+        <tr><td colspan="2"><table style="outline-width:medium; border-top-style:dashed; border-top-color:#00F; border-top-width:1; border-bottom-style:dashed; border-bottom-color:#F00; border-bottom-width:1;" width="95%" align="center">
+        			<tr>
+		        		<td width="15%" align="right">แฟ้มหัวพื้นหลังซ้าย&nbsp;:&nbsp;</td>
+						<td width="85%">
+		  		<input type="file" name="SITE_BG_LEFT" style="width:50%" class="textbox">
+		  		<input type="checkbox" name="check_wh_LEFT" class="button" >กว้างสูงเท่าภาพจริง
+		  		<input type="hidden" name="h_BG_LEFT" value="<?=$SITE_BG_LEFT?>">
+			            </td>
+			        </tr>
+			        <tr>
+			        	<td width="15%" align="right">&nbsp;ขนาดพื้นหลังซ้าย&nbsp;:&nbsp;</td>
+						<td width="85%">จากซ้าย&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_LEFT_X" value="<?=$SITE_BG_LEFT_X?>" style="width:8%" class="textbox">&nbsp;&nbsp;จากบน&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_LEFT_Y" value="<?=$SITE_BG_LEFT_Y?>" style="width:8%" class="textbox">&nbsp;&nbsp;กว้าง&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_LEFT_W" value="<?=$SITE_BG_LEFT_W?>" style="width:8%" class="textbox">&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_LEFT_H" value="<?=$SITE_BG_LEFT_H?>" style="width:8%" class="textbox">&nbsp;&nbsp;ความโปร่งแสง [0-1]&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_LEFT_ALPHA" value="<?=$SITE_BG_LEFT_ALPHA?>" style="width:8%" class="textbox">&nbsp;&nbsp;
+				</td>
+				</tr>
+				<tr>
+		<td width="15%" align="right">
+		<? echo "<font color='red'><B>$SITE_BG_LEFT</B></font><br>";?>
+		</td>
+		<td>
+                <? if ($SITE_BG_LEFT && file_exists($SITE_BG_LEFT)) {
+                		if (!$SITE_BG_LEFT_X) $SITE_BG_LEFT_X = "0";
+                		if (!$SITE_BG_LEFT_Y) $SITE_BG_LEFT_Y = "0";
+                		if (!$SITE_BG_LEFT_W) $SITE_BG_LEFT_W = "0";
+                		$pos = strpos($SITE_BG_LEFT,".swf");
+                		if (strpos($SITE_BG_LEFT,".swf")===false) {
+							echo "<img src=\"$SITE_BG_LEFT\" >";
+						} else { 
+	                		$pos0 = strpos($SITE_BG_LEFT, $BG_PATH);
+                        	$SITE_BG_LEFT_O = substr($SITE_BG_LEFT,$pos0+strlen($BG_PATH),$pos-strlen($BG_PATH));
+//							echo "SITE_BG_LEFT_O=$SITE_BG_LEFT_O<br>";
+                        ?>
+							<script language="javascript">
+							if (AC_FL_RunContent == 0) {
+								alert("This page requires AC_RunActiveContent.js.");
+							} else {
+								AC_FL_RunContent(
+									'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+									'width', '<?=$SITE_BG_LEFT_W?>',
+									'height', '<?=$SITE_BG_LEFT_H?>',
+									'src', '<?=$BG_PATH.$SITE_BG_LEFT_O?>',
+									'quality', 'high',
+									'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+									'align', 'middle',
+									'play', 'true',
+									'loop', 'true',
+									'scale', 'showall',
+									'wmode', 'window',
+									'devicefont', 'false',
+									'id', '<?=$SITE_BG_LEFT_O?>',
+									'bgcolor', '#ffffff',
+									'name', '<?=$SITE_BG_LEFT_O?>',
+									'menu', 'true',
+									'allowFullScreen', 'false',
+									'allowScriptAccess','sameDomain',
+									'movie', '<?=$BG_PATH.$SITE_BG_LEFT_O?>',
+									'salign', ''
+									); //end AC code
+							}
+						</script>
+						<noscript>
+							<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="<?=$SITE_BG_LEFT_W?>" height="<?=$SITE_BG_LEFT_H?>" id="<?=$SITE_BG_LEFT_O?>" align="middle">
+							<param name="allowScriptAccess" value="sameDomain" />
+							<param name="allowFullScreen" value="false" />
+							<param name="movie" value="<?=$SITE_BG_LEFT?>" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="<?=$SITE_BG_LEFT?>" quality="high" bgcolor="#ffffff" width="<?=$SITE_BG_LEFT_W?>" height="<?=$SITE_BG_LEFT_H?>" name="<?=$SITE_BG_LEFT_O?>" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+							</object>
+						</noscript>
+                        <?
+                        } // if (strpos($SITE_BG_LEFT,".swf")===false)
+					} // if ($SITE_BG_LEFT && file_exists($SITE_BG_LEFT))
+				?>
+			            </td>
+			        </tr>
+		</table></td></tr>
+        <tr><td colspan="2"><table style="outline-width:medium; border-bottom-style:dashed; border-bottom-color:#F00; border-bottom-width:1;" width="95%" align="center">
+		        <tr>
+	    	    	<td width="15%" align="right">แฟ้มหัวพื้นหลังกลาง&nbsp;:&nbsp;</td>
+					<td width="85%">
+		  		<input type="file" name="SITE_BG" style="width:50%" class="textbox">
+		  		<input type="checkbox" name="check_wh_BG" class="button" >กว้างสูงเท่าภาพจริง
+		  		<input type="hidden" name="h_BG" value="<?=$SITE_BG?>">
+                	</td>
+				</tr>
+				<tr>
+					<td width="15%" align="right">&nbsp;ขนาดพื้นหลังกลาง&nbsp;:&nbsp;</td>
+					<td width="85%">จากซ้าย&nbsp;:&nbsp;
+                <input type="text" name="SITE_BG_X" value="<?=$SITE_BG_X?>" style="width:8%" class="textbox">&nbsp;&nbsp;จากบน&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_Y" value="<?=$SITE_BG_Y?>" style="width:8%" class="textbox">&nbsp;&nbsp;กว้าง&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_W" value="<?=$SITE_BG_W?>" style="width:8%" class="textbox">&nbsp;&nbsp;สูง&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_H" value="<?=$SITE_BG_H?>" style="width:8%" class="textbox">&nbsp;&nbsp;ความโปร่งแสง [0-1]&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_ALPHA" value="<?=$SITE_BG_ALPHA?>" style="width:8%" class="textbox">&nbsp;&nbsp;
+				</td>
+				</tr>
+				<tr>
+				<td width="15%" align="right">
+				<? if ($SITE_BG && file_exists($SITE_BG)) 
+                			echo "<font color='red'><B>[$SITE_BG]</B></font><br>";
+						?>
+				</td>		
+				<td>		
+                <? if ($SITE_BG && file_exists($SITE_BG)) {
+                		$pos = strpos($SITE_BG,".swf");
+                		if (strpos($SITE_BG,".swf")===false) {
+							echo "<img src=\"$SITE_BG\" >";
+						} else { 
+	                		$pos0 = strpos($SITE_BG,$BG_PATH);
+                        	$SITE_BG_O = substr($SITE_BG,$pos0+strlen($BG_PATH),$pos-strlen($BG_PATH));
+//							echo "SITE_BG_O=$SITE_BG_O<br>";
+                        ?>
+							<script language="javascript">
+							if (AC_FL_RunContent == 0) {
+								alert("This page requires AC_RunActiveContent.js.");
+							} else {
+								AC_FL_RunContent(
+									'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+									'width', '<?=$SITE_BG_W?>',
+									'height', '<?=$SITE_BG_H?>',
+									'src', '<?=$BG_PATH.$SITE_BG_O?>',
+									'quality', 'high',
+									'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+									'align', 'middle',
+									'play', 'true',
+									'loop', 'true',
+									'scale', 'showall',
+									'wmode', 'window',
+									'devicefont', 'false',
+									'id', '<?=$SITE_BG_O?>',
+									'bgcolor', '#ffffff',
+									'name', '<?=$SITE_BG_O?>',
+									'menu', 'true',
+									'allowFullScreen', 'false',
+									'allowScriptAccess','sameDomain',
+									'movie', '<?=$BG_PATH.$SITE_BG_O?>',
+									'salign', ''
+									); //end AC code
+							}
+						</script>
+						<noscript>
+							<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="<?=$SITE_BG_W?>" height="<?=$SITE_BG_H?>" id="<?=$SITE_BG_O?>" align="middle">
+							<param name="allowScriptAccess" value="sameDomain" />
+							<param name="allowFullScreen" value="false" />
+							<param name="movie" value="<?=$SITE_BG?>" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="<?=$SITE_BG?>" quality="high" bgcolor="#ffffff" width="<?=$SITE_BG_W?>" height="<?=$SITE_BG_H?>" name="<?=$SITE_BG_O?>" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+							</object>
+						</noscript>
+                        <?
+                        } // if (strpos($SITE_BG,".swf")===false)
+					} // if ($SITE_BG && file_exists($SITE_BG))
+				?>
+        		    </td>
+		        </tr>
+		</table></td></tr>
+        <tr><td colspan="2"><table style="outline-width:medium; border-bottom-style:dashed; border-bottom-color:#F00; border-bottom-width:1;" width="95%" align="center">
+        		<tr>
+		        	<td width="15%" align="right">แฟ้มหัวพื้นหลังขวา&nbsp;:&nbsp;</td>
+					<td width="85%">
+		  		<input type="file" name="SITE_BG_RIGHT" style="width:50%" class="textbox">
+		  		<input type="checkbox" name="check_wh_RIGHT" class="button">กว้างสูงเท่าภาพจริง
+		  		<input type="hidden" name="h_BG_RIGHT" value="<?=$SITE_BG_RIGHT?>">
+		            </td>
+        		</tr>
+		        <tr>
+        			<td width="15%" align="right">&nbsp;ขนาดพื้นหลังขวา&nbsp;:&nbsp;</td>
+					<td width="85%">จากขวา&nbsp;:&nbsp;
+                    <?
+							if (file_exists($SITE_BG_RIGHT)) {
+								list($width, $height, $type, $attr) = getimagesize($SITE_BG_RIGHT);
+                                if ($width) $BG_RIGHT_w=$width;
+                                if ($height) $BG_RIGHT_h=$height;
+                            }
+                    ?>
+		  		<input type="text" name="SITE_BG_RIGHT_X" value="<?=$SITE_BG_RIGHT_X?>" style="width:8%" class="textbox">&nbsp;&nbsp;จากบน&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_RIGHT_Y" value="<?=$SITE_BG_RIGHT_Y?>" style="width:8%" class="textbox">&nbsp;&nbsp;กว้าง&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_RIGHT_W" value="<?=$SITE_BG_RIGHT_W?>" style="width:8%" class="textbox">&nbsp;&nbsp;ยาว&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_RIGHT_H" value="<?=$SITE_BG_RIGHT_H?>" style="width:8%" class="textbox">&nbsp;&nbsp;ความโปร่งแสง [0-1]&nbsp;:&nbsp;
+		  		<input type="text" name="SITE_BG_RIGHT_ALPHA" value="<?=$SITE_BG_RIGHT_ALPHA?>" style="width:8%" class="textbox">&nbsp;&nbsp;
+				</td>
+				</tr>
+				<tr>
+				<td width="15%" align="right">
+				<? echo "<font color='red'><B>$SITE_BG_RIGHT</B></font><br>";?>
+				</td>
+				<td>
+                <? if ($SITE_BG_RIGHT && file_exists($SITE_BG_RIGHT)) {
+                		$pos = strpos($SITE_BG_RIGHT,".swf");
+                		if (strpos($SITE_BG_RIGHT,".swf")===false) {
+							echo "<img src=\"$SITE_BG_RIGHT\" >";
+						} else { 
+	                		$pos0 = strpos($SITE_BG_RIGHT,$BG_PATH);
+                        	$SITE_BG_RIGHT_O = substr($SITE_BG_RIGHT,$pos0+strlen($BG_PATH),$pos-strlen($BG_PATH));
+//							echo "SITE_BG_RIGHT_O=$SITE_BG_RIGHT_O<br>";
+				?>
+							<script language="javascript">
+							if (AC_FL_RunContent == 0) {
+								alert("This page requires AC_RunActiveContent.js.");
+							} else {
+								AC_FL_RunContent(
+									'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+									'width', '<?=$SITE_BG_RIGHT_W?>',
+									'height', '<?=$SITE_BG_RIGHT_H?>',
+									'src', '<?=$BG_PATH.$SITE_BG_RIGHT_O?>',
+									'quality', 'high',
+									'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+									'align', 'middle',
+									'play', 'true',
+									'loop', 'true',
+									'scale', 'showall',
+									'wmode', 'window',
+									'devicefont', 'false',
+									'id', '<?=$SITE_BG_RIGHT_O?>',
+									'bgcolor', '#ffffff',
+									'name', '<?=$SITE_BG_RIGHT_O?>',
+									'menu', 'true',
+									'allowFullScreen', 'false',
+									'allowScriptAccess','sameDomain',
+									'movie', '<?=$BG_PATH.$SITE_BG_RIGHT_O?>',
+									'salign', ''
+									); //end AC code
+							}
+						</script>
+						<noscript>
+							<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="<?=$SITE_BG_RIGHT_W?>" height="<?=$SITE_BG_RIGHT_H?>" id="<?=$SITE_BG_RIGHT_O?>" align="middle">
+							<param name="allowScriptAccess" value="sameDomain" />
+							<param name="allowFullScreen" value="false" />
+							<param name="movie" value="<?=$SITE_BG_RIGHT?>" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="<?=$SITE_BG_RIGHT?>" quality="high" bgcolor="#ffffff" width="<?=$SITE_BG_RIGHT_W?>" height="<?=$SITE_BG_RIGHT_H?>" name="<?=$SITE_BG_RIGHT_O?>" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+							</object>
+						</noscript>
+                        <?
+                        } // if (strpos($SITE_BG_RIGHT,".swf")===false)
+//                		echo "<font color='red'><B>[$SITE_BG_RIGHT]</B></font>";
+					} // if ($SITE_BG_RIGHT && file_exists($SITE_BG_RIGHT))
+                    ?>
+        		    </td>
+		        </tr>
+		</table></td></tr>
+        <tr><td colspan="2"><table style="outline-width:medium;" width="95%" align="center">
+	        	<tr>
+    	    		<td width="15%" align="right">แฟ้ม style sheet&nbsp;:&nbsp;</td>
+					<td width="85%">
+		  		<input type="file" name="CSS_NAME" style="width:70%" class="textbox">
+		  		<input type="hidden" name="h_CSS_NAME" value="<?=$CSS_NAME?>">
+                <? if ($CSS_NAME) 
+                		echo "<font color='red'><B>[$CSS_NAME]</B></font>";
+				?>
+		            </td>
+        		</tr>
+	        	<tr>
+    	    		<td width="15%" align="right">ความสูงแถบหัว&nbsp;:&nbsp;</td>
+					<td width="85%">
+		  		<input type="text" name="HEAD_HEIGHT" value="<?=$HEAD_HEIGHT?>" style="width:10%" class="textbox">
+                <? if ($HEAD_HEIGHT) 
+                		echo "<font color='red'><B>[$HEAD_HEIGHT]</B></font>";
+				?>
+		            </td>
+        		</tr>
+		</table></td></tr>
+        <tr align="center">
+          <td height="30" colspan="2">
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="button" class="button" onClick="check_condition(); return false;" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <img src="images/save.png" alt="<?=$EDIT_TITLE?>" width="32" height="32" border="0" onClick="check_condition(); return false;" >
+              <? } echo "&nbsp; &nbsp;"; ?><?}?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  	  &nbsp;
+			  	  <input name="Reset" type="submit" class="button" value="<?=$CLEAR_TITLE?>" onClick="form1.command.value='CLEAR';">  
+			  	  <?  } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <?if($PAGE_AUTH["del"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  	<? if ($BUTTON_DISPLAY==1) { ?>
+			  	<input name="Submit23" type="button" class="button" onClick="check_delete(); return false;" value="<?=$DEL_TITLE?>">
+			  	<?  } else { ?>
+                <img src="images/delete.gif" alt="<?=$DEL_TITLE?>" width="32" height="32" border="0" onClick="check_delete(); return false;" >
+                <? } echo "&nbsp; &nbsp;"; ?>
+              <? } } ?>          </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  <?
+	if(!$sort_by) $sort_by=1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+  	if($order_by==1){	
+		$order_str = "SITE_NAME $SortType[$order_by]";
+  	}elseif($order_by==2) {	
+		$order_str = "SITE_BG_LEFT $SortType[$order_by]";
+  	} elseif($order_by==3) {
+		$order_str = "SITE_BG $SortType[$order_by]";
+  	} elseif($order_by==4) { 
+		$order_str = "SITE_BG_RIGHT $SortType[$order_by]";
+	} elseif($order_by==5) { 
+		$order_str = "CSS_NAME $SortType[$order_by]";
+	}
+  ?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>"><input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+<input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>
+<?
+	if($current_page > 1){
+		if($db_type=="odbc"){
+			$cmd = " select 	top $start_record trim(SITE_ID) as site_pk
+							from 		SITE_INFO
+							order by 	$order_str ";
+			$db->send_cmd($cmd);
+			while($data = $db->get_array()) $arr_exclude[] = $data[site_pk];
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(SITE_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($db_type=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($db_type=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  *
+							FROM			SITE_INFO
+						$limit_data
+						ORDER BY	$order_str 	";
+					
+	}elseif($db_type=="oci8"){			 
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+//		echo "$rec_start = (($current_page-1) * $data_per_page) + 1";
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		*
+								  from 		SITE_INFO
+								  order by 	$order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";							 
+	} elseif($db_type=="mysql"){
+		$cmd = "	SELECT 	*
+							FROM	SITE_INFO
+							ORDER BY $order_str
+						$limit_data ";
+	} // end if
+	
+	$count_page_data = $db->send_cmd($cmd);
+//	$db->show_error();
+//	echo "count_page_data=$count_page_data-->$cmd<br>";
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  	<td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      	<td onClick="call_sort(1);"><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อ</td>
+      	<td onClick="call_sort(2);"><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อรูปทางซ้าย</td>
+      	<td onClick="call_sort(3);"><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อรูปพื้นหลัง</td>
+      	<td onClick="call_sort(4);"><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อรูปทางขวา</td>
+      	<td onClick="call_sort(5);"><? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อ CSS</td>
+<!--	<td width="4%"><?=$INQ_TITLE?></td>-->
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+<!--	<?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><? } ?>-->
+    </tr>
+<?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db->get_array()) {
+		$data_count++;
+//		echo "data_count:$data_count > data_per_page:$data_per_page<br>";
+		if($data_count > $data_per_page) break;
+		$TMP_SITE_ID = $data[SITE_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SITE_ID;
+		$TMP_ORG_ID = $data[ORG_ID];
+		
+		$TMP_ORG_NAME = $TMP_PV_CODE = "";
+		if($TMP_ORG_ID){
+			$cmd1 = "	SELECT * FROM PER_ORG WHERE ORG_ID=$TMP_ORG_ID ";
+			$db_dpis1->send_cmd($cmd1);
+	//		echo "cmd-->$cmd1<br>";
+			$data1 = $db_dpis1->get_array();
+			$TMP_ORG_NAME = $data1[ORG_NAME];
+			$TMP_PV_CODE = $data[PV_CODE];
+		}
+		
+		if ($TMP_PV_CODE && $TMP_PV_CODE != 'NULL') {
+			$cmd1 = "	SELECT * FROM PER_PROVINCE WHERE PV_CODE='$TMP_PV_CODE' ";
+			$db_dpis1->send_cmd($cmd1);
+//			echo "cmd-->$cmd1<br>";
+			$data1 = $db_dpis1->get_array();
+			$TMP_PV_NAME = $data1[PV_NAME];
+    	} else 
+        	$TMP_PV_NAME = "";
+            
+		$TMP_SITE_NAME = $data[SITE_NAME];
+        
+//		echo "[$TMP_SITE_NAME:$TMP_ORG_NAME:$TMP_PV_NAME]<br>";
+		$SHOW_SITE_NAME = ($TMP_SITE_NAME ? $TMP_SITE_NAME : "").($TMP_ORG_NAME ? ($TMP_SITE_NAME ? " (" : "").$TMP_ORG_NAME.($TMP_SITE_NAME ? ")" : "") : "").($TMP_PV_NAME ? "($TMP_PV_NAME)" : "");
+        
+		$TMP_SITE_BG_L = $data[SITE_BG_LEFT];
+		$TMP_SITE_BG = $data[SITE_BG];
+		$TMP_SITE_BG_R = $data[SITE_BG_RIGHT];
+		$TMP_CSS_NAME = $data[CSS_NAME];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($SITE_ID==$TMP_SITE_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+//		echo " upd-".$PAGE_AUTH["edit"].", del-".$PAGE_AUTH["del"];
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      	<td height="25" align="center"><?=$data_count?></td>
+      	<td align="left"><?=$SHOW_SITE_NAME?></td>
+      	<td align="left"><?=$TMP_SITE_BG_L?></td>
+      	<td align="left"><?=$TMP_SITE_BG?></td>
+      	<td align="left"><?=$TMP_SITE_BG_R?></td>
+      	<td align="left"><?=$TMP_CSS_NAME?></td>
+<!--      	<td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.SITE_ID.value=$TMP_SITE_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลรูป" width="16" height="16" border="0"></a></td>-->
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+ 	     <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.SITE_ID.value=$TMP_SITE_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลรูป"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+<!--	<td align="center">&nbsp;<a href="<?="javascript:check_delete($TMP_SITE_ID)"?>"><img src="images/b_drop.png" border="0" alt="ลบรูป"></td>-->
+	  <?}?>
+	</tr>
+<?} ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+<!--<td>&nbsp;</td>-->
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><!--<td>&nbsp;</td>--><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+<? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+  &nbsp;
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

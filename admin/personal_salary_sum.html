@@ -1,0 +1,1249 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_salary_sum.php");
+	include("php_scripts/load_per_control.php");
+//echo "โปรแกรมฉบับชั่วคราว (bata 5.1.0.1 : 19 พ.ย. 2558)<br>";
+	if ($f_detail==""){
+		if($BKK_FLAG==1){	
+			 $f_detail = "1";
+		}else{		// 15/11/2012 คุณต่อ สำหรับ ก.พ.
+			$f_detail = "0";
+		}
+	}
+	if (!$f_detail1) $f_detail1 = "0";
+	if (!$f_detail2) $f_detail2 = "0";
+
+	$cmd =" select  * from PER_PERSONAL where PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$search_per_type = $data[per_type];	
+
+	$cmd =" select count(SAH_ID) as count_data 
+    			   from PER_SALARYHIS where PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page1 = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page_1more($total_page1, $current_page1, 1);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page , idx) {
+		if (idx==1)	form1.current_page1.value = page;
+		else if (idx==2)	form1.current_page2.value = page;
+		else		form1.current_page3.value = page;
+		form1.submit();
+	}
+
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function confirm_delete_sah(sah_id , mov_name){
+		if(confirm("ต้องการลบประวัติการรับเงินเดือนนี้ ใช่หรือไม่ [ " + mov_name + " ]?")){
+			form1.command.value = "DELETESAH";
+			form1.SAH_ID.value = sah_id;
+			form1.submit();
+		} // end if
+	}
+
+	function confirm_delete_exh(exh_id , mov_name){
+		if(confirm("ต้องการลบประวัติการรับเงินพิเศษนี้ ใช่หรือไม่ [ " + mov_name + " ]?")){
+			form1.command.value = "DELETEEXH";
+			form1.EXH_ID.value = exh_id;
+			form1.submit();
+		} // end if
+	}
+
+	function confirm_delete_pmh(pmh_id , mov_name){
+		if(confirm("ต้องการลบประวัติการรับเงินประจำตำแหน่งนี้ ใช่หรือไม่ [ " + mov_name + " ]?")){
+			form1.command.value = "DELETEPMH";
+			form1.PMH_ID.value = pmh_id;
+			form1.submit();
+		} // end if
+	}
+
+	function call_view_sah (per_id, sah_id) {	
+		parameter = "&UPD=0&VIEW=1&PER_ID="+per_id+"&SAH_ID="+sah_id;
+	    call_openDialog("personal_salary_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ดูข้อมูลเงินเดือน");		
+	}
+	
+	function call_view_exh (per_id, exh_id) {	
+		parameter = "&UPD=0&VIEW=1&PER_ID="+per_id+"&EXH_ID="+exh_id;
+	    call_openDialog("personal_extrahis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ดูข้อมูลเงินเพิ่มพิเศษ");		
+	}
+
+	function call_view_pmh (per_id, pmh_id) {	
+		parameter = "&UPD=0&VIEW=1&PER_ID="+per_id+"&PMH_ID="+pmh_id;
+	    call_openDialog("personal_pos_mgtsalaryhis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ดูข้อมูลเงินประจำตำแหน่ง");		
+	}
+
+	function call_add_sah (per_id) {	
+		parameter = "&command='CANCEL'&PER_ID=" + per_id +  "&SAH_ID=''";
+	    call_openDialog("personal_salary_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"เพิ่มข้อมูลเงินเดือน");		
+	}
+
+	function call_add_exh (per_id) {	
+		parameter = "&command='CANCEL'&PER_ID=" + per_id +  "&EXH_ID=''";
+	    call_openDialog("personal_extrahis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"เพิ่มข้อมูลเงินเพิ่มพิเศษ");		
+	}
+
+	function call_add_pmh (per_id) {	
+		parameter = "&command='CANCEL'&PER_ID=" + per_id +  "&PMH_ID=''";
+	    call_openDialog("personal_pos_mgtsalaryhis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"เพิ่มข้อมูลเงินประจำตำแหน่ง");		
+	}
+
+	function call_update_sah (per_id, sah_id) {	
+		parameter = "&UPD=1&VIEW=0&PER_ID=" + per_id +  "&SAH_ID=" + sah_id;
+	    call_openDialog("personal_salary_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ปรับปรุงข้อมูลเงินเดือน");		
+	}
+	
+	function call_update_exh (per_id, exh_id) {	
+		parameter = "&UPD=1&VIEW=0&PER_ID=" + per_id +  "&EXH_ID=" + exh_id;
+	    call_openDialog("personal_extrahis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ปรับปรุงข้อมูลเงินเพิ่มพิเศษ");		
+	}
+
+	function call_update_pmh (per_id, pmh_id) {	
+		parameter = "&UPD=1&VIEW=0&PER_ID=" + per_id +  "&PMH_ID=" + pmh_id;
+	    call_openDialog("personal_pos_mgtsalaryhis_form.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ปรับปรุงข้อมูลเงินประจำตำแหน่ง");		
+	}
+
+	function call_detail_sah(f_detail) {	
+//		alert(f_detail);
+		if (f_detail=="0") {
+			form1.f_detail.value = "1";
+		} else {
+			form1.f_detail.value = "0";
+		}
+		form1.submit();
+	}
+
+	function call_detail_exh(f_detail1) {	
+//		alert(f_detail1);
+		if (f_detail1=="0") {
+			form1.f_detail1.value = "1";
+		} else {
+			form1.f_detail1.value = "0";
+		}
+		form1.submit();
+	}
+
+	function call_detail_pmh(f_detail2) {	
+//		alert(f_detail2);
+		if (f_detail2=="0") {
+			form1.f_detail2.value = "1";
+		} else {
+			form1.f_detail2.value = "0";
+		}
+		form1.submit();
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;
+//		alert("ulink="+ulink);
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+
+	function print_form(SAH_ID) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_SAH_ID = document.form1.SAH_ID.value;
+		document.form1.SAH_ID.value = SAH_ID;
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_personal_salaryhis_rtf.php?SAH_ID=" + SAH_ID + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.SAH_ID.value = OLD_SAH_ID;
+		document.form1.target = "_self";
+		document.form1.action = "personal_salaryhis.html";
+	}
+
+	function print_form_sah(SAH_ID,SAH_KF_YEAR,SAH_KF_CYCLE,type) {
+//		alert("SAH_KF_YEAR="+SAH_KF_YEAR+", SAH_KF_CYCLE="+SAH_KF_CYCLE);
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_SAH_ID = document.form1.SAH_ID.value;
+		document.form1.SAH_ID.value = SAH_ID;
+		document.form1.target = "_blank";
+		if (type==2) 
+			document.form1.action = "report/rpt_R006000_rtf.php?SAH_ID=" + SAH_ID + "&UTC" + rptDate+"&SAH_KF_YEAR="+SAH_KF_YEAR+"&SAH_KF_CYCLE="+SAH_KF_CYCLE;
+		else
+			document.form1.action = "report/rpt_R006000.php?SAH_ID=" + SAH_ID + "&UTC" + rptDate+"&SAH_KF_YEAR="+SAH_KF_YEAR+"&SAH_KF_CYCLE="+SAH_KF_CYCLE;
+		document.form1.submit();
+		document.form1.SAH_ID.value = OLD_SAH_ID;
+		document.form1.target = "_self";
+		document.form1.action = "personal_salary_sum.html";
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		if  (src.indexOf("personal_salary_form") > -1 || src.indexOf("personal_extrahis_form") > -1 || src.indexOf("personal_pos_mgtsalaryhis_form") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if ((arrValue[0]=="A" || arrValue[0]=="U") && arrValue[1]=="0") {
+					form1.submit();
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+//		tt.value = returnValue;
+	} // end if
+	
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+ <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><? if(!$HIDE_HEADER) include("header_menu.html"); ?></td>
+  	</tr>
+	<? } ?>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลเงินเดือน":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+    </tr>
+  	<tr>
+    	<td align="left" valign="top">
+        <form name="form1" method="post" action="personal_salary_sum.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="current_page1" value="<?=$current_page1?>">
+          <input type="hidden" name="current_page2" value="<?=$current_page2?>">
+          <input type="hidden" name="current_page3" value="<?=$current_page3?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+          <input type="hidden" name="total_page1" value="<?=$total_page1?>">
+          <input type="hidden" name="total_page2" value="<?=$total_page2?>">
+          <input type="hidden" name="total_page3" value="<?=$total_page3?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="search_per_type" value="<?=$search_per_type?>">
+          <input type="hidden" name="SAH_ID" value="<?=$SAH_ID?>">
+          <input type="hidden" name="EXH_ID" value="<?=$EXH_ID?>">
+          <input type="hidden" name="PMH_ID" value="<?=$PMH_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+          <input type="hidden" name="f_detail" value="<?=$f_detail?>">	   
+          <input type="hidden" name="f_detail1" value="<?=$f_detail1?>">	   
+          <input type="hidden" name="f_detail2" value="<?=$f_detail2?>">
+		  <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+		  <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%">
+        <? if (!$HIDE_HEADER) { ?>
+        	<? if ($BUTTON_DISPLAY==1) { ?>
+          		&nbsp;<input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salary_sum'"><!--history.back(); -->
+		  	<?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_salary_sum'">
+            <? } echo "&nbsp; &nbsp;"; ?>
+		<? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+      	<tr height="22">
+        <td align="left">&nbsp;&nbsp;
+            <?php if($show_btn_add){?>
+            <input type="button" name="button1" class="button" value="<?=$ADDTAB_TITLE?>" alt="เพิ่มข้อมูลเงินเดือน" onClick="call_add_sah('<?=$PER_ID?>');">
+            <?php }?>
+        </td>
+	  	<td align="center">พบข้อมูลเงินเดือนทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <td align="right">
+        <? 
+			if ($f_detail == "1") { 
+        		$det_text="ซ่อนรายละเอียด"; $det_alt="ซ่อนรายละเอียด"; 
+             } else { 
+             	$det_text="แสดงรายละเอียด";  $det_alt="แสดงรายละเอียด";
+             } ?>
+       <input type="button" name="button2" class="button" value="<?=$det_text?>" alt="<?=$det_alt?>" onClick="call_detail_sah('<?=$f_detail?>');">&nbsp;&nbsp;</td>
+      	</tr>
+   		</table></td>
+	</tr>
+</table> 
+<?
+/*	if ($PER_ORDER_BY==1) {
+		if($DPISDB=="odbc") $order_by = "LEFT(SAH_EFFECTIVEDATE,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO";
+		elseif($DPISDB=="oci8") $order_by = "SUBSTR(SAH_EFFECTIVEDATE,1,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO";			 
+		elseif($DPISDB=="mysql") $order_by = "LEFT(SAH_EFFECTIVEDATE,10), SAH_SEQ_NO, SAH_SALARY, SAH_DOCNO"; 
+	} else {
+		if($DPISDB=="odbc") $order_by = "LEFT(SAH_EFFECTIVEDATE,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc";
+		elseif($DPISDB=="oci8") $order_by = "SUBSTR(SAH_EFFECTIVEDATE,1,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc";			 
+		elseif($DPISDB=="mysql") $order_by = "LEFT(SAH_EFFECTIVEDATE,10) desc, SAH_SEQ_NO desc, SAH_SALARY desc, SAH_DOCNO desc"; 
+	} */
+	
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่มีผล
+		$order_str = "SAH_EFFECTIVEDATE $SortType[$order_by], SAH_SEQ_NO $SortType[$order_by], SAH_SALARY $SortType[$order_by]";
+  	}elseif($order_by==2) {	//ประเภทการเคลื่อนไหว
+		$order_str = "pm.MOV_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//เลขที่คำสั่ง
+		$order_str = "SAH_DOCNO ".$SortType[$order_by];
+	} elseif($order_by==4) {	//ลงวันที่
+		$order_str = "SAH_DOCDATE ".$SortType[$order_by];
+	}elseif($order_by==5) {	//เลื่อน
+		$order_str = "SAH_ENDDATE ".$SortType[$order_by];
+	}elseif($order_by==6) {	//เลขที่ตำแหน่ง
+		$order_str = "SAH_POS_NO_NAME $SortType[$order_by], to_number(replace(SAH_POS_NO,'-','')) $SortType[$order_by]";
+	}elseif($order_by==7) {	//ระดับตำแหน่ง
+		$order_str = "LEVEL_NO ".$SortType[$order_by];
+	}elseif($order_by==8) {	//อัตราเงินเดือน
+		if($DPISDB=="odbc") {
+			$order_str = "IIF(ISNULL(SAH_SALARY), 9999, SAH_SALARY) ".$SortType[$order_by];
+		}elseif($DPISDB=="oci8" || $DPISDB=="mysql"){ 
+			$order_str = "SAH_SALARY ".$SortType[$order_by];
+		} 
+	}
+	
+	if($current_page1 > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(SAH_ID) as concat_pk from PER_SALARYHIS psh, PER_MOVMENT pm where psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = $data[concat_pk];
+			$limit_data = " and trim(SAH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page1 - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT 		top $data_per_page  	
+												SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+												SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA, LEVEL_NO, SAH_PAY_NO, SAH_POS_NO_NAME, 
+												SAH_LAST_SALARY, SM_CODE, AUDIT_FLAG, SAH_KF_YEAR, SAH_KF_CYCLE
+						 FROM			PER_SALARYHIS psh, PER_MOVMENT pm 
+						 WHERE		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 
+												$limit_data
+						ORDER BY	$order_str ";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page1-1) * $data_per_page) + 1;
+		$rec_end = ($current_page1 > 1)? ($current_page1 * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+								  					SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA, LEVEL_NO, SAH_PAY_NO, SAH_POS_NO, SAH_POS_NO_NAME, 
+													SAH_LAST_SALARY, SM_CODE, AUDIT_FLAG, SAH_KF_YEAR, SAH_KF_CYCLE
+								  from 			PER_SALARYHIS psh, PER_MOVMENT pm 
+								  where 		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 
+													$search_condition
+								  order by 	$order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 
+	}elseif($DPISDB=="mysql"){
+		$cmd = " SELECT 		SAH_ID, SAH_EFFECTIVEDATE, pm.MOV_NAME, SAH_SALARY, SAH_DOCNO, SAH_DOCDATE, SAH_ENDDATE, 
+												SAH_PERCENT_UP, SAH_SALARY_UP, SAH_SALARY_EXTRA , LEVEL_NO, SAH_PAY_NO, SAH_POS_NO_NAME, 
+												SAH_LAST_SALARY, SM_CODE, AUDIT_FLAG, SAH_KF_YEAR, SAH_KF_CYCLE
+						 FROM			PER_SALARYHIS psh, PER_MOVMENT pm 
+						 WHERE		psh.PER_ID=$PER_ID and psh.MOV_CODE=pm.MOV_CODE 								
+						ORDER BY	$order_str
+								$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	//echo "<pre>$cmd<br>";
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$MOV_TITLE?></td>
+      <td width="8%" onClick="call_sort(3);"><strong>
+        <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$DOCNO_TITLE?></td>
+      <td width="10%" onClick="call_sort(4);"><strong>
+        <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$DOCDATE_TITLE?></td>
+      <td width="10%" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$SAH_EFFECTIVEDATE_TITLE?></td>
+      <td width="10%">เลื่อน</td>
+		<? if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง") { ?>
+      <td width="8%" onClick="call_sort(6);" ><strong>
+        <? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$PAY_NO_TITLE?></td>
+		<? } else { ?>
+      <td width="8%" onClick="call_sort(6);" ><strong>
+        <? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$POS_NO_TITLE ?></td>
+		<? } ?>
+      <td width="8%" onClick="call_sort(7);" ><strong>
+        <? if($order_by==7&&$sort_by==7){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$LEVEL_TITLE?></td>
+      <!--td width="8%">ปรับเงิน</td-->
+      <td width="8%" onClick="call_sort(8);"><strong>
+        <? if($order_by==8&&$sort_by==8){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>        <?=$SALARY_TITLE?></td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      	<td width="4%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      	<td width="4%"><?=$DEL_TITLE?></td>
+      <?}?>
+      <td width="4%"><?=$PRINT_TITLE?></td>
+	   <td width="4%">จำนวนไฟล์</td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?> <td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all1" value="1" onClick="set_check_all(this.checked,'list_audit_id1',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+    </tr>
+<?
+	$current_list1 = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page1 - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page1 - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_SAH_ID = $data[SAH_ID];
+		$current_list1 .= ((trim($current_list1))?",":"") . $TMP_SAH_ID;
+		$TMP_SAH_EFFECTIVEDATE = show_date_format($data[SAH_EFFECTIVEDATE], $DATE_DISPLAY);
+		$TMP_SAH_ENDDATE = show_date_format($data[SAH_ENDDATE], $DATE_DISPLAY);
+		$TMP_SAH_SALARY = number_format($data[SAH_SALARY], 2, '.', ',');
+		$TMP_MOV_NAME = $data[MOV_NAME];
+		$RESULT_FIND_SAH_DOCEDIT= strpos($TMP_MOV_NAME,"แก้ไข"); 	 // MOV NAME แก้ไขคำสั่ง 
+		if ($RESULT_FIND_SAH_DOCEDIT === FALSE){
+			$RESULT_FIND_SAH_DOCEDIT=0;	//ไม่พบ		
+		}else{
+			$RESULT_FIND_SAH_DOCEDIT=1;	//พบ
+		}
+		
+		$TMP_SAH_DOCNO = (trim($data[SAH_DOCNO]))? $data[SAH_DOCNO] : "-" ;	
+        
+		$cmd ="select COM_ID from PER_COMMAND where COM_NO = '$TMP_SAH_DOCNO' ";
+		$count_data = $db_dpis2->send_cmd($cmd);
+//		echo "cmd=$cmd<br>";
+		if ($count_data) {
+			$data2 = $db_dpis2->get_array();
+			$TMP_COM_ID = trim($data2[COM_ID]);
+	//		echo "cmd=$cmd (COM_ID=$TMP_COM_ID)<br>";
+		}
+
+/*******************************************************************************/
+		$TMP_PATH_MAIN = "../attachments";	
+
+		$tmp_file_namedb = "PER_COMMAND_".$TMP_COM_ID;
+		$FIRST_SUBDIR = $TMP_PATH_MAIN;
+		$SECOND_SUBDIR = $FIRST_SUBDIR.'/'."PER_COMMAND";
+		$FINAL_PATH = $SECOND_SUBDIR.'/'.$TMP_COM_ID;
+//		echo "tmp_file_namedb=$tmp_file_namedb, FIRST_SUBDIR=$FIRST_SUBDIR, SECOND_SUBDIR=$SECOND_SUBDIR, FINAL_PATH=$FINAL_PATH<br>";
+
+		$TMP_FILE_PATH = $FINAL_PATH;
+		$tmp_real_filename = "";
+		$cmd ="select * from EDITOR_ATTACHMENT where REAL_FILENAME like '$tmp_file_namedb%' ";
+		$count_atta = $db->send_cmd($cmd);
+//		echo "cmd=$cmd ($count_atta)<br>";
+		if ($count_atta) {
+			$data2 = $db->get_array();
+			$ATTAFILE_ID = trim($data2[ID]);
+			$ATTAFILE_REAL_NAME = trim($data2[REAL_FILENAME]);
+			$tmp_real_filename = $ATTAFILE_REAL_NAME;
+//			echo "tmp_real_filename=$tmp_real_filename<br>";
+			$ATTAFILE_SHOW_NAME = trim($data2[SHOW_FILENAME]);
+			$ATTAFILE_DESCRIPTION = trim($data2[DESCRIPTION]);
+			$ATTAFILE_FILE_SIZE = trim($data2[FILE_SIZE]);
+			$ATTAFILE_USER_ID = trim($data2[USER_ID]);
+		}
+//		echo "TMP_FILE_PATH=$TMP_FILE_PATH , tmp_real_filename=$tmp_real_filename<br>";
+/*******************************************************************************/
+		//นับจำนวนไฟล์ทั้งหมดใน folder
+		$tmpnumfiles=0;
+		if ($dh = opendir($TMP_FILE_PATH)) {
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$tmpnumfiles++;
+				} // end if
+	   		} // while loop readdir
+			closedir($dh);
+		} // end if
+//		echo "tmpnumfiles=$tmpnumfiles<br>";
+
+		$TMP_SAH_DOCDATE = show_date_format($data[SAH_DOCDATE], $DATE_DISPLAY);
+		$TMP_SAH_PERCENT_UP = number_format($data[SAH_PERCENT_UP], 4, '.', ',');
+		$TMP_SAH_SALARY_UP = number_format($data[SAH_SALARY_UP], 2, '.', ',');
+		$TMP_SAH_SALARY_EXTRA = number_format($data[SAH_SALARY_EXTRA], 2, '.', ',');
+		$TMP_LEVEL_NO = $data[LEVEL_NO];
+		$TMP_SAH_NO_NAME = $data[SAH_POS_NO_NAME];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+		$TMP_SAH_KF_YEAR = $data[SAH_KF_YEAR];
+		$TMP_SAH_KF_CYCLE = $data[SAH_KF_CYCLE];
+
+		if($data[SAH_PAY_NO]) { $TMP_SAH_PAY_NO = $TMP_SAH_NO_NAME.' '.$data[SAH_PAY_NO]; } else { $TMP_SAH_PAY_NO = $TMP_SAH_NO_NAME.' '.$data[SAH_POS_NO];  }
+//		$TMP_SAH_PAY_NO = $TMP_SAH_NO_NAME.$data[SAH_PAY_NO]; 
+		$TMP_SAH_LAST_SALARY = $data[SAH_LAST_SALARY];
+		$TMP_SM_CODE = $data[SM_CODE];
+
+		$TMP_POSITION_LEVEL = level_no_format($TMP_LEVEL_NO, 2);
+
+		if ($TMP_SM_CODE) {
+			$cmd ="select SM_NAME from PER_SALARY_MOVMENT where SM_CODE = '$TMP_SM_CODE' ";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_SAH_DESC = $data2[SM_NAME];
+		} elseif (strpos($TMP_MOV_NAME,"เต็มขั้น") !== false) 
+			$TMP_SAH_DESC = $TMP_SAH_SALARY_EXTRA;
+		elseif ($TMP_SAH_PERCENT_UP > 0) 
+			$TMP_SAH_DESC = $TMP_SAH_PERCENT_UP . " %";
+		else
+			$TMP_SAH_DESC = "-";
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($SAH_ID==$TMP_SAH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+		$SAH_ID_LAST[$f_detail]=$TMP_SAH_ID;
+        if ($f_detail == "1" || ($f_detail == "0" && $data_count == 1)) {
+?>
+		    <tr class="<?=$class?>" <?=$onmouse_event?>> 
+			  <? 
+			  if ($TMP_SAH_LAST_SALARY=="Y") $sub_class = "label_hilight"; 
+			  else if ($RESULT_FIND_SAH_DOCEDIT==1)	$sub_class = "label_alert";
+			  else $sub_class = "black_bold"; 
+			  ?>
+		      <td class="<?=$sub_class?>" height="25" align="center"><?=$num_order?></td>
+		      <td class="<?=$sub_class?>" align="center">&nbsp;<?=$TMP_MOV_NAME?></td>
+		      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_DOCNO?><br><? if ($TMP_COM_ID && $tmpnumfiles) { ?><input type="button" name="btn_docshow_<?=$TMP_COM_ID?>" value="เอกสารแนบ-<?=$tmpnumfiles?>" class="button" onClick="linkopenfile('<?=$TMP_FILE_PATH."/".$tmp_real_filename; ?>');"><? } ?>
+</td>
+		      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_DOCDATE?></td>
+		      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_EFFECTIVEDATE?></td>
+		      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_DESC?></td>
+		      <td class="<?=$sub_class?>" align="center"><?=$TMP_SAH_PAY_NO?></td>
+		      <td class="<?=$sub_class?>" align="center">&nbsp;<?=$TMP_POSITION_LEVEL?></td>
+		      <!--td class="<?=$sub_class?>" align="right"><?=$TMP_SAH_SALARY_UP?>&nbsp;</td-->
+		      <td class="<?=$sub_class?>" align="right"><?=$TMP_SAH_SALARY?>&nbsp;</td>
+		      <td align="center">&nbsp;<a href="<?="javascript:call_view_sah($PER_ID, $TMP_SAH_ID);"?>""><img src="images/icon_eye.gif" alt="ดูประวัติการรับเงินเดือน" width="16" height="16" border="0"></a></td>
+				<? if($PAGE_AUTH["edit"]=="Y"){?>
+					<? if ($TMP_AUDIT_FLAG=="Y"){?>
+						<td><?=$AUDITED_TITLE?></td>
+					<? } else { ?>
+						<td align="center">&nbsp;<a href="<?="javascript:call_update_sah($PER_ID, $TMP_SAH_ID);"?>"><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติการรับเงินเดือน"></a></td>
+					<? } ?>
+				<? }?>
+				<? if ($PAGE_AUTH["del"]=="Y") { ?>
+					<? if ($TMP_AUDIT_FLAG=="Y") { ?>
+						<td>&nbsp;</td>
+					<? } else { ?>
+						<td align="center">&nbsp;<a href="<?="javascript:confirm_delete_sah($TMP_SAH_ID,'$TMP_MOV_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติการรับเงินเดือน"></a></td>
+					<? } ?>
+				<? } ?>
+                                <td align="center"  >
+	 	 <? if ($SALARYHIS_DISPLAY==2 || $SALARYHIS_DISPLAY==3) {
+                 if(empty($TMP_SAH_KF_CYCLE)){
+                  echo "-";
+                  }else{
+                 ?>
+			  &nbsp;<a href="<?=("javascript:print_form_sah(".$TMP_SAH_ID.",".$TMP_SAH_KF_YEAR.",".$TMP_SAH_KF_CYCLE.",2)")?>"><img src="images/doc_icon_word.jpg" border="0" alt="พิมพ์รายละเอียดการเลื่อนเงินเดือน (RTF)" width="24" height="24"></a>
+	 	 <? } } ?>
+		  <? 
+                 if($PAGE_AUTH["print"]=="Y"){  //modify by somsak 
+					 if ($SALARYHIS_DISPLAY==1 || $SALARYHIS_DISPLAY==3) { 
+					  if(empty($TMP_SAH_KF_CYCLE)){
+						echo "-";
+					  }else{
+					  ?>
+					  &nbsp;<a href="<?=("javascript:print_form_sah(".$TMP_SAH_ID.",".$TMP_SAH_KF_YEAR.",".$TMP_SAH_KF_CYCLE.")")?>"><img src="images/doc_icon_pdf.jpg" border="0" title="พิมพ์รายละเอียดการเลื่อนเงินเดือน" width="24" height="24"></a>
+					  <?
+					  }
+                  }else{ echo "&nbsp";}
+                  ?>
+                  
+      		 
+		  <? } ?>
+			 </td>
+	  	      <? $parameter1=$parameter2=$parameter3=$parameter4="";
+		 			$parameter1="PER_SALARYHIS";	$parameter2=$TMP_SAH_ID;	$parameter3="(คำสั่งเลขที่$TMP_SAH_DOCNO ($TMP_SAH_SALARY))";	$parameter4=$PER_ID;
+			  ?>
+			 <td align="center">&nbsp;<? 
+			  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+			  $numfiles=0;
+			  if(is_dir($FILE_PATH)){	
+				if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+					while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+						if ($file != "." && $file != "..") {
+							$numfiles++;
+						} // end if
+					} // while loop readdir
+				closedir($dh);
+				} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	  		    <?if($PAGE_AUTH["attach"]=="Y"){ ?><td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td align="center"><input type="checkbox" id="list_audit_id1<?=$data_count; ?>" name="list_audit_id1[]" value="<?=$TMP_SAH_ID?>" onClick="set_uncheck_all(this.checked,form1.list_audit_all1,this.id)" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>><!--<?=$TMP_SAH_ID."=".$TMP_AUDIT_FLAG."+".$data[AUDIT_FLAG]; ?>---></td><? } ?>
+	<?}?>
+    		</tr>
+	 <? } // end loop while 
+	?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>	  
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+	  <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? }?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG1'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG1'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+	</tr>
+	<?}?> 
+	<?
+		if( $total_page1 > 1 && ($f_detail == "1") ) : ?>
+		<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    		<tr>
+				<td align="center"><?=$page_link?></td>
+			</tr>
+		</table>
+	<? endif;
+   } // end if count ?>
+  </table>
+<br>
+
+<!--******************************************** ข้อมูลเงินประจำตำแหน่ง ************************************************** -->
+
+<?
+	$cmd =" select 		count(PMH_ID) as count_data 
+					from 		PER_POS_MGTSALARYHIS
+					where		PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page3 = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page_1more($total_page3, $current_page3, 3);
+	$limit_data = "";	
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+        <td align="left">&nbsp;&nbsp;
+            <?php 
+            if($show_btn_add){
+            ?>
+            <input type="button" name="button3" class="button" value="<?=$ADDTAB_TITLE?>" alt="เพิ่มข้อมูลเงินประจำตำแหน่ง" onClick="call_add_pmh('<?=$PER_ID?>');">
+            <?php }?>
+        </td>
+	  	<td align="center">พบข้อมูลเงินตามตำแหน่งทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <td align="right">
+        <? if ($f_detail2 == "1") { 
+        		$det_text2="ซ่อนรายละเอียด"; $det_alt2="ซ่อนรายละเอียด"; 
+             } else { 
+             	$det_text2="แสดงรายละเอียด";  $det_alt2="แสดงรายละเอียด";
+             } ?>
+        <input type="button" name="button4" class="button" value="<?=$det_text2?>" alt="<?=$det_alt2?>" onClick="call_detail_pmh('<?=$f_detail2?>');">&nbsp;&nbsp;</td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+<?
+/*	if ($PER_ORDER_BY==1) $order_by = "PMH_ENDDATE, PMH_EFFECTIVEDATE";
+	else $order_by = "PMH_ENDDATE desc, PMH_EFFECTIVEDATE desc";  */
+	
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่มีผลบังคับใช้
+		$order_str = "PMH_EFFECTIVEDATE ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//ถึงวันที่
+		$order_str = "PMH_ENDDATE  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//จำนวนเงิน
+		$order_str = "PMH_AMT  ".$SortType[$order_by];
+	}elseif($order_by==4) {	//ประเภทเงิน
+		$order_str = "pet.EX_NAME ".$SortType[$order_by];
+	}
+	
+	if($current_page3 > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(PMH_ID) as concat_pk from PER_POS_MGTSALARYHIS peh, PER_EXTRATYPE pet where peh.PER_ID=$PER_ID and peh.EX_CODE=pet.EX_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(PMH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page3 - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT		PMH_ID, PMH_EFFECTIVEDATE, pet.EX_NAME, PMH_AMT, PMH_ENDDATE, PMH_ACTIVE, AUDIT_FLAG
+						 FROM			PER_POS_MGTSALARYHIS peh, PER_EXTRATYPE pet
+						 WHERE		peh.PER_ID=$PER_ID and trim(peh.EX_CODE)=trim(pet.EX_CODE) 
+												$limit_data
+						ORDER BY	$order_str ";	
+	}elseif($DPISDB=="oci8"){	 
+		$rec_start = (($current_page3-1) * $data_per_page) + 1;
+		$rec_end = ($current_page3 > 1)? ($current_page3 * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		PMH_ID, PMH_EFFECTIVEDATE, pet.EX_NAME, PMH_AMT, PMH_ENDDATE, PMH_ACTIVE, AUDIT_FLAG
+								  from 		PER_POS_MGTSALARYHIS peh, PER_EXTRATYPE pet
+								  where 		peh.PER_ID=$PER_ID and trim(peh.EX_CODE)=trim(pet.EX_CODE) 
+												$search_condition
+								  order by 	$order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 					 
+	}elseif($DPISDB=="mysql"){
+			$cmd = " SELECT		PMH_ID, PMH_EFFECTIVEDATE, pet.EX_NAME, PMH_AMT, PMH_ENDDATE, PMH_ACTIVE, AUDIT_FLAG
+						 FROM	PER_POS_MGTSALARYHIS peh, PER_EXTRATYPE pet
+						 WHERE		peh.PER_ID=$PER_ID and trim(peh.EX_CODE)=trim(pet.EX_CODE) 
+						ORDER BY	$order_str
+												$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	//echo '<pre>'.$cmd;
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td>
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td height="25" width="10%" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>วันที่มีผลบังคับใช้</td>
+      <td width="10%" onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$TO_DATE_TITLE?></strong></td>
+      <td width="8%" onClick="call_sort(3);"><strong>
+        <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>จำนวนเงิน</td>
+      <td onClick="call_sort(4);"><strong>
+        <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>ประเภทเงิน</td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+	  <td width="4%">จำนวนไฟล์</td><?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all2" value="1" onClick="set_check_all(this.checked,'list_audit_id2',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+    </tr>
+    <?
+	$current_list2 = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page3 - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page3 - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_PMH_ID = $data[PMH_ID];
+		$current_list2 .= ((trim($current_list2))?",":"") . $TMP_PMH_ID;
+		$TMP_PMH_EFFECTIVEDATE = show_date_format($data[PMH_EFFECTIVEDATE], $DATE_DISPLAY);
+		$TMP_PMH_ENDDATE = show_date_format($data[PMH_ENDDATE], $DATE_DISPLAY);
+		$TMP_PMH_AMT = number_format($data[PMH_AMT], 2, '.', ',');
+		$TMP_EX_NAME = $data[EX_NAME];
+		$TMP_PMH_ACTIVE = $data[PMH_ACTIVE];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PMH_ID==$TMP_PMH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+//        if ($f_detail2 == "1" || ($f_detail2 == "0" && $TMP_PMH_ACTIVE == 1) || 
+//           ($f_detail2 == "0" && $TMP_PMH_ACTIVE == 0 && $data_count == 1)) {
+		if ($f_detail2 == "1" || ($f_detail2 == "0" && !$TMP_PMH_ENDDATE) || 
+           ($f_detail2 == "0" && $TMP_PMH_ENDDATE && $data_count == 1)) {
+			if ($PER_ORDER_BY==1) $num_order++;
+			else $num_order--;
+?>
+    		<tr class="<?=$class?>" <?=$onmouse_event?>>
+      			<td height="25" align="center"><?=$num_order?></td>
+      			<td align="center"><?=$TMP_PMH_EFFECTIVEDATE?></td>
+      			<td align="center"><?=$TMP_PMH_ENDDATE?></td>
+      			<td align="right"><?=$TMP_PMH_AMT?>&nbsp;</td>
+      			<td align="center">&nbsp;<?=$TMP_EX_NAME?></td>
+      			<td align="center">&nbsp;<a href="<?="javascript:call_view_pmh($PER_ID, $TMP_PMH_ID);"?>""><img src="images/icon_eye.gif" alt="ดูประวัติการรับเงินประจำตำแหน่ง" width="16" height="16" border="0"></a></td>
+<?
+				if($PAGE_AUTH["edit"]=="Y"){
+					if($TMP_AUDIT_FLAG=="Y"){
+?>
+						<td>&nbsp;</td>
+<? 				} else {
+?>
+						<td align="center">&nbsp;<a href="<?="javascript:call_update_pmh($PER_ID, $TMP_PMH_ID);"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติการรับเงินประจำตำแหน่ง"></a></td>
+<?				}
+				}
+				if ($PAGE_AUTH["del"]=="Y"){
+					if($TMP_AUDIT_FLAG=="Y") {
+?>
+						<td>&nbsp;</td>
+<? 			
+					} else {
+ ?>
+	      				<td align="center">&nbsp;<a href="<?="javascript:confirm_delete_pmh($TMP_PMH_ID,'$TMP_EX_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติการรับเงินประจำตำแหน่ง"></a></td>
+<?
+					}
+				}
+				$parameter1=$parameter2=$parameter3=$parameter4="";
+				$parameter1="PER_POS_MGTSALARYHIS";	$parameter2=$TMP_PMH_ID;	$parameter3="$TMP_EX_NAME $TMP_EXH_AMT";	$parameter4=$PER_ID;
+?>
+				<td align="center">&nbsp;<? 
+			  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+			  $numfiles=0;
+			  if(is_dir($FILE_PATH)){	
+				if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+					while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+						if ($file != "." && $file != "..") {
+							$numfiles++;
+						} // end if
+					} // while loop readdir
+					closedir($dh);
+				} // end if
+?>		
+				<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+			} else {	 
+            	echo "-";	
+			} 
+?>
+				</td>
+<?
+			if ($PAGE_AUTH["attach"]=="Y"){ 
+?>
+				<td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+<?		
+			} 
+
+			if (($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){
+?>
+				<td align="center"><input type="checkbox" id="list_audit_id2<?=$data_count; ?>"  name="list_audit_id2[]" value="<?=$TMP_PMH_ID?>"  onClick="set_uncheck_all(this.checked,form1.list_audit_all2,this.id)" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>><!--<?=$TMP_PMH_ID."=".$TMP_AUDIT_FLAG."+".$data[AUDIT_FLAG]; ?>--></td>
+<? 
+			}
+		} // end if ($f_detail2 == "1" || ($f_detail2 == "0" && !$TMP_PMH_ENDDATE) || ($f_detail2 == "0" && $TMP_PMH_ENDDATE && $data_count == 1))
+?>
+    		</tr>
+<? 
+	} // end while loop
+?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+	 <td>&nbsp;</td>
+<?if($PAGE_AUTH["del"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+		 <td>&nbsp;</td>
+		<? }else{ ?>
+		 <td>&nbsp;</td>
+		<? } ?>
+<? } ?>
+		<td>&nbsp;</td>
+		<?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? }?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit5" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG2'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image4" type="image" onClick="form1.command.value='SETFLAG2'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+	</tr>
+	<?}?> 
+		<?
+		if( $total_page3 > 1 && ($f_detail2 == "1") ) : ?>
+		<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    		<tr>
+				<td align="center"><?=$page_link?></td>
+			</tr>
+		</table>
+	<? endif;
+    } // end if count?>
+  </table>
+<br>
+
+<!--******************************************** ข้อมูลเงินเพิ่มพิเศษ ************************************************** -->
+
+<?
+	$cmd =" select 		count(EXH_ID) as count_data 
+					from 		PER_EXTRAHIS
+					where		PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page2 = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page_1more($total_page2, $current_page2, 2);
+	$limit_data = "";	
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+        <td align="left">&nbsp;&nbsp;
+            <?php 
+            if($show_btn_add){
+            ?>
+            <input type="button" name="button3" class="button" value="<?=$ADDTAB_TITLE?>" alt="เพิ่มข้อมูลเงินเพิ่มพิเศษ" onClick="call_add_exh('<?=$PER_ID?>');">
+            <?php }?>
+        </td>
+	  	<td align="center">พบข้อมูลเงินเพิ่มพิเศษทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <td align="right">
+        <? if ($f_detail1 == "1") { 
+        		$det_text1="ซ่อนรายละเอียด"; $det_alt1="ซ่อนรายละเอียด"; 
+             } else { 
+             	$det_text1="แสดงรายละเอียด";  $det_alt1="แสดงรายละเอียด";
+             } ?>
+        <input type="button" name="button4" class="button" value="<?=$det_text1?>" alt="<?=$det_alt1?>" onClick="call_detail_exh('<?=$f_detail1?>');">&nbsp;&nbsp;</td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+<?
+	/* if ($PER_ORDER_BY==1) $order_by = "EXH_ENDDATE, EXH_EFFECTIVEDATE";
+	else $order_by = "EXH_ENDDATE desc, EXH_EFFECTIVEDATE desc";   */
+	
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่มีผลบังคับใช้
+		$order_str = "EXH_EFFECTIVEDATE ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//ถึงวันที่
+		$order_str = "EXH_ENDDATE  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//จำนวนเงิน
+		$order_str = "EXH_AMT  ".$SortType[$order_by];
+	}elseif($order_by==4) {	//ประเภทเงินเพิ่มพิเศษ
+		$order_str = "EX_NAME ".$SortType[$order_by];
+	}
+	
+	if($current_page2 > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(EXH_ID) as concat_pk from PER_EXTRAHIS peh, PER_EXTRATYPE pet where peh.PER_ID=$PER_ID and peh.EX_CODE=pet.EX_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(EXH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page2 - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT		EXH_ID, EXH_EFFECTIVEDATE, pet.EX_NAME, EXH_AMT, EXH_ENDDATE, EXH_ACTIVE, AUDIT_FLAG
+						 FROM			PER_EXTRAHIS peh, PER_EXTRATYPE pet
+						 WHERE		peh.PER_ID=$PER_ID and peh.EX_CODE=pet.EX_CODE 
+												$limit_data
+						ORDER BY	$order_str ";	
+	}elseif($DPISDB=="oci8"){	 
+		$rec_start = (($current_page2-1) * $data_per_page) + 1;
+		$rec_end = ($current_page2 > 1)? ($current_page2 * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		EXH_ID, EXH_EFFECTIVEDATE, pet.EX_NAME, EXH_AMT, EXH_ENDDATE, EXH_ACTIVE, AUDIT_FLAG
+								  from 		PER_EXTRAHIS peh, PER_EXTRATYPE pet
+								  where 		peh.PER_ID=$PER_ID and peh.EX_CODE=pet.EX_CODE 
+												$search_condition
+								  order by 	$order_str
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 					 
+	}elseif($DPISDB=="mysql"){
+			$cmd = " SELECT		EXH_ID, EXH_EFFECTIVEDATE, pet.EX_NAME, EXH_AMT, EXH_ENDDATE, EXH_ACTIVE, AUDIT_FLAG
+						 FROM	PER_EXTRAHIS peh, PER_EXTRATYPE pet
+						 WHERE		peh.PER_ID=$PER_ID and peh.EX_CODE=pet.EX_CODE 
+						ORDER BY	$order_str
+												$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "$cmd<br>";
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td>
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td height="25" width="10%" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>วันที่มีผลบังคับใช้</td>
+      <td width="10%" onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$TO_DATE_TITLE?></strong></td>
+      <td width="8%" onClick="call_sort(3);"><strong>
+        <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>จำนวนเงิน</td>
+      <td onClick="call_sort(4);"><strong>
+        <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>ประเภทเงินเพิ่มพิเศษ</td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      	<td width="4%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      	<td width="4%"><?=$DEL_TITLE?></td>
+      <?}?>
+	  <td width="4%">จำนวนไฟล์</td><?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all3" value="1" onClick="set_check_all(this.checked,'list_audit_id3',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+    </tr>
+    <?
+	$current_list3 = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page2 - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page2 - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_EXH_ID = $data[EXH_ID];
+		$current_list3 .= ((trim($current_list3))?",":"") . $TMP_EXH_ID;
+		$TMP_EXH_EFFECTIVEDATE = show_date_format($data[EXH_EFFECTIVEDATE], $DATE_DISPLAY);
+		$TMP_EXH_ENDDATE = show_date_format($data[EXH_ENDDATE], $DATE_DISPLAY);
+		$TMP_EXH_AMT = number_format($data[EXH_AMT], 2, '.', ',');
+		$TMP_EX_NAME = $data[EX_NAME];
+		$TMP_EXH_ACTIVE = $data[EXH_ACTIVE];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($EXH_ID==$TMP_EXH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+//		if ($f_detail1 == "1" || ($f_detail1 == "0" && $data_count == 1)) {
+//		if ($f_detail1 == "1" || ($f_detail1 == "0" && $TMP_EXH_ACTIVE == 1)) {
+		if ($f_detail1 == "1" || ($f_detail1 == "0" && !$TMP_EXH_ENDDATE) || 
+				($f_detail1 == "0" && $TMP_EXH_ENDDATE && $data_count == 1)) {
+//				echo "1..f_detail1=$f_detail1 , TMP_EXH_ENDDATE=$TMP_EXH_ENDDATE , data_count=$data_count<br>";
+?>
+			<tr class="<?=$class?>" <?=$onmouse_event?>>
+      			<td height="25" align="center"><?=$num_order?></td>
+      			<td align="center"><?=$TMP_EXH_EFFECTIVEDATE?></td>
+      			<td align="center"><?=$TMP_EXH_ENDDATE?></td>
+      			<td align="right"><?=$TMP_EXH_AMT?>&nbsp;</td>
+      			<td align="center">&nbsp;<?=$TMP_EX_NAME?></td>
+      			<td align="center">&nbsp;<a href="<?="javascript:call_view_exh($PER_ID, $TMP_EXH_ID);"?>""><img src="images/icon_eye.gif" alt="ดูประวัติการรับเงินเพิ่มพิเศษ" width="16" height="16" border="0"></a></td>
+<?
+	  			if($PAGE_AUTH["edit"]=="Y"){
+					if($TMP_AUDIT_FLAG=="Y"){
+?>
+						<td>&nbsp;</td>
+<? 
+					} else {
+?>
+      					<td align="center">&nbsp;<a href="<?="javascript:call_update_exh($PER_ID, $TMP_EXH_ID);"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติการรับเงินเพิ่มพิเศษ"></a></td>
+<? 
+					}
+				}
+				if($PAGE_AUTH["del"]=="Y"){
+					if($TMP_AUDIT_FLAG=="Y"){
+?>
+						<td>&nbsp;</td>
+<?
+					} else { 
+?>
+						<td align="center">&nbsp;<a href="<?="javascript:confirm_delete_exh($TMP_EXH_ID,'$TMP_EX_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติการรับเงินเพิ่มพิเศษ"></a></td>
+<?
+					}
+				}
+				$parameter1=$parameter2=$parameter3=$parameter4="";
+				$parameter1="PER_EXTRAHIS";	$parameter2=$TMP_EXH_ID;	$parameter3="$TMP_EX_NAME $TMP_EXH_AMT";	$parameter4=$PER_ID;
+?>
+				<td align="center">&nbsp;
+<? 
+				$FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+			 	$numfiles=0;
+			  	if (is_dir($FILE_PATH)){	
+					if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+						while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+							if ($file != "." && $file != "..") {
+								$numfiles++;
+							} // end if
+						} // while loop readdir
+						closedir($dh);
+					} // end if
+?>		
+					<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  			} else {	 
+              		echo "-";	
+				} 
+?>
+				</td>
+<? 
+				if ($PAGE_AUTH["attach"]=="Y"){ 
+?>
+            		<td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+<? 	
+				} 
+
+				if (($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){
+?>
+      					<td align="center"><input type="checkbox" id="list_audit_id3<?=$data_count; ?>" name="list_audit_id3[]" value="<?=$TMP_EXH_ID?>" onClick="set_uncheck_all(this.checked,form1.list_audit_all3,this.id)" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>><!---<?=$TMP_EXH_ID."=".$TMP_AUDIT_FLAG."+".$data[AUDIT_FLAG]; ?>---></td>
+<? 			
+				} 
+		} else {
+//				echo "2..f_detail1=$f_detail1 , TMP_EXH_ENDDATE=$TMP_EXH_ENDDATE , data_count=$data_count<br>";
+		} // end if ($f_detail1 == "1" || ($f_detail1 == "0" && !$TMP_EXH_ENDDATE) || ($f_detail1 == "0" && $TMP_EXH_ENDDATE && $data_count == 1))
+
+?>
+    		</tr>
+<?
+	} // end while loop
+?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>	  
+      <td>&nbsp;</td>
+      <? if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+		<? if($PAGE_AUTH["del"]=="Y"){?>
+	  		<? if($TMP_AUDIT_FLAG=="Y"){?>
+				<td>&nbsp;</td>
+			<? }else{ ?>
+				<td>&nbsp;</td>
+			<? } ?>
+		<? } ?>
+	  	<? if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? }?>
+      	<? if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      			<td align="center">
+                <? if ($BUTTON_DISPLAY==1) { ?>
+        				<input type="submit" name="Submit6" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG3'" class="button" style="width:98%">
+        		<? } else { ?>
+        				<input name="image5" type="image" onClick="form1.command.value='SETFLAG3'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        		<? } ?></td>
+	  	<? } ?>
+	</tr>
+	<? } ?> 
+		<?
+		if( $total_page2 > 1 && ($f_detail1 == "1") ) : ?>
+		<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    		<tr>
+				<td align="center"><?=$page_link?></td>
+			</tr>
+		</table>
+	<? endif; ?>
+  </table>
+<br>
+		<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+			<tr><td colspan="11">&nbsp;</td></tr>
+			<tr><td colspan="11"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+		</table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list1" value="<?=$current_list1?>">
+<input type="hidden" name="current_list2" value="<?=$current_list2?>">
+<input type="hidden" name="current_list3" value="<?=$current_list3?>">
+        </form>	
+<? 
+//echo "<pre>"; echo "1 : $current_list1 <br>2 : $current_list2 <br>3 : $current_list3 <br></pre>"; 
+//print("<pre>");	print_r($SAH_ID_LAST); print("</pre>");	 
+?>
+<?
+	include("jqModalDialog.html");
+?>
+  </body>
+  <script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

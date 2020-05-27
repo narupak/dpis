@@ -1,0 +1,747 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_punishment.php");
+	include("php_scripts/load_per_control.php");
+	
+	$cmd =" select 		count(PUN_ID) as count_data 
+					from 		PER_PUNISHMENT
+					where		PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(srh_id , srh_name){
+		if(confirm("ต้องการลบประวัติราชการพิเศษนี้ ใช่หรือไม่ [ " + srh_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.PUN_ID.value = srh_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_crime_dtl () {	
+		parameter = "";
+	    call_openDialog("search_crime_dtl.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กรณีความผิด");		
+	}	
+
+	function call_search_penalty (code, name) {	
+		parameter = "";
+		pen_code = eval("form1." + code);
+		pen_name = eval("form1." + name);
+	    call_openDialog("search_penalty.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ประเภทโทษทางวินัย");		
+	}	
+	
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+</script>
+
+<script type="text/javascript" language="JavaScript">
+	function checkadd(f) {
+		if(f.CRD_NAME.value=="") {
+			alert("กรุณาระบุ กรณีความผิด");
+			f.CRD_NAME.focus();
+			return false;
+		} else if(f.PEN_NAME.value=="") {
+			alert("กรุณาระบุ สั่งให้");
+			f.PEN_NAME.focus();
+			return false;
+		} else if(f.PUN_STARTDATE.value=="") {
+			alert("กรุณาระบุ วันที่รับโทษ");
+			f.PUN_STARTDATE.focus();
+			return false;
+		}else if(f.PUN_ENDDATE.value=="") {
+			alert("กรุณาระบุ วันที่สิ้นสุดการลงโทษ");
+			f.PUN_STARTDATE.focus();
+			return false;
+		} else { 
+			form1.command.value='ADD';
+//			form1.submit();
+			return true;
+		}
+	}
+	
+	function checkupdate(f) {
+		if(f.CRD_NAME.value=="") {
+			alert("กรุณาระบุ กรณีความผิด");
+			f.CRD_NAME.focus();
+			return false;
+		} else if(f.PEN_NAME.value=="") {
+			alert("กรุณาระบุ สั่งให้");
+			f.PEN_NAME.focus();
+			return false;
+		} else if(f.PUN_STARTDATE.value=="") {
+			alert("กรุณาระบุ วันที่รับโทษ");
+			f.PUN_STARTDATE.focus();
+			return false;
+		}else if(f.PUN_ENDDATE.value=="") {
+			alert("กรุณาระบุ วันที่สิ้นสุดการลงโทษ");
+			f.PUN_STARTDATE.focus();
+			return false;
+		} else { 
+			form1.command.value='UPDATE';
+//			form1.submit();
+			return true;
+		}
+	}
+	
+	function setLayer(layerID){
+		if(document.getElementById(layerID)){
+			if(document.getElementById(layerID).style.display=='none'){
+				document.getElementById(layerID).style.display='block';	
+			}else{
+				document.getElementById(layerID).style.display='none';
+			}
+			if(document.getElementById(layerID).style.visibility=='hidden'){
+				document.getElementById(layerID).style.visibility='visible';
+			}else{
+				document.getElementById(layerID).style.visibility='hidden';
+			}
+		}
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_crime_dtl") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.CRD_CODE.value = arrValue[0];
+				form1.CRD_NAME.value = arrValue[1];
+				form1.CR_CODE.value = arrValue[2];
+				form1.CR_NAME.value = arrValue[3];			
+			} // end if
+		} else if  (src.indexOf("search_penalty") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				pen_code.value = arrValue[0];
+				pen_name.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+	?>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลทางวินัย":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		$setPerStyle="display:none; visibility:hidden";
+		if($UPD||$VIEW||($BKK_FLAG==1&&$ADD_NEXT==1)){ $setPerStyle="display:block; visibility:visible"; }
+		include("current_location.html");
+?>	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_punishment.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="PUN_ID" value="<?=$PUN_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">		   
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+          &nbsp;<? if ($BUTTON_DISPLAY==1) { ?>
+		  <input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_punishment'"><!--history.back(); --><?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_punishment'">
+              <? } echo "&nbsp; &nbsp;"; ?>
+			  <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td>
+               <?php
+              if($show_btn_add){
+              ?>
+              <table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body" onClick="javascript:setLayer('id_punishment');"><?=($UPD)?"แก้ไข":$ADDTAB_TITLE?>ข้อมูล</td>
+		  </tr>		
+	  </table>
+                <?php }?>
+          </td>
+	</tr>
+  </table>
+  <table id="id_punishment"  width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" style="<?=$setPerStyle; ?>" 
+  onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);"
+>
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td align="right">เลขที่รับหนังสือ&nbsp;:&nbsp;</td>
+              <td>
+                  <input  maxlength="100" type="text" name="PUN_RECEIVE_NO"  value="<?=$PUN_RECEIVE_NO?>" style="width:100%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+              </td>
+	     <td align="right">เลขที่ส่งหนังสือ&nbsp;:&nbsp;</td>
+            <td>
+                <input maxlength="100"  type="text" name="PUN_SEND_NO" value="<?=$PUN_SEND_NO?>" style="width:100%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+            </td>
+            </tr>
+            <tr>
+              <td align="right">เลขที่คำสั่งสอบสวน&nbsp;:&nbsp;</td>
+              <td>
+                  <input maxlength="100"   type="text" name="INV_NO" value="<?=$INV_NO?>" style="width:100%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+              </td>
+	     <td align="right">เลขที่คำสั่งทางวินัย&nbsp;:&nbsp;</td>
+            <td>
+                <input maxlength="100"  type="text" name="PUN_NO" value="<?=$PUN_NO?>" style="width:100%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+            </td>
+            </tr>
+            <tr>
+              <td height="22" align="right">อ้างอิงจากคำสั่งทางวินัย เลขที่&nbsp;:&nbsp;</td>
+              <td>	<input maxlength="20"  type="text" name="PUN_REF_NO" value="<?=$PUN_REF_NO?>" style="width:50%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>			</td>
+              <td height="22" align="right"><span class="label_alert">*</span>&nbsp;ระดับความผิด&nbsp;:&nbsp;</td>
+              <td>
+		  	<select name="PUN_TYPE" class="selectbox">
+			  <option value="1" <?=($PUN_TYPE==1)?"selected":""?>>&nbsp;ความผิดร้ายแรง</option>
+			  <option value="2" <?=($PUN_TYPE==2)?"selected":""?>>&nbsp;ความผิดไม่ร้ายแรง</option>
+			  <option value="3" <?=($PUN_TYPE==3)?"selected":""?>>&nbsp;ไม่เป็นความผิดทางวินัย</option>
+			</select>		  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;กรณีความผิด&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="70%" height="22">
+				  	<input type="text" name="CRD_NAME" value="<?=$CRD_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="CRD_CODE" value="<?=$CRD_CODE?>">				  </td>
+                  <td width="30%">&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกรณีความผิด" onClick="call_search_crime_dtl();">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.CRD_NAME.value=''; form1.CRD_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+				  	<? endif; ?>			</td>
+                </tr>
+              </table></td>
+              <td align="right">ฐานความผิด&nbsp;:&nbsp;</td>
+              <td>
+			<input type="text" name="CR_NAME" value="<?=$CR_NAME?>" style="width:85%" class="textbox" readonly>
+			<input type="hidden" name="CR_CODE" value="<?=$CR_CODE?>">		</td>
+            </tr>     
+            <tr>
+              <td></td>
+            </tr>
+            <tr>
+              <td align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ประเภทโทษทางวินัย&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="70%" height="22">
+				  	<input type="text" name="PEN_NAME" value="<?=$PEN_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="PEN_CODE" value="<?=$PEN_CODE?>">				  </td>
+                  <td width="30%">&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทโทษทางวินัย" onClick="call_search_penalty('PEN_CODE', 'PEN_NAME');">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.PEN_NAME.value=''; form1.PEN_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td height="22" align="right">วันที่ออกคำสั่งลงโทษ&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_DOCDATE" id="PUN_DOCDATE" value="<?=$PUN_DOCDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_DOCDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('PUN_DOCDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>	     
+            <tr>
+              <td width="20%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;วันที่มีผลบังคับใช้&nbsp;:&nbsp;</td>
+              <td width="30%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_STARTDATE" id="PUN_STARTDATE" value="<?=$PUN_STARTDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_STARTDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('PUN_STARTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td width="15%" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;วันที่สิ้นสุดการลงโทษ&nbsp;:&nbsp;</td>
+              <td width="30%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_ENDDATE" id="PUN_ENDDATE" value="<?=$PUN_ENDDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_ENDDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('PUN_ENDDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+			<?php if($dataModify[CNT]!=0){?>			
+            <tr>
+              <td height="22" align="right">วันที่รายงาน&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_REPORTDATE" id="PUN_REPORTDATE" value="<?=$PUN_REPORTDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_REPORTDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="reset" class="button" onClick="return showCalendar('PUN_REPORTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+			 
+              <td align="right">วันที่กระทำผิด วันที่&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_VIOLATEDATE" id="PUN_VIOLATEDATE" value="<?=$PUN_VIOLATEDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_VIOLATEDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('PUN_VIOLATEDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>
+			
+			<tr>
+              <td height="22"></td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+                  <td></td>
+                </tr>
+              </table></td>
+              <td align="right">ถึงวันที่&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="PUN_VIOLATEDATE_END" id="PUN_VIOLATEDATE_END" value="<?=$PUN_VIOLATEDATE_END?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_VIOLATEDATE_END,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+                  <td>&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('PUN_VIOLATEDATE_END', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+            </tr>	
+			<?}else{?>
+				<tr>
+				  <td height="22" align="right">วันที่รายงาน&nbsp;:&nbsp;</td>
+				  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+					<tr>
+					  <td width="50%" height="22">
+						<input type="text" name="PUN_REPORTDATE" id="PUN_REPORTDATE" value="<?=$PUN_REPORTDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_REPORTDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+					  <td>&nbsp;
+							<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+						<input type="reset" class="button" onClick="return showCalendar('PUN_REPORTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+						<? endif; ?>				  </td>
+					</tr>
+				  </table></td>
+				 
+				  <td align="right">วันที่กระทำผิด&nbsp;:&nbsp;</td>
+				  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+					<tr>
+					  <td width="50%" height="22">
+						<input type="text" name="PUN_VIOLATEDATE" id="PUN_VIOLATEDATE" value="<?=$PUN_VIOLATEDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.PUN_VIOLATEDATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+					  <td>&nbsp;
+						<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+						<input type="reset" class="button" onClick="return showCalendar('PUN_VIOLATEDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+						<? endif; ?>				  </td>
+					</tr>
+				  </table></td>
+				</tr>
+				
+			<?}?>
+			
+            </tr>			     			
+			<tr>
+              <td height="22" align="right"><?=$REMARK_TITLE;?>/การล้างมลทิน&nbsp;:&nbsp;</td>
+              <td colspan="3"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+					<textarea name="PUN_REMARK" class="selectbox" cols="100" rows="3" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$PUN_REMARK?></textarea>
+					</td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+			</tr>
+            <tr>
+              <td height="22" align="right">ข้อสังเกตของเจ้าหน้าที่&nbsp;:&nbsp;</td>
+              <td colspan="3"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="80%" height="22">
+					<textarea name="PUN_NOTICE" class="selectbox" cols="100" rows="3" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$PUN_NOTICE?></textarea>
+					</td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+            </tr>			
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:80%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" style="width:80%" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25">
+		  		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <input name="Submit22" type="image" onClick="return checkupdate(form1);"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+				<? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.PUN_ID.value='';" class="button" >
+              <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.PUN_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?>
+              <?if($PAGE_AUTH["add"]=="Y"){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Submit_add" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+              <?  } else { ?>
+              <input name="Submit2" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+      		  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+              <?}?>          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table>
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลทางวินัยทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>     
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+	
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่รับโทษ
+		$order_str = "ORDER BY PUN_STARTDATE ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//เลขที่คำสั่งสอบสวน
+		$order_str = "ORDER BY INV_NO ".$SortType[$order_by];
+  	} elseif($order_by==3) {	// เลขที่คำสั่งทางวินัย
+		$order_str = "ORDER BY PUN_NO ".$SortType[$order_by];
+	} elseif($order_by==4) {	//กรณีความผิด
+		$order_str =  "ORDER BY pcd.CRD_NAME  ".$SortType[$order_by];
+	}elseif($order_by==5) {	// ฐานความผิด
+		$order_str = "ORDER BY CR_NAME ".$SortType[$order_by];
+	}elseif($order_by==6) {	//วันที่สิ้นสุดโทษ
+		$order_str = "ORDER BY PUN_ENDDATE ".$SortType[$order_by];
+	}
+	
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(PUN_ID) as concat_pk from PER_PUNISHMENT ppm, PER_CRIME_DTL pcd 
+							where PER_ID=$PER_ID and ppm.CRD_CODE=pcd.CRD_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(PUN_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+		  $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT 		PUN_ID, INV_NO, PUN_NO, ppm.CRD_CODE, pcd.CRD_NAME, PUN_STARTDATE, PUN_ENDDATE, AUDIT_FLAG 
+						 FROM			PER_PUNISHMENT ppm, PER_CRIME_DTL pcd  
+						 WHERE		PER_ID=$PER_ID and ppm.CRD_CODE=pcd.CRD_CODE 
+												$limit_data
+						$order_str ";
+	}elseif($DPISDB=="oci8"){	
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		PUN_ID, INV_NO, PUN_NO, ppm.CRD_CODE, pcd.CRD_NAME, PUN_STARTDATE, PUN_ENDDATE, AUDIT_FLAG 
+								  from 		PER_PUNISHMENT ppm, PER_CRIME_DTL pcd  
+								  where 		PER_ID=$PER_ID and ppm.CRD_CODE=pcd.CRD_CODE  
+								  $order_str 
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 					 
+	}elseif($DPISDB=="mysql"){
+		$cmd = " SELECT 	PUN_ID, INV_NO, PUN_NO, ppm.CRD_CODE, pcd.CRD_NAME, PUN_STARTDATE, PUN_ENDDATE, AUDIT_FLAG 
+						 FROM		PER_PUNISHMENT ppm, PER_CRIME_DTL pcd  
+						 WHERE		PER_ID=$PER_ID and ppm.CRD_CODE=pcd.CRD_CODE 
+						$order_str 
+										$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+    //echo $cmd;
+	if ($count_page_data) {
+?>
+<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr align="center" class="table_head">
+    <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+    <td width="13%" height="21" onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>เลขที่คำสั่งสอบสวน</td>
+    <td width="13%" onClick="call_sort(3);"><strong><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>เลขที่คำสั่งทางวินัย</td>
+    <td onClick="call_sort(4);"><strong><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>กรณีความผิด</td>
+    <td >ฐานความผิด</td>
+    <td height="25" width="11%" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>วันที่รับโทษ</td>
+    <td width="11%" onClick="call_sort(6);"><strong><? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>วันที่สิ้นสุดโทษ</strong></td>
+    <td width="4%"><?=$INQ_TITLE?></td>
+    <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+    <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+	<td width="4%">จำนวนไฟล์</td>
+	 <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all" value="1" onClick="set_check_all(this.checked,'list_audit_id',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+  </tr>
+  <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_PUN_ID = $data[PUN_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PUN_ID;
+		$TMP_INV_NO = $data[INV_NO];
+		$TMP_PUN_NO = $data[PUN_NO];
+		$TMP_PUN_STARTDATE = show_date_format($data[PUN_STARTDATE], $DATE_DISPLAY);
+		$TMP_PUN_ENDDATE = show_date_format($data[PUN_ENDDATE], $DATE_DISPLAY);
+		$TMP_CRD_CODE = $data[CRD_CODE];
+		$TMP_CRD_NAME = $data[CRD_NAME];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		if($TMP_CRD_CODE){
+			$cmd = " select CR_NAME from PER_CRIME pc, PER_CRIME_DTL pcd where CRD_CODE='$TMP_CRD_CODE' and pc.CR_CODE=pcd.CR_CODE";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_CR_NAME = $data2[CR_NAME];
+		} // end if
+	
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PUN_ID==$TMP_PUN_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+    <td height="25" align="center"><?=$num_order?></td>
+    <td>&nbsp;
+        <?=$TMP_INV_NO?></td>
+    <td>&nbsp;
+        <?=$TMP_PUN_NO?></td>
+    <td>&nbsp;
+        <?=$TMP_CRD_NAME?></td>
+    <td>&nbsp;
+        <?=$TMP_CR_NAME?></td>
+    <td align="center"><?=$TMP_PUN_STARTDATE?></td>
+    <td align="center"><?=$TMP_PUN_ENDDATE?></td>
+    <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.PUN_ID.value=$TMP_PUN_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติทางวินัย" width="16" height="16" border="0"></a></td>
+    <?if($PAGE_AUTH["edit"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td><?=$AUDITED_TITLE?></td>
+	  	<? } else { ?>
+		    <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.PUN_ID.value=$TMP_PUN_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติทางวินัย"></a></td>
+	  	<?}?>
+    <?}?>
+    <?if($PAGE_AUTH["del"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td>&nbsp;</td>
+	  	<? } else { ?>
+		    <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_PUN_ID,'$TMP_CRD_NAME : $TMP_CR_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติทางวินัย"></a></td>
+	  	<?}?>
+    <?}?>
+	<? $parameter1=$parameter2=$parameter3=$parameter4=""; ?>
+	 <? if($ATTACH_FILE==1){
+				$parameter1="PER_ATTACHMENT";	$parameter2="54";	$parameter3="โทษทางวินัย, ตั้งกรรมการสอบวินัย";	$parameter4=$PER_ID;
+			}else{
+				$parameter1="PER_PUNISHMENT"; 	$parameter2=$TMP_PUN_ID;	$parameter3="$TMP_CRD_NAME $TMP_PUN_STARTDATE";	$parameter4=$PER_ID;
+			}
+	  ?>
+	  <td align="center">&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td align="center"><input type="checkbox" id="list_audit_id<?=$data_count; ?>" name="list_audit_id[]" onClick="set_uncheck_all(this.checked,form1.list_audit_all,this.id)"  value="<?=$TMP_PUN_ID?>" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>></td><? } ?>
+  </tr>
+  <? } ?>
+  <?if($PAGE_AUTH["edit"]=="Y"){?>
+  <tr class="table_footer" height="24">
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+    <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    <td>&nbsp;</td>
+	 <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+  </tr>
+  <?}?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+	<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+		<tr><td colspan="11">&nbsp;</td></tr>
+		<tr><td colspan="11"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+	</table>
+  <? } // if  count show ?>
+  		  <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

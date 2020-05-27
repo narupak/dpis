@@ -1,0 +1,138 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+	$msg = "1..NUMBER_DISPLAY=$NUMBER_DISPLAY, NUMBER_DISPLAY1=$NUMBER_DISPLAY1|\n";
+	if (!$NUMBER_DISPLAY1) 	$NUMBER_DISPLAY1 = $NUMBER_DISPLAY;
+
+   	include ("report/rpt_R00test_format.php");	// กำหนดหัวและตัวแปรสำหรับการเปลี่ยนรูปแบบรายงาน
+
+	$msg .= "2..NUMBER_DISPLAY=$NUMBER_DISPLAY, NUMBER_DISPLAY1=$NUMBER_DISPLAY1|\n";
+	$msg .= "column_function=".implode("|",$column_function)."\n";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script language="JavaScript" src="java_scripts/function_utility.js"></script>
+<script language="JavaScript">
+	var total_rpt_order = 7;
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+		
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function call_report ( type ) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+
+		for(var i=0; i < document.form1.NUMBER_DISPLAY1.length; i++){
+			if(document.form1.NUMBER_DISPLAY1[i].checked)	NUMBER_DISPLAY1 = document.form1.NUMBER_DISPLAY1[i].value;
+		}
+		document.form1.target = "_blank";
+
+//		alert("NUMBER_DISPLAY1="+NUMBER_DISPLAY1);
+		if(!type) document.form1.action = "report/rpt_R00test.php?UTC" + rptDate+'&NUMBER_DISPLAY1='+NUMBER_DISPLAY1;
+		else document.form1.action = "report/rpt_R00test_xls.php?UTC" + rptDate+'&NUMBER_DISPLAY1='+NUMBER_DISPLAY1;
+
+		document.form1.submit();
+	} 
+	
+	function call_adjust() {
+		parameter = "&COLUMN_FORMAT="+form1.COLUMN_FORMAT.value+"&rpt_format=rpt_R00test_format.php";
+//		alert(parameter);
+		childReturn = window.showModalDialog("rpt_column_adjust_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 1000px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			form1.COLUMN_FORMAT.value = childReturn;
+//			alert(form1.COLUMN_FORMAT.value);
+		} // end if
+	}
+
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="center" valign="top">
+		<form name="form1" method="post" action="rpt_R00test.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="report" value="<?=$report?>">
+		  <input type="hidden" name="COLUMN_FORMAT" value="<?=$COLUMN_FORMAT?>">
+		&nbsp;
+		<table width="90%"  border="0" cellspacing="0" cellpadding="0">
+		  <tr>
+			<td align="center">
+	<? if ($REPORT_GEN==1) { ?>
+			<input name="bt_adjust" type="button" class="button" value="<?=$REPORT_FORMAT_TITLE?>" onClick="call_adjust();">&nbsp; &nbsp;
+	<? } ?>
+	<? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="btn2" type="button" class="button" value="<?=$PDF_TITLE?>" onClick="call_report(0);">
+              <?  } else { ?>
+              <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_report(0);">
+              <? } echo "&nbsp; &nbsp;";?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+				<input name="btn3" type="button" class="button" value="<?=$EXCEL_TITLE?>" onClick="call_report(1);">
+              <?  } else { ?>
+				<img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_report(1);">
+              <? } echo "&nbsp; &nbsp;"; ?>
+				<input type="radio" name="NUMBER_DISPLAY1" value="1" <?=($NUMBER_DISPLAY1==1)?"checked":""?>>เลขอารบิค
+				<input type="radio" name="NUMBER_DISPLAY1" value="2" <?=($NUMBER_DISPLAY1==2)?"checked":""?>>เลขไทย
+			  </td>
+		  </tr>
+		</table>
+		&nbsp;
+		<table width="90%"  border="0" cellspacing="0" cellpadding="0">
+			<tr>
+				<td align="center" bgcolor="#9999CC">&nbsp;ข้อความ&nbsp;</td>
+			</tr>
+			<tr>
+				<td align="center">&nbsp;<textarea rows="8" cols="200"><?=$msg?></textarea>
+				</td>
+			</tr>
+		</table>
+		&nbsp;
+	  </form>	
+	  </td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

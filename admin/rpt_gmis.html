@@ -1,0 +1,717 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	
+	switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if(!$search_ct_code) $search_ct_code = '140';
+	$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+	$db_dpis->send_cmd($cmd);	
+	$data = $db_dpis->get_array();
+	$search_ct_name = $data[CT_NAME];
+
+	if(!$search_budget_year){
+		if(date("Y-m-d") <= date("Y")."-10-01") $search_budget_year = date("Y") + 543;
+		else $search_budget_year = (date("Y") + 543) + 1;
+	} // end if
+        
+        //base 64 encode/host/name/user pass
+        $ENC_H = base64_encode($dpisdb_host);
+        $ENC_N = base64_encode($dpisdb_name);
+        $ENC_U = base64_encode($dpisdb_user);
+        $ENC_P = base64_encode($dpisdb_pwd);
+        
+        if(!$file_limits){ $file_limits=5000; }
+        if(!$data_limits){ $data_limits=5000; }
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<style>
+    .btnDuplicate {
+        background: url(images/cssbtnDuplicate.png) no-repeat;
+        border-radius: 5px;
+    }
+</style>
+</head>
+<script language="JavaScript" src="java_scripts/function_utility.js"></script>
+<script type="text/javascript" src="java_scripts/jquery-1.10.2.js"></script>
+<script language="JavaScript">
+	var total_rpt_order = 1;
+        var ENC_H = "<?=$ENC_H?>";
+        var ENC_N = "<?=$ENC_N?>";
+        var ENC_U = "<?=$ENC_U?>";
+        var ENC_P = "<?=$ENC_P?>";
+        $( document ).ready(function() {
+			<?php if (version_compare(PHP_VERSION, '5.0.0', '>')) { ?>
+				_get_total_time();
+			<?php }	?>
+            //console.log( "ready!" );
+        });
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+		
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_report (type) {
+                var checkstime = $('#checkstime').val();
+                var checketime = $('#checketime').val();
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		
+		var RPTORD_LIST = "";
+		for(var i=1; i<=total_rpt_order; i++){
+			if(eval("document.all.RPTORD_ORDER_" + i + ".checked")){
+				if(RPTORD_LIST) RPTORD_LIST += "|";
+				RPTORD_LIST += eval("document.all.RPTORD_ORDER_" + i + ".value");
+			}
+		}
+                if(type==5 && ((!checkstime || checkstime=='') || (!checketime || checketime==''))){
+                    alert("ไม่พบข้อมูลการประมวลผล กรุณากดปุ่มประมวลผลก่อนออกรายงาน!!");
+                    return false;
+                }
+		document.form1.RPTORD_LIST.value = RPTORD_LIST;
+		document.form1.target = "_blank";
+		if (type==1)
+			document.form1.action = "report/rpt_gmis_xls1.php?rpt_type=1&UTC" + rptDate;
+		else if (type==2)
+			document.form1.action = "report/rpt_gmis_xls4.php?rpt_type=1&UTC" + rptDate;
+		else if (type==3)
+			document.form1.action = "report/rpt_gmis_xls7.php?rpt_type=1&UTC" + rptDate;
+		else if (type==4)
+			document.form1.action = "report/rpt_gmis_xls10.php?rpt_type=1&UTC" + rptDate;
+                else if (type==5)
+			document.form1.action = "report/rpt_gmis_xls1_new.php?rpt_type=1&UTC" + rptDate;
+		document.form1.submit();
+	} 
+	
+	function  control_order(isChecked, order){
+		if(isChecked){
+			eval("document.all.RPTORD_ROW_" + order + ".className='table_body';");
+		}else{
+			eval("document.all.RPTORD_ROW_" + order + ".className='table_body_3';");
+		}
+	}
+	
+	function control_checkbox(list_type){
+		if(list_type=="PER_ORG"){
+			for(var i=1; i<=total_rpt_order; i++){
+				if(eval("document.all.RPTORD_ORDER_" + i + ".value")=="ORG"){ 
+					eval("document.all.RPTORD_ORDER_" + i + ".checked = false");
+				} // end if
+				if(eval("document.all.RPTORD_ORDER_" + i + ".value")=="LINE"){ 
+					eval("document.all.RPTORD_ORDER_" + i + ".checked = true");
+				} // end if
+			} // end for
+		}else if(list_type=="PER_LINE"){
+			for(var i=1; i<=total_rpt_order; i++){
+				if(eval("document.all.RPTORD_ORDER_" + i + ".value")=="LINE"){ 
+					eval("document.all.RPTORD_ORDER_" + i + ".checked = false");
+				} // end if
+				if(eval("document.all.RPTORD_ORDER_" + i + ".value")=="ORG"){ 
+					eval("document.all.RPTORD_ORDER_" + i + ".checked = true");
+				} // end if
+			} // end for
+		}else{
+			for(var i=1; i<=total_rpt_order; i++){
+				if(eval("document.all.RPTORD_ORDER_" + i + ".value")=="ORG" || eval("document.all.RPTORD_ORDER_" + i + ".value")=="LINE"){ 
+					eval("document.all.RPTORD_ORDER_" + i + ".checked = true");
+				} // end if
+			} // end for
+		} // end if
+	}
+	
+	function form_initialize(){
+		for(var i=1; i<=total_rpt_order; i++) eval("document.all.RPTORD_ROW_" + i + ".className='table_body';");
+		document.all.RPTORD_ORDER_1.disabled = true;
+		document.all.RPTORD_ORDER_1.value = "POSNO";
+		document.all.RPTORD_LABEL_1.innerText = "เลขที่ตำแหน่ง";
+		document.all.RPTORD_ROW_1.className = "table_body";
+//		document.all.IMG_DOWN_1.style.display = "block";
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+        
+        function setLayer(layerID){
+            if(document.getElementById(layerID)){
+                if(document.getElementById(layerID).style.display=='none'){
+                        document.getElementById(layerID).style.display='';	
+                }else{
+                        document.getElementById(layerID).style.display='none';
+                }
+            }
+        }
+        
+        function call_report_ajax(){
+            var progressBar = document.getElementById("progress"),
+            loadBtn = document.getElementById("button"),
+            btn_new = document.getElementById("btn_new"),
+            display = document.getElementById("display");
+            if(confirm("ปุ่มนี้มีข้อมูลปริมาณมาก อาจเกิดความล่าช้าในการทำงาน!!!")){
+                //return true;
+            }else{
+                return false;
+            }
+            var RPTORD_LIST = "";
+            for(var i=1; i<=total_rpt_order; i++){
+                if(eval("document.all.RPTORD_ORDER_" + i + ".checked")){
+                    if(RPTORD_LIST) RPTORD_LIST += "|";
+                    RPTORD_LIST += eval("document.all.RPTORD_ORDER_" + i + ".value");
+                }
+            }	
+            document.form1.RPTORD_LIST.value = RPTORD_LIST;
+            var cntAll = 0,
+            MethodName = 'GET_TOTAL_DATA';
+            DEPARTMENT_ID = $('#DEPARTMENT_ID').val();
+            $.ajax({
+                type:'POST',
+                url:'../admin/report/rpt_gmis_xls1_ajax.php',
+                data: {
+                    Method : MethodName,
+                    DEPARTMENT_ID : DEPARTMENT_ID,
+                    ENC_H : ENC_H ,
+                    ENC_N : ENC_N ,
+                    ENC_U : ENC_U ,
+                    ENC_P : ENC_P
+                },
+                beforeSend: function () {
+                    _get_start_time();
+                    $('#end_time').text('');
+                    $('#timetotal').text('');
+                },
+                success: function (res) {
+                    //console.log(res);
+                    cntAll = parseInt(res,10);
+                    if(res=='0'){
+                        alert("พบข้อมูล 0 รายการ");
+                        return false;
+                    }else{
+                        var success_v = 0;
+                        //console.log($('#form1').get(0));
+                        $("#ENC_H").val("<?=$ENC_H?>");
+                        $("#ENC_N").val("<?=$ENC_N?>");
+                        $("#ENC_U").val("<?=$ENC_U?>");
+                        $("#ENC_P").val("<?=$ENC_P?>");
+                        $.ajax({
+                            xhr: function()
+                            {
+                                var xhr = new window.XMLHttpRequest();
+                                xhr.addEventListener("progress", function(evt){
+                                    //if (evt.lengthComputable) {
+                                        var percentComplete = evt.loaded;
+                                        success_v = percentComplete;
+                                        //Do something with download progress
+                                        progressBar.value = Math.floor((percentComplete / cntAll) * 100);
+                                        display.innerText = Math.floor((percentComplete / cntAll) * 100) + '%';
+                                        //console.log(percentComplete+'/'+cntAll);
+                                    //}
+                                }, false);
+                                return xhr;
+                            },
+                            type:'POST',
+                            url:'../admin/report/rpt_gmis_xls1_ajax.php',
+                            data: new FormData($('#form1').get(0)),
+                            contentType:false,
+                            cache:false,
+                            processData:false,
+                            beforeSend: function () {
+                                progressBar.value = 0;
+                                $('#progress').attr('style','');
+                                display.innerText = '0%';
+                                $('#button').prop( "disabled", true );//loadBtn.disabled = true;
+                                loadBtn.style = "cursor: no-drop";
+                                $('#button').attr( "value", 'กำลังประมวลผล...' );//loadBtn.value = 'Processing...';
+                                $('#btn_new').prop( "disabled", true );//btn_new.disabled = true;
+                                btn_new.style = "cursor: no-drop";
+                                //console.log('beforeSend');//$('#loading').show();
+                            },
+                            success: function (res) {
+                                //console.log(res);
+                                $('#tr_success_data').attr('style','');
+                                $('#successdata').text(success_v+"");
+                                $('#errdata').text(cntAll-success_v+"");
+                                //console.log('สำเร็จ :'+success_v+' รายการ  '+'ไม่สำเร็จ :'+(cntAll-success_v)+' รายการ');
+                                //console.log('success');
+                                loadBtn.style = "cursor: pointer";
+                                btn_new.style = "cursor: pointer";
+                                $('#button').prop( "disabled", false );//loadBtn.disabled = false;
+                                $('#btn_new').prop( "disabled", false );//btn_new.disabled = false;
+                                progressBar.value = 100;
+                                $('#progress').attr('style','visibility:hidden');
+                                $('#button').attr( "value", 'ประมวลผล ข้าราชการ' );//loadBtn.value = 'ประมวลผล ข้าราชการ';
+                                display.innerText = ''; 
+                                _get_end_time();
+                                $("#ENC_H").val(""); $("#ENC_N").val(""); $("#ENC_U").val(""); $("#ENC_P").val("");
+                            },
+                            error: function(jqXHR, textStatus, errorThrow) {
+                                console.log(jqXHR.responseText);
+                            }
+                        });
+                    }	
+                }
+            });
+        } 
+        function _get_total_time(){
+            var  MethodName = 'GET_TOTAL_TIME',
+            loadBtn = document.getElementById("button"),
+            btn_new = document.getElementById("btn_new"),
+            display = document.getElementById("display");
+            $.ajax({
+                type:'POST',
+                url:'../admin/report/rpt_gmis_xls1_ajax.php',
+                data: {
+                    Method : MethodName,
+                    ENC_H : ENC_H ,
+                    ENC_N : ENC_N ,
+                    ENC_U : ENC_U ,
+                    ENC_P : ENC_P
+                },
+                success: function (res) {
+                    //console.log(res);
+                    data = JSON.parse(res);
+                    if(data[0].message == "not_success"){
+                        //console.log(data[0].message);
+                        $('.create_process').attr('style','display:none');
+                        $('#message_box').attr('style','color:red');
+                        $('#message_box').text('กรุณากดปุ่ม สร้าง ปุ่มประมวลผลข้าราชการรายงาน GMIS ที่เมนู C0704 โปรแกรมปรับเปลี่ยนฐานข้อมูล เพื่อให้การออกรายงานมีความเร็วมากขึ้น!! ');
+                    }else{
+                        if(data.GMIS_STATUS_PROCESS=="PROCESSING"){
+                            $('.create_process').attr('style','');
+                            loadBtn.disabled = true;
+                            loadBtn.style = "cursor: no-drop";
+                            loadBtn.value = 'กำลังประมวลผล...';
+                            btn_new.disabled = true;
+                            btn_new.style = "cursor: no-drop";
+                            $('#btn2').attr('style','display:none');
+                        }else{
+                            $('#btn2').attr('style','display:none');
+                            $('.create_process').attr('style','');
+                            if(data.GMIS_START_TIME_PROCESS){ $('#start_time').text(data.GMIS_START_TIME_PROCESS);$('#checkstime').val(data.GMIS_START_TIME_PROCESS); }else{ $('#start_time').text('');$('#checkstime').val(''); }
+                            if(data.GMIS_END_TIME_PROCESS){ $('#end_time').text(data.GMIS_END_TIME_PROCESS);$('#checketime').val(data.GMIS_END_TIME_PROCESS); }else{ $('#end_time').text('');$('#checketime').val(''); }
+                            var show_time = '';
+                            if(data.GMIS_TOTAL_TIME_DAY || data.GMIS_TOTAL_TIME_HOUR || data.GMIS_TOTAL_TIME_MINUTE || data.GMIS_TOTAL_TIME_SECOND){
+                                if(data.GMIS_TOTAL_TIME_DAY != '0' && data.GMIS_TOTAL_TIME_DAY != ''){ show_time += data.GMIS_TOTAL_TIME_DAY + " วัน ";  }
+                                if(data.GMIS_TOTAL_TIME_HOUR  != '0' && data.GMIS_TOTAL_TIME_HOUR != ''){ show_time += data.GMIS_TOTAL_TIME_HOUR + " ชม ";  }
+                                if(data.GMIS_TOTAL_TIME_MINUTE  != '0' && data.GMIS_TOTAL_TIME_MINUTE != ''){ show_time += data.GMIS_TOTAL_TIME_MINUTE + " นาที ";  }
+                                if(data.GMIS_TOTAL_TIME_SECOND  != '0' && data.GMIS_TOTAL_TIME_SECOND != ''){ show_time += data.GMIS_TOTAL_TIME_SECOND + " วินาที ";  }
+                            }else{ show_time = ''; }
+                            $('#timetotal').text(show_time);
+                            //console.table(JSON.parse(res));
+                        }    
+                    }
+                } ,
+                error: function(jqXHR, textStatus, errorThrow) {
+                    console.log(jqXHR.responseText);
+                }
+            });
+        }
+        function _get_start_time(){
+            var cntAll = 0,
+            MethodName = 'GET_START_TIMES';
+            $.ajax({
+                type:'POST',
+                url:'../admin/report/rpt_gmis_xls1_ajax.php',
+                data: {
+                    Method : MethodName,
+                    ENC_H : ENC_H ,
+                    ENC_N : ENC_N ,
+                    ENC_U : ENC_U ,
+                    ENC_P : ENC_P
+                },
+                success: function (res) {
+                    $('#start_time').text(res);
+                    //console.log('start =='+res);
+                } ,
+                error: function(jqXHR, textStatus, errorThrow) {
+                    console.log(jqXHR.responseText);
+                }
+            });
+        }
+        function _get_end_time(){
+            var cntAll = 0,
+            MethodName = 'GET_END_TIMES';
+            $.ajax({
+                type:'POST',
+                url:'../admin/report/rpt_gmis_xls1_ajax.php',
+                data: {
+                    Method : MethodName,
+                    ENC_H : ENC_H ,
+                    ENC_N : ENC_N ,
+                    ENC_U : ENC_U ,
+                    ENC_P : ENC_P
+                },
+                success: function (res) {
+                    $('#end_time').text(res);
+                    _get_total_time();
+                    //console.log('end == '+res);
+                } ,
+                error: function(jqXHR, textStatus, errorThrow) {
+                    console.log(jqXHR.responseText);
+                }
+            });
+        }
+        function checkval(val,type){
+            var file_limits = $('#file_limits').val();
+            var data_limits = $('#data_limits').val();
+            if(type==1){
+                if( Number(val) < Number(data_limits) ){
+                    $('#data_limits').val(val);
+                }
+            }else{
+                if(Number(val) > Number(file_limits)){
+                    alert("ระบุค่าได้ไม่เกิน ข้อมูลต่อไฟล์!!!");
+                    $('#data_limits').val(file_limits);
+                }
+            }
+        }
+        
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+
+    	<td align="center" valign="top">
+            <form name="form1" id="form1" method="post" action="rpt_gmis.html" enctype="multipart/form-data">
+                <input type="hidden" name="current_page" value="<?=$current_page?>">
+                <input type="hidden" name="total_page" value="<?=$total_page?>">
+                <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+                <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+                <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+                <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+                <input type="hidden" name="command" value="">
+                <input type="hidden" name="RPTORD_LIST" value="">
+                <input type="hidden" name="ENC_H" id="ENC_H" value="">
+                <input type="hidden" name="ENC_N" id="ENC_N" value="">
+                <input type="hidden" name="ENC_U" id="ENC_U" value="">
+                <input type="hidden" name="ENC_P" id="ENC_P" value="">
+                <input type="hidden" name="checkstime" id="checkstime" value="">
+                <input type="hidden" name="checketime" id="checketime" value="">
+                <span  name="message_box" id="message_box" style="" ></span>
+		&nbsp;
+		<table width="100%"  border="0" cellspacing="0" cellpadding="0">
+                <tr class="create_process" style="display:none">
+                    <td align="center">
+                        <progress id="progress" style="visibility:hidden" value="0" max="100"></progress>&nbsp;&nbsp;
+                        <input name="button" id="button" type="button" class="button"  value="ประมวลผล ข้าราชการ" onClick="call_report_ajax();">&nbsp;&nbsp;<span id="display"></span>
+                        <progress id="xxx" style="visibility:hidden" value="0" max="0"></progress>
+                    </td>
+                </tr>
+                <tr>
+                    <td height="7" colspan="2" align="right"></td>
+                </tr>
+                <tr class="create_process" style="display:none">
+                    <td align="center">
+                        <span style="color:blue;font-size: 14px" id="text_alert"><i>**หากออกรายงานแล้วพบว่าจำนวนรายการที่ส่งออกมาไม่ครบ แนะนำให้ท่านกดปุ่มประมวลผลใหม่อีกครั้ง!!!</i></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td height="7" colspan="2" align="right"></td>
+                </tr>
+                <tr class="create_process" style="display:none; visibility:hidden" >
+                    <td align="center">
+                        <fieldset style="text-align:center; width:200px">														
+                            <span id="tr_success_data" style="display:none" ><span style="color:green;font-size: 11pt">สำเร็จ :  </span>&nbsp;&nbsp;<span style="color:blue;font-size: 11pt" id="successdata"></span>&nbsp;&nbsp;<span style="color:green;font-size: 11pt" >รายการ</span><br>
+                            <span style="display:none" ><span style="color:red;font-size: 11pt">ไม่สำเร็จ : </span>&nbsp;&nbsp;<span style="color:blue;font-size: 11pt" id="errdata"></span>&nbsp;&nbsp;<span style="color:red;font-size: 11pt">รายการ</span><br></span></span>
+                            <span> เริ่ม : 
+                                <span style="color:#FF0000" id="start_time"></span><br>
+                                <font color="#000000"> จบ : </font>
+                                <span style="color:#FF0000" id="end_time"></span><br>
+                                <font color="#000000"> ใช้เวลา </font>
+                                <span style="color:#FF0000" id="timetotal"  ></span>
+                            </span>
+                        </fieldset>
+                    </td>
+                </tr>
+                <tr>
+                    <td height="7" colspan="2" align="right"></td>
+                </tr>
+                <tr class="create_process" style="display:none" >
+                    <td align="center">
+                        <table>
+                            <tr>
+                                <td>
+                                    <span style="color:blue" >ข้อมูลต่อไฟล์ : </span><input type="text" class="textbox" style="width:60px;text-align: center;" name="file_limits"  id="file_limits" value="<?=$file_limits?>">&nbsp;&nbsp;
+                                </td>
+                                <td>
+                                    <!--<span style="color:blue" >ข้อมูลต่อแท็บชีต : </span><input type="text" class="textbox" style="width:60px;text-align: center;" onblur="checkval(this.value,2)" name="data_limits" id="data_limits" value="<?=$data_limits?>">--> 
+                                    <span style="color:blue" ><i>[หน่วยเป็นแถว]</i></span>
+                                    <input type="button" name="bt_warning" value="   " title="Help!" class="btnDuplicate button" onclick="setLayer('warning');">
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr class="create_process" style="display:none" >
+                    <td align="center">
+                        <table>
+                            <tr>
+                                <td >
+                                    <span style="color:blue;font-size: 14px" ><i>**หมายเหตุ : ข้อมูลที่ส่งออกมานั้นเป็นข้อมูลตามกรอบอัตรากำลัง (เมนู S02 ตำแหน่ง)</i></span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr style="display:none" id="warning" name="warning" >
+                    <td align="center">
+                        <fieldset style="text-align:center; width:1100px">
+                            <span style="color:#000000" id="">กดปุ่มออกรายงานแล้วพบข้อความ <font color="red"> Fatal error: Maximum file size, 7087104, exceeded.</font> ดังภาพด้านล่าง</span><br><br>
+                            <img src="images/dpisWarning.jpg" alt="Warning" height="42" width="1100"><br><br>
+                            <span style="color:#000000" id="">เกิดจากไฟล์ที่ส่งออกมีขนาดไฟล์มากกว่า 7 MB. ซึ่งเกินกว่าขนาดที่ระบบจะทำงานได้สำเร็จ</span><br>
+                            <span style="color:#000000" id="">แนะนำให้ ระบุจำนวนข้อมูลต่อไฟล์ให้น้อยลงกว่าที่ระบุอยู่ เพื่อให้ระบบสามารถส่งออกรายงานได้.</span><br>
+                        </fieldset>
+                    </td>
+                </tr>
+                <tr>
+                    <td height="7" colspan="2" align="right"></td>
+                </tr>
+		  <tr>
+			<td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+                            <input id="btn_new" name="btn_new" type="button" style="display:none" class="button create_process" value="ข้าราชการ" onClick="call_report(5);">
+                            <input name="btn2" id="btn2" type="button" class="button"  value="ข้าราชการ" onClick="call_report(1);">
+			  <?  } else { ?>
+                            <img src="images/doc_icon_excel.jpg" border="0" alt="ข้าราชการ" onClick="call_report(1);"> &nbsp; <? echo  "&nbsp; &nbsp; &nbsp;"; } ?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn3" type="button" class="button" value="ลูกจ้างประจำ" onClick="call_report(2);">
+			  <?  } else { ?>
+                            <img src="images/doc_icon_excel.jpg" border="0" alt="ลูกจ้างประจำ" onClick="call_report(2);"> &nbsp; <? echo  "&nbsp; &nbsp; &nbsp;"; } ?>
+			<? if($BKK_FLAG!=1) { ?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn4" type="button" class="button" value="พนักงานราชการ" onClick="call_report(3);">
+			  <?  } else { ?>
+                            <img src="images/doc_icon_excel.jpg" border="0" alt="พนักงานราชการ" onClick="call_report(3);"> &nbsp; <? echo  "&nbsp; &nbsp; &nbsp;"; } ?>
+			  <? } ?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn4" type="button" class="button" value="ลูกจ้างชั่วคราว" onClick="call_report(4);">
+			  <?  } else { ?>
+                            <img src="images/doc_icon_excel.jpg" border="0" alt="ลูกจ้างชั่วคราว" onClick="call_report(4);"> &nbsp; <? echo  "&nbsp; &nbsp; &nbsp;"; } ?>
+			  <? 	if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn5" type="reset" class="button" value="<?=$CLEAR_TITLE?>" onClick="form_initialize();">
+              <? } else { ?>
+                            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset(); form_initialize();">&nbsp;
+              <?}?></td>
+		  </tr>
+		</table>  
+
+		<table width="95%" align="center" cellpadding="0" cellspacing="0" height="120">
+    	  <tr>
+		  	<td width="27%" align="center" valign="top"><table width="98%" height="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+              <tr>
+                <td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                    <tr>
+                      <td height="22" colspan="2" align="center" class="table_head"><?=$REPORT_CONDITION?></td>
+                      </tr>
+                    <tr>
+                      <td height="7" colspan="2" align="right"></td>
+                      </tr>
+                    <tr>
+                      <td height="22" align="right">&nbsp;</td>
+                      <td>
+					  	<?=$YEAR_TITLE?>&nbsp;&nbsp;&nbsp;
+                      	<input name="search_budget_year" type="text" class="textbox" size="5" value="<?=($search_budget_year)?>" onKeyPress="return DigitOnly();"></td>
+                    </tr>
+                    <tr>
+                      <td height="7" colspan="2" align="right"></td>
+                      </tr>
+                </table></td>
+              </tr>
+            </table></td>
+      		<td align="center" valign="top">
+			<table width="98%" height="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+			  <tr>
+			  	<td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                  <tr>
+                    <td height="22" colspan="2" align="center" class="table_head"><?=$REPORT_FORMAT ?></td>
+                    </tr>
+                  <tr>
+                    <td width="5%" align="center" valign="top"><input name="list_type" type="radio" value="ALL" checked onClick="control_checkbox(this.value);"></td>
+                    <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr>
+                        <td width="30%">&nbsp;<?=$ALL_REPORT_TITLE?></td>
+                        <td>&nbsp;</td>
+                      </tr>
+                      <? if($CTRL_TYPE == 2 || $SESS_USERGROUP_LEVEL == 2){ ?>
+                      <tr>
+                        <td>&nbsp;<?=$PV_TITLE?></td>
+                        <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                            <tr>
+                              <td width="80%"><input type="text" name="PROVINCE_NAME" value="<?=$PROVINCE_NAME?>" style="width:99%" class="textbox"  readonly="true">
+                              </td>
+                              <td><input type="hidden" name="PROVINCE_ID" value="<?=$PROVINCE_ID?>">
+                                &nbsp;</td>
+                            </tr>
+                        </table></td>
+                      </tr>
+                      <? } // end if ?>
+                      <tr>
+                        <td>&nbsp;<?=$MINISTRY_TITLE?></td>
+                        <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                            <tr>
+                              <td width="80%"><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:99%" class="textbox"  readonly="true">
+                              </td>
+                              <td><? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+                                  <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()">
+                                  <input name="image2" type="image" onClick="form1.MINISTRY_NAME.value=''; form1.MINISTRY_ID.value=''; form1.DEPARTMENT_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.search_org_name.value=''; form1.search_org_id.value=''; form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; form1.search_org_name_2.value=''; form1.search_org_id_2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                                  <? }else{ echo "&nbsp;"; } // end if ?>
+                                  <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>"></td>
+                            </tr>
+                        </table></td>
+                      </tr>
+                      <tr>
+                        <td>&nbsp;<?=$DEPARTMENT_TITLE?></td>
+                        <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                            <tr>
+                              <td width="80%"><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:99%" class="textbox"  readonly="true">
+                              </td>
+                              <td><? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+                                  <input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()">
+                                  <input name="image2" type="image" onClick="form1.DEPARTMENT_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.search_org_name.value=''; form1.search_org_id.value=''; form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; form1.search_org_name_2.value=''; form1.search_org_id_2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                                  <? }else{ echo "&nbsp;"; } // end if ?>
+                                  <input type="hidden" name="DEPARTMENT_ID" id="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>"></td>
+                            </tr>
+                        </table></td>
+                      </tr>
+                    </table></td>
+                  </tr>
+                </table></td>
+			  </tr>
+			</table>
+			</td>
+			<td width="27%" align="center" valign="top" height="150">
+			<table width="98%" height="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+			  <tr>
+			  	<td align="center" valign="top"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                  <tr class="table_head">
+                    <td width="5%" height="22" align="center">&nbsp;</td>
+                    <td align="center"><?=$REPORT_ORDER?></td>
+                  </tr>
+                  <tr id="RPTORD_ROW_1" class="table_body">
+                    <td><input type="checkbox" name="RPTORD_ORDER_1" value="POSNO" checked onClick="control_order(this.checked, 1);" disabled></td>
+                    <td><?=$POS_NO_TITLE?></td>
+                  </tr>
+                </table></td>
+			  </tr>
+			</table>
+			</td>
+    	  </tr>
+  		</table> 
+		&nbsp;
+	  </form>	
+	  </td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

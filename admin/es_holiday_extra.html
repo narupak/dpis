@@ -1,0 +1,246 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+    include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	  $db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	    $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd); 
+        $db_dpis3 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd); 
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	
+?>
+<html>
+<head>
+<title></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script>
+  <link rel="stylesheet" href="stylesheets/jquery-ui.css">
+  <script src="java_scripts/jquery-1.10.2.js"></script>
+  <script src="java_scripts/jquery-ui.js"></script>
+
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+</script>
+<body>
+<form name="form1" method="post" action="es_holiday_extra.html" enctype="multipart/form-data" >
+		 <input type="hidden" name="PER_ID" id="PER_ID" value="<?=$PER_ID;?>">
+         <input type="hidden" name="PER_STARTDATE" id="PER_STARTDATE" value="<?=$PER_STARTDATE;?>">
+		 <input type="hidden" name="PER_ENDDATE" id="PER_ENDDATE" value="<?=$PER_ENDDATE;?>">
+		 <input type="hidden" name="TYPE" id="TYPE" value="<?=$TYPE;?>">
+         <input type="hidden" name="send_by" value="es_holiday_extra">
+         <input type="hidden" name="command" id="command" value="">
+<?php
+/*---------------------------------------------------------------*/
+	function CheckPublicHoliday($YYYY_MM_DD){
+			global $DPISDB,$db_dpis;
+			if($DPISDB=="odbc"){
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$YYYY_MM_DD' ";
+			}elseif($DPISDB=="oci8"){
+				$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$YYYY_MM_DD' ";
+			}elseif($DPISDB=="mysql"){
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$YYYY_MM_DD' ";
+			}
+			$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+			if(!$IS_HOLIDAY){
+				return false;
+			}else{
+				return true;
+			}
+}
+
+
+		$search_date_min = $PER_STARTDATE;
+		$search_date_max = $PER_ENDDATE;
+
+		if(trim($search_date_min)){
+			$arr_temp = explode("/", $search_date_min);
+			$search_date_min = ($arr_temp[2] - 543) ."-". $arr_temp[1] ."-". $arr_temp[0];
+			$show_date_min = ($arr_temp[0] + 0) ." ". $month_full[($arr_temp[1] + 0)][TH] ." ". $arr_temp[2];
+		} // end if
+
+		if(trim($search_date_max)){
+			$arr_temp = explode("/", $search_date_max);
+			$search_date_max = ($arr_temp[2] - 543) ."-". $arr_temp[1] ."-". $arr_temp[0];
+			$show_date_max = ($arr_temp[0] + 0) ." ". $month_full[($arr_temp[1] + 0)][TH] ." ". $arr_temp[2];
+		} // end if
+		
+		//---------------------------------------------นับวันทำการ-----------------------------------------------------------
+		if(trim($search_date_min) && trim($search_date_max)){
+			$strStartDate = $search_date_min;//"2011-08-01";
+			$strEndDate = $search_date_max;//"2011-08-15";
+			//echo $strStartDate.'==='.$strStartDate;
+			$intWorkDay = 0;
+			$intHoliday = 0;
+			$intPublicHoliday = '';
+			$WORK_DAY = "";
+			$intTotalDay = ((strtotime($strEndDate) - strtotime($strStartDate))/ ( 60 * 60 * 24 )) + 1;
+
+			while (strtotime($strStartDate) <= strtotime($strEndDate)) {
+				$DayOfWeek = date("w", strtotime($strStartDate));
+				if($DayOfWeek == 0 or $DayOfWeek ==6){ // 0 = Sunday, 6 = Saturday;
+					$intHoliday++;
+					//echo "$strStartDate = <font color=red>Holiday</font><br>";
+				}elseif(CheckPublicHoliday($strStartDate)){
+					$intPublicHoliday++;
+					//echo "$strStartDate = <font color=orange>Public Holiday</font><br>";
+				}else{
+					$intWorkDay++;
+					//echo "$strStartDate = <b>Work Day</b><br>";
+				}
+				//$DayOfWeek = date("l", strtotime($strStartDate)); // return Sunday, Monday,Tuesday....
+				$strStartDate = date ("Y-m-d", strtotime("+1 day", strtotime($strStartDate)));
+			}
+		}else{
+		$intWorkDay='';
+		$intPublicHoliday='';
+		}
+		$WORK_DAY=$intPublicHoliday;
+		
+		
+//--------------------------------------------------------------------------------------------------------
+?>
+		 
+ <table width="95%" border="0"  align="center" cellpadding="20" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+    <tr>
+        
+		<?php
+			$returnValue = "$WORK_DAY<::>$TYPE"; 
+			$search_datemin = save_date($PER_STARTDATE);
+			$search_datemax = save_date($PER_ENDDATE);
+			
+			$PER_STARTDATE_US=show_date_format($search_datemin,2);
+			$PER_ENDDATE_US = show_date_format($search_datemax,2);	
+		?> 
+		 <td  width=""   align="center">
+		 <strong><font color="blue">ท่านลาตั้งเเต่วันที่  <?=$PER_STARTDATE_US;?>  ถึงวันที่  <?=$PER_ENDDATE_US;?></font></strong><br> 
+		 <strong><font color="blue">วันลาของท่าน ได้ถูกกำหนดเป็นวันหยุดพิเศษ</font></strong> </td>	 
+    </tr>
+  </table>
+  
+<table width="100%"  border="0" align="center" cellpadding="2" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+      <td width="7%" align="center"><strong>วันที่</strong></td>
+      <td width="20%" align="center"><strong>วันหยุด</strong></td>
+  </tr>
+    <?php
+          $sql = "select hol_date, hol_name from per_holiday where hol_date >='$search_datemin' and  hol_date <='$search_datemax'";
+          $db_dpis1->send_cmd($sql);
+          while($data = $db_dpis1->get_array()){
+           $hol_name = $data[HOL_NAME];
+		   $hol_date = show_date_format($data[HOL_DATE], 2);
+        $class = "table_body";
+        $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+    ?>
+      
+  <tr class="<?=$class?>"  style="cursor:hand;"  <?=$onmouse_event?> >
+    <td height="22" align="center"><?=$hol_date?></td>
+    <td height="22" align="left"><?=$hol_name?></td> 
+	
+  </tr >
+ <? } //end while?> 
+
+    <tr class="table_footer"> 
+	  <td>&nbsp;</td>
+      <td align="center">
+      </td>
+    </tr>
+</table>
+
+<table width="95%" border="0"  align="center" cellpadding="20" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+
+	<tr>
+	</tr>
+    <tr>
+         <td  width=""   align="center">
+		 <strong><font color="blue">ท่านปฏิบัติงานในพื้นที่ ที่ประกาศเป็นวันหยุดหรือไม่?</font></strong><br><br>
+		 <input type="button" name="YES" onclick="check_add('y');" id="YES" on class="button" value="Yes">&nbsp;&nbsp;&nbsp;<input type="button" class="button" onclick="check_add('n');"  name="NO" id="NO" value="No">
+		 <td>
+        
+    </tr>
+  </table>
+</form>
+ <div id="dialog"><p id="content" ></p></div>
+</body>
+</html>
+
+<script>
+
+	function check_add(type){
+				if(type == "y"){
+					 content = "<br> <font color=\"\">ท่านปฏิบัติงานในพื้นที่ ที่ได้ประกาศเป็นวันหยุด ระบบจะไม่นับวันลาที่ตรงกับวันหยุดพิเศษ</font>";size = 600;        
+					alert_box_1(content,size);
+				}else{
+				content = "<br> <font color=\"\">ท่านไม่ได้ปฏิบัติงานในพื้นที่ ที่ได้ประกาศเป็นวันหยุด ระบบจะคำนวณจำนวนวันลาตามปกติ </font>";size = 600;        
+					alert_box_2(content,size);
+				}
+               
+    }
+	  
+	function alert_box_1(content,size){
+           $("#dialog").dialog({
+                    modal: true,
+                    draggable: false,
+                    buttons: {
+                      "ตกลง": function() { 
+                        $(this).dialog("close");
+							parent.refresh_opener("-1<::><?php echo $TYPE;?>");
+						 //form1.submit();
+                      },
+                      "ยกเลิก": function() { 
+						$(this).dialog("close"); 
+					  }
+                    },overlay: {
+                      opacity: 0.5,
+                      background: "black"
+                    },width: size,
+                      open: function( event, ui ) {
+                        $(".ui-dialog").css({ "top": '200px' });
+                        $(".ui-button").css({ "font-size": '12px' });
+                        $(".ui-dialog-titlebar").css({ "display": 'none' });
+                        $(".ui-dialog-content").css({ "height": 'auto' });
+                        $("#content").html(content).css({ "font-size": '16px' });
+                        $("html").css({ overflow: 'hidden' });    
+                      },beforeClose: function( event, ui ) {
+                        $("html").css({ overflow: 'auto' }); 
+                      }
+                  });
+    }
+			
+	function alert_box_2(content,size){
+           $("#dialog").dialog({
+                    modal: true,
+                    draggable: false,
+                    buttons: {
+                      "ตกลง": function() { 
+                        $(this).dialog("close");
+                       parent.refresh_opener('<?=$returnValue?>');
+                      },
+                      "ยกเลิก": function() { 
+						$(this).dialog("close"); 
+					  }
+                    },overlay: {
+                      opacity: 0.5,
+                      background: "black"
+                    },width: size,
+                      open: function( event, ui ) {
+                        $(".ui-dialog").css({ "top": '200px' });
+                        $(".ui-button").css({ "font-size": '12px' });
+                        $(".ui-dialog-titlebar").css({ "display": 'none' });
+                        $(".ui-dialog-content").css({ "height": '70px' });
+                        $("#content").html(content).css({ "font-size": '16px' });
+                        $("html").css({ overflow: 'hidden' });    
+                      },beforeClose: function( event, ui ) {
+                        $("html").css({ overflow: 'auto' }); 
+                      }
+             });
+    }
+
+</script>
+
+

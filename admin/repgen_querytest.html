@@ -1,0 +1,294 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	include "php_scripts/function_repgen.php";
+
+//	echo "1 QUERY_ID=$QUERY_ID<br>";
+    
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	if (!$TXT_DDIC_NO) {
+		$cmd =" select DATA_NO, DATA_THAI_NAME, DATA_ENG_NAME, MAP_TABLE_NAME, MAP_COLUMN_NAME from DATA_DICTIONARY ";
+
+		$db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		$data_count = 0;
+		$arr_ddic_no = (array) null;
+		$arr_ddic_thai_name = (array) null;
+		$arr_ddic_eng_name = (array) null;
+		$arr_ddic_thai_map = (array) null;
+		while( $data = $db_dpis->get_array() ){
+			$data = array_change_key_case($data, CASE_LOWER);
+			$arr_ddic_no[] = $data[data_no];
+			$arr_ddic_thai_name[$data[data_no]] = trim($data[data_thai_name]);
+			$arr_ddic_eng_name[$data[data_no]] = trim($data[data_eng_name]);
+			$arr_ddic_thai_map[$data[data_no]] = trim($data[map_table_name])."|".trim($data[map_column_name]);
+		} //end while
+        $TXT_DDIC_NO = implode(",", $arr_dddic_no);
+        $TXT_DDIC_THAI_NAME = implode(",", $arr_dddic_thai_name);
+        $TXT_DDIC_ENG_NAME = implode(",", $arr_dddic_eng_name);
+        $TXT_DDIC_THAI_MAP = implode(",", $arr_dddic_thai_map);
+	} // end if (!$TXT_DDIC_NO)
+    
+	if (!$ORIG_QUERY && $QUERY_ID) {
+	  	$cmd = " select * from REPGEN_QUERY where QUERY_ID=$QUERY_ID ";
+    	$db_dpis->send_cmd($cmd);
+//		echo "cmd=$cmd<br>";
+		$data = $db_dpis->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		$QUERY_NAME = $data[query_name];
+		$SELECTED_COLUMNS = $data[selected_columns];
+		$Q_LINK = $data[q_link];
+		$Q_CONDITION = $data[q_condition];
+		$Q_VAR = sql_condition_var($Q_CONDITION);
+		$Q_TABLES = $data[q_tables];
+		$Q_GROUP = $data[q_group];
+		$Q_ORDER = $data[q_order];
+
+		$QUERY_SET = form2QueryText($SELECTED_COLUMNS, $Q_TABLES, $Q_LINK, $Q_CONDITION, $Q_GROUP, $Q_ORDER);
+        $arr_qset = explode("|",$QUERY_SET);
+		$ORIG_QUERY = $arr_qset[0];
+		$select_list = $arr_qset[1];
+		$table_list = $arr_qset[2];
+		$joinstr = $arr_qset[3];
+//		$condition = $arr_qset[4];
+		$grp_list = $arr_qset[5];
+        $ord_list = $arr_qset[6];
+
+	} // end if (!$ORIG_QUERY)
+//	echo "ORIG_QUERY=$ORIG_QUERY<br>";
+	if (!$TEXT_QUERY) $TEXT_QUERY = $ORIG_QUERY;
+
+   	$cmd = $TEXT_QUERY;
+	$count_data = $db_dpis->send_cmd($cmd);
+//	echo "QUERY count--$cmd ($count_data)<br>";
+?>
+<html>
+<head>
+<title>การทดสอบ ประโยคขอข้อมูล (Query)</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function call_entryvar(){
+		var selVar = document.getElementById('varname');
+//		alert("1.. selected("+selVar.selectedIndex+")="+selVar.options[selVar.selectedIndex].selected+", val="+selVar.options[selVar.selectedIndex].value);
+		if (selVar.selectedIndex > -1) {
+			var sel = selVar.options[selVar.selectedIndex].value.split("=");
+			var val = "";
+			if (sel.length > 1) val=sel[1];
+			val = prompt ("ค่าตัวแปร "+sel[0]+" : ",val);
+			selVar.options[selVar.selectedIndex].value = sel[0]+"="+val;
+			selVar.options[selVar.selectedIndex].text = sel[0]+"="+val;
+			arrvar = Array();
+			for(k=0; k < selVar.length; k++) {
+				arrvar[k] = selVar.options[k].value;
+			}
+			document.form1.Q_VAR.value = arrvar.join(",");
+//			alert("Q_VAR:"+document.form1.Q_VAR.value);
+			// แทนค่าใน @VAR 
+			var q_part = document.form1.ORIG_QUERY.value.split("@");
+			for(i=0; i < q_part.length; i++) {
+				vnm = sel[0].substr(1);
+//				alert("vnm="+vnm+", val="+val+", q_part("+i+")="+q_part[i]);
+				if (q_part[i].indexOf(vnm) > -1) {
+					q_part[i] = q_part[i].replace(vnm, val);
+//					alert("q_part ["+i+"]="+q_part[i]);
+					break;
+				} // end for loop i
+			}
+			var textbuff = q_part.join("");
+//			alert("TEXT_QUERY="+textbuff);
+			document.form1.TEXT_QUERY.value = textbuff;
+			// แทนค่าใน Q_CONDITION
+			var q_conpart = document.form1.Q_CONDITION.value.split("@");
+			for(i=0; i < q_conpart.length; i++) {
+				vnm = sel[0].substr(1);
+//				alert("vnm="+vnm+", val="+val+", q_part("+i+")="+q_part[i]);
+				if (q_conpart[i].indexOf(vnm) > -1) {
+					q_conpart[i] = q_conpart[i].replace(vnm, val);
+//					alert("q_part ["+i+"]="+q_part[i]);
+					break;
+				} // end for loop i
+			}
+			var textbuff = q_conpart.join("");
+//			alert("TEXT_QUERY="+textbuff);
+			document.form1.Q_CONDITION.value = textbuff;
+	// จบ ช่วงแทนค่า
+//			alert("i:"+i+", val:"+selVar.options[selVar.selectedIndex].value);
+		}
+	}
+
+	function call_run(){
+		form1.command.value = "QUERY";
+		form1.submit();
+	}
+</script>
+<body>
+<form action="repgen_querytest.html" method="get" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="TXT_DDIC_NO" value="<?=$TXT_DDIC_NO?>">
+  <input type="hidden" name="TXT_DDIC_THAI_NAME" value="<?=$TXT_DDIC_THAI_NAME?>">
+  <input type="hidden" name="TXT_DDIC_ENG_NAME" value="<?=$TXT_DDIC_ENG_NAME?>">
+  <input type="hidden" name="TXT_DDIC_THAI_MAP" value="<?=$TXT_DDIC_THAI_MAP?>">
+  <input type="hidden" name="SELECTED_COLUMNS" value="<?=$SELECTED_COLUMNS?>">
+  <input type="hidden" name="Q_LINK" value="<?=$Q_LINK?>">
+  <input type="hidden" name="Q_CONDITION" value="<?=$Q_CONDITION?>">
+  <input type="hidden" name="Q_TABLES" value="<?=$Q_TABLES?>">
+  <input type="hidden" name="Q_GROUP" value="<?=$Q_GROUP?>">
+  <input type="hidden" name="Q_ORDER" value="<?=$Q_ORDER?>">
+  <input type="hidden" name="select_list" value="<?=$select_list?>">
+  <input type="hidden" name="table_list" value="<?=$table_list?>">
+  <input type="hidden" name="joinstr" value="<?=$joinstr?>">
+  <input type="hidden" name="grp_list" value="<?=$grp_list?>">
+  <input type="hidden" name="ord_list" value="<?=$ord_list?>">
+  <input type="hidden" name="command">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+	<tr>
+		<td valign="top" class="layout_inactive">&nbsp;การทดสอบ ประโยคขอข้อมูล (Query)</td>
+	</tr>
+	<tr>
+		<td valign="top">&nbsp;</td>
+	</tr>
+	<tr>
+		<td valign="top">
+			<table><tr><td width="10%" align="right" valign="top">&nbsp;ประโยค&nbsp;:&nbsp;</td><td><textarea id="TEXT_QUERY" name="TEXT_QUERY" cols="100" rows="4" onFocus="fieldFocus='TEXT_QUERY'";><?=$TEXT_QUERY?></textarea>&nbsp;<input type="hidden" name="ORIG_QUERY" value="<?=$ORIG_QUERY?>"></td></tr></table></td>
+	</tr>
+	<tr>
+		<td>
+			<table><tr>
+            				<td width="10%" align="right" valign="top">&nbsp;ตัวแปร&nbsp;:&nbsp;</td>
+            				<td>
+                            	<select name="varname" id="varname" style="width:200px;" onDblClick="call_entryvar()" >
+				<?
+                				// $Q_VAR : รูปแบบ : varname1=value1, varname2=value2, .................
+								if (strlen($Q_VAR) > 0) {
+									$arr_var = explode(",", $Q_VAR);
+									if ($arr_var) {
+										for($i=0; $i < count($arr_var); $i++) {
+				?>
+											<option value="<?=$arr_var[$i]?>"><?=$arr_var[$i]?></option> 
+				<?
+										}
+									} // end if ($arr_var)
+								} // end if (strlen($Q_VAR) > 0)
+				?>
+								</select>
+								<input type="hidden" name="Q_VAR" value="<?=$Q_VAR?>">&nbsp;&nbsp;
+                                <input type="button" name="btn_var" value="ทดสอบ" onClick="call_run()" >
+                            </td>
+                        </tr></table>
+		</td>
+	</tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">ข้อมูลทดสอบมีทั้งสิ้น <?=($count_data + 0)?> รายการ </td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select *	from	( select	top $select_top * from (
+														select top ". ($data_per_page * $current_page) ." ".$select_list." from ".($joinstr ? $joinstr : $table_list).($Q_CONDITION ? " where ".$Q_CONDITION : "").($grp_list ? " group by ".$grp_list : "").($ord_list ? " order by ".$ord_list : "").") ) 	";	
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( select ".$select_list." from ".($joinstr ? $joinstr : $table_list).($Q_CONDITION ? " where ".$Q_CONDITION : "").($grp_list ? " group by ".$grp_list : "").($ord_list ? " order by ".$ord_list : "").")  q1	) where rnum between $rec_start and $rec_end  ";						
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	select ".$select_list." from ".($joinstr ? $joinstr : $table_list).($Q_CONDITION ? " where ".$Q_CONDITION : "")." $limit_data ".($grp_list ? " group by ".$grp_list : "").($ord_list ? " order by ".$ord_list : "")."	";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+//		echo "--$cmd($count_page_data)<br>";
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+<?
+	$arr_selected = explode(",", $select_list);
+    $col_w = (String)floor(95 / count($arr_selected));
+    if ((int)$col_w < 5) $col_w="5";
+    echo "<td width'5%'>ลำดับที่</td>";
+	for($i=0; $i < count($arr_selected); $i++) {
+    	$a_alias = explode(" as ", $arr_selected[$i]);
+        if (!trim($a_alias[1])) { // ถ้าไม่มีชื่อเปรียบ ใช้ชื่อจริง
+        	$a_alias2 = explode(".", $a_alias[0]);
+        	$alias = $a_alias2[1];
+		} else { // ถ้ามีชื่อเปรียบ ใช้ชื่อเปรียบ
+	        $alias = $a_alias[1];
+		}
+?>
+	    <td width="<?=$col_w;?>%" height="25" align="left"><?=$alias;?></td>
+<?
+	}
+?>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+//			echo ">>>>$select_list<br>";
+  			while($data = $db_dpis->get_array()) :
+				$data = array_change_key_case($data, CASE_LOWER);
+				$data_count++;
+				if($data_count > $data_per_page) break;
+                $totcnt = ($current_page - 1) * $data_per_page;
+                
+//				echo "<tr class='$class' onClick='' style='cursor:hand;' $onmouse_event>";
+				echo "<tr class='$class' onClick='' style='' $onmouse_event>";
+                echo "<td>".($totcnt + $data_count)."</td>";
+				for($i=0; $i < count($arr_selected); $i++) {
+                    $col = explode(".", $arr_selected[$i]);
+			    	$a_alias = explode(" as ", $arr_selected[$i]);
+			        if (!trim($a_alias[1])) { // ถ้าไม่มีชื่อเปรียบ ใช้ชื่อจริง
+			        	$a_alias2 = explode(".", $a_alias[0]);
+			        	$alias = $a_alias2[1];
+					} else { // ถ้ามีชื่อเปรียบ ใช้ชื่อเปรียบ	
+				        $alias = $a_alias[1];
+					}
+					echo "<td>".$data[strtolower($alias)]."</td>";
+				}
+                echo "<tr>";
+  ?>
+<!--  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$totcnt + $data_count?></td>
+    <td>&nbsp;<?=$val?></td>
+  </tr>-->
+  <?		endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

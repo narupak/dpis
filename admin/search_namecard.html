@@ -1,0 +1,136 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	$cmd = " select count(NC_ID) as count_data FROM PER_NAMECARD ";
+
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="search_namecard.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+          <input type="hidden" name="command" value="">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  	<tr>
+	  	<td height="22" align="center" colspan="3"><?=$SEARCH_TITLE?></td>
+	</tr>
+<?
+	$total_page = ceil( $count_data / $data_per_page );
+	
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+	
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record * FROM PER_NAMECARD order by NC_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[NC_ID]'";
+			$limit_data = " and NC_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="oci8"){
+			$limit_data = " and NC_ID not in ( select * from (select NC_ID from PER_NAMECARD order by NC_ID) where rownum <= $start_record ) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = "  select top $data_per_page * FROM PER_NAMECARD 
+        				where NC_ID > 0 $limit_data
+                        order by NC_ID ";
+	}elseif($DPISDB=="oci8"){
+		$cmd = " select *
+						 from (
+								 select * from PER_NAMECARD
+								 where NC_ID > 0 	$limit_data
+								order by NC_ID
+						) where rownum <= $data_per_page ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select * from PER_NAMECARD
+					  where 	NC_ID > 0
+					  order by NC_ID $limit_data ";
+	} // end if
+		
+	$count_page_data=$db_dpis->send_cmd($cmd);
+	if($count_page_data){
+?>
+	<tr>
+    	<td width="7%" align="center">รหัส</td>
+    	<td width="20%">ชื่อ</td>
+	   	<td>ขนาด (กว้าง x สูง)</td>
+    </tr>
+<?
+	while($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_NC_ID = $data[NC_ID];
+		$current_list .= ((trim($current_list))?",":"") . "'$TMP_NC_ID'";
+		$TMP_NC_NAME = trim($data[NC_NAME]);
+		$TMP_NC_SIZE = trim($data[NC_W])." ".trim($data[NC_UNIT])." x ".trim($data[NC_H])." ".trim($data[NC_UNIT]);
+		$TMP_NC_FORM = trim($data[NC_FORM]);
+				
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+		$returnValue = "$TMP_NC_ID<::>$TMP_NC_NAME<::>$send_by";
+?>
+	<tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+		<td height="22" align="center"><?=$TMP_NC_ID?></td>
+		<td>&nbsp;<?=$TMP_NC_NAME?></td>
+		<td>&nbsp;<?=$TMP_NC_SIZE?></td>
+	</tr>
+<?
+	}
+?>
+  </table> 
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+  </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

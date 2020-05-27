@@ -1,0 +1,689 @@
+<?
+	if ($table) {
+        $c = strpos($table,"?");
+        if ($c!==false) $table = substr($table,0,$c);
+	}
+	if ($form_part) {
+		$form_part_name = $form_part;
+	} else {
+    	if (strtolower(substr($table,0,4))=="per_")
+		    $form_part_name = strtolower(substr($table,4));
+		else
+		    $form_part_name = $table;
+    }
+
+	include("../php_scripts/connect_database.php");
+//	echo "1..include file==>".$pref."data_forms/search_".$form_part_name."_preset.php  (".file_exists($pref."data_forms/search_".$form_part_name."_preset.php").")<br>";
+	include($pref."data_forms/search_".$form_part_name."_preset.php");	// กำหนดค่า $key_index, $active_index, $seq_order_index
+	include("php_scripts/search_000.php"); 
+//	echo "2..include file==>".$pref."data_forms/search_".$form_part_name."_form.php  (".file_exists($pref."data_forms/search_".$form_part_name."_form.php").")<br>";
+	include($pref."data_forms/search_".$form_part_name."_form.php"); // ตัดคำว่า PER_ ออก มาต่อเป็น form file
+
+	include("php_scripts/function_set_element.php"); 	//	function set_element($format)  return $retstr."^".$retnameself;	// $retstr is element tag return	// $retnameself is name of value replace
+
+?>
+<html>
+<head>
+<title><?=$title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function call_selected(data_id) {
+//		alert("data_id="+data_id);
+		return2parent(data_id);
+	}
+
+	function call_sort(flag) {
+		var str_sort  = "<?=implode(",",$tab_sort)?>";
+		var arr_sort = str_sort.split(",");
+		var sort_seq = 1;
+		for(i=0; i < arr_sort.length; i++) {
+			if (arr_sort[i]==1) {
+				if (flag==sort_seq) {
+					form1.order_by.value=String(sort_seq);		form1.sort_by.value=String(sort_seq);
+					if(form1.sort_type.value==String(sort_seq)+":asc"){
+						form1.sort_type.value=String(sort_seq)+":desc";
+					}else{ //desc
+						form1.sort_type.value=String(sort_seq)+":asc";
+					}
+					break;
+				} else 
+					sort_seq++;
+			}
+		}
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function call_search_all() {
+		<?
+			for($i=0; $i < count($arr_col_search); $i++) {
+				$arr_sub_col_search = explode(",",$arr_col_search[$i]);
+		?>
+//				alert("i="+"<?=$i?>"+"=>"+"<?=$arr_col_search[$i]?>");
+		<?
+//				for($j=0; $j < count($arr_sub_col_search); $j++) {
+		?>
+					var obj = document.getElementsByName('<?="search_".$arr_fields[$arr_sub_col_search[0]]?>');	// เฉพาะ index 0 เพราะชื่อ search จะสร้าง element สำหรับ search เฉพาะ ชื่อจาก index 0 เท่านั้น
+					if (obj) {
+//						alert(obj[0].name+":"+obj[0].value); 
+						obj[0].value = "";
+					}
+//					form1.<?="search_".$arr_fields[$arr_sub_col_search[$j]]?>.value = "";
+		<?
+//				}
+			}
+		?>
+		form1.current_page.value=0;
+		
+		return true;
+	}
+
+	function call_search_any_table (search_tab, select_col, head_obj, ret_obj, fsubmit, title, column_sel) {
+		// argument สำหรับ function call_search_any_table
+		// 	ตัวที่ 1=search_tab ชื่อตาราง และ ชื่อ ส่วนกลางของ form (form_part) ถ้ามี 
+		// 	ตัวที่ 2=select_col ชื่อ column ที่เลือกเข้ามา คั่นแต่ละ column ด้วย , comma
+		// 	ตัวที่ 3=head_obj  ชื่อ object ที่เก็บข้อมูลที่จะส่งเข้าไปเป็น head key หัวเรื่องการค้นหา  เช่น ส่งรหัสจังหวัดเข้าไป ในการค้นหาอำเถอ เพื่อให้มันแสดงค่าเฉพาะ อำเภอในจังหวัดนั้นเท่านั้น
+		//									คั่นแต่ละ ชื่อ ด้วย , comma และ คั่นระหว่างชื่อใน TABLE กับชื่อใน Element Form ที่ใช้เก็บค่าส่งไป search_000   กรณีชื่อไม่เหมือนกัน ด้วย &
+		// 	ตัวที่ 4=ret_obj ชื่อ object ที่เก็บข้อมูลที่จะรับเข้ามาเป็นเก็บหรือแสดง คั่นแต่ละ ชื่อ ด้วย , comma
+		// 	ตัวที่ 5=fsubmit  จะสั่งให้ submit ด้วยหรือไม่ ถ้า = 1 ก้อจะ submit ด้วย
+		// 	ตัวที่ 6=title คำอธิบายหน้าต่างค้นหา ถ้ามีค่า @Element_name@ จะถูกแปลงเป็นค่าที่เก็บใน Element_name นั้น เช่นส่ง $AP_TITLE ใน @CHANGE_PV_NAME@ คือ เขต ใน จังหวัด@ชื่อจังหวัดในตัวแปร CHANGE_PV_NAME@
+		// 	ตัวที่ 7=column select เลือก column ที่จะแสดง ให้ = y ไม่แสดงให้เท่ากับ n โดยดูตาม array ของ tab_head ใน  _form
+		//
+		var buff = search_tab.split(",");
+		var tabname = buff[0].toLowerCase();
+//		alert("argument="+search_tab+"|"+select_col+"|"+head_obj+"|"+ret_obj+"|"+fsubmit+"|"+title);
+//		var tabname = search_tab.substr(4).toLowerCase();
+
+		var form_part = (buff[1] ? buff[1] : "");
+		var valname = "";
+		var valtemp = "";
+		if (!title) title=tabname;
+		else {
+			var c = title.indexOf("@");
+			while (c > -1) {
+				var c1 = title.indexOf("@", c+1);
+				if (c1) {
+					valname = title.substr(c+1, c1-c-1);
+					valtemp = "@"+valname+"@";
+//					alert("1..title="+title+", valname="+valname+", valtemp="+valtemp+", c="+c+", c1="+c1);
+				} else {
+					valname = title.substr(c+1);
+					valtemp = "@"+valname;
+//					alert("2..title="+title+", valname="+valname+", valtemp="+valtemp);
+				}
+				var val = document.getElementsByName(valname)[0].value; 	// value
+//				alert("get val (valname)="+val);
+				title = title.replace(valtemp, val);
+				c = title.indexOf("@");
+//				alert("title="+title+", next c="+c);
+			}
+		}
+
+		parameter = "";
+		var sub_head = new Array();
+		if (head_obj) {
+			var headobj = head_obj.split(",");	// แยก obj
+			for(var i = 0; i < headobj.length; i++) {
+				var hobj = headobj[i].split("&");	// แยก กรณี ชื่อ element ที่เก็บค่า ไม่ตรงกับชื่อ key ใน table
+//				alert("i="+i+", hobj[0]="+hobj[0]+", hobj[1]="+hobj[1]);
+				var thishead = "";
+				if (hobj.length > 1)
+					if (isNumber(hobj[1]))	// กรณึที่เป็นค่าที่ส่งเข้ามาตรง ๆ เป็นตัวเลข
+						thishead = hobj[1];
+					else if (hobj[1].indexOf("'") >= 0 || hobj[1].indexOf("\"") >= 0)	// กรณึที่เป็นค่าที่ส่งเข้ามา Text ภายใน เครื่องหมาย 'xxxxx' หรือ "xxxxx"
+							 {
+								 buff = hobj[1].trim();
+								 buff = buff.replace(/\"/g, "");	// เอาเครื่อวหมายคำพูดทั้งสองแบบออก
+								 buff = buff.replace(/'/g, "");	// เอาเครื่อวหมายคำพูดทั้งสองแบบออก
+//								 alert("buff..["+ buff+"] ("+buff.length+")");
+								if (buff.length == 0)
+									thishead = "";
+								else
+									thishead = hobj[1];
+//								 alert("quato..["+thishead+"]");
+							 }
+					else
+						thishead = document.getElementsByName(hobj[1])[0].value; 	// value คือตัวหลัง (1)
+				else
+					thishead = document.getElementsByName(hobj[0])[0].value; 	// ถ้าตัวหลังไม่ส่งค่า ก็เท่ากับตัวหน้า
+				var v1 = hobj[0];
+				if (tabname=="amphur" && hobj[0]=="PV_CODE")  v1=hobj[0]+"1";	// เฉพาะ search_amphur ที่ชื่อที่ส่งเข้าไปมี 1 ตามด้วย
+				if (thishead)
+					sub_head.push(v1+"|"+thishead);
+			}
+		}
+		var param = new Array();
+		if (select_col) param.push("select_column="+select_col);
+		if (sub_head.length > 0) param.push("head_key="+sub_head.join(","));
+		if (ret_obj) param.push("col_send_back="+ret_obj);
+		if (column_sel) param.push("column_select="+column_sel);
+		if (param.length > 0) parameter = "&"+param.join("&", param);
+//		alert("parameter="+parameter);
+	    call_openDialog("search_000.html?table="+tabname+"&form_part="+form_part+"&title="+title+"MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"");		
+	}
+
+	function isNumber(n) {
+	  return !isNaN(parseFloat(n)) && isFinite(n);
+	}
+
+	function dynamic_param()
+	{
+		var parameters = new Array();
+		if (!form1.para_string.value) {	// ถ้ามีค่า ใน form1.para_string.value แปลว่า ไม่ใช่รอบแรก และมีการเก็บค่า parameter ที่ส่งเข้ามาแล้ว เอามาใช้
+			parameters = location.search.substring(1).split("&");
+		} else	{	// รอบแรก ใช่ค่าที่ส่งเข้ามาครั้งแรก
+			parameters = form1.para_string.value.split("&");
+		}
+//		alert("parameters:"+parameters);
+		var para = new Array();
+		for(var i=0; i < parameters.length; i++) {
+//			alert(i+">>"+parameters[i]);
+			var temp = parameters[i].split("=");	// ตัดแบ่งค่า ชื่อ parameter และ ค่า value ออกจากกัน
+			var para_name = unescape(temp[0]);
+			var para_val = unescape(temp[1]);
+			var ele = document.getElementsByName(para_name);	// อ่านค่าชื่อ element ที่มีสร้างไว้แล้วในโปรแกรม นำไป check เพื่อจะได้ไม่ต้องสร้าง ซ้ำ
+//			alert("ele:"+ele.item(0)+" ("+para_name+")");
+			if (ele.item(0)==null) {	// แปลว่า ชื่อ parameter ตัวนี้ยังไม่มีการสร้างใน form1
+//				alert(i+">>"+para_name+"===>"+para_val);
+				para.push(para_name+"="+para_val);		// เก็บค่า parameter ให้เหมือนใน url เพื่ออ่านค่าใน รอบต่อไป
+				document.getElementById('text').innerHTML += "<input type='hidden' value='"+para_val+"' name='"+para_name+"' id='"+para_name+"' />";	// สร้างชื่อ parameter ตัวนี้ใน form1
+			}
+		}
+		form1.para_string.value = para.join("&");	// เก็บค่า เหมือน url ไว้ใช้ในรอบต่อไป
+//		alert("para="+form1.para_string.value);
+	}
+
+
+function  return2parent(returnValue) {
+	parent.refresh_opener(returnValue);
+}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_000") > -1) {
+			var f_ret = false;
+			if(returnValue){
+				f_ret = true;
+				arrValue = returnValue.split("<::>");
+				var retobj = ret_obj.split(",");	// แยก obj
+				for(var i = 0; i < retobj.length; i++) {
+					var thisobj = document.getElementsByName(retobj[i])[0];
+					thisobj.value = arrValue[i].trim();
+	//				alert("retobj ["+i+"]="+thisobj.name+"=="+arrValue[i].trim()+"=="+thisobj.value);
+				}
+				if (fsubmit==1) {
+					form1.current_page.value = 0;
+					form1.submit();
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body onLoad="dynamic_param();">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="search_000.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="table" value="<?=$table?>">
+          <input type="hidden" name="form_part" value="<?=$form_part?>">
+		  <input type="hidden" name="COLUMN_FORMAT" value="<?=$COLUMN_FORMAT?>">
+			<div id="text">
+				<input type="hidden" name="para_string" value="<?=$para_string?>">
+				<!-- hidden dynamic text -->
+			</div>
+<?
+	if (trim($err_text)) {
+?>
+	<table width="90%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+        <tr>
+          <td colspan="2" height="5" align="center"><span class="label_alert"><?=$err_text?></span></td>
+		</tr>
+	</table>
+<?
+	}
+
+	if ($column_select)		// กำหนดว่าต้องการแสดง column ไหนบ้างในตารางที่ค้นหาได้นี้ เพื่อให้สามารถกำหนดการแสดงตารางให้แตกต่างกันได้ ตามกำหนด $column_select นี้ ก่อนเรียก search_000
+		$arr_tab_col_sel = explode(",", $column_select);
+
+	if(!$sort_by) $sort_by=1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+//	echo "head_key=$head_key<br>";
+	if ($head_key) {
+    	$arr_condi = (array) null;
+		$arr_head_key = explode(",", $head_key);
+        for($i=0; $i < count($arr_head_key); $i++) {
+        	$buff = stripslashes($arr_head_key[$i]);
+        	$arr_condi[] = str_replace("|","=", $buff);
+//			echo "$i --> arr_head_key=".$arr_head_key[$i]."<br>";
+        }
+        if (count($arr_condi) > 0) {
+            $head_condi = "(".implode(" and ",$arr_condi).")";
+            $arr_search_condition[] = $head_condi;
+		}
+	}
+
+    for($i=0; $i < count($arr_col_search); $i++) {
+//    	echo "$i-->".$arr_col_search[$i]."<br>";
+		$sub_col_search = explode(",",$arr_col_search[$i]);
+        $arr_sub_condition = (array) null;
+        for($j=0; $j < count($sub_col_search); $j++) {
+//        	echo "search_".$arr_fields[$sub_col_search[$j]]."=".${"search_".$arr_fields[$sub_col_search[0]]}."||arr_c_srch_cond=".$arr_c_srch_cond[$i]." <br>";
+		  	if(trim( ${"search_".$arr_fields[$sub_col_search[0]]} ))
+            	if ($arr_c_srch_cond[$i] == "%%") {
+	            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." like '%".${"search_".$arr_fields[$sub_col_search[0]]}."%')";
+//	            	$a = "(".$arr_fields[$sub_col_search[$j]]." like '%".${"search_".$arr_fields[$sub_col_search[0]]}."%')";
+//					echo "$a<br>";
+            	} else if ($arr_c_srch_cond[$i] == "%")
+	            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." like '".${"search_".$arr_fields[$sub_col_search[0]]}."%')";
+            	else if ($arr_c_srch_cond[$i] == "!=" || $arr_c_srch_cond[$i] == "<=" || $arr_c_srch_cond[$i] == ">=")
+                	if ((strpos($arr_fldtyp[$sub_col_search[$i]],"CHAR")!==false) || (strpos($arr_fldtyp[$sub_col_search[$i]],"DATE")!==false))
+		            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." ".$arr_c_srch_cond[$i]." '".${"search_".$arr_fields[$sub_col_search[0]]}."')";
+					else
+		            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." ".$arr_c_srch_cond[$i]." ".${"search_".$arr_fields[$sub_col_search[0]]}.")";
+            	else if ($arr_c_srch_cond[$i] == "=" || $arr_c_srch_cond[$i] == "<" || $arr_c_srch_cond[$i] == ">")
+                	if ((strpos($arr_fldtyp[$sub_col_search[$i]],"CHAR")!==false) || (strpos($arr_fldtyp[$sub_col_search[$i]],"DATE")!==false))
+		            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." ".$arr_c_srch_cond[$i]." '".${"search_".$arr_fields[$sub_col_search[0]]}."')";
+					else
+		            	$arr_sub_condition[] = "(".$arr_fields[$sub_col_search[$j]]." ".$arr_c_srch_cond[$i]." ".${"search_".$arr_fields[$sub_col_search[0]]}.")";
+		}
+        if (count($arr_sub_condition) > 0)	$arr_search_condition[] = "(".implode(" or ",$arr_sub_condition).")";
+	}
+// 	if(trim($search_name)) $arr_search_condition[] = "($arr_fields[1] like '%$search_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = ($f_condition ? " where ".$f_condition." and " : " where ") . implode(" and ", $arr_search_condition);
+    
+//	echo "search_condition=$search_condition<br>";
+    
+?>
+	<input type="hidden" name="search_condition" value="<?=$search_condition?>">
+<?
+	for($ii = 0; $ii < count($tab_sort); $ii++) {
+//    	echo "tab_sort[$ii]==".$tab_sort[$ii]." && arr_tab_col_sel[$ii]==".$arr_tab_col_sel[$ii]."<br>";
+    	if ($tab_sort[$ii]==1 && $arr_tab_col_sel[$ii]=='y') {
+        	$order_by = $ii+1;
+            $sort_by = $order_by;
+            break;
+		}
+    }
+	$order_str = "".$arr_fields[$col_map[($order_by-1)]]." ".$SortType[$order_by];
+	
+	if ($search_distinct) {
+		$cmd =" select distinct $arr_fields[$distinct_index] from $table $search_condition ";
+        $count_data = $db_dpis->send_cmd($cmd);
+	} else {
+		$cmd =" select count($arr_fields[$key_index]) as count_data from $table $search_condition ";
+        $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+        $data = $db_dpis->get_array();
+        $data = array_change_key_case($data, CASE_LOWER);
+        $count_data = $data[count_data];
+	}
+//	echo "cmd=$cmd ($count_data)<br>";
+  ?>
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">&nbsp;ค้นหาข้อมูล<?=$title?>&nbsp;</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+<?
+//				echo "count(arr_search_rc):".count($arr_search_rc)."<br>";
+				foreach($arr_search_rc as $key1 => $arr_col) {
+//                	echo "1 key1:$key1<br>";
+?>
+					<tr>
+<?
+					foreach($arr_col as $key2 => $value) {
+//            			echo "2 value=$value<br>";
+            			$arr_elem = explode("^",$value);
+                        $w = ($arr_search_col_perc_w[$key2] ? "width='".$arr_search_col_perc_w[$key2]."'" : "");
+                        $a = ($arr_search_col_align[$key2] ? $arr_search_col_align[$key2] : "left");
+?>
+						<td <?=$w?> align="<?=$a?>">
+<?
+		                for($ii = 0; $ii < count($arr_elem); $ii++) {
+							$arr_ret = explode("^",set_element($arr_elem[$ii]));
+//							echo "2..(".substr($arr_ret[0],1)."||".$arr_ret[1].")";
+							if (substr($arr_ret[1],0,5)=="func|") {	// ถ้าเป็น function ค่าพิเศษ ลงใน text หรือ label ธรรมดา
+                                $arr_buff = explode("|",$arr_ret[1]);
+                                $argu = (array) null;
+//								echo ">>".$arr_buff[1].",".$arr_buff[2]."(".$arr_buff[2]."),".$arr_buff[3].",".$arr_buff[4]."<br>";
+                                for($i=2; $i < count($arr_buff); $i++) {
+                                    if (substr($arr_buff[$i],0,2)=="'@" && substr($arr_buff[$i],strlen($arr_buff[$i])-2,2)=="@'") {
+                                        $argu[] = "'".${substr($arr_buff[$i],2,strlen($arr_buff[$i])-4)}."'";	// ค่าภายใน
+//										echo "val1($i)=".${substr($arr_buff[$i],2,strlen($arr_buff[$i])-4)}."<br>";
+                                    } else if (substr($arr_buff[$i],0,1)=="@" && substr($arr_buff[$i],strlen($arr_buff[$i])-1,1)=="@") {
+                                        $argu[] = ${substr($arr_buff[$i],1,strlen($arr_buff[$i])-2)};	// ค่าภายใน
+//										echo "val1($i)=".${substr($arr_buff[$i],1,strlen($arr_buff[$i])-2)}."<br>";
+                                    } else {
+                                        $argu[] = $arr_buff[$i];
+//										echo "val2($i)=".$arr_buff[$i]."<br>";
+                                    }
+                                }
+                                $ret = call_user_func_array($arr_buff[1], $argu);
+//								echo ">>".$arr_buff[1]."(".implode(",",$argu).") ret=$ret<br>";
+                                $elem_str = str_replace("@fvalue@", $ret, $arr_ret[0]);
+                                echo $elem_str."&nbsp;&nbsp;";	// แสดง element ที่ได้
+                            } else {	// เป็นค่าปกติ เพื่อย้ายเข้าไปใส่ค่าแทนใน value ใน element
+                                $arr_argu = explode(",",$arr_ret[1]);
+                                for($k=0; $k < count($arr_argu); $k++) {
+                                    if (substr($arr_argu[$k],0,2)=="'@" && substr($arr_argu[$k],strlen($arr_argu[$k])-2)=="@'") {
+                                        $nm = substr($arr_argu[$k],2,strlen($arr_argu[$k])-4);
+                                        $elem_str = str_replace(substr($arr_argu[$k],1,strlen($arr_argu[$k])-2), trim($$nm), $arr_ret[0]);
+                                    } else if (substr($arr_argu[$k],0,1)=="@" && substr($arr_argu[$k],strlen($arr_argu[$k])-1,1)=="@") {
+                                        $nm = substr($arr_argu[$k],1,strlen($arr_argu[$k])-2);
+                                        $elem_str = str_replace($arr_argu[$k], trim($$nm), $arr_ret[0]);
+                                    } else {
+                                        $elem_str = str_replace("@self@", trim($$arr_argu[$k]), $arr_ret[0]);
+                                    }
+                                }
+//								echo "2..".substr($elem_str,1)."<br>";
+                                if (substr($elem_str,0,5)=="func_") {
+                                    $f_agum = explode("(",substr($elem_str,5,strlen($elem_str)-6));
+                                    call_user_func_array($f_agum[0], explode("|",$f_agum[1]));
+//									echo "f_agum=".$f_agum[0]."|".$f_agum[1]."<br>";
+//									echo "".$f_agum[0]."(".$f_agum[1].")";
+                                } else {
+                                    echo $elem_str."&nbsp;&nbsp;";	// แสดง element ที่ได้
+                                }
+							}
+						} // for loop detail
+?>
+						</td>
+<?
+					} // for loop columns
+?>
+					</tr>
+<?
+				} // for loop rows
+?>
+			<tr>
+              <td width="100%" colspan="<?=count($arr_search_col_perc_w)?>" align="center">
+		  	  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="call_search_all();">
+    	  	  <? } else { ?>
+			  <input type="image" src="images/search.png" alt="<?=$SEARCH_TITLE?>" onClick="javascript:form1.current_page.value=0;">
+			  <input type="image" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>" onClick="javascript:call_search_all();">
+      		  <? } ?> 
+			  </td>
+            </tr>
+          </table></td>
+        </tr>
+	 <tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+	     <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+         <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+	</tr>
+	<tr>
+		  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="15%" height="22">
+			  </td>
+              <td align="center">พบข้อมูลทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+              <td width="15%" align="right">
+              </td>
+            </tr>
+          </table></td>
+	</tr>
+  </table>
+  <?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+//	echo "page_link=[$page_link], total_page=$total_page, current_page=$current_page<br>";
+	$limit_data = "";
+
+	if($current_page > 1){
+			if($DPISDB=="odbc"){
+				if ($search_distinct) {
+                    $cmd = " select distinct top $start_record $arr_fields[$distinct_index] from $table $search_condition order by $arr_fields[distinct_index] ";
+                    $db_dpis->send_cmd($cmd);
+                    while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[$arr_fields[$distinct_index]]."'";
+                    $limit_data = (trim($search_condition)?" and ":" where ")." $arr_fields[$distinct_index] not in (". implode(", ", $arr_exclude) .")";
+				} else {
+                    $cmd = " select top $start_record $arr_fields[$key_index] from $table $search_condition order by $arr_fields[$key_index] ";
+                    $db_dpis->send_cmd($cmd);
+                    while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[$arr_fields[$key_index]]."'";
+                    $limit_data = (trim($search_condition)?" and ":" where ")." $arr_fields[$key_index] not in (". implode(", ", $arr_exclude) .")";
+				}
+			}elseif($DPISDB=="oci8"){
+				if ($search_distinct) {
+					$limit_data = (trim($search_condition)?" and ":" where ")." $arr_fields[$distinct_index] not in ( select * from (select distinct $arr_fields[$distinct_index] from $table $search_condition order by $arr_fields[$distinct_index]) where rownum <= $start_record ) ";
+				} else {
+					$limit_data = (trim($search_condition)?" and ":" where ")." $arr_fields[$key_index] not in ( select * from (select $arr_fields[$key_index] from $table $search_condition order by $arr_fields[$key_index]) where rownum <= $start_record ) ";
+				}
+			}else if($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;	// $search_distinct หรือไม่ ก็ใช้เหมือนกัน
+			} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		if ($distinct_index)
+            $cmd = "	select	 distinct	top $data_per_page $arr_fields[$distinct_index]
+                                from		$table
+                                $search_condition
+                                $limit_data
+                                order by $order_str ";
+		else
+            $cmd = "	select		top $data_per_page  *
+                                from		$table
+                                $search_condition
+                                $limit_data
+                                order by $order_str ";
+	}elseif($DPISDB=="oci8"){
+		if ($distinct_index)
+			$cmd = "		select	 distinct $arr_fields[$distinct_index]
+								from		$table
+								$search_condition
+								order by $order_str  ";
+		else
+   			$cmd = "		select		*
+								from		$table
+								$search_condition
+								order by $order_str  ";
+
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+                               		$cmd 
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";
+
+	}elseif($DPISDB=="mysql"){
+		if ($distinct_index)
+            $cmd = "	select	 distinct  $arr_fields[$distinct_index]
+                                from		$table
+                                $search_condition
+                                group by $order_str
+                                $limit_data ";
+		else
+            $cmd = "	select		*
+                                from		$table
+                                $search_condition
+                                group by $order_str
+                                $limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	echo "page cmd=>$cmd ($count_page_data)<br>";
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+<?
+//		echo "arr_tab_col_sel=".implode("|",$arr_tab_col_sel)."<br>";
+
+		for($i = 0; $i < count($tab_head); $i++) {
+//			echo "(!arr_tab_col_sel[$i])==>".(!$arr_tab_col_sel[$i])." || (arr_tab_col_sel[$i]=='y')==>".($arr_tab_col_sel[$i]=='y')."<br>";
+			if (!$arr_tab_col_sel[$i] || $arr_tab_col_sel[$i] == 'y') {		// ถ้าไม่กำหนด $arr_tab_col_sel หรือ $arr_tab_col_sel[$ii] เท่ากับ 1 คือ แสดงในตาราง
+//				echo "arr_tab_col_sel[$i]=".$arr_tab_col_sel[$i]."<br>";
+				$sortstr1 = (($tab_sort[$i]==1) ? "onClick='call_sort(".($i+1).");'" : "");
+				$sortstr2 = (($tab_sort[$i]==1) ? (($order_by==($i+1)&&$sort_by==($i+1)) ? (($SortType[$order_by]=='asc') ? $SORT_ASC : $SORT_DESC) : $SORT_CUR) : "");
+				$w = ($tab_width[$i] ? "width='".$tab_width[$i]."'" : "");
+//				echo "($order_by) ($sort_by) sortstr1=$sortstr1, sortstr2=$sortstr2<br>";
+?>
+				<td nowrap <?=$w?> <?=$sortstr1?>><strong><?=$sortstr2?><?=$tab_head[$i]?></strong></td>
+<?
+			}
+        }
+?>
+    </tr>
+<?
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+        for($ii = 0; $ii < count($arr_fields); $ii++) {
+            if ($ii==$key_index) {
+                ${"temp_".$arr_fields[$key_index]} = $data[$arr_fields[$key_index]];
+                $current_list .= ((trim($current_list))?", ":"") . "'" . ${"temp_".$arr_fields[$key_index]} ."'";
+			} else if ($arr_fields[$ii]!="UPDATE_USER" && $arr_fields[$ii]!="UPDATE_DATE") {
+				${"temp_".$arr_fields[$ii]} = $data[$arr_fields[$ii]];
+			}
+		}		
+		$class = "table_body";
+       	$arr_send_back = (array) null;
+//		$arr_col_send_back = explode(",",$col_send_back);	// ส่งค่ากลับโปรแกรมหลัก ค่านี้ส่งเข้ามาจาก โปรแกรมหลัก ถ้าไม่มี จะเอาค่าที่กำหนดไว้ใน search_xxx_preset
+        $arr_col_select = explode(",",$select_column);	// ส่งค่ากลับโปรแกรมหลัก ค่านี้ส่งเข้ามาจาก โปรแกรมหลัก ถ้าไม่มี จะเอาค่าที่กำหนดไว้ใน search_xxx_preset
+//		echo "select_column=[$select_column]<br>";
+        if (count($arr_col_select) > 0) {
+        	for($k = 0; $k < count($arr_col_select); $k++) {
+            	$idx = array_search($arr_col_select[$k], $arr_fields);
+//				echo "idx=$idx, col_select [k=$k]=".$arr_col_select[$k]." .. ".implode("|",$arr_fields)."<br>";
+				$arr_send_back[] = ${"temp_".$arr_fields[$idx]};
+            }
+		} else $arr_send_back[] = ${"temp_".$arr_fields[$key_index]};
+        $send_back = implode("<::>",$arr_send_back);
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\"  onClick=\"call_selected('".$send_back."');\" ";
+//		echo "send_back=$send_back<br>";
+		if($$arr_fields[$key_index]==${"temp_".$arr_fields[$key_index]}){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+<?
+		for($ii = 0; $ii < count($tab_head); $ii++) {
+        	if (!$arr_tab_col_sel[$ii] || $arr_tab_col_sel[$ii] == 'y') {	// ถ้าไม่กำหนด $arr_tab_col_sel หรือ $arr_tab_col_sel[$ii] เท่ากับ 1 คือ แสดงในตาราง
+//				echo "arr_tab_col_sel[$ii]=".$arr_tab_col_sel[$ii]."<br>";
+                if ($seq_order_index && $col_map[$ii]==$seq_order_index) { // map ORDER
+                    $a = (!$tab_align[$ii]) ? "left" : $tab_align[$ii];
+//					echo "order_idx--".$seq_order_index."--".${"temp_".$arr_fields[$seq_order_index]}."<br>";
+?>
+					<td height="25" align="<?=$a?>"><input name="ARR_ORDER[<?=${"temp_".$arr_fields[$key_index]}?>]" type="text" size="5" maxlength="3" value="<?=(${"temp_".$arr_fields[$seq_order_index]} > 0)?${"temp_".$arr_fields[$seq_order_index]}:""?>" onKeyPress="return NumOnly();" class="TextBox"></td>
+<?
+        	   } else if ($active_index && $col_map[$ii]==$active_index) { // map ACTIVE
+            		$a = (!$tab_align[$ii]) ? "left" : $tab_align[$ii];
+//					echo "active_idx--".$active_index."--".${"temp_".$arr_fields[$active_index]}."<br>";
+?>
+					<td align="<?=$a?>"><input type="checkbox" name="list_show_id[]" value="'<?=${"temp_".$arr_fields[$active_index]}?>'" <?=((${"temp_".$arr_fields[$active_index]}==1)?"checked":"")?> readonly="readonly"></td>
+<?
+           		} else {
+            		$a = (!$tab_align[$ii]) ? "left" : $tab_align[$ii];
+	                if ($col_map[$ii]==$key_index) {
+//						echo "key_idx--".$key_index."--".${"temp_".$arr_fields[$key_index]}."<br>";
+?>
+						<td align="<?=$a?>">&nbsp;<?=${"temp_".$arr_fields[$key_index]}?></td>
+<?
+					} else {
+						// ถ้าเป็น field ที่มี ค่า ขยายความ
+//						echo "$ii-map(".$col_map[$ii].")-(".$arr_fields[$col_map[$ii]].")->".$col_datalink[$ii]."<br>";
+						if ($col_datalink[$ii]) {
+							$sub_dlink = explode("|",$col_datalink[$ii]);
+							if ($sub_dlink[0]=="code2show") {
+            	            	$arr_b = (array) null;
+                	            for($kk = 1; $kk < count($sub_dlink)-1; $kk++) {
+									$s_sub_dlink = explode(",",$sub_dlink[$kk]);
+                        	    	$arr_b[$s_sub_dlink[0]] = $s_sub_dlink[1];
+                            	}
+//								echo "code2show=>".implode(":",$arr_b)." (".${"temp_".$arr_fields[$col_map[$ii]]}.")<br>";
+								${"temp_".$arr_fields[$col_map[$ii]]} = $arr_b[${"temp_".$arr_fields[$col_map[$ii]]}];
+							} else if ($sub_dlink[0]=="columnlink") {
+        	                	$tab = $sub_dlink[1];
+            	            	$arr_colsel = explode(",",$sub_dlink[2]);		// List ของชื่อ column ที่ต้องการ
+                	        	$arr_condi = explode(",",$sub_dlink[3]);		// List ของตัวแปรที่ใช้ในเงื่อนไข
+                    	    	$arr_output = explode(",",$sub_dlink[4]);		// List ของตัวแปรที่ใช้เก็บข้อมูลที่อ่านได้
+                        		$wherecondition = $sub_dlink[5];
+                            	for($jj=count($arr_condi)-1; $jj >= 0 ; $jj--) {
+                            		$varname = "var".($jj+1);
+	                               $wherecondition = str_replace($varname, trim($$arr_condi[$jj]), $wherecondition);
+    	                        }
+        	                    $sql = " select  ".$sub_dlink[2]." from ".$tab.($wherecondition ? " where ".$wherecondition : "");
+            	           		$db_dpis1->send_cmd($sql);
+                	            $data1 = $db_dpis1->get_array();
+//								echo "sql=$sql<br>";
+                        	    for($jj=0; $jj < count($arr_output); $jj++) {
+	                        	    $$arr_output[$jj] = $data1[$arr_colsel[$jj]];	// select column move to output
+//									echo ">>output=".$arr_output[$jj]." | ".$arr_fields[$col_map[$ii]]."<br>";
+								}
+        	                }
+						}
+?>
+						<td align="<?=$a?>">&nbsp;<?=${"temp_".$arr_fields[$col_map[$ii]]}?></td>
+<?
+					}
+				} //  chec index type
+           } // end if $arr_tab_col_sel
+        } // end for loop
+?>
+	</tr>
+<? 
+	} // end while
+
+?>
+  </table>
+	<? if($total_page > 1) : ?>
+  	<table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    	<tr>
+      		<td><?=$page_link?></td>
+    	</tr>
+  	</table>
+  	<? endif; ?>&nbsp;
+<? 
+  } // if  count show 
+?>
+  			<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	</td>
+		</td>
+	</tr>
+</table>
+<? 
+//	echo $arr_fields[$key_index];  echo $table; 
+?>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

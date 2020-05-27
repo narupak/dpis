@@ -1,0 +1,1105 @@
+<?
+include("../php_scripts/connect_database.php");
+include("php_scripts/function_share.php");
+include("php_scripts/import_file.php"); 
+//echo "html :14/04/63 <br>";
+ $url=$_SERVER["REQUEST_URI"];
+	$query_str = parse_url($url, PHP_URL_QUERY);
+        if(empty($current_url)){
+            $current_url=$query_str;
+        }
+
+
+// ini_set('error_reporting', 30711); // บังคับให้แสดง warning
+//	echo "2..textcols=$textcols<br>";
+
+//	echo "chkerr=$chkerr , chknerr=$chknerr<br>";
+
+//echo "โปรแกรมฉบับชั่วคราว (beta 5.1.0.1 : 25 พ.ย. 2558)<br>";
+//echo "โปรแกรมฉบับชั่วคราว (beta 5.1.0.2 : 8 ธ.ค. 2558)<br>";
+
+$search_condition = "IMPORT_FILENAME='$form'";
+if ($chkerr!=1 && $chknerr!=1) {
+$chkerr = 1;
+$chknerr = 1;
+} else if ($chkerr==1 && $chknerr==1) {
+// do nothing
+//		echo "***** visiting *****<br>";
+} else if ($chkerr==1) {
+$search_condition .= " and ERROR = 1";
+} else if ($chknerr==1) {
+$search_condition .= " and ERROR != 1";
+}
+    //สร้าง Table
+        $cmdChk = "SELECT count(*)AS CNT FROM user_tables WHERE  TABLE_NAME = 'PER_TAXHIS'";
+            $db_dpis->send_cmd($cmdChk);
+            $dataChk = $db_dpis->get_array();
+            if($dataChk[CNT]=="0"){
+                $cmdA = "CREATE TABLE PER_TAXHIS(
+                  STAX_ID		NUMBER(10)	NOT NULL,
+                  PER_ID		NUMBER(10)	NOT NULL,
+                  TAX_YEAR	VARCHAR2(4)	NOT NULL,
+                  TAX_DATE	VARCHAR2(8),
+                  TAX_NUM		VARCHAR2(6),
+                  ORGTAX_NO	VARCHAR2(13)	NOT NULL,
+                  ORG_NAME	VARCHAR2(200),
+                  ORG_ADDR	VARCHAR2(200),
+                  PER_CARDNO	VARCHAR2(13)	NOT NULL,
+                  PER_TAXNO	VARCHAR2(10),
+                  PER_NAME	VARCHAR2(150),
+                  PER_ADDR	VARCHAR2(200),
+                  SEQ_NO		VARCHAR2(6),
+                  FORMTAX_TYPE	CHAR(1),
+                  INCOME		NUMBER(10,2),
+                  TAX_INCOME	NUMBER(10,2),
+                  NET_INCOME	NUMBER(10,2),
+                  NETTAX_INCOME	NUMBER(10,2),
+                  NETTAX_CHAR	VARCHAR2(150),
+                  NETSAVING_TYPE	CHAR(1),
+                  NET_SAVING	NUMBER(10,2),
+                  TAX_TYPE	CHAR(1),
+                  CONSTRAINT PER_TAXHIS_PK PRIMARY KEY (STAX_ID)
+                  )";
+
+                $db_dpis->send_cmd($cmdA);
+                $cmdA = 'COMMIT';
+                $db_dpis->send_cmd($cmdA);
+            }
+$cmd = "	select * from IMPORT_TEMP ".($search_condition ? "where ".$search_condition." " : "");
+$count_data = $db_dpis->send_cmd($cmd);
+//	echo "***search-$cmd<br>";
+  $cmd = "	select * from IMPORT_TEMP where IMPORT_FILENAME = '$form' and ERROR=1";
+$count_err = $db_dpis->send_cmd($cmd);
+//	echo "***search error-$cmd<br>";
+//	echo "1.. updtext=$updtext<br>";
+?>
+<html>
+    <head>
+        <title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+        <meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+        <link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+        <link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+    </head>
+    <script type="text/javascript" src="java_scripts/chk_date.js"></script>
+    <script type="text/javascript" src="java_scripts/calendar.js"></script>
+    <script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+    <script type="text/javascript" src="java_scripts/function_utility.js"></script>
+    <script type="text/javascript" src="java_scripts/jquery-1.10.2.js"></script> 
+    
+    <script language="JavaScript">
+        function MM_openBrWindow(theURL,winName,features) { //v2.0
+            window.open(theURL,winName,features);
+        }
+	
+        function change_current_page( page ){
+            form1.current_page.value = page;
+            form1.submit();
+        }
+
+        function ProcessUploading() {
+            //	alert(document.getElementById("obj_uploading"));
+            document.getElementById("obj_uploading").style.display = "block";
+            document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+            document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+            document.getElementById("obj_uploading").style.visibility = "visible";
+            return true;
+        }
+	
+        function checkUpload(){
+            if(form1.form.value=="per_salaryhis_form.php"){
+               locat_work =  document.getElementById("locat_work").checked;
+                if(locat_work == true){
+                    content = "<br> <font color=\"blue\">*คุณกำลังนำเข้าไฟล์ โดยระบบจะหาสังกัดจากเลขที่ตำแหน่งของบุคคลไปบันทึกให้อัตโนมัติ </font>";size = 500;  
+                }else{
+                    content = "<br> <font color=\"blue\">*คุณกำลังนำเข้าไฟล์ โดยให้ระบบนำเข้าข้อมูลสังกัดจากไฟล์ Excel ให้แน่ใจว่าในไฟล์ Excel กรอกข้อมูลสังกัดไว้แล้ว </font>";size = 500;
+                } 
+                alert_box(content,size);
+            }else{
+            
+            if(form1.TEXT_FILE.value != ''){ 
+                var TextFile=document.form1.TEXT_FILE.value.toLowerCase();
+                //			TextFile = "c:\\Users\myHome\\Documents\\fakepath\\Apr55_dum.txt";
+                
+                
+                    if(document.getElementById("form").value == "per_taxhis.php"){
+                            if(TextFile.lastIndexOf(".txt") > -1) {
+                                form1.RealFile.value=form1.TEXT_FILE.value;
+                                //				form1.command.value='CONVERT'; 
+                                form1.command.value='UPLOAD'; 
+                                 form1.submit();
+                                return ProcessUploading();
+                            } else {
+                                alert("ระบุไฟล์ เป็น Text เท่านั้น");
+                                document.form1.TEXT_FILE.focus();
+                                return false;
+                            }  
+
+                    }else{
+                            if(TextFile.lastIndexOf(".txt") > -1 || TextFile.lastIndexOf(".xls") > -1) {
+                                form1.RealFile.value=form1.TEXT_FILE.value;
+                                //				form1.command.value='CONVERT'; 
+                               
+                                form1.command.value='UPLOAD'; 
+                                form1.submit();
+                                return ProcessUploading();
+                            } else {
+                                alert("ระบุไฟล์ เป็น Text หรือ Excel เท่านั้น");
+                                document.form1.TEXT_FILE.focus();
+                                return false;
+                            }
+                    }
+
+                }
+            }
+      }
+
+       
+        function call_reset() {
+           form1.ROW_NUM.value = "";
+            form1.updtext.value = "";
+            form1.impfile.value = "";
+            form1.textcols.value = 0;
+            var elems = document.getElementsByTagName("input");
+            var arr = new Array();
+            for(i=0; i < elems.length; i++) {
+                arr.push(elems.item(i).type);
+                if  (elems.item(i).type=="text")
+                    elems.item(i).value = "";
+                else if (elems.item(i).type=="radio")
+                    elems.item(i).value = "";
+                else if (elems.item(i).type=="checkbox")
+                    elems.item(i).value = "";
+            }
+            var elems = document.getElementsByTagName("textarea");
+            var arr = new Array();
+            for(i=0; i < elems.length; i++) {
+                elems.item(i).value = "";
+            }
+            //		alert("elems=>"+arr.join(","));
+            form1.submit();
+		   //alert(form1.current_url.value);
+		   //window.location = 'import_file.html?'form1.current_url.value;
+        }
+        
+		function call_showdup(type){
+			
+			form1.sh_dup_fu.value=type;
+		    form1.submit(); 		
+		}
+
+        function confirm_delete(row_num) {
+            //		alert("รายการ="+row_num);
+            if (confirm("ต้องการลบรายการที่ "+row_num+" นี้แน่นอน?")) {
+                form1.ROW_NUM.value = row_num;
+                form1.command.value = "DELETE";
+                form1.submit();
+            }
+        }
+
+        function call_refresh() {
+            //		form1.command.value = "";
+            form1.submit();
+        }
+
+        function call_update(rownum, data_pack, data_in) {
+            //		alert("rownum="+rownum);
+            form1.command.value = "EDIT";
+            form1.ROW_NUM.value = rownum;
+            form1.updtext.value = data_pack;
+            form1.imptext.value = data_in;
+            //		alert("data_pack="+data_pack+" ["+data_in+"]");
+            form1.submit();
+        }
+
+        function call_view(rownum, data_pack, data_in) {
+            //		alert("rownum="+rownum);
+            form1.command.value = "VIEW";
+            form1.ROW_NUM.value = rownum;
+            form1.updtext.value = data_pack;
+            form1.imptext.value = data_in;
+            //		alert("data_pack="+data_pack+" ["+data_in+"]");
+            form1.submit();
+        }
+
+        function call_save(MAX_ID, imptext) {
+            //		alert("MAX_ID="+MAX_ID);
+            //		alert("imptext="+imptext);
+            arr_imp = imptext.split("<?=$DIVIDE_TEXTFILE?>");
+            cnt_cols = arr_imp.length;
+            var elements = document.getElementsByTagName("input");
+            var arr_order = new Array();
+            i = 0;
+            for(var e in elements) {
+                if (e.indexOf("rawdata_") > -1) {
+                    //				alert("e="+e);
+                    buff = e.split("_");
+                    arr_order[i] = Number(buff[1]);
+                    i++;
+                }
+            }
+            arr_order.sort();
+            a_data_in = new Array();
+            //		textcols = form1.textcols.value;
+            //		alert("textcols="+textcols+"  cnt_cols="+cnt_cols);
+            for(i = 0; i < cnt_cols; i++) {
+                //			alert("i="+i+" order="+arr_order[i]);
+                //			rname = "rawdata_"+arr_order[i];
+                rname = "rawdata_"+String(i+1);
+                var textobj = document.getElementsByName(rname)[0];
+                if (textobj) {
+                    a_data_in[i] = textobj.value;
+                    //				alert("i="+i+" data="+textobj.value);
+                } else {
+                    a_data_in[i] = arr_imp[i];
+                    //				alert("i="+i+" no data");
+                }
+            }
+            data_in = a_data_in.join("<?=$DIVIDE_TEXTFILE?>");
+            //		alert("data_in="+data_in+" delimeter=<?=$DIVIDE_TEXTFILE?>");
+            form1.imptext.value = data_in;
+            form1.running_id.value = MAX_ID;
+            form1.command.value = "SAVE";
+            form1.submit();
+        }
+
+        function call_cancel() {
+            //		alert(data_pack);
+            form1.ROW_NUM.value = "";
+            form1.updtext.value = "";
+            form1.submit();
+        }
+
+        function call_import() {
+            var cnterr = Number("<?=$count_err?>");
+            //		alert("cnterr="+cnterr);
+            if (cnterr) alert("ยังมีข้อมูลที่ไม่ถูกต้องอยู่ ("+cnterr+" รายการ) ไม่สามารถนำเข้าได้ โปรดแก้ไขให้หมดก่อน...");
+            else {
+                form1.ROW_NUM.value = "";
+                form1.updtext.value = "";
+                form1.command.value = "IMPORT";
+                form1.submit();
+            }
+        }
+
+        function call_tempdata() {
+            form1.command.value = "TEMPDATA";
+            form1.submit();
+        }
+        
+        function changedateformat(name,str) {
+            var arr = str.split('/');
+            if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+                    name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+            }
+            chk_date(name, "BDH");
+        }
+        function alert_box(content,size){
+           $("#dialog").dialog({
+                    modal: true,
+                    draggable: false,
+                    buttons: {
+                      "ตกลง": function() { 
+                        $(this).dialog("close");
+                        form1.RealFile.value=form1.TEXT_FILE.value;
+                        form1.command.value = 'UPLOAD';
+                        form1.submit();
+                        return ProcessUploading();
+                      },
+                      "ยกเลิก": function() { $(this).dialog("close"); }
+                    },overlay: {
+                      opacity: 0.5,
+                      background: "black"
+                    },width: size,
+                      open: function( event, ui ) {
+                        $(".ui-dialog").css({ "top": '200px' });
+                        $(".ui-button").css({ "font-size": '12px' });
+                        $(".ui-dialog-titlebar").css({ "display": 'none' });
+                        $(".ui-dialog-content").css({ "height": '70px' });
+                        $("#content").html(content).css({ "font-size": '16px' });
+                        $("html").css({ overflow: 'hidden' });    
+                      },beforeClose: function( event, ui ) {
+                        $("html").css({ overflow: 'auto' }); 
+                      }
+                  });
+            }
+    </script>
+    <span id="defaultTheme"></span> 
+    <body>
+        <table  width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+            <tr>
+                <td height="10"><?include("header_menu.html")?></td>
+            </tr>
+            <tr> 
+                <td align="left" valign="top">
+                    <?	
+                    if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+                    include("current_location.html");
+                    ?>
+                </td>
+            </tr>
+            <tr>
+                <td align="center" valign="top"><form name="form1" method="post" action="import_file.html?<?=$current_url;?>" enctype="multipart/form-data">
+                        <input type="hidden" name="current_page" value="<?=$current_page?>">
+						<input type="hidden" name="current_url" value="<?=$current_url?>">
+                        <input type="hidden" name="total_page" value="<?=$total_page?>">
+                        <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+                        <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+                        <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+                        <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+                        <input type="hidden" name="command" value="">
+                        <input type="hidden" name="form" id="form" value="<?=$form?>">
+                        <input type="hidden" name="impfile" value="<?=$impfile?>">
+                        <input type="hidden" name="updtext" value="<?=$updtext?>">
+                        <input type="hidden" name="imptext" value="<?=$imptext?>">
+                        <input type="hidden" name="imptype" value="<?=$imptype?>">
+                        <input type="hidden" name="ROW_NUM" value="<?=$ROW_NUM?>">
+                        <input type="hidden" name="running_id" value="">
+                        <input type="hidden" name="textcols" value="<?=$textcols?>">
+                        &nbsp;
+                        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+                            <tr>
+                                <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                                        <tr>
+                                            <td colspan="2" height="5"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2" height="5"></td>
+                                        </tr>
+                                        <tr align="center">
+                                            <td height="25">
+                                                <table width="75%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                                                    <tr>
+                                                        <td width="25%" height="25" align="right">&nbsp;</td>
+                                                        <td width="38%">&nbsp;</td>
+                                                        <td width="37%" align="left">&nbsp;</td>
+                                                    </tr>
+                                                    <?
+                                                    if ($impfile) {
+                                                    ?>
+                                                    <tr>
+                                                        <td width="25%" height="25" align="right">ไฟล์นำเข้า&nbsp;:&nbsp;</td>
+                                                        <td><input name="TEXT_FILE" type="text" class="black_small" value="<?=$impfile?>" readonly>&nbsp;<input name="RealFile" type="hidden" value=""></td>
+                                                        <td align="left"><?if($excel_msg) echo "<font color='green'>".$IMPORT_TITLE.$excel_msg."</font>";?>&nbsp;</td>
+                                                    </tr>
+                                                    <?
+                                                    } else {
+                                                    ?>
+                                                    <tr>
+                                                        <td width="25%" height="25" align="right">ไฟล์นำเข้า&nbsp;:&nbsp;</td>
+                                                        <td><input name="TEXT_FILE" type="file" class="black_small">&nbsp;<input name="RealFile" type="hidden" value="">
+                                                            <!--&nbsp;&nbsp;<input type="submit" value="Upload file" name="submit" onClick="form1.command.value='UPLOAD';">-->
+                                                        </td>
+                                                        <td align="left"><?if($excel_msg) echo "<font color='red'>".$IMPORT_TITLE.$excel_msg."</font>";?>&nbsp;</td>
+                                                    </tr>
+                                                    <?
+                                                    }
+                                                    ?>
+                                                    <?php if($form == "per_taxhis.php"){ ?>
+                                                    <tr>
+                                                        <td width="25%" height="25" align="right">&nbsp;</td>
+                                                        <td>&nbsp;<font color="#0066FF">[สามารถนำเข้าข้อมูลโดยใช้ไฟล์ นามสกุล .txt เท่านั้น]</font></td>
+                                                    </tr>
+                                                    <?}else{?>
+                                                        <tr>
+                                                        <td width="25%" height="25" align="right">&nbsp;</td>
+                                                        <td>&nbsp;<font color="#0066FF">[สามารถนำเข้าข้อมูลโดยใช้ไฟล์ นามสกุล .xls และ .txt เท่านั้น]</font></td>
+                                                    </tr>
+                                                    <?}?>
+                                                    <?php 
+                                                    if($form == "per_taxhis.php" || $form == "per_slip_form.php"){ ?>
+                                                    <tr>
+                                                        <td width="25%" height="25" align="right">&nbsp;</td>
+                                                        <td>&nbsp;<font color="#0066FF"><a href="http://epayroll.cgd.go.th/CGDREG/CGDWEB/download.jsp?set_bg=3" target="_blank">รูปแบบการนำข้อมูลออกจากระบบจ่ายตรงเงินเดือนของกรมบัญชีกลาง</a></td>
+                                                    </tr>
+                                                    <?}?>
+                                                </table>
+                                        </tr>
+                                        <?
+                                        $scrname = str_replace("form","screen",$form);
+                                        $scrname = str_replace(".php",".html",$scrname);
+                                       		//	echo "scrname=$scrname<br>";
+                                        if (file_exists("import_forms/".$scrname)) {
+                                        include("import_forms/".$scrname);
+                                        } // end if (file_exist("import_forms/".$scrname))
+                                        ?>
+                                    <tr align="center" >
+                                    <? if($form=="per_salaryhis_form.php"){?>
+                                            <table width="75%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                                                <tr>
+                                                    <td width="27%" height="25" align="right">&nbsp;</td>
+                                                    <td> <input type="checkbox" name="locat_work" id="locat_work" value="Y" <?=($locat_work=='Y')?"checked":""?>><font color="#0066FF">ให้ระบบหาสังกัดจากเลขที่ตำแหน่งของบุคคลไปบันทึกให้อัตโนมัติ</font></td>
+                                                </tr>
+                                        </table>
+                                    <?}?>
+                                    </tr>
+                                        <tr align="center">  
+                                            <td height="30" >
+                                                <? if (!$impfile) { 
+                                                if ($BUTTON_DISPLAY==1) { ?>
+                                                <input name="Submit22" type="button" class="button" onClick="return checkUpload();" value="<?=$IMPORT_TITLE?>">
+                                                <?   } else { ?>
+                                                <input name="image2" type="image" onClick="return checkUpload();" src="images/ok.gif" alt="<?=$IMPORT_TITLE?>" border="0">
+                                                <? 
+                                                }
+                                                if ($BUTTON_DISPLAY==1) { ?>
+                                                <input name="Submit23" type="submit" class="button" onClick="call_tempdata();" value="ข้อมูลเก่าจาก buffer">
+                                                <?   } else { ?>
+                                                <input name="image3" type="image" onClick="call_tempdata();" src="images/ok.gif" alt="ข้อมูลเก่าจาก buffer" border="0">
+                                                <? 	}
+                                                }
+                                                if ($BUTTON_DISPLAY==1) { ?>
+                                                <input type="button" name="reset2" value="<?=$CLEAR_TITLE?>" class="button" onClick="call_reset();">
+                                                <? } else { ?>
+                                                <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="call_reset();">
+                                                <? } ?>
+                                            </td>
+                                            
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2" height="5">&nbsp;</td>
+                                        </tr>
+                                        <? if ($impfile_head_thai) { ?>
+                                        <tr>
+                                            <td colspan="2">
+                                                <table width="95%" border="1" align="center" class="label_normal">
+                                                   
+                                                    <tr>
+                                                        <td colspan="100%">
+                                                            <b>รูปแบบข้อมูลนำเข้า<span class="label_alert">&nbsp;<?=$impfile_head_title;?></span></b><br>
+                                                             <? if($table == "PER_SALARYHIS"){ ?>
+                                                                * คอลัมน์ ค่าครองชีพชั่วคราว ใช้เฉพาะพนักงานราชการ
+                                                             <?}?>
+                                                        </td>
+                                                    </tr>
+                                                    
+                                                    <tr align="center">
+                                                        <? for($i=0; $i < count($impfile_head_thai); $i++) { ?>
+                                                        <td class="table_body" width="5%"><?=$impfile_head_thai[$i];?></td>
+                                                        <? } ?>
+                                                    </tr>
+                                                    <? if ($impfile_exam_map) { ?>
+                                                    <tr align="center">
+                                                        <? for($i=0; $i < count($impfile_exam_map); $i++) { ?>
+                                                        <td width="5%"><?=$impfile_exam_map[$i];?></td>
+                                                        <? } ?>
+                                                    </tr>
+                                                    <? } ?>
+                                                </table>
+                                            </td>	
+                                        </tr>
+                                        <? } ?>
+                                    </table></td>
+                            </tr>
+                        </table>
+                        <?
+                        // เริ่มช่วง form แก้ไขข้อมูล
+                        if ($command=="VIEW" && $impfile && $count_data && $updtext) {
+                        $data_fld = explode("$delimeter",$updtext);
+                        ?>
+                        <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td colspan="4" align="center" bgcolor="#CCCCCC">แก้ไขข้อมูล Row Number=<?=$ROW_NUM?></td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                            <?
+                            for($i = 0; $i < count($column_map); $i++) {
+                            $showname = "";
+                            $showdata = "";
+                            for($j = 0; $j < count($data_fld); $j++) {
+                            $dat_detail = explode("=",$data_fld[$j]);
+                            if ($dat_detail[1]==$arr_fields[$i]) {
+                            $showname = $dat_detail[1];
+                            $showdata = $dat_detail[2];
+                            //echo $dat_detail[1]."=".$arr_fields[$i]."<br>";
+                            //						echo "$i. name=$showname  data=$showdata<br>";
+                            break;
+                            }
+                            }
+                            if ($showname) {
+                            if (substr($column_map[$i],0,3)=="sql") {
+                            $data_type = substr($column_map[$i],4,1);
+                            $field_type = substr($column_map[$i],6,1);
+                            $sql = substr($column_map[$i],8);
+                            if ($field_type=="d") $r_stat = "disabled";
+                            else $r_stat = "disabled";
+                            } else if ($column_map[$i]=="running") {
+                            $r_stat = "disabled";
+                            } else if ($column_map[$i]=="update_user") {
+                            $r_stat = "disabled";
+                            } else if ($column_map[$i]=="update_date") {
+                            $r_stat = "disabled";
+                            } else {
+                            $r_stat = "disabled";
+                            }
+                            if ($i % 2 == 0) {
+                            ?>
+                            <tr>
+                                <td align="right"><?=($head_map[$i] ? $head_map[$i] : $showname)?>&nbsp;:&nbsp;</td><td align="left"><input type="text" name="<?=$showname?>" value="<?=$showdata?>"  <?=$r_stat?>>
+                                                                                                                                            <?
+                                                                                                                                            } else {
+                                                                                                                                            ?>
+                                <td align="right"><?=($head_map[$i] ? $head_map[$i] : $showname)?>&nbsp;:&nbsp;</td><td align="left"><input type="text" name="<?=$showname?>" value="<?=$showdata?>" <?=$r_stat?>>
+                            </tr> 
+                            <?
+                            }
+                            } // end if ($column_map[$i])
+                            } // end loop for $i
+                            ?>
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center" bgcolor="#CCCCCC"><input name="btncancel" type="button" class="button" value="<?=$CANCEL_TITLE?>" onClick="call_cancel();"></td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                        </table>
+                        <?
+                        } // end if ($impfile && $count_data && $updtext)
+
+                        // เริ่มช่วง form แก้ไขข้อมูล
+                        if ($impfile && $count_data && $updtext && $imptext && $command!="VIEW") {
+                        $data_fld = explode("$delimeter",$updtext);
+                        //		echo "9.. updtext=$updtext<br>";
+                        $arr_temp = explode("$DIVIDE_TEXTFILE",$imptext);
+                        //		echo "9.. imptext=".$imptext."<br>";
+                        ?>
+                        <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td colspan="4" align="center" bgcolor="#CCCCCC">แก้ไขข้อมูล Row Number=<?=$ROW_NUM?></td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                            <?
+                            for($i = 0; $i < count($column_map); $i++) {
+                            $showname = "";
+                            $showdata = "";
+                            for($j = 0; $j < count($data_fld); $j++) {
+                            $dat_detail = explode("=",$data_fld[$j]);
+                            if ($dat_detail[1]==$arr_fields[$i]) {
+                            $showname = $dat_detail[1];
+                            $showdata = $dat_detail[2];
+                           //						echo "$i .. name=$showname  data=$showdata<br>";
+                            break;
+                            }
+                            }
+                            $arr_val = (array) null;
+                            $arr_order = (array) null;
+                           //				echo "****** $i - ".$showdata." - ".$column_map[$i]."<br>";
+                            if ($column_map[$i]) {
+                            if (substr($column_map[$i],0,3)=="sql") {
+                            $data_type = substr($column_map[$i],4,1);
+                            $field_type = substr($column_map[$i],6,1);
+                            $sql = substr($column_map[$i],8);
+                            $c = strpos($sql,"from");
+                            $colname = trim(substr($sql, 7, $c-7));
+                            // จบการหาชื่อข้อมูลที่ select เข้ามา
+                            $c1 = strpos($sql,"@");
+                            //						echo "sql=".$sql." ($c1)<br>";
+                            while ($c1!==false) {
+                            $kk = 1;
+                            while (ctype_digit(substr($sql,$c1+1,$kk)) && $kk < strlen($sql)) $kk++;
+                            //							echo "c1=$c1 , kk=$kk<br>";
+                            $data_col_idx = (int)substr($sql,$c1+1,$kk-1);
+                            $data_col_sym = "@".$data_col_idx;
+                            //							if ($imptype=="xls")
+                            //								$val = ($data_type=="s" ? "'".$arr_temp[$data_col_idx-1]."'" : $arr_temp[$data_col_idx-1]);
+                            //							else
+                            $val = $arr_temp[$data_col_idx-1];
+                            $sql = str_replace($data_col_sym,$val,$sql);
+                            // ค้นหาว่าค่า ลำดับนี้ มี map ตรงๆ แล้วหรือไม่
+                            $x = in_array($data_col_idx, $column_map);
+                            //							echo "sql-$data_col_idx in array [".implode(",",$column_map)."]=$x<br>";
+                            if (!$x) {
+                            $arr_val[] = "".$data_col_idx.($impfile_head_map[$data_col_idx-1] ? ".".$impfile_head_map[$data_col_idx-1]."&nbsp;:&nbsp" : ".")."|".$val;
+                            $arr_order[] = $data_col_idx;
+                            }
+                            $c1 = strpos($sql,"@", $c1+1);
+                            }
+                            if ($field_type=="d") $r_stat = "disabled";
+                            else $r_stat = "";
+                            } else if (substr($column_map[$i],0,4)=="fmla") {
+                            // หาประโยค formula ก่อน
+                            $data_type = substr($column_map[$i],5,1);
+                            $field_type = substr($column_map[$i],7,1);
+                            $formula = substr($column_map[$i],9);
+                            $a_val = (array) null;
+                            $c1 = strpos($formula,"@");
+                            //						echo "formula=".$formula." ($c1)<br>";
+                            while ($c1!==false) {
+                            $kk = 1;
+                            while (ctype_digit(substr($formula,$c1+1,$kk)) && $kk < strlen($formula)) $kk++;
+                            //							echo "c1=$c1 , kk=$kk<br>";
+                            $arg = (int)substr($formula,$c1+1,$kk-1);
+                            // ค้นหาว่าค่า ลำดับนี้ มี map ตรงๆ แล้วหรือไม่
+                            $x = in_array($arg, $column_map);
+                            //							echo "fmla-$arg in array [".implode(",",$column_map)."]=$x<br>";
+                            if (!$x) {
+                            $arr_val[] = $arg.($impfile_head_map[$arg-1] ? ".".$impfile_head_map[$arg-1]."&nbsp;:&nbsp" : ".")."|".$arr_temp[$arg-1];
+                            $arr_order[] = $arg;
+                            }
+                            //							echo "@".$arg."==>".$arr_temp[$arg-1]."<br>";
+                            $c1 = strpos($formula,"@", $c1+1);
+                            }
+                            //					echo  "** i=$i , formula=$formula , arr_val=".implode(",",$arr_val)."<br>";
+                            $a_dat = compute_formula($formula, $arr_val);
+                            $a_typ = "s";
+                            } else if (substr($column_map[$i],0,4)=="func") {
+                            // หาประโยค function ก่อน
+                            $data_type = substr($column_map[$i],5,1);
+                            $field_type = substr($column_map[$i],7,1);
+                            $function = substr($column_map[$i],9);
+                            $a_val = (array) null;
+                            $c1 = strpos($function,"@");
+                            //						echo "formula=".$formula." ($c1)<br>";
+                            while ($c1!==false) {
+                            $kk = 1;
+                            while (ctype_digit(substr($function,$c1+1,$kk)) && $kk < strlen($function)) $kk++;
+                            //							echo "c1=$c1 , kk=$kk<br>";
+                            $arg = (int)substr($function,$c1+1,$kk-1);
+                            // ค้นหาว่าค่า ลำดับนี้ มี map ตรงๆ แล้วหรือไม่
+                            $x = in_array($arg, $column_map);
+                            //							echo "func-$arg in array [".implode(",",$column_map)."]=$x<br>";
+                            if (!$x) {
+                            $arr_val[] = $arg.($impfile_head_map[$arg-1] ? ".".$impfile_head_map[$arg-1]."&nbsp;:&nbsp" : ".")."|".$arr_temp[$arg-1];
+                            $arr_order[] = $arg;
+                            }
+                            //							echo "@".$arg."==>".$arr_temp[$arg-1]."<br>";
+                            $c1 = strpos($function,"@", $c1+1);
+                            }
+                            //						echo  "** i=$i , function=$function , a_val=".implode(",",$arr_val)."<br>";
+                            $a_dat = call_user_func_array($function, $arr_val);
+                            $a_typ = "s";
+                            } else if (substr($column_map[$i],0,6)=="screen") {
+                            $data_type = substr($column_map[$i],7,1);
+                            $field_type = substr($column_map[$i],9,1);
+                            $ppart = explode("|",substr($column_map[$i],11));
+                            //					echo "ppart>".$ppart[0].">>".$$ppart[0]."<br>";
+                            $a_dat  = "'".$$ppart[0]."'";
+                            $a_typ = $data_type;
+                            } else if (substr($column_map[$i],0,3)=="php") {
+                            $data_type = substr($column_map[$i],4,1);
+                            $field_type = substr($column_map[$i],6,1);
+                            $ppart = explode("|",substr($column_map[$i],8));
+                            //						echo "ppart>".$ppart[0].">>".$$ppart[0]."<br>";
+                            $a_dat  = "'".$$ppart[0]."'";
+                            $a_typ = $data_type;
+                            } else if ($column_map[$i]=="running") {
+                            $r_stat = "disabled";
+                            //						echo "****** $i - ".$data_fld[$i]." - ".$column_map[$i]."<br>";
+                            //						$a = explode("=",$data_fld[$i]);
+                            //						$MAX_ID = $a[2];
+                            $MAX_ID = $showdata;
+                            } else if ($column_map[$i]=="update_user") {
+                            $r_stat = "disabled";
+                            } else if ($column_map[$i]=="update_date") {
+                            $r_stat = "disabled";
+                            } else {
+                            $data_col_idx = (int)$column_map[$i];
+                            $arr_val[] = $data_col_idx.($impfile_head_map[$data_col_idx-1] ? ".".$impfile_head_map[$data_col_idx-1]."&nbsp;:&nbsp" : ".")."|".$arr_temp[$data_col_idx-1];
+                            $arr_order[] = $data_col_idx;
+                            //						echo "$i>$data_col_idx>>".$data_col_idx.($impfile_head_map[$data_col_idx-1] ? ")".$impfile_head_map[$data_col_idx-1] : "")."|".$arr_temp[$data_col_idx-1]."<br>";
+                            $r_stat = "";
+                            }
+                            ?>
+                            <tr>
+                                <td align="right"><?=($head_map[$i] ? $head_map[$i] : $showname)?>&nbsp;:&nbsp;</td><td align="left"><input type="text" name="<?=$showname?>" value="<?=$showdata?>"  disabled> (<?=$i?>)
+                                <td align="left">
+                                //   echo $showname;
+                                    <?
+                                    for($j=0; $j < count($arr_val); $j++) {
+                                    $valdet = explode("|",$arr_val[$j]);
+                                    //							echo "dataname=".$valdet[0]."<br>";
+                                    ?>
+                                    <?=$valdet[0]?><input type="text" name="rawdata_<?=$arr_order[$j]?>" value="<?=$valdet[1]?>" >
+                                    <?
+                                    }
+                                    ?>
+                                </td>
+                            </tr> 
+                            <?
+                            } // end if ($column_map[$i])
+                            } // end loop for $i
+                            ?>
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center" bgcolor="#CCCCCC"><input name="btnsave" type="button" class="button" value="<?=$SAVE_TITLE?>" onClick="call_save('<?=$MAX_ID?>','<?=$imptext?>');">&nbsp;&nbsp;<input name="btncancel" type="button" class="button" value="<?=$CANCEL_TITLE?>" onClick="call_cancel();"></td>
+                            </tr> 
+                            <tr>
+                                <td colspan="4" align="center">&nbsp;</td>
+                            </tr> 
+                        </table>
+                        <?
+                        } // end if ($impfile && $count_data && $updtext)
+
+                        // เริ่ม ช่วงตารางข้อมูล
+                        if ($cnt_import) {
+                        ?>
+                        <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+                                        <tr>
+                                            <td width="20%" height="22" align="center">&nbsp;นำข้อมูลเข้าเรียบร้อย <?=$cnt_import;?> รายการ</td>
+                                        </tr>
+                                    </table></td>
+                            </tr>
+                        </table>
+                        <?    	
+                        } else if ($impfile) {
+                        if ($chkerr == 1 && $chknerr == 1) {
+                        $import_title = "มีข้อมูลนำเข้าทั้งสิ้น";
+                        } else if ($chkerr == 1) {
+                        $import_title = "มีข้อมูลนำเข้าที่มี Error ทั้งสิ้น";
+                        } else if ($chknerr == 1) {
+                        $import_title = "มีข้อมูลนำเข้าที่ไม่มี Error ทั้งสิ้น";
+                        } else {
+                        $import_title = "มีข้อมูลนำเข้าทั้งสิ้น";
+                        }
+                        ?>
+                        <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+                                        <tr>
+                                            <td width="20%" height="22">
+                                                <? if ($count_data > 0) { ?>
+                                                <input name="btnimport" type="button" class="button" style="width:150" value="นำเข้าฐานข้อมูล" onClick="call_import();">
+                                                <br>ลบข้อมูลเดิมที่มี :
+                                                <input type="checkbox" name="DEL_FLAG" value="1">
+												<?php  if($table == "PER_SALARYHIS"){ ?>
+													<br>นำเข้าเฉพาะข้อมูลที่ Active :
+													<input type="checkbox" name="insert_active" value="1"> 
+												<?}?>
+                                                <? } else { ?>
+                                                &nbsp;
+                                                <? } ?>
+                                            </td>
+                                            <td width="55%" align="center"><?=$import_title?> 
+                                                <?=($count_data + 0)?>   รายการ  <br> <br>
+												<?php if($table == 'PER_SALARYHIS'){?>	
+													<font color="red" id="show_cnt_dup">มีข้อมูลที่ซ้ำทั้งสิ้น  0  รายการ </font>
+												<?}?>    
+												</td>
+
+                                            <td width="18%" align="right">จำนวน column คงที่&nbsp;:&nbsp;<input type="text" name="FixColumn" value="<?=$FixColumn?>" size="1"><br>column เริ่มต้น (0-<?=(count($arr_fields)-1)?>)&nbsp;:&nbsp;<input type="text" name="showStartColumn" value="<?=$showStartColumn?>" size="1"><br>จำนวน column ที่แสดง&nbsp;:&nbsp;<input type="text" name="NumShowColumn" value="<?=$NumShowColumn?>" size="1"></td>
+                                            <td width="7%" align="left"><input type="checkbox" name="chkerr" value="1" <?=($chkerr==1 ? "checked" : "")?>>Error<br><input type="checkbox" name="chknerr" value="1" <?=($chknerr==1 ? "checked" : "")?>>No Error<br><input type="button" name="btn_refresh" value="     แสดง    " onClick="call_refresh();"></td>
+											
+										</tr>
+										</tr>
+										<?php  if($table == "PER_SALARYHIS"){ ?>
+										<td width="20%" height="22"></td>
+										<td width="50%" align="center" height="28" class="call"><button name="sh_dup" onclick="call_showdup(1)">เเสดงรายชื่อคนที่ซ้ำ</button>&nbsp;<button name="sh_dup" onclick="call_showdup(0)">เเสดงทั้งหมด</button>
+										<input type="hidden" name="sh_dup_fu" id="sh_dup_fu" value="<?=$sh_dup_fu;?>" >
+										</td>
+										
+										<td width="18%" align="right"></td>
+										
+										<td width="7%" align="left"></td>
+										<tr>
+										<?}?>
+										
+                                        <? if($table == "PER_SLIP"){?>
+                                        <tr>
+                                            <td width="20%" height="22">
+                                                &nbsp;&nbsp;
+                                            </td>
+                                            <td colspan="2">
+                                                <font color='red'>
+                                                *** (พ้น) หมายถึง รายการบุคคลที่ พ้นจากส่วนราชการแล้ว หากไม่ต้องการนำข้อมูลเข้าให้ทำการลบรายการออก </font>
+                                            </td>
+                                        </tr>
+                                        <? } ?>
+                                    </table></td>
+                            </tr>
+                        </table>  
+                        <?
+                        $total_page = ceil( $count_data / $data_per_page );
+                        $page_link = create_link_page($total_page, $current_page);
+                        $limit_data = "";
+                        //			echo "total_page=$total_page , count_data=$count_data , data_per_page=$data_per_page , current_page=$current_page<br>";
+
+                        if($current_page > 1){
+                        if($DPISDB=="odbc"){
+                        $cmd = " select top $start_record ROW_NUM from IMPORT_TEMP where $search_condition order by ROW_NUM ";
+                        $db_dpis->send_cmd($cmd);
+                        while($data = $db_dpis->get_array()) {
+                        $arr_exclude[] = $data[ROW_NUM];
+                        }
+                        $limit_data = (trim($search_condition)?" and ":" where ")." ROW_NUM not in (". implode(", ", $arr_exclude) .")";
+                        }elseif($DPISDB=="oci8"){		
+                        $limit_data = (trim($search_condition)?" and ":" where ")." ROW_NUM not in ( select * from (select ROW_NUM from IMPORT_TEMP where $search_condition order by ROW_NUM) where rownum <= $start_record ) ";
+                        }else if($DPISDB=="mysql"){
+                        $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+                        } // end if
+                        } // end if 
+
+                        if($DPISDB=="odbc"){
+                        $cmd = "	select		top $data_per_page *
+                        from		IMPORT_TEMP
+                        where $search_condition
+                        $limit_data
+                        order by ROW_NUM ";
+                        }elseif($DPISDB=="oci8"){
+                        $cmd = "	select		*
+                        from (
+                        select		*
+                        from		IMPORT_TEMP
+                        where $search_condition
+                        $limit_data
+                        order by ROW_NUM 
+                        ) where rownum <= $data_per_page ";
+                        }elseif($DPISDB=="mysql"){
+                        $cmd = "	select		*
+                        from		IMPORT_TEMP
+                        where $search_condition
+                        order by ROW_NUM
+                        $limit_data ";
+                        } // end if
+						
+						if($table == "PER_SALARYHIS" && $sh_dup_fu==1){//if เพื่อเเสดงค่าซ้ำ
+						$cmd = "WITH a as (
+							SELECT x.*,COUNT(card_no) as cnt from (
+								SELECT    substr(SUBSTR(data_pack, INSTR(data_pack, '~s=PER_CARDNO')+1),14,13 )AS card_no
+								  from IMPORT_TEMP
+								where IMPORT_FILENAME='per_salaryhis_form.php'
+								) x GROUP BY card_no
+								)
+								SELECT p.* from (
+								select IMPORT_FILENAME,ROW_NUM,DATA_PACK,error,DATA_IN,  substr(SUBSTR(data_pack, INSTR(data_pack, '~s=PER_CARDNO')+1),14,13 )AS card_no
+								from IMPORT_TEMP
+								where IMPORT_FILENAME='per_salaryhis_form.php'
+								) p , a WHERE p.card_no=a.card_no(+) and a.cnt>1";										
+						
+						}else{
+							$cmd = "	select		*
+							from (
+							select		*
+							from		IMPORT_TEMP
+							where $search_condition
+							$limit_data
+							order by ROW_NUM 
+							) where rownum <= $data_per_page ";
+						}
+					
+                        //	print_r($arr_fields);
+                        $count_page_data = $db_dpis->send_cmd($cmd);
+                        //			echo "select data cmd=".$cmd." ($count_page_data)<br>";
+                        //	$db_dpis->show_error();
+                        if ($count_page_data) {
+                        $current_list = "";
+                        $data_count = 0;
+                        ?>
+                        <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+                            <tr align="center" class="table_head">
+                                <?
+                                for($ii=0; $ii <  $FixColumn; $ii++) {
+                                
+                                ?>
+                                <td nowrap bgcolor="#CCCCFF"><strong><?=($head_map[$ii] ? $head_map[$ii] : $arr_fields[$ii])?></strong></td>
+
+                                <?
+                                }
+                                for($ii=$showStartColumn; $ii <  $NumShowColumn+$showStartColumn; $ii++) {
+                                if ($ii > count($arr_fields)-1) break;
+                                ?>
+                                <td nowrap><strong><?=($head_map[$ii] ? $head_map[$ii] : $arr_fields[$ii])?></strong></td>
+                                <?
+                                }
+                                ?>
+                                <?php if($form == "per_taxhis.php"){?>
+                                <td nowrap><strong>ดู</strong></td>
+                                <!--<td nowrap><strong>แก้ไข</strong></td>-->
+                                <td nowrap><strong>ลบ</strong></td>
+                                <?}else{?>
+                                <td nowrap><strong>ดู</strong></td>
+                                <td nowrap><strong>แก้ไข</strong></td>
+                                <td nowrap><strong>ลบ</strong></td>
+                                <?}?>
+                            </tr>
+                            
+                            
+                            
+                            
+                            <?
+							
+                            while ($data = $db_dpis->get_array()) {
+                            $data_count++;
+                            if($data_count > $data_per_page) break;
+                            $current_list .= ((trim($current_list))?", ":"") . "'" . $data[ROW_NUM]."'";
+                            $str = $data[DATA_PACK];
+                            $str2 = $data[DATA_IN];
+                            $a_dat = explode("$delimeter",$str);
+                            //				$a_txt = explode("$DIVIDE_TEXTFILE",$str2);
+
+                            $class = "table_body"; $fixbg = "bgcolor='#CCCCCC'";
+                            $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+                            if($ROW_NUM==$data[ROW_NUM]){ 
+                            $class = "table_body_over";
+                            $fixbg = "bgcolor='#AAAAAA'";
+                            $onmouse_event = "";
+                            } // end if
+                            if ($data[ERROR]==1){
+                                $fcolor = "style='color:#FF0000'";
+
+                            }else if($data[ERROR]==2){
+                                $fcolor = "style='color:#FF0000'";
+                            }else{
+                                $fcolor = "style='color:#0000FF'";
+                            }
+                            ?>
+                            <tr class="<?=$class?>" <?=$onmouse_event?> <?=$fcolor;?>>
+                                <?
+                                if($table == "PER_SLIP"){
+                                    for($ii = 0; $ii < $FixColumn; $ii++) {
+                                        for($jj = 0; $jj < count($a_dat); $jj++) {
+                                            $dat_detail = explode("=",$a_dat[$jj]);
+                                            if ($arr_fields[$ii]==$dat_detail[1]) {
+                                                if($arr_fields[$ii]=="PER_ID"){
+                                                    $cmd = "select PER_ID from PER_PERSONAL WHERE PER_STATUS = 1 and PER_ID =  $dat_detail[2]";
+                                                    $cnt=$db_dpis4->send_cmd($cmd);
+                                                    if($cnt>0 || substr($dat_detail[2],0,2) == "**"){
+                                                        $showdata = $dat_detail[2]; 
+                                                    }else{
+                                                        $showdata = $dat_detail[2]."<font color='red'> (พ้น)</font>"; 
+                                                    }
+                                                }else{
+                                                    $showdata = $dat_detail[2]; 
+                                                }
+                                                break;
+                                            }
+                                        }
+                                        
+                                ?>
+                                    <td <?=$fixbg?>>&nbsp;<?=$showdata?></td>
+                                <?
+                                    }
+                                }else if($table == "PER_SALARYHIS"){
+                                    for($ii = 0; $ii < $FixColumn; $ii++) {
+                                        for($jj = 0; $jj < count($a_dat); $jj++) {
+                                            $dat_detail = explode("=",$a_dat[$jj]);
+											
+                                            $dat_per_id = explode("=",$a_dat[1]);
+										
+                                            if ($arr_fields[$ii]==$dat_detail[1]) {
+
+                                                if($dat_per_id[1]=="PER_ID"){
+                                                    $cmd = "select PER_NAME, PER_SURNAME,PER_STATUS from PER_PERSONAL WHERE  PER_ID =  $dat_per_id[2]";
+                                                    $cnt=$db_dpis4->send_cmd($cmd);
+                                                    $data4 = $db_dpis4->get_array();
+                                                     $F_NAME = $data4[PER_NAME]." ".$data4[PER_SURNAME];
+                                                    if($data4[PER_STATUS]==2){
+                                                        $showdata = $dat_detail[2]." ".$F_NAME."<font color='red'> (พ้นจากส่วนราชการ)</font>";
+                                                    }else{
+                                                        $showdata = $dat_detail[2]." ".$F_NAME;
+                                                    }
+                                                }else{
+                                                    $showdata = $dat_detail[2];
+                                                }
+                                                break;
+                                            }
+                                        }
+
+                                ?>
+                                    <td <?=$fixbg?>>&nbsp;<?=$showdata?></td>
+                                <?
+                                    }
+                                }else{
+                                    for($ii = 0; $ii < $FixColumn; $ii++) {
+                                        for($jj = 0; $jj < count($a_dat); $jj++) {
+                                            $dat_detail = explode("=",$a_dat[$jj]);
+                                            if ($arr_fields[$ii]==$dat_detail[1]) {
+                                                $showdata = $dat_detail[2];
+                                                break;
+                                            }
+                                        }
+                                ?>
+                                <td <?=$fixbg?>>&nbsp;<?=$showdata?></td>
+                                <?
+                                    }
+                                }
+                                for($ii = $showStartColumn; $ii < $NumShowColumn+$showStartColumn; $ii++) {
+                                if ($ii > count($arr_fields)-1) break;
+                                //					echo "Seq=$ii :: [".$a_dat[$ii]."] (field-->".$arr_fields[$ii].")<br>";
+                                $showdata = "";
+                                for($jj = 0; $jj < count($a_dat); $jj++) {
+                                $dat_detail = explode("=",$a_dat[$jj]);
+
+                                if ($arr_fields[$ii]==$dat_detail[1]) {
+                                $showdata = $dat_detail[2];
+                                break;
+                                }
+                                }
+                                ?>
+
+                                <td>&nbsp;<?=$showdata?></td>
+                                <?
+                                }
+                                ?>
+                                <?php if($form == "per_taxhis.php"){?>
+                                    <td align="center">&nbsp;<a href="<?=("javascript:call_view($data[ROW_NUM],'$str','$str2');")?>"><img src="images/icon_eye.gif" alt="<?=$INQ_TITLE?>" width="16" height="16" border="0"></a></td>
+                                    <!--<td align="center">&nbsp;<a href="<?=("javascript:call_update($data[ROW_NUM],'$str','$str2');")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>-->
+                                    <td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('".$data[ROW_NUM]."')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a></td>
+                                 <?}else{?>
+                                    <td align="center">&nbsp;<a href="<?=("javascript:call_view($data[ROW_NUM],'$str','$str2');")?>"><img src="images/icon_eye.gif" alt="<?=$INQ_TITLE?>" width="16" height="16" border="0"></a></td>
+                                    <td align="center">&nbsp;<a href="<?=("javascript:call_update($data[ROW_NUM],'$str','$str2');")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>
+                                    <td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('".$data[ROW_NUM]."')")?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a></td>
+                                 <?}?>
+                            </tr>
+                            <? 		} // end loop while
+                            ?>
+                        </table>
+                        <? if($total_page > 1) : ?>
+                        <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+                            <tr>
+                                <td><?=$page_link?></td>
+                            </tr>
+                        </table>
+                        <? endif; ?>&nbsp;
+                        <? } // if  count show ?>
+                        <input type="hidden" name="current_list" value="<?=$current_list?>">
+                    </form>	
+                </td>
+            </tr>
+        </table>
+        <?
+        } // end if ($count_data)
+			if($table == "PER_SALARYHIS"){//if เพื่อเเสดงค่าซ้ำ
+							$cmd = "select substr(SUBSTR(data_pack, INSTR(data_pack, '~s=PER_CARDNO')+1),14,13 )AS card_no, count(*)
+									from IMPORT_TEMP
+									where IMPORT_FILENAME='per_salaryhis_form.php'
+									group by substr(SUBSTR(data_pack, INSTR(data_pack, '~s=PER_CARDNO')+1),14,13 )
+									having count(*) > 1";	
+								$count_dupicate = $db_dpis->send_cmd($cmd);									
+							
+			}
+	?>
+    </form>	
+</td>
+</tr>
+</table>&nbsp;
+ <div id="dialog"><p id="content" ></p></div>
+</body>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+    <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+        <param name="movie" value="images/uploading.swf">
+        <param name="quality" value="high">
+        <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+    </object>
+</div>
+<!-- Layer for uploading -->
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+    setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+
+</script>
+<script type="text/javascript">
+count_dupicate = '<?=$count_dupicate?>';
+	$('#show_cnt_dup').html('<font color="red" id="show_cnt_dup">มีข้อมูลที่ซ้ำทั้งสิ้น '+count_dupicate+'  รายการ </font>');
+</script>
+</html>

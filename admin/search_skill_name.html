@@ -1,0 +1,170 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_job_des_name)) $arr_search_condition[] = "(JOB_DES_NAME like '%$search_job_des_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(JOB_DES_ID) as count_data 
+					 from 		SKILL_INFO 
+					 $search_condition
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>ทักษะที่จำเป็นในงาน</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+</script>
+<body>
+<form action="search_skill_name.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <!--td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_pl_code" value="<?=$search_pl_code?>" style="width:98%" class="textbox"></td-->
+              <td width="25%" align="right">ทักษะที่จำเป็นในงาน&nbsp;:&nbsp;</td>
+              <td width="75%"><input type="text" name="search_job_des_name" value="<?=$search_job_des_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="2"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;"><input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_job_des_name.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_job_des_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_sub_normal">พบข้อมูลทักษะที่จำเป็นในงานทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record JOB_DES_ID from SKILL_INFO $search_condition order by JOB_DES_ID ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "$data[JOB_DES_ID]";
+				$limit_data = ($search_condition?" and ":" where ")." JOB_DES_ID not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = ($search_condition?" and ":" where ")." JOB_DES_ID not in ( select * from (select JOB_DES_ID from SKILL_INFO $search_condition order by JOB_DES_ID) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mssql"){
+				$limit_data = ($search_condition?" and ":" where ")." JOB_DES_ID not in ( select top ".( ($current_page - 1) * $data_per_page)." JOB_DES_ID from SKILL_INFO $search_condition order by JOB_DES_ID ) ";
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											JOB_DES_ID, JOB_DES_NAME, JOB_DES_DESCRIPTION 
+							 from 		SKILL_INFO
+							 $search_condition
+							 $limit_data
+							 order by	 JOB_DES_ID
+						   ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+								 select 	JOB_DES_ID, JOB_DES_NAME, JOB_DES_DESCRIPTION 
+								 from 		SKILL_INFO
+								 $search_condition
+								 $limit_data
+								order by	JOB_DES_ID
+							) where rownum <= $data_per_page
+						   ";
+		}elseif($DPISDB=="mssql"){
+			$cmd = " select 	top $data_per_page
+											JOB_DES_ID, JOB_DES_NAME, JOB_DES_DESCRIPTION 
+							 from 		SKILL_INFO
+							 $search_condition
+							 $limit_data
+							 order by	 JOB_DES_ID
+						   ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <!--td width="10%" align="center">รหัส</td-->
+    <td width="30%" height="25" align="center" nowrap>ทักษะที่จำเป็นในงาน</td>
+    <td align="center"><?=$DETAIL_TITLE?></td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_JOB_DES_ID = $data[JOB_DES_ID];
+				$current_list .= ((trim($current_list))?",":"") . "$TMP_JOB_DES_ID";
+				$TMP_JOB_DES_NAME = trim($data[JOB_DES_NAME]);
+				$TMP_JOB_DES_DESCRIPTION = trim($data[JOB_DES_DESCRIPTION]);
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_JOB_DES_ID<::>$TMP_JOB_DES_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <!--td height="22" align="center" valign="top"><?=$data_count?></td-->
+    <td height="22" valign="top">&nbsp;<?=$TMP_JOB_DES_NAME?></td>
+    <td valign="top">&nbsp;<?=$TMP_JOB_DES_DESCRIPTION?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

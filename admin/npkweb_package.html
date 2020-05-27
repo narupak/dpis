@@ -1,0 +1,113 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+
+	$cmd =  		"select	a.id, a.fullname, a.group_id, a.inherit_group, a.user_link_id, 
+										b.code, b.name_th, b.group_level, b.pv_code, b.org_id
+						from	user_detail a, user_group b
+						where a.group_id=b.id and b.id='$SESS_USERGROUP'
+						";
+	$db->send_cmd($cmd);
+//	$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$SESS_USERID = $data[id];
+	$user_link_id = $data[user_link_id];
+	$SESS_GROUPCODE = $data[code];
+	//ตรวจสอบการล็อกอินว่าเข้ามาเป็นประเภทอะไร
+	$ALL_DEPARTMENT_ID="";
+	$SESS_USERGROUP = $data[group_id];
+	$SESS_USERGROUP_LEVEL = $data[group_level];
+	switch($SESS_USERGROUP_LEVEL){
+		/*case 2 :
+			$SESS_PROVINCE_CODE = $data[pv_code];
+			break;*/
+		case 3 :
+			$SESS_MINISTRY_ID = $data[org_id];
+			//หากรมทั้งหมดในกระทรวงนี้ เพื่อตรวจสอบว่ามีกรมไหนบ้างที่อนุญาติให้ใช้ PKG ได้
+			$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$SESS_MINISTRY_ID ";
+			$db_dpis->send_cmd($cmd);
+	//		$db_dpis->show_error();
+			while($data2 = $db_dpis->get_array()){
+				//กำหนดค่าเริ่มต้น สำหรับ PKG
+				$ALL_DEPARTMENT_ID .= $data2[ORG_ID].",";
+			}
+			break;
+		case 4 :
+			$SESS_DEPARTMENT_ID = $data[org_id];
+			//กำหนดค่าเริ่มต้น สำหรับ PKG
+			$ALL_DEPARTMENT_ID = $SESS_DEPARTMENT_ID.",";
+			break;
+		/*case 5 :
+			$SESS_ORG_ID = $data[org_id];
+			break;*/
+	} // end switch case
+	//รายชื่อกรมทั้งหมดในกระทรวง ถ้าล็อกอินเป็นกระทรวง
+	if(trim($ALL_DEPARTMENT_ID)){	
+		$ALL_DEPARTMENT_ID=substr($ALL_DEPARTMENT_ID,0,-1);		//ตัด comma ตัวท้ายทิ้ง
+		$ARR_ALL_DEPARTMENT_ID= explode(",",$ALL_DEPARTMENT_ID);	
+	}
+
+	$countpkg1 = 0;
+	if(is_array($ARR_ALL_DEPARTMENT_ID)){		//$db = mysql
+			for($i=0;$i < count($ARR_ALL_DEPARTMENT_ID); $i++){
+				$CONFIG_VALUE=md5("PKG1".$ARR_ALL_DEPARTMENT_ID[$i]);	//รหัสกรมจากการวน loop
+				$STRCONFIG_VALUE.=$CONFIG_VALUE.",";	//สร้าง string เพื่อใส่ใน database
+			} //end for
+			if($STRCONFIG_VALUE){	$STRCONFIG_VALUE = substr($STRCONFIG_VALUE,0,-1);	}
+			
+			//หาว่ามีอยู่แล้วหรือยัง ถ้ายังไม่มีก็เพิ่มไป ถ้ามีแล้วก็อัพเดทที่มีอยู่
+			$cmdpkg1 ="SELECT * from system_config where config_name='PKG1'";
+			$cmdpkg1exist =$cmdpkg1." order by config_id";
+			$countpkg1exist=$db->send_cmd($cmdpkg1exist);
+	
+			if($countpkg1exist <= 0){ //ยังไม่มีเพิ่ม
+					$cmd = " SELECT max(CONFIG_ID) as MAX_ID FROM SYSTEM_CONFIG ";
+					$db->send_cmd($cmd);
+					//$db->show_error();
+					$data = $db->get_array();
+					$MAX_ID = $data[MAX_ID] + 1;
+					
+					$cmd = " INSERT INTO SYSTEM_CONFIG (CONFIG_ID, CONFIG_NAME, CONFIG_VALUE, CONFIG_REMARK)
+									VALUES ($MAX_ID, 'PKG1', '$STRCONFIG_VALUE', 'Package 1') ";
+					$reasonpkg1="โดยเพิ่มใหม่";
+			}else{ //มีแล้วอัพเดท
+					$cmd = " UPDATE SYSTEM_CONFIG  SET CONFIG_VALUE='$STRCONFIG_VALUE' WHERE CONFIG_NAME='PKG1'";
+					$reasonpkg1="โดยอัพเดท";
+			}
+			$db->send_cmd($cmd);
+			/*echo "$cmd<br>";
+			$db->show_error(); */
+	
+			//ตรวจสอบว่าเพิ่ม/อัพเดทข้อมูลได้หรือไม่
+			$cmdpkg1exist =$cmdpkg1." AND CONFIG_VALUE='$STRCONFIG_VALUE' order by config_id";
+			$countpkg1=$db->send_cmd($cmdpkg1exist);
+			/*echo "$cmdpkg1exist<br>";
+			$db->show_error(); */
+			if($countpkg1<=0){	$reasonpkg1="เพราะ query error";	}			
+
+	}else{ $reasonpkg1="เพราะไม่มีรหัสกรม"; }
+	$db->free_result ();
+?>
+<html>
+<head>
+<title><?=$webpage_title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script language="JavaScript" type="text/JavaScript">
+function MM_openBrWindow(theURL,winName,features) { //v2.0
+  window.open(theURL,winName,features);
+}
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal" height="100%">
+	<tr><td height="10"><? include("header_menu.html")?></td></tr>
+  	<tr><td align="left" valign="top"> 
+  	<? 	if($countpkg1>0){ echo "<p align='center'>ประมวลผล Package 1 $reasonpkg1 แล้ว</p>"; 	}
+			else{ echo "<p style='text-align:center;color:#FF0000;'>ไม่สามารถประมวลผล Package 1 ได้ $reasonpkg1!!!</p>"; }
+	?></td></tr>
+ </table>
+</body>
+</html>

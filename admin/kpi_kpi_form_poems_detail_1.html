@@ -1,0 +1,1118 @@
+<? 
+	include("../php_scripts/connect_database.php");
+        $PERSON_TYPE=array(3=>"พนักงานราชการ");
+        $PERSON_TYPE_1 = 3;//type พนักงานราชการ
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/kpi_kpi_form_poems.php");
+	if(!$sort_by) $sort_by=2;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=2;
+  	if($order_by==1){
+		$order_str = "PER_NAME $SortType[$order_by], PER_SURNAME $SortType[$order_by], KF_START_DATE $SortType[$order_by], KF_CYCLE $SortType[$order_by]";
+  	}elseif($order_by==2) {
+		$org_cond = "";
+		if ($POSITION_NO_CHAR=="Y") $org_cond = ", h.ORG_SEQ_NO $SortType[$order_by], h.ORG_CODE $SortType[$order_by]";
+		if($DPISDB=="odbc") {
+			$order_str = "b.PER_TYPE $SortType[$order_by], a.DEPARTMENT_ID $SortType[$order_by]".$org_cond.", POS_NO_NAME $SortType[$order_by], iif(isnull(POS_NO),0,CLng(POS_NO)) $SortType[$order_by], iif(isnull(POEM_NO),0,CLng(POEM_NO)) $SortType[$order_by], iif(isnull(POEMS_NO),0,CLng(POEMS_NO)) $SortType[$order_by], iif(isnull(POT_NO),0,CLng(POT_NO)) $SortType[$order_by], KF_START_DATE $SortType[$order_by], KF_CYCLE $SortType[$order_by]";
+		}elseif($DPISDB=="oci8"){
+		 	$order_str = "b.PER_TYPE $SortType[$order_by], a.DEPARTMENT_ID $SortType[$order_by]".$org_cond.", POS_NO_NAME $SortType[$order_by], to_number(replace(POS_NO,'-','')) $SortType[$order_by], to_number(replace(POEM_NO,'-','')) $SortType[$order_by], to_number(replace(POEMS_NO,'-','')) $SortType[$order_by], to_number(replace(POT_NO,'-','')) $SortType[$order_by], KF_START_DATE $SortType[$order_by], KF_CYCLE $SortType[$order_by]";
+		}elseif($DPISDB=="mysql"){ 
+			$order_str = "b.PER_TYPE $SortType[$order_by], a.DEPARTMENT_ID $SortType[$order_by]".$org_cond.", POS_NO_NAME $SortType[$order_by], POS_NO+0 $SortType[$order_by], POEM_NO+0 $SortType[$order_by], POEMS_NO+0 $SortType[$order_by], POT_NO+0 $SortType[$order_by], KF_START_DATE $SortType[$order_by], KF_CYCLE $SortType[$order_by]";
+		}
+  	} elseif($order_by==3){
+		$order_str = "b.PER_TYPE $SortType[$order_by], f.LEVEL_SEQ_NO $SortType[$order_by]";
+  	} elseif($order_by==4) {
+		$order_str = "b.PER_TYPE $SortType[$order_by], c.ORG_ID $SortType[$order_by], d.ORG_ID $SortType[$order_by], e.ORG_ID $SortType[$order_by], g.ORG_ID $SortType[$order_by]";
+  	} elseif($order_by==5){
+		$order_str = "b.PER_TYPE $SortType[$order_by], TOTAL_SCORE $SortType[$order_by]";
+	}	
+	
+	if(($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3 && trim($SESS_PER_ID)){
+		$arr_search_condition[] = "(a.PER_ID=$SESS_PER_ID or a.PER_ID_REVIEW=$SESS_PER_ID or 
+		a.PER_ID_REVIEW0=$SESS_PER_ID or a.PER_ID_REVIEW1=$SESS_PER_ID or a.PER_ID_REVIEW2=$SESS_PER_ID)";
+	}else{ // end if
+//		if($_REQUEST[PER_ID] && !trim($SESS_PER_ID)){	$PER_ID=$_REQUEST[PER_ID]; }
+//		if($PER_ID) $arr_search_condition[] = "(a.PER_ID='$PER_ID')";
+	}
+	
+  	if($search_org_id){
+		if($search_org_structure==0)		$arr_search_condition[] = "(a.ORG_ID_SALARY=$search_org_id)";
+  		if($search_org_structure==1)		$arr_search_condition[] = "(a.ORG_ID_ASS=$search_org_id)";
+	}elseif($search_department_id){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+  	if(trim($search_kf_year)){ 
+		if($DPISDB=="odbc"){ 
+			$arr_search_condition[] = "(LEFT(a.KF_START_DATE, 10) >= '". ($search_kf_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(LEFT(a.KF_END_DATE, 10) < '". ($search_kf_year - 543)."-10-01')";
+		}elseif($DPISDB=="oci8"){
+			$arr_search_condition[] = "(SUBSTR(a.KF_START_DATE, 1, 10) >= '". ($search_kf_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(SUBSTR(a.KF_END_DATE, 1, 10) < '". ($search_kf_year - 543)."-10-01')";
+		}elseif($DPISDB=="mysql"){
+			$arr_search_condition[] = "(LEFT(a.KF_START_DATE, 10) >= '". ($search_kf_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(LEFT(a.KF_END_DATE, 10) < '". ($search_kf_year - 543)."-10-01')";
+		} // end if
+	} // end if
+
+ 	if(!$search_kpi_per_type && $SESS_PER_TYPE!=0) $search_kpi_per_type=$SESS_PER_TYPE;
+ 	if($search_kpi_per_type > 0) $arr_search_condition[] = "(b.PER_TYPE = $search_kpi_per_type)";
+//    if(!$search_kpi_per_type) $search_kpi_per_type=$SESS_PER_TYPE;
+//    if($search_kpi_per_type >= 0) $arr_search_condition[] = "(b.PER_TYPE = $search_kpi_per_type)";
+	if(trim($search_per_name)) $arr_search_condition[] = "(b.PER_NAME like '$search_per_name%')";
+	if(trim($search_per_surname)) $arr_search_condition[] = "(b.PER_SURNAME like '$search_per_surname%')";
+	if(!is_array($search_kf_cycle))	{ $search_kf_cycle[0] = 1;	$search_kf_cycle[1] = 2; }
+	$arr_search_condition[] = "(a.KF_CYCLE in (". implode(",", $search_kf_cycle) ."))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+//	echo "1..command=$command, PER_ID=$PER_ID, search_kf_year=$search_kf_year, search_per_name=$search_per_name, search_per_surname=$search_per_surname, search_kpi_per_type=$search_kpi_per_type<br>";
+//	echo "2..command=$command, PER_ID=$PER_ID, search_kf_year=$search_kf_year, search_per_name=$search_per_name, search_per_surname=$search_per_surname, search_kpi_per_type=$search_kpi_per_type<br>";
+
+	if ($SESS_ORG_STRUCTURE==0 || $SESS_ORG_STRUCTURE==1) $search_org_structure = $SESS_ORG_STRUCTURE;
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+function MM_openBrWindow(theURL,winName,features) { //v2.0
+  window.open(theURL,winName,features);
+}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = "<?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"")?>";
+		if(DEPARTMENT_ID =="" && form1.search_department_id.value)	DEPARTMENT_ID = form1.search_department_id.value;
+		if(DEPARTMENT_ID != ""){
+			if(form1.search_org_structure[0].checked) org_search_file ="search_org";
+			else if(form1.search_org_structure[1].checked) org_search_file ="search_org_ass"; 
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID+"&send_by=call_search_org";
+			call_openDialog(org_search_file+".html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");
+			
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_search_department.focus();
+			<? } ?>
+		} // end if
+	}
+        function call_search_orgname_view(){
+            var DEPARTMENT_ID =form1.DEPARTMENT_ID.value;
+            parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID+"&send_by=call_search_orgname_view";
+            call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");
+        }
+	
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + data_label + " ] ข้อมูลรายละเอียดต่าง ๆ จะถูกลบไปด้วย?")){
+			form1.command.value = "DELETE";
+			form1.KF_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+
+	function call_edit_desc (kf_id) {
+		parameter = "";
+		if(kf_id > 0) parameter = "&KF_ID=" + kf_id;
+		call_openDialog("kpi_kpi_form_poems_detail.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1200,800,"แบบฟอร์มการประเมินผลการปฏิบัติราชการ");
+	
+	}
+
+	function call_select_ministry (f) {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE+"&send_by=call_select_ministry";
+		call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");
+		
+	}
+
+	function call_select_department (f) {	
+		var MINISTRY_ID = "<?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"")?>";
+		if(MINISTRY_ID == "" && f.MINISTRY_ID.value)	MINISTRY_ID = f.MINISTRY_ID.value;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE+"&send_by=call_select_department";
+			call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");
+			
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			f.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_ministry (f) {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE+"&send_by=call_search_ministry";
+		call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");
+		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = "<?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"")?>";
+		if(MINISTRY_ID =="" && form1.search_ministry_id.value)	MINISTRY_ID = form1.search_ministry_id.value;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE+"&send_by=call_search_department";
+			call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");
+			
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_person () {	
+		if(form1.DEPARTMENT_ID.value.trim()==""){
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			return false;
+		} // end if
+		parameter = "&HAVEPOS_ONLY=1&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value+"&send_by=call_search_person";
+		call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");
+	
+	}
+
+	function call_search_review_person (review_number) {
+		if(form1.PER_ID.value)		except_per_id = form1.PER_ID.value;
+		if(form1.PER_ID_REVIEW0.value)	except_per_id += ","+ form1.PER_ID_REVIEW0.value;
+		if(form1.PER_ID_REVIEW.value)	except_per_id += ","+ form1.PER_ID_REVIEW.value;
+		if(form1.PER_ID_REVIEW1.value)	except_per_id += ","+ form1.PER_ID_REVIEW1.value;
+		if(form1.PER_ID_REVIEW2.value)	except_per_id += ","+ form1.PER_ID_REVIEW2.value;
+
+		parameter = "&HAVEPOS_ONLY=1&EXCEPT_PER_ID=" +except_per_id+"&send_by="+review_number;
+		call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");
+		
+	}
+	
+	function call_search_perline (code, name) {	
+		parameter = "";
+		pl_code = eval("form1." + code);
+		pl_name = eval("form1." + name);
+	    call_openDialog("search_perline.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PL_TITLE?>");		
+	}		
+
+	function call_search_mgt (code, name) {	
+		parameter = "";
+		pm_code = eval("form1." + code);
+		pm_name = eval("form1." + name);
+	    call_openDialog("search_mgt.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PM_TITLE?>");		
+	}		
+
+	function print_formN(KF_ID, bkk_flag, f_flag) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_KF_ID = document.form1.KF_ID.value;
+		document.form1.KF_ID.value = KF_ID;
+		document.form1.target = "_blank";
+		if(bkk_flag == 1){
+			if (f_flag==1){
+				document.form1.action = "report/rpt_kpi_form_bkk1_rtf.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+			}else if(f_flag==2){
+				document.form1.action = "report/rpt_kpi_form_bkk2_rtf.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+			}
+		}else{
+			if (f_flag==1){
+				document.form1.action = "report/rpt_kpi_formN.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+			}else if(f_flag==2){
+				document.form1.action = "report/rpt_kpi_formN_rtf.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+			}
+		}
+		document.form1.submit();
+		document.form1.KF_ID.value = OLD_KF_ID;
+		document.form1.target = "_self";
+		document.form1.action = "kpi_kpi_form.html";
+	}
+
+	function print_form(KF_ID) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_KF_ID = document.form1.KF_ID.value;
+		document.form1.KF_ID.value = KF_ID;
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_kpi_form.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.KF_ID.value = OLD_KF_ID;
+		document.form1.target = "_self";
+		document.form1.action = "kpi_kpi_form.html";
+	}
+	
+function checkadd(f) {
+	if(f.KF_YEAR.value=="") {
+		alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+		f.KF_YEAR.focus();
+		return false;
+	} else if(f.KF_START_DATE_1.value=="") {
+		alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+		f.KF_START_DATE_1.focus();
+		return false;
+	} else if(f.KF_END_DATE_1.value=="") {
+		alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+		f.KF_END_DATE_1.focus();
+		return false;
+	} else if(f.PER_NAME.value=="") {
+		alert("กรุณาระบุ ผู้รับการประเมิน");
+		f.PER_NAME.focus();
+		return false;
+	} else  						
+		form1.command.value='ADD';
+	return true;
+}
+		
+		function checkupdate(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.PER_NAME.value=="") {
+				alert("กรุณาระบุ ผู้รับการประเมิน");
+				f.PER_NAME.focus();
+			return false;
+			}else{  						
+				f.command.value='UPDATE';
+			return true;
+			}
+		}
+	
+		function checkgendata(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.search_per_type[0].selected==false && f.search_per_type[1].selected==false && f.search_per_type[2].selected==false) {
+				alert("กรุณาระบุ ประเภทบุคลากร");
+				f.search_per_type.focus();
+			return false;
+			}else{  						
+				f.command.value='GENDATA';
+			return ProcessUploading();
+			}
+		}
+	
+		function checkrecalc(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.search_per_type[0].selected==false && f.search_per_type[1].selected==false && f.search_per_type[2].selected==false) {
+				alert("กรุณาระบุ ประเภทบุคลากร");
+				f.search_per_type.focus();
+			return false;
+			}else{  						
+				f.command.value='RECALC';
+			return ProcessUploading();
+			}
+		}
+	
+		function checkcopy(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.search_per_type[0].selected==false && f.search_per_type[1].selected==false && f.search_per_type[2].selected==false) {
+				alert("กรุณาระบุ ประเภทบุคลากร");
+				f.search_per_type.focus();
+			return false;
+			}else{  						
+				f.command.value='COPY';
+			return ProcessUploading();
+			}
+		}
+	
+	function checkcopykpi(f) {
+            
+            // ปรับปรุงจากเดิม IE ไม่สามารถ ทำการหาค่าได้
+            var KF_COPY_FROMCYCLE1_VAL = document.getElementById('KF_COPY_FROMCYCLE1').value;
+            var KF_COPY_FROMCYCLE2_VAL = document.getElementById('KF_COPY_FROMCYCLE2').value;
+            var KF_COPY_FROMCYCLE_VAL;
+            
+            var KF_COPY_TOCYCLE1_VAL = document.getElementById('KF_COPY_TOCYCLE1').value;
+            var KF_COPY_TOCYCLE2_VAL = document.getElementById('KF_COPY_TOCYCLE2').value;
+            var KF_COPY_TOCYCLE_VAL;
+            
+            if (document.getElementById('KF_COPY_FROMCYCLE1').checked) {
+                KF_COPY_FROMCYCLE_VAL = KF_COPY_FROMCYCLE1_VAL;
+            }
+            if (document.getElementById('KF_COPY_FROMCYCLE2').checked) {
+                KF_COPY_FROMCYCLE_VAL = KF_COPY_FROMCYCLE2_VAL;
+            }
+            
+            if (document.getElementById('KF_COPY_TOCYCLE1').checked) {
+                KF_COPY_TOCYCLE_VAL = KF_COPY_TOCYCLE1_VAL;
+            }
+            if (document.getElementById('KF_COPY_TOCYCLE2').checked) {
+                KF_COPY_TOCYCLE_VAL = KF_COPY_TOCYCLE2_VAL;
+            }
+            
+            
+            
+            
+            // end 
+           //alert(KF_COPY_FROMCYCLE_VAL);
+           
+                        if(f.KF_COPY_FROMYEAR.value>f.KF_COPY_TOYEAR.value){ //KF_COPY_FROMYEAR,KF_COPY_TOYEAR
+                            alert('ระบบไม่อนุญาตให้คัดลอกปีงบประมาณ '+f.KF_COPY_FROMYEAR.value+' ไปปีงบประมาณ '+f.KF_COPY_TOYEAR.value+' ได้\nข้อมูลอาจเกิดความเสียหายได้');
+                            return false;
+                        }else{
+                          if(f.KF_COPY_FROMYEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>ที่คัดลอก");
+                                    f.KF_COPY_FROMYEAR.focus();
+                                    return false;
+                            } else if(f.KF_COPY_TOYEAR.value=="") {
+                                    alert("กรุณาระบุ คัดลอกไป<?=$YEAR_TITLE?>");
+                                    f.KF_COPY_TOYEAR.focus();
+                                    return false;
+                            }else if(f.KF_COPY_FROMCYCLE.value=="") {
+                                    alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?> คัดลอก");
+                                    f.KF_COPY_FROMCYCLE.focus();
+                                    return false;
+                            }else if(f.KF_COPY_TOCYCLE.value=="") {
+                                    alert("กรุณาระบุ คัดลอกไป<?=$KPI_CYCLE_TITLE?>");
+                                    f.KF_COPY_TOCYCLE.focus();
+                                    return false;
+                            //}else if(f.KF_COPY_FROMYEAR.value==f.KF_COPY_TOYEAR.value && f.KF_COPY_FROMCYCLE.value==f.KF_COPY_TOCYCLE.value) { // เดิม
+                            }else if(f.KF_COPY_FROMYEAR.value==f.KF_COPY_TOYEAR.value && KF_COPY_FROMCYCLE_VAL==KF_COPY_TOCYCLE_VAL) { //ปรับใหม่
+                                    alert("คัดลอกไป<?=$YEAR_TITLE?>และ<?=$KPI_CYCLE_TITLE?>เดียวกันไม่ได้");
+                                    f.KF_COPY_TOCYCLE.focus();
+                                    return false;
+                            }else{  						
+                                    f.command.value='COPY_KPI';
+                                    return ProcessUploading();
+                            }  
+                        }
+			
+                        
+	}
+	
+		function checkscore(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.search_per_type[0].selected==false && f.search_per_type[1].selected==false && f.search_per_type[2].selected==false) {
+				alert("กรุณาระบุ ประเภทบุคลากร");
+				f.search_per_type.focus();
+			return false;
+			}else{  						
+				f.command.value='SCORE';
+			return ProcessUploading();
+			}
+		}
+                function UpdateSalary(f){
+                     
+                      
+                    var CYCLE = f.KF_CYCLE1.value;
+                    var date1 = f.KF_START_DATE_1.value+' ถึง '+f.KF_END_DATE_1.value;
+                    var date2 = f.KF_START_DATE_2.value+' ถึง '+f.KF_END_DATE_2.value;
+                    var strdate ='';
+                    if (CYCLE==1){
+                        strdate = date1;
+                    }
+                     if (CYCLE==2){
+                        strdate = date2;
+                    }
+                    var strAlert = 'ตามรอบการประเมินครั้งที่ '+CYCLE+' '+strdate;
+                    if(confirm('คุณต้องการปรับปรุงเงินเดือนให้เป็นปัจจุบัน \n'+strAlert+' ใช่หรือไม่ ???')){ 
+                        //return checknoscore(form1); 
+                        f.command.value='UPDATESALARYNOW';
+                        return ProcessUploading();
+                    }else{
+                        return false; 
+                    }
+                }
+		function checknoscore(f) {
+			if(f.KF_YEAR.value=="") {
+				alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+				f.KF_YEAR.focus();
+			return false;
+			} else if(f.KF_START_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_START_DATE_1.focus();
+			return false;
+			}else if(f.KF_END_DATE_1.value=="") {
+				alert("กรุณาระบุ <?=$KPI_CYCLE_TITLE?>");
+				f.KF_END_DATE_1.focus();
+			return false;
+			}else if(f.search_per_type[0].selected==false && f.search_per_type[1].selected==false && f.search_per_type[2].selected==false) {
+				alert("กรุณาระบุ ประเภทบุคลากร");
+				f.search_per_type.focus();
+			return false;
+			}else{  						
+				f.command.value='NOSCORE';
+			return ProcessUploading();
+			}
+		}
+	
+	function call_menu_desc (cate, id, name, per_id) {	
+			var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+			parameter = "";
+			MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}	
+
+	function call_competency_assessment (kf_id, cf_type, per_id) {
+		parameter = "&KF_ID=" + kf_id + "&CF_TYPE=" + cf_type + "&ASS_PER_ID=" + per_id;
+		call_openDialog("competency_assessment.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"ประเมินสมรรถนะ");
+//		alert("call_competency=ret=>"+childReturn);
+		document.form1.target = "_self";
+		document.form1.action="kpi_kpi_form.html";
+	
+	}
+
+	function call_develop_sum ( kf_id ) {
+		parameter = "&KF_ID=" + kf_id;
+		call_openDialog("kpi_competency_summary.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"สรุปการประเมินสมรรถนะรายบุคคล");
+//		alert("call_competency=ret=>"+childReturn);
+		document.form1.target = "_self";
+		document.form1.action="kpi_kpi_form.html";
+		
+	}
+
+	function set_check_all(ischecked,name,count_data){
+//		alert("ischecked="+ischecked+" , name="+name+" , count_data="+count_data+" , checkAct="+checkAct);
+		for(var i=1; i <= count_data; i++){	
+/*			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}*/
+			var checkAct = document.getElementById(name+i);
+			if (checkAct)
+				checkAct.checked=ischecked;
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function call_report ( export_type,type, KF_ID ) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+		
+		rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		document.form1.export_type.value = export_type;
+		document.form1.target = "_blank";
+		if(export_type=="report"){
+			if(!type){ document.form1.action = "report/rpt_kpi_competency.php?KF_ID=" + KF_ID + "&UTC" + rptDate;
+			    }else{ document.form1.action = "report/rpt_kpi_competency_xls.php?KF_ID=" + KF_ID + "&UTC" + rptDate; };
+		}else if(export_type=="graph"){//if(export_type=="report"){
+			if(!type){document.form1.action = "../graph/types/Column.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==1){document.form1.action = "../graph/types/Bar2New.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC=" + rptDate;}
+				else if(type==2){document.form1.action = "../graph/types/BarNew.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC=" + rptDate;}
+				else if(type==3){document.form1.action = "../graph/types/Line.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==4){document.form1.action = "../graph/types/LineGrp2.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==5){document.form1.action = "../graph/types/Pie2One.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==6){document.form1.action = "../graph/types/PieGrp2.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==7){document.form1.action = "../graph/types/BarStack.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+				else if(type==8){document.form1.action = "../graph/types/BarStackGrp2.php?gid=rpt_kpi_competency.php&KF_ID=" + KF_ID + "&UTC" + rptDate;}
+		}//}else if(export_type=="graph"){
+		document.form1.submit();
+
+		document.form1.target = "_self";
+		document.form1.action="kpi_kpi_form.html";
+	} 
+
+	function call_competency_progress_report ( type ) {
+		kfcycle = document.form1.KF_CYCLE.value;
+		kfyear = document.form1.KF_YEAR.value;
+		searchtxt = document.form1.SEARCHTEXT.value;
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+		rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		document.form1.target = "_blank";
+		if (type==1) { // ประเมินยังไม่เสร็จ
+			document.form1.action = "report/rpt_kpi_competency_progress1_xls.php?KF_CYCLE=" + kfcycle + "&KF_YEAR=" + kfyear+ "&SEARCH_CONDITION=" + searchtxt + "&UTC" + rptDate;
+		} else { // ประเมินเสร็จแล้ว
+			document.form1.action = "report/rpt_kpi_competency_progress2_xls.php?KF_CYCLE=" + kfcycle + "&KF_YEAR=" + kfyear+ "&SEARCH_CONDITION=" + searchtxt + "&UTC" + rptDate;
+		}
+		document.form1.submit();
+
+		document.form1.target = "_self";
+		document.form1.action="kpi_kpi_form.html";
+	} 
+	
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="call_search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+				}else if (arrValue[7]=="call_select_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+				}else if (arrValue[7]=="call_select_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+				}else if (arrValue[7]=="call_search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				}else if (arrValue[7]=="call_search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+				}else if (arrValue[7]=="call_search_orgname_view") {
+                                    form1.hidden_org_id.value = arrValue[0];
+                                    form1.ORG_NAME.value = arrValue[1];
+                                }
+                                
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+			
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+                                
+				if (arrValue[20]=="call_search_person") {
+					form1.PER_ID.value = arrValue[0];
+					form1.PER_NAME.value = arrValue[1];
+					form1.PER_CARDNO.value = arrValue[2];
+					form1.ORG_NAME.value = arrValue[4];
+					form1.LEVEL_NAME.value = arrValue[7];
+					form1.PER_SALARY.value = arrValue[8];
+					form1.PL_CODE.value = arrValue[17];
+					form1.PL_NAME.value = arrValue[21];
+					form1.PM_NAME.value = arrValue[22];
+					form1.LEVEL_NO.value = arrValue[23];
+					form1.PM_CODE.value = arrValue[24];
+					form1.POS_ID.value = arrValue[25];
+				} else {
+                                    //alert('xxxx '+arrValue[20]);
+				    if(arrValue[20] == "99"){
+                                        
+						form1.PER_ID_REVIEW.value = arrValue[0];
+						form1.REVIEW_FULL_NAME.value = arrValue[1];
+						form1.REVIEW_LEVEL_NAME.value = arrValue[7];
+						form1.REVIEW_PL_CODE.value = arrValue[17];
+						form1.REVIEW_PN_NAME.value = arrValue[18];
+						form1.REVIEW_PER_NAME.value = arrValue[19];
+						form1.REVIEW_PL_NAME.value = arrValue[21];
+						form1.REVIEW_PM_NAME.value = arrValue[22];
+						form1.REVIEW_LEVEL_NO.value = arrValue[23];
+						form1.REVIEW_PM_CODE.value = arrValue[24];
+						form1.REVIEW_POS_ID.value = arrValue[25];
+					}else if(arrValue[20] == "0"){
+						form1.PER_ID_REVIEW0.value = arrValue[0];
+						form1.REVIEW_FULL_NAME0.value = arrValue[1];
+						form1.REVIEW_LEVEL_NAME0.value = arrValue[7];
+						form1.REVIEW_PL_CODE0.value = arrValue[17];
+						form1.REVIEW_PN_NAME0.value = arrValue[18];
+						form1.REVIEW_PER_NAME0.value = arrValue[19];
+						form1.REVIEW_PL_NAME0.value = arrValue[21];
+						form1.REVIEW_PM_NAME0.value = arrValue[22];
+						form1.REVIEW_LEVEL_NO0.value = arrValue[23];
+						form1.REVIEW_PM_CODE0.value = arrValue[24];
+						form1.REVIEW_POS_ID0.value = arrValue[25];
+					}else if(arrValue[20] == "1"){
+						form1.PER_ID_REVIEW1.value = arrValue[0];
+						form1.REVIEW_FULL_NAME1.value = arrValue[1];
+						form1.REVIEW_LEVEL_NAME1.value = arrValue[7];
+						form1.REVIEW_PL_CODE1.value = arrValue[17];
+						form1.REVIEW_PN_NAME1.value = arrValue[18];
+						form1.REVIEW_PER_NAME1.value = arrValue[19];
+						form1.REVIEW_PL_NAME1.value = arrValue[21];
+						form1.REVIEW_PM_NAME1.value = arrValue[22];
+						form1.REVIEW_LEVEL_NO1.value = arrValue[23];
+						form1.REVIEW_PM_CODE1.value = arrValue[24];
+						form1.REVIEW_POS_ID1.value = arrValue[25];
+					}else if(arrValue[20] == "2"){
+						form1.PER_ID_REVIEW2.value = arrValue[0];
+						form1.REVIEW_FULL_NAME2.value = arrValue[1];
+						form1.REVIEW_LEVEL_NAME2.value = arrValue[7];
+						form1.REVIEW_PL_CODE2.value = arrValue[17];
+						form1.REVIEW_PN_NAME2.value = arrValue[18];
+						form1.REVIEW_PER_NAME2.value = arrValue[19];
+						form1.REVIEW_PL_NAME2.value = arrValue[21];
+						form1.REVIEW_PM_NAME2.value = arrValue[22];
+						form1.REVIEW_LEVEL_NO2.value = arrValue[23];
+						form1.REVIEW_PM_CODE2.value = arrValue[24];
+						form1.REVIEW_POS_ID2.value = arrValue[25];
+					} // end if	
+				}
+//				alert("PER_ID="+form1.PER_ID.value+" , REVIEW0="+form1.PER_ID_REVIEW0.value);
+				form1.action+='?UPD=1';
+				form1.command.value="LOOP2";
+				form1.submit();
+			} // end if
+		} else if  (src.indexOf("kpi_kpi_form_detail") > -1) {
+			if(returnValue){
+			    arrValue = returnValue.split("<::>");
+				document.form1.submit();
+			} // end if
+		}else if  (src.indexOf("competency_assessment") > -1) {
+			if(returnValue){
+			    arrValue = returnValue.split("<::>");
+				document.form1.submit();
+			} // end if
+		}else if  (src.indexOf("kpi_competency_summary") > -1) {
+			if(returnValue){
+			    arrValue = returnValue.split("<::>");
+				document.form1.submit();
+			} // end if
+		} else if  (src.indexOf("search_mgt") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				pm_code.value = arrValue[0];
+				pm_name.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_perline") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				pl_code.value = arrValue[0];
+				pl_name.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	function set_PL_NAME_WORK(label,id,DEPARTMENT_NAME){
+		
+                //alert(document.getElementById(id).options[document.getElementById(id).selectedIndex].value);
+                if(document.getElementById(id).options[document.getElementById(id).selectedIndex].value=="X"){
+                    document.getElementById('txtLEVEL_NO').value = '';
+                }else{
+                    document.getElementById('txtLEVEL_NO').value = document.getElementById(id).options[document.getElementById(id).selectedIndex].value;
+                }
+                
+		//label = document.getElementById(id).options[document.getElementById(id).selectedIndex].innerHTML;
+		//form1.PL_NAME_WORK.value="";			//ค่าเดิม	
+		//if (form1.POS_PM_NAME.value.trim()=="")
+		//	form1.PL_NAME_WORK.value = form1.POS_POEM_NAME.value+label;
+		//else
+		//	form1.PL_NAME_WORK.value = form1.POS_PM_NAME.value + " (" + form1.POS_POEM_NAME.value +label +")";
+	}
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<?  if(!$HIDE_HEADER){ ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลของรผู้รับการประเมิน":"") ;
+		include("current_location.html");
+?>	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_kpi_form_poems.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="export_type" value="">
+          <input type="hidden" name="KF_ID" value="<?=$KF_ID?>">
+          <input type="hidden" name="CF_TYPE" value="<?=$CF_TYPE?>">
+		  <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	
+&nbsp;
+
+&nbsp;		
+	<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  
+	</tr>
+  </table>
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+	<tr>
+	  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr>
+                        <td align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+			   	<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+				<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+				<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_select_ministry(form1);">
+             <input name="image" type="image" onClick="form1.MINISTRY_ID.value=''; form1.MINISTRY_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+				<? } // end if ?>			   </td>
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+			   	<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:75%" class="textbox" readonly>
+				<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+				<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+				<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_select_department(form1);">
+             <input name="image" type="image" onClick="form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+				<? } // end if ?>			   </td>
+                      </tr>
+                      <tr> 
+                        <td align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$KPI_CYCLE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+						  <input type="radio" name="KF_CYCLE1" value="1" onClick="form1.KF_START_DATE_1.disabled=false; form1.KF_END_DATE_1.disabled=false; form1.KF_START_DATE_2.disabled=true; form1.KF_END_DATE_2.disabled=true;" <?=($KF_CYCLE==1 || !$KF_CYCLE)?"checked":""?>> <?=$KPI_CYCLE1_TITLE?>&nbsp;&nbsp;
+						  <input type="text" name="KF_START_DATE_1" value="<?=$KF_START_DATE_1?>" size="10" class="textbox" readonly <?=($KF_CYCLE==1 || !$KF_CYCLE)?"":"disabled"?>>
+						  &nbsp;ถึง&nbsp;
+						  <input type="text" name="KF_END_DATE_1" value="<?=$KF_END_DATE_1?>" size="10" class="textbox" readonly <?=($KF_CYCLE==1 || !$KF_CYCLE)?"":"disabled"?>>						</td>
+						  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+						  <td><input type="text" name="KF_YEAR" value="<?=$KF_YEAR?>" size="10" maxlength="4" class="textbox" onKeyPress="return DigitOnly();" onBlur="form1.KF_START_DATE_1.value='01/10/' + (this.value - 1); form1.KF_END_DATE_1.value='31/03/' + this.value; form1.KF_START_DATE_2.value='01/04/' + this.value; form1.KF_END_DATE_2.value='30/09/' + this.value;" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>>
+                              <span class="label_alert">&nbsp;&nbsp;
+                                <?=$err_text?>
+                              </span> </td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22">&nbsp;</td>
+                        <td colspan="3">
+						  <input type="radio" name="KF_CYCLE1" value="2" onClick="form1.KF_START_DATE_1.disabled=true; form1.KF_END_DATE_1.disabled=true; form1.KF_START_DATE_2.disabled=false; form1.KF_END_DATE_2.disabled=false;" <?=($KF_CYCLE==2)?"checked":""?>> <?=$KPI_CYCLE2_TITLE?>&nbsp;&nbsp;
+						  <input type="text" name="KF_START_DATE_2" value="<?=$KF_START_DATE_2?>" size="10" class="textbox" readonly <?=($KF_CYCLE==2)?"":"disabled"?>>
+						  &nbsp;ถึง&nbsp;
+						  <input type="text" name="KF_END_DATE_2" value="<?=$KF_END_DATE_2?>" size="10" class="textbox" readonly <?=($KF_CYCLE==2)?"":"disabled"?>>					    </td>
+                      </tr>
+                      <tr>
+                        <td height="7" colspan="4" align="right"><input type="hidden" name="KF_CYCLE" value="<?=(!$KF_CYCLE?1:$KF_CYCLE)?>"></td>
+                      </tr>
+                      <tr>
+                        <td width="20%" align="right" height="22"><span class="label_alert">*</span>&nbsp;ชื่อผู้รับการประเมิน&nbsp;:&nbsp;</td>
+                        <td width="30%">
+						  <input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:75%" class="textbox" readonly>
+						  <? if($SESS_GROUPCODE != "BUREAU" && substr($SESS_GROUPCODE, 0, 7) != "BUREAU_"  && $SESS_USERGROUP!=3 && (!$HIDE_HEADER)){ ?>
+						  <input name="btn2" type="button" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_person();">
+						  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.PER_NAME.value=''; form1.PL_NAME.value=''; form1.LEVEL_NAME.value=''; form1.ORG_NAME.value='';form1.PER_SALARY.value='';form1.PER_ID.value='';form1.PER_CARDNO.value=''; return false;" align="center" alt="ล้างค่า">
+						  <? } 
+//                         	echo "1..PER_ID=$PER_ID && SESS_PER_ID=$SESS_PER_ID<br>";
+						  	if(!trim($PER_ID) && $SESS_PER_ID){ $PER_ID=$SESS_PER_ID;	} 
+						  ?>
+						  <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+						  <input type="hidden" name="PER_CARDNO" value="<?=$PER_CARDNO?>"></td>
+						  <input type="hidden" name="POS_ID" value="<?=$POS_ID?>">
+                        <td width="15%" align="right" height="22"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="PM_NAME" value="<?=$PM_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="PM_CODE" value="<?=$PM_CODE?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID) { ?>
+                    <input type="button" name="btn_pm" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_mgt('PM_CODE','PM_NAME');">
+                 <input name="image_pm" type="image" onClick="form1.PM_CODE.value=''; form1.PM_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+                            <input type="text" name="PL_NAME" value="<?=$PL_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="PL_CODE" value="<?=$PL_CODE?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID) { ?>
+                    <input type="button" name="btn_pl" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_perline('PL_CODE','PL_NAME');">
+                 <input name="image_pl" type="image" onClick="form1.PL_CODE.value=''; form1.PL_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+				<td>
+                		<? 
+                                
+                                if ($PER_ID) list_per_level_kpi ('LEVEL_NO', $LEVEL_NO, $POS_ID); else { ?>
+		                        	<input type="hidden" name="LEVEL_NO" id="LEVEL_NO" value="<?=$LEVEL_NO?>">
+								<? } ?>
+                                                                <input type="hidden" name="txtLEVEL_NO" id="txtLEVEL_NO" value="<?=$LEVEL_NO?>">
+						<input type="hidden" name="LEVEL_NAME" value="<?=$LEVEL_NAME?>"></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+                            <input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>" style="width:75%" class="textbox" readonly>
+                            <?php if(empty($hidden_org_id)){$hidden_org_id=$ORG_ID;}?>
+                            <input type="hidden" name="hidden_org_id" value="<?=$hidden_org_id?>">
+                            <?php //if($UPD==2 || $VIEW==2){?>
+                            <input type="button" name="btn_orgname_view" class="button" value="เลือก" onclick="call_search_orgname_view();">
+                            <input name="image" type="image" onclick="form1.hidden_org_id.value=''; form1.ORG_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                            <?php //}?>
+                        </td>
+                        <td align="right"><?=$SALARY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="PER_SALARY" value="<?=$dbPER_SALARY?>" class="textbox" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW && $PER_ID)?"":"readonly"?>></td>
+                      </tr>
+                      <tr>
+                        <td height="7" colspan="4" align="right"></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22">ชื่อผู้ให้ข้อมูล&nbsp;:&nbsp;</td>
+                        <td>
+						  <p>
+						    <input type="text" name="REVIEW_FULL_NAME0" value="<?=$REVIEW_FULL_NAME0?>" style="width:75%" class="textbox" readonly>
+						    <input name="btn4" type="button" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_review_person(0);">
+							<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW_FULL_NAME0.value=''; form1.REVIEW_PN_NAME0.value=''; form1.REVIEW_PER_NAME0.value=''; form1.REVIEW_PM_NAME0.value=''; form1.REVIEW_PL_NAME0.value=''; form1.REVIEW_LEVEL_NAME0.value=''; form1.PER_ID_REVIEW0.value=''; return false;" align="center" alt="ล้างค่า">			    
+						    <input type="hidden" name="PER_ID_REVIEW0" value="<?=$PER_ID_REVIEW0?>">
+							<input type="hidden" name="REVIEW_POS_ID0" value="<?=$REVIEW_POS_ID0?>">
+						    <input type="hidden" name="REVIEW_PN_NAME0" value="<?=$REVIEW_PN_NAME0?>">
+						    <input type="hidden" name="REVIEW_PER_NAME0" value="<?=$REVIEW_PER_NAME0?>">
+		                  </p></td>
+                        <td align="right" height="22"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PM_NAME0" value="<?=$REVIEW_PM_NAME0?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PM_CODE0" value="<?=$REVIEW_PM_CODE0?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW0) { ?>
+                    <input type="button" name="btn_review_pm0" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_mgt('REVIEW_PM_CODE0','REVIEW_PM_NAME0');">
+                 <input name="image_review_pm0" type="image" onClick="form1.REVIEW_PM_CODE0.value=''; form1.REVIEW_PM_NAME0.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PL_NAME0" value="<?=$REVIEW_PL_NAME0?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PL_CODE0" value="<?=$REVIEW_PL_CODE0?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW0) { ?>
+                    <input type="button" name="btn_review_pl0" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_perline('REVIEW_PL_CODE0','REVIEW_PL_NAME0');">
+                 <input name="image_review_pl0" type="image" onClick="form1.REVIEW_PL_CODE0.value=''; form1.REVIEW_PL_NAME0.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+						<td>
+                        		<? if ($PER_ID_REVIEW0) list_per_level_kpi ('REVIEW_LEVEL_NO0', $REVIEW_LEVEL_NO0, $REVIEW_POS_ID0,'USER_VIEW0'); else { ?>
+		                        	<input type="hidden" name="REVIEW_LEVEL_NO0" value="<?=$REVIEW_LEVEL_NO0?>">
+								<? } ?>
+							<input type="hidden" name="REVIEW_LEVEL_NAME0" value="<?=$REVIEW_LEVEL_NAME0?>" style="width:75%" class="textbox" readonly>
+							</td>
+                      </tr>
+                      <tr>
+                        <td height="7" colspan="4" align="right"></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22">ชื่อผู้บังคับบัญชา/ผู้ประเมิน&nbsp;:&nbsp;</td>
+                        <td>
+						  <input type="text" name="REVIEW_FULL_NAME" value="<?=$REVIEW_FULL_NAME?>" style="width:75%" class="textbox" readonly>
+						  <input name="btn3" type="button" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_review_person(99);">
+						  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW_FULL_NAME.value=''; form1.REVIEW_PN_NAME.value=''; form1.REVIEW_PER_NAME.value=''; form1.REVIEW_PM_NAME.value=''; form1.REVIEW_PL_NAME.value=''; form1.REVIEW_LEVEL_NAME.value=''; form1.PER_ID_REVIEW.value=''; return false;" align="center" alt="ล้างค่า">
+						  <input type="hidden" name="PER_ID_REVIEW" value="<?=$PER_ID_REVIEW?>">			   
+                                                  <input type="hidden" name="REVIEW_POS_ID" value="<?=$REVIEW_POS_ID?>">
+						  <input type="hidden" name="REVIEW_PN_NAME" value="<?=$REVIEW_PN_NAME?>">
+						  <input type="hidden" name="REVIEW_PER_NAME" value="<?=$REVIEW_PER_NAME?>">
+					    </td>
+                        <td align="right" height="22"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PM_NAME" value="<?=$REVIEW_PM_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PM_CODE" value="<?=$REVIEW_PM_CODE?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW) { ?>
+                    <input type="button" name="btn_review_pm" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_mgt('REVIEW_PM_CODE','REVIEW_PM_NAME');">
+                 <input name="image_review_pm" type="image" onClick="form1.REVIEW_PM_CODE.value=''; form1.REVIEW_PM_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PL_NAME" value="<?=$REVIEW_PL_NAME?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PL_CODE" value="<?=$REVIEW_PL_CODE?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW) { ?>
+                    <input type="button" name="btn_review_pl" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_perline('REVIEW_PL_CODE','REVIEW_PL_NAME');">
+                 <input name="image_review_pl" type="image" onClick="form1.REVIEW_PL_CODE.value=''; form1.REVIEW_PL_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+						<td>
+                        		<? if ($PER_ID_REVIEW) list_per_level_kpi ('REVIEW_LEVEL_NO', $REVIEW_LEVEL_NO, $REVIEW_POS_ID,'USER_VIEW'); else { ?>
+		                        	<input type="hidden" name="REVIEW_LEVEL_NO" value="<?=$REVIEW_LEVEL_NO?>">
+								<? } ?>
+							<input type="hidden" name="REVIEW_LEVEL_NAME" value="<?=$REVIEW_LEVEL_NAME?>" style="width:75%" class="textbox" readonly>
+						</td>
+                      </tr>
+                      <tr>
+                        <td height="7" colspan="4" align="right"></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22">ชื่อผู้บังคับบัญชาเหนือขึ้นไป&nbsp;:&nbsp;</td>
+                        <td>
+						  <input type="text" name="REVIEW_FULL_NAME1" value="<?=$REVIEW_FULL_NAME1?>" style="width:75%" class="textbox" readonly>
+						  <input name="btn5" type="button" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_review_person(1);">
+						  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW_FULL_NAME1.value=''; form1.REVIEW_PN_NAME1.value=''; form1.REVIEW_PER_NAME1.value=''; form1.REVIEW_PM_NAME1.value=''; form1.REVIEW_PL_NAME1.value=''; form1.REVIEW_LEVEL_NAME1.value=''; form1.PER_ID_REVIEW1.value=''; return false;" align="center" alt="ล้างค่า">
+						  <input type="hidden" name="PER_ID_REVIEW1" value="<?=$PER_ID_REVIEW1?>">						
+						  <input type="hidden" name="REVIEW_POS_ID1" value="<?=$REVIEW_POS_ID1?>">
+						  <input type="hidden" name="REVIEW_PN_NAME1" value="<?=$REVIEW_PN_NAME1?>">
+						  <input type="hidden" name="REVIEW_PER_NAME1" value="<?=$REVIEW_PER_NAME1?>">
+					    </td>
+                        <td align="right" height="22"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PM_NAME1" value="<?=$REVIEW_PM_NAME1?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PM_CODE1" value="<?=$REVIEW_PM_CODE1?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW1) { ?>
+                    <input type="button" name="btn_review_pm1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_mgt('REVIEW_PM_CODE1','REVIEW_PM_NAME1');">
+                 <input name="image_review_pm1" type="image" onClick="form1.REVIEW_PM_CODE1.value=''; form1.REVIEW_PM_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PL_NAME1" value="<?=$REVIEW_PL_NAME1?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PL_CODE1" value="<?=$REVIEW_PL_CODE1?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW1) { ?>
+                    <input type="button" name="btn_review_pl1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_perline('REVIEW_PL_CODE1','REVIEW_PL_NAME1');">
+                 <input name="image_review_pl1" type="image" onClick="form1.REVIEW_PL_CODE1.value=''; form1.REVIEW_PL_NAME1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+						<td>
+                        		<? if ($PER_ID_REVIEW1) list_per_level_kpi ('REVIEW_LEVEL_NO1', $REVIEW_LEVEL_NO1, $REVIEW_POS_ID1,'USER_VIEW1'); else { ?>
+		                        	<input type="hidden" name="REVIEW_LEVEL_NO1" value="<?=$REVIEW_LEVEL_NO1?>">
+								<? } ?>
+							<input type="hidden" name="REVIEW_LEVEL_NAME1" value="<?=$REVIEW_LEVEL_NAME1?>" style="width:75%" class="textbox" readonly>
+						</td>
+                      </tr>
+                      <tr>
+                        <td height="7" colspan="4" align="right"></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22">ชื่อผู้บังคับบัญชาเหนือขึ้นไปอีกชั้นหนึ่ง&nbsp;:&nbsp;</td>
+                        <td>
+						  <input type="text" name="REVIEW_FULL_NAME2" value="<?=$REVIEW_FULL_NAME2?>" style="width:75%" class="textbox" readonly>
+						  <input name="btn6" type="button" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_review_person(2);">
+						  <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW_FULL_NAME2.value=''; form1.REVIEW_PN_NAME2.value=''; form1.REVIEW_PER_NAME2.value=''; form1.REVIEW_PM_NAME2.value=''; form1.REVIEW_PL_NAME2.value=''; form1.REVIEW_LEVEL_NAME2.value=''; form1.PER_ID_REVIEW2.value=''; return false;" align="center" alt="ล้างค่า">
+						  <input type="hidden" name="PER_ID_REVIEW2" value="<?=$PER_ID_REVIEW2?>">
+						  <input type="hidden" name="REVIEW_POS_ID2" value="<?=$REVIEW_POS_ID2?>">
+						  <input type="hidden" name="REVIEW_PN_NAME2" value="<?=$REVIEW_PN_NAME2?>">
+						  <input type="hidden" name="REVIEW_PER_NAME2" value="<?=$REVIEW_PER_NAME2?>">
+					    </td>
+                        <td align="right" height="22"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PM_NAME2" value="<?=$REVIEW_PM_NAME2?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PM_CODE2" value="<?=$REVIEW_PM_CODE2?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW2) { ?>
+                    <input type="button" name="btn_review_pm2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_mgt('REVIEW_PM_CODE2','REVIEW_PM_NAME2');">
+                 <input name="image_review_pm2" type="image" onClick="form1.REVIEW_PM_CODE2.value=''; form1.REVIEW_PM_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                      </tr>
+                      <tr>
+                        <td align="right" height="22"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="REVIEW_PL_NAME2" value="<?=$REVIEW_PL_NAME2?>" style="width:75%" class="textbox" readonly>
+                <input type="hidden" name="REVIEW_PL_CODE2" value="<?=$REVIEW_PL_CODE2?>">
+                    <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && $PER_ID_REVIEW2) { ?>
+                    <input type="button" name="btn_review_pl2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_perline('REVIEW_PL_CODE2','REVIEW_PL_NAME2');">
+                 <input name="image_review_pl2" type="image" onClick="form1.REVIEW_PL_CODE2.value=''; form1.REVIEW_PL_NAME2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                <? } ?></td>
+                        <td align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+						<td>
+                        		<? if ($PER_ID_REVIEW2) list_per_level_kpi ('REVIEW_LEVEL_NO2', $REVIEW_LEVEL_NO2, $REVIEW_POS_ID2,'USER_VIEW2'); else { ?>
+		                        	<input type="hidden" name="REVIEW_LEVEL_NO2" value="<?=$REVIEW_LEVEL_NO2?>">
+								<? } ?>
+							<input type="hidden" name="REVIEW_LEVEL_NAME2" value="<?=$REVIEW_LEVEL_NAME2?>" style="width:75%" class="textbox" readonly>
+						</td>
+                     </tr>
+           <tr align="center">
+             <td height="30" colspan="4">
+		
+      		  
+			  <?	if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$BNT_EDIT_TITLE?>">
+			  <? } else { ?>
+            		 <input name="image" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$BNT_EDIT_TITLE?>" border="0">
+            		 &nbsp;&nbsp;&nbsp;
+            		<?}?>
+      		  
+			  <?	if ($BUTTON_DISPLAY==1) { ?>
+			  <? } else { ?>
+              <img src="images/detail.gif" alt="<?=$DETAIL_TITLE?>" width="32" height="32" border="0" onClick="call_edit_desc(<?=$KF_ID?>)">&nbsp;&nbsp;&nbsp;
+              <?}?>
+			 
+			  <? 	if ($BUTTON_DISPLAY==1) { ?>
+<input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+			<? } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+			<?}?>
+		
+</tr>
+
+         </table></td>
+	</tr>
+</table> 
+
+
+
+
+    </tr>
+  </table>
+        <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+

@@ -1,0 +1,193 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	if(trim($MOV_TYPE)) $arr_search_condition[] = "(MOV_TYPE=$MOV_TYPE)";
+  	if(trim($MOV_CODE)){ 
+		if ($MOV_CODE=='101') {			// บรรจุ/รับโอน
+			$arr_search_condition[] = "(MOV_CODE like '101%' or MOV_CODE like '105%')";	
+		} elseif($MOV_CODE=='118') {		// ออกจากราชการ
+			$arr_search_condition[] = "(MOV_CODE like '118%' or MOV_CODE like '119%' or MOV_CODE like '120%' or MOV_CODE like '121%' or MOV_CODE like '122%' or MOV_CODE like '123%' or MOV_CODE like '106%')";
+		} elseif($MOV_CODE=='230') {		// เลื่อนระดับ
+			$arr_search_condition[] = "(MOV_CODE like '104%' or MOV_CODE like '124%' or MOV_CODE like '230%')";
+		} elseif($MOV_CODE=='2') {			// เกี่ยวกับการรับเงินเดือน
+			$arr_search_condition[] = "(MOV_CODE like '2%')";			
+		} else { 
+			$arr_search_condition[] = "(MOV_CODE like '$MOV_CODE%')";	
+		}
+	}
+	
+  	if(trim($search_mov_code)) $arr_search_condition[] = "(MOV_CODE like '$search_mov_code%')";
+  	if(trim($search_mov_name)) $arr_search_condition[] = "(MOV_NAME like '%$search_mov_name%')";
+	
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 		count(MOV_CODE) as count_data 
+				  from 		PER_MOVMENT 
+			 	  where 		MOV_ACTIVE=1
+					 			$search_condition  ";
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>ประเภทการเคลื่อนไหว</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+</script>
+<body>
+<form action="search_movment.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="MOV_TYPE" value="<?=$MOV_TYPE?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">ค้นหาข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_mov_code" value="<?=$search_mov_code?>" style="width=98%" class="textbox"></td>
+              <td width="18%" align="right">ชื่อประเภทการเคลื่อนไหว&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_mov_name" value="<?=$search_mov_name?>" style="width=98%" class="textbox"></td>
+              <td width="20%" align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit" type="submit" class="button" value="ค้นหา" onClick="form1.current_page.value=0;"><input name="Submit" type="submit" class="button" value="แสดงทั้งหมด" onClick="form1.search_mov_code.value=''; form1.search_mov_name.value=''; form1.current_page.value=0;">  <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="ค้นหา">
+                <input name="image2" type="image" onClick="form1.search_mov_code.value=''; form1.search_mov_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="แสดงทั้งหมด">
+                <?}?>
+			  </td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="blue_bold">พบข้อมูลประเภทการเคลื่อนไหวทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record MOV_CODE from PER_MOVMENT where MOV_ACTIVE=1 $search_condition order by MOV_SEQ_NO, MOV_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[MOV_CODE]'";
+				$limit_data = " and MOV_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and MOV_CODE not in ( select * from (select MOV_CODE from PER_MOVMENT where MOV_ACTIVE=1 $search_condition order by MOV_SEQ_NO, MOV_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											MOV_CODE, MOV_NAME, MOV_TYPE 
+							 from 		PER_MOVMENT
+							 where 		MOV_ACTIVE=1
+											$search_condition
+											$limit_data
+							order by	MOV_SEQ_NO, MOV_CODE ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+								 select 	MOV_CODE, MOV_NAME, MOV_TYPE 
+								 from 		PER_MOVMENT
+								 where 	MOV_ACTIVE=1
+												$search_condition
+												$limit_data
+								order by	MOV_SEQ_NO, MOV_CODE
+							) where rownum <= $data_per_page ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	MOV_CODE, MOV_NAME, MOV_TYPE 
+							 from 		PER_MOVMENT
+							 where 		MOV_ACTIVE=1
+											$search_condition
+							order by	MOV_SEQ_NO, MOV_CODE
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">ประเภทการเคลื่อนไหว</td>
+    <td width="25%" align="center">กลุ่มประเภทการเคลื่อนไหว</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_MOV_CODE = $data[MOV_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_MOV_CODE'";
+				$TMP_MOV_NAME = trim($data[MOV_NAME]);
+				if ($data[MOV_TYPE] == 1) 	 $TMP_MOV_TYPE = "ความเคลื่อนไหวตำแหน่ง";
+				elseif ($data[MOV_TYPE] == 2) 	 $TMP_MOV_TYPE = "ความเคลื่อนไหวเงินเดือน";
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_MOV_CODE<::>$TMP_MOV_NAME";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_MOV_CODE?></td>
+    <td>&nbsp;<?=$TMP_MOV_NAME?></td>
+    <td>&nbsp;<?=$TMP_MOV_TYPE?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

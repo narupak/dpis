@@ -1,0 +1,744 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_letter_search.php"); 
+	
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function confirm_delete(data_id , data_label){
+		if(confirm("คุณต้องการลบข้อมูลนี้ [ " + data_label + " ] ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.LET_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_search_person (code, name) {	
+		var per_id = eval("form1." + code);
+		var per_name = eval("form1." + name);		
+		parameter = "&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+		childReturn = window.showModalDialog("search_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");		
+			per_id.value = arrValue[0];
+			per_name.value = arrValue[1];
+		}
+	}	
+
+	function call_edit_data (let_id) {
+			document.form1.current_page.value = 1;
+			document.form1.LET_ID.value = let_id;
+			document.form1.action='?UPD=1';
+			document.form1.submit();
+		/*parameter = "";
+		if(let_id > 0) parameter = "&LET_ID=" + let_id;
+		childReturn = window.showModalDialog("data_letter_frame.html?UPD=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 300px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn==true) document.form1.submit();*/
+	}
+	
+	function call_view_data (let_id) {
+			document.form1.current_page.value = 1;
+			document.form1.LET_ID.value = let_id;
+			document.form1.action='?VIEW=1';
+			document.form1.submit();
+		/*parameter = "";
+		if(let_id > 0) parameter = "&LET_ID=" + let_id;
+		childReturn = window.showModalDialog("data_letter_frame.html?VIEW=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 300px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn) document.form1.submit();*/
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.DEPARTMENT_ID.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function clear_form() {
+		form1.LET_ID.value = "";
+		form1.LET_NO.value = "";
+		form1.PER_ID.value = "";
+		form1.PER_NAME.value = "";
+		form1.LET_REASON.value = "";
+		if(form1.LET_STARTDATE !=null){ form1.LET_STARTDATE.value = ""; }  ///
+		if(form1.LET_ENDDATE !=null){ form1.LET_ENDDATE.value = ""; } ///
+		if(form1.LET_DATE !=null){ form1.LET_DATE.value = ""; } ///
+		form1.PER_ID_SIGN1.value = "";
+		form1.PER_NAME_SIGN1.value = "";
+		form1.LET_POSITION.value = "";
+		form1.LET_SIGN.value = "";
+		form1.LET_LANG.value = 0;
+		//form1.search_type.value = 0;
+		//form1.search_per_status.value = 4;		
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+		form1.MINISTRY_ID.value = "";
+		form1.MINISTRY_NAME.value = "";
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+		form1.DEPARTMENT_ID.value = "";
+		form1.DEPARTMENT_NAME.value = "";
+		<? } // end if ?>
+		//===========form1.submit();  
+	}
+
+/*** ---original---
+	function call_pdf_report() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_master_table_prename.php?report_title=" + report_title + "&table=<?=PER_LETTER?>";
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "master_table_prename.html";
+	} 
+
+	function call_export_file() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_master_table_prename_xls.php?report_title=" + report_title + "&table=<?=PER_LETTER?>";
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "master_table_prename.html";
+	}	****/
+
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "หนังสือรับรอง";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_letter.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_letter_search.html";
+	} 
+
+	function call_export_file() {
+			var currDate = new Date();
+			var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+				   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+			var report_title = "หนังสือรับรอง";
+			document.form1.target = "_blank";
+			document.form1.action = "report/rpt_data_letter_rtf.php?report_title=" + report_title + "&UTC" + rptDate;
+			document.form1.submit();
+			document.form1.target = "_self";
+			document.form1.action = "data_letter_search.html";
+	}	
+	
+	function checkadd(f) {
+	if(f.PER_NAME.value=="") {
+		alert("กรุณาระบุ ชื่อ-สกุล");
+		f.PER_NAME.focus();
+		return false;
+		} 
+		else if(f.LET_NO.value=="") {
+		alert("กรุณาระบุ เลขที่หนังสือรับรอง");
+		f.LET_NO.focus();
+		return false;
+		}
+		else if(f.PER_NAME_SIGN1.value=="") {
+		alert("กรุณาระบุ ลงนาม");
+		f.PER_NAME_SIGN1.focus();
+		return false;
+		}
+		else  				
+		form1.command.value='ADD';
+		return true;
+		}
+		
+		function checkupdate(f) {
+	if(f.PER_NAME.value=="") {
+		alert("กรุณาระบุ ชื่อ-สกุล");
+		f.PER_NAME.focus();
+		return false;
+		} 
+		else if(f.LET_NO.value=="") {
+		alert("กรุณาระบุ เลขที่หนังสือรับรอง");
+		f.LET_NO.focus();
+		return false;
+		}
+		else if(f.PER_NAME_SIGN1.value=="") {
+		alert("กรุณาระบุ ลงนาม");
+		f.PER_NAME_SIGN1.focus();
+		return false;
+		}
+		else  				
+		form1.command.value='UPDATE';
+		return true;
+		}
+	function call_sort(flag) {
+		if (flag==1) {
+			form1.order_by.value="1";		form1.sort_by.value="1";
+			if(form1.sort_type.value=="1:asc"){
+				form1.sort_type.value="1:desc";
+			}else{ //desc
+				form1.sort_type.value="1:asc";
+			}
+		} else if (flag==2) {
+			form1.order_by.value="2";		form1.sort_by.value="2";
+			if(form1.sort_type.value=="2:asc"){
+				form1.sort_type.value="2:desc";
+			}else{ //desc
+				form1.sort_type.value="2:asc";
+			}
+		} else if (flag==3) {
+			form1.order_by.value="3";		form1.sort_by.value="3";
+			if(form1.sort_type.value=="3:asc"){
+				form1.sort_type.value="3:desc";
+			}else{ //desc
+				form1.sort_type.value="3:asc";
+			}
+		}
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<tr><td height="10"><?include("header_menu.html")?></td></tr>
+<tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>	  </td>	
+</tr>
+<tr>
+	<td align="left" valign="top"><form name="form1" method="post" action="data_letter_search.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+		<input type="hidden" name="command" value="">
+		<input type="hidden" name="LET_ID" value="<?=$LET_ID?>">&nbsp;
+		<table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม & ค้นหา"?>ข้อมูล </td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	<table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+	<tr>
+	  <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td colspan="4" height="5"></td>
+        </tr>
+        <tr>
+          <td align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width=80%" class="textbox" readonly>
+            &nbsp;&nbsp;
+            <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+            <? if(($CTRL_TYPE==1 || $CTRL_TYPE==2) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+            <input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกระทรวง" onClick="call_search_ministry();">
+            <? } // end if ?>          </td>
+          <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width=80%" class="textbox" readonly>
+            &nbsp;&nbsp;
+            <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+            <? if($CTRL_TYPE != 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+            <input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกรม" onClick="call_search_department();">
+            <? } // end if ?>          </td>
+        </tr>
+		<tr>
+						  <td align="right"><?=$ORG_TITLE;?>&nbsp;:&nbsp;</td>
+						  <td>
+						  	<input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width=80%" class="textbox"  readonly="true">
+                  					<input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                  					<? if($SESS_USERGROUP_LEVEL < 5 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+                  					<input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()" >
+                    <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; return false;" align="center" alt="ล้างค่า">
+                  					<? } // end if ?>		    				  
+							</td>
+						  <td align="right">&nbsp;</td>
+						  <td>&nbsp;</td>
+		        </tr>
+	   
+	   <? if($SEARCH || $SEARCH_ALL){ ?>
+	   <tr>
+		  <td>&nbsp;</td>
+	      <td colspan="2">
+		 	<? if($SEARCH_ALL){ $search_type=0; $search_per_status=4; $LET_LANG=0; } ?>
+			<select name="search_type">
+				<option value="0"<?=($search_type==0)?"selected":""?>>ทั้งหมด</option>
+				<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($search_type==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+			</select>
+		  </td>
+		  <td><select name="search_per_status" class="selectbox">
+					<option value="4" <?=($search_per_status==4)? "selected" : "";?>>&nbsp;ทั้งหมด</option>
+					<option value="2" <?=($search_per_status==2)?"selected":""?>>&nbsp;ปกติ</option>
+					<option value="1" <?=($search_per_status==1)?"selected":""?>>&nbsp;รอบรรจุ</option>
+					<option value="3" <?=($search_per_status==3)?"selected":""?>>&nbsp;พ้นจากส่วนราชการ</option>
+				</select>
+				</td>
+	    </tr>
+<? } ?>
+        <tr>
+          <td align="right" width="15%"><span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE;?>&nbsp;:&nbsp;</td>
+          <td width="35%"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width=80%" class="textbox" readonly>
+            &nbsp;&nbsp;
+            <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            <input type="button" name="butt_cardno" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person('PER_ID','PER_NAME');">
+            <? } ?>          </td>
+          <td align="right" width="17%"><span class="label_alert">*</span>&nbsp;เลขที่หนังสือรับรอง&nbsp;:&nbsp;</td>
+		  <? $LET_NO=trim($LET_NO);?>
+          <td width="33%"><input type="text" name="LET_NO" value="<?=$LET_NO?>" class="textbox">
+            &nbsp;</td>
+        </tr>
+        <tr>
+          <td align="right">เหตุที่ขอ&nbsp;:&nbsp;</td>
+          <td colspan="2"><input type="text" name="LET_REASON" value="<?=$LET_REASON?>" style="width=70%" class="textbox" ></td>
+          <td>
+			 <? if($SEARCH || $SEARCH_ALL){ ?> <option value="0" <?=($LET_LANG==0 && $LET_LANG!="")?"selected":""?>>ภาษาไทย</option><? } ?>
+		<select name="LET_LANG" class="selectbox">
+			<option value="1" <?=($LET_LANG==1)?"selected":""?>>ภาษาไทย</option>
+			<option value="2" <?=($LET_LANG==2)?"selected":""?>>ภาษาอังกฤษ</option>
+		</select>
+		 </td>
+        </tr>
+        <tr>
+		  <td align="right"><span class="label_alert">*</span>&nbsp;วันที่ออกหนังสือ&nbsp;:&nbsp;</td>
+          <td><? if($SEARCH || $SEARCH_ALL){ ?>
+				<input type="text" name="LET_STARTDATE" value="<?=$LET_STARTDATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.LET_STARTDATE,this.value)">
+		  <? }else{ ?>
+				<input type="text" name="LET_DATE" id="LET_DATE" value="<?=$LET_DATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.LET_DATE,this.value)">
+		 	<? } ?>&nbsp;&nbsp;
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+				<? if($SEARCH || $SEARCH_ALL){ ?>
+					<input type="button" class="button" onClick="return showCalendar('LET_STARTDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				<? }else{ ?>
+					<input name="button" type="button" class="button" onClick="return showCalendar('LET_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+				<? } ?>
+            <? } ?></td>
+			<td align="right"><? if($SEARCH || $SEARCH_ALL){ ?>ถึงวันที่&nbsp;:&nbsp;<? } ?></td>
+             <td>
+			 <? if($SEARCH || $SEARCH_ALL){ ?>
+			 		<input type="text" name="LET_ENDDATE" value="<?=$LET_ENDDATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.LET_ENDDATE,this.value)">&nbsp;&nbsp;
+					<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+							<input type="button" class="button" onClick="return showCalendar('LET_ENDDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+					<? } ?>
+			<? } ?>			</td>
+        </tr>
+        <tr>
+          <td align="right"><span class="label_alert">*</span>&nbsp;ผู้ลงนาม&nbsp;:&nbsp;</td>
+          <td><input type="text" name="PER_NAME_SIGN1" value="<?=$PER_NAME_SIGN1?>" style="width=80%" class="textbox" readonly>
+            &nbsp;&nbsp;
+            <input type="hidden" name="PER_ID_SIGN1" value="<?=$PER_ID_SIGN1?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+            <input type="button" name="button" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person('PER_ID_SIGN1','PER_NAME_SIGN1');">
+            <? } ?>          </td>
+          <td align="right">ตำแหน่งผู้ลงนาม&nbsp;:&nbsp;</td>
+          <td><input type="text" name="LET_POSITION" value="<?=$LET_POSITION?>" style="width=80%" class="textbox"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td align="right"><input type="radio" name="LET_ASSIGN" value="1" <?=($LET_ASSIGN == 1)? "checked" : "";?>>
+            แทน&nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="radio" name="LET_ASSIGN" value="2" <?=($LET_ASSIGN == 2)? "checked" : "";?>>
+            รักษาการแทน&nbsp;</td>
+          <td colspan="2"><input type="text" name="LET_SIGN" value="<?=$LET_SIGN?>" style="width=50%" class="textbox"></td>
+        </tr>
+        <tr>
+          <td height="5" colspan="4"></td>
+        </tr>
+        <tr align="center">
+          <td height="30" colspan="4">
+		<? if ($LET_ID) { ?>
+			<?	if ($BUTTON_DISPLAY==1) { ?>
+			<input type="submit" name="Reset1" value="<?=$CANCEL_TITLE?>" onClick="clear_form(); form1.submit();" class="button" >
+			<? } else { ?>
+            <input name="image" type="image" onClick="clear_form();" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+            <?}?>
+		<? if ($UPD) { ?>
+						<?if($PAGE_AUTH["edit"]=="Y"){?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit1" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>">
+							<? } else { ?>
+                            <input name="image2" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+                            <?}?>
+						<?}?>
+						<?if($PAGE_AUTH["del"]=="Y"){?>
+							<? 	if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit2" type="button" class="button" onClick="confirm_delete(<?=$LET_ID?> , '<?="$LET_NO : $PN_NAME $PER_NAME $PER_SURNAME"?>');" value="<?=$DEL_TITLE?>">
+							<? } else { ?>
+                            <img src="images/delete.gif" alt="<?=$DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete(<?=$LET_ID?> , '<?="$LET_NO : $PN_NAME $PER_NAME $PER_SURNAME"?>');">&nbsp;
+                            <?}?>
+						<?}?>
+				<? } else{ ?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Reset2" type="Submit"  value="พิมพ์หนังสือรับรอง" onClick="call_export_file(); form1.action += '?VIEW=1'; " class="button" >
+							<? } else { ?>
+                            <input name="image22" type="image" onClick="call_export_file(); form1.action += '?VIEW=1'; "  src="images/print02.gif" alt="พิมพ์หนังสือรับรอง" border="0">
+                            <?}?>
+				<? }
+		} else { ?>
+					<? if(!$SEARCH && !$SEARCH_ALL){ ?>
+							<? 	if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+							<? } else { ?>
+                            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                            <?}?>
+						<?if($PAGE_AUTH["add"]=="Y"){?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit3" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+							<? } else { ?>
+                            <input name="image3" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+                            <?}?>
+						<?}?>
+					<? }else{  ?>
+							<?	if ($BUTTON_DISPLAY==1) { ?>
+							<input type="submit" name="Reset1" value="<?=$CANCEL_TITLE?>" onClick="clear_form(); form1.submit();" class="button" >
+							<? } else { ?>
+                            <input name="image4" type="image" onClick="clear_form();" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+                            <?}?>
+					<? } ?>
+		<? } ?>
+		<? if (!$UPD && !$VIEW) { ?>
+			<? if ($BUTTON_DISPLAY==1) { ?>
+			<input name="Submit4" type="submit" class="button" onClick="javascript:form1.action+='?SEARCH=1'; form1.submit();" value="<?=$SEARCH_TITLE?>">
+			<input name="Submit5" type="button" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="clear_form();  form1.action+='?SEARCH_ALL=1'; form1.submit();">
+			<? } else { ?>
+            <input name="image222" type="image" onClick="javascript:form1.action+='?SEARCH=1'; form1.submit();" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+            <input name="image222" type="image" onClick="clear_form();  form1.action+='?SEARCH_ALL=1'; form1.submit();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+            <?}?>
+	<? } ?>		          </td>
+        </tr>
+      </table></td>
+	</tr>
+</table> 
+<?
+
+//	echo $SEARCH."-".trim($_POST['PER_ID']);
+	$search_condition = ""  ;
+  	if(trim($search_type) && trim($search_type) != 0) {
+	 	$arr_search_condition[] = "(PER_TYPE = $search_type)";
+	}
+  	if(trim($search_per_status) && trim($search_per_status) != 4) {
+		$tmp_per_status = $search_per_status - 1;
+	 	$arr_search_condition[] = "(PER_STATUS = $tmp_per_status)";
+	}
+  	if(trim($_POST['PER_ID'])) $arr_search_condition[] = "(a.PER_ID = " . trim($_POST['PER_ID']) . ")";
+	if(trim($_POST['LET_NO'])) 		$arr_search_condition[] = "(LET_NO = '" . trim($_POST['LET_NO']) . "')";
+	if(trim($_POST['LET_REASON']))	$arr_search_condition[] = "(LET_REASON = '" . trim($_POST['LET_REASON']) . "')";
+	$LET_LANG=$_POST['LET_LANG'];
+	/**** if(trim($_POST['LET_LANG']))	$arr_search_condition[] = "(LET_LANG = $_POST['LET_LANG'])"; ****/
+	if(trim($LET_LANG)){
+		if((!$SEARCH)){
+			$LET_LANG="(LET_LANG =1 or LET_LANG =2)";
+			$arr_search_condition[] = $LET_LANG;
+		}else{
+			if($LET_LANG==0){ 										//---All LANG
+				$LET_LANG="(LET_LANG =1 or LET_LANG =2)";
+				$arr_search_condition[] = $LET_LANG;
+			}else{
+				$arr_search_condition[] = "(LET_LANG = $LET_LANG)";
+			}		
+		}
+	}
+	//------------------------------------------------------
+	if(trim($LET_DATE)) {
+		$LET_DATE = (trim($LET_DATE))? 	(substr($LET_DATE, 6, 4) - 543) ."-". substr($LET_DATE, 3, 2) ."-". substr($LET_DATE, 0, 2)  :  "";
+		$arr_search_condition[] = "((LET_DATE >= '$LET_DATE') and (LET_DATE <= '$LET_DATE'))";
+	}else{
+		if(trim($LET_STARTDATE)) {
+			$LET_STARTDATE = (trim($LET_STARTDATE))? 	(substr($LET_STARTDATE, 6, 4) - 543) ."-". substr($LET_STARTDATE, 3, 2) ."-". substr($LET_STARTDATE, 0, 2)  :  "";
+			$arr_search_condition[] = "(LET_DATE >= '$LET_STARTDATE')";
+		}
+		if(trim($LET_ENDDATE)){
+			$LET_ENDDATE = (trim($LET_ENDDATE))? 	(substr($LET_ENDDATE, 6, 4) - 543) ."-". substr($LET_ENDDATE, 3, 2) ."-". substr($LET_ENDDATE, 0, 2)  :  "";
+			$arr_search_condition[] = "(LET_DATE <= '$LET_ENDDATE')";
+		}
+	}
+	//------------------------------------------------------
+	if(trim($_POST['PER_ID_SIGN1']))
+		$arr_search_condition[] = "(PER_ID_SIGN1 = '" . trim($_POST['PER_ID_SIGN1']) . "')";
+	if(trim($_POST['LET_SIGN']))
+		$arr_search_condition[] = "(LET_SIGN = '" . trim($_POST['LET_SIGN']) . "')";
+		
+	if($DEPARTMENT_ID){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID=$DEPARTMENT_ID)";
+	}elseif($MINISTRY_ID){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$MINISTRY_ID ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+	
+	///if($SEARCH_ALL || $SEARCH){	
+		if(count($arr_search_condition)) {
+			$search_condition = $search_condition . implode(" and ", $arr_search_condition);
+			$search_condition = " and ".$search_condition;
+		}
+	///}
+
+	//หาจำนวนรายการที่แสดง
+	$cmd =" 	select 		count(LET_ID) as count_data 
+						from 		PER_LETTER a, PER_PERSONAL b
+						where 	a.PER_ID=b.PER_ID 
+										$search_condition ";
+	$db_dpis->send_cmd($cmd);	
+	//echo "$cmd<br>";
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+  ?>
+  <table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+<tr>
+	<td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+	<tr height="22">
+<!--		<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+        <td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--        <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+	</tr>
+	</table></td>
+</tr>
+</table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+	
+	if(!$sort_by) $sort_by=1;
+	if ($PER_ORDER_BY==1) {$sort_type = (isset($sort_type))?  $sort_type : "1:asc"; } else { $sort_type = (isset($sort_type))?  $sort_type : "1:desc"; }
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//ชื่อ-สกุล
+		$order_str = "ORDER BY b.PER_NAME  ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//เลขที่หนังสือรับรอง
+		$order_str = "ORDER BY LET_NO ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//วันที่ออกหนังสือ
+		$order_str =  "ORDER BY LET_DATE   ".$SortType[$order_by];
+	}
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(LET_ID) as concat_pk from PER_LETTER a, PER_PERSONAL b where a.PER_ID=b.PER_ID $search_condition order by LET_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(LET_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+		  $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " 	select 		LET_ID, LET_NO, a.PER_ID, LET_DATE, b.PER_NAME
+							from 		PER_LETTER a, PER_PERSONAL b 
+							where 	a.PER_ID=b.PER_ID 
+											$search_condition
+											$limit_data
+							$order_str  ";
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								select		LET_ID, LET_NO, a.PER_ID, LET_DATE, b.PER_NAME
+								from 		PER_LETTER a, PER_PERSONAL b 
+								where		a.PER_ID=b.PER_ID 
+												$search_condition
+								$order_str  
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";	
+	}elseif($DPISDB=="mysql"){
+		$cmd = " 	select 	LET_ID, LET_NO, a.PER_ID, LET_DATE
+							from 		PER_LETTER a, PER_PERSONAL b 
+							where 	a.PER_ID=b.PER_ID 
+											$search_condition
+							$order_str 
+											$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	//echo "<br>$cmd<br>";
+	if ($count_page_data) {
+		$current_list = "";
+		$data_count = 0;
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+<tr align="center" class="table_head">
+	<td width="7%" height="21"><?=$SEQ_NO_TITLE;?></td>
+	<td onClick="call_sort(1);"><strong>
+	  <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  <?=$FULLNAME_TITLE;?></strong></td>
+	<td width="21% " onClick="call_sort(2);"><strong>
+	  <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	</strong>เลขที่หนังสือรับรอง</td>
+	<td width="18%" onClick="call_sort(3);"><strong>
+	  <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  วันที่ออกหนังสือ</strong></td>
+      	<td width="5%"><?=$INQ_TITLE;?></td>	
+      	<?if($PAGE_AUTH["edit"]=="Y"){?>
+      	<td width="5%"><?=$EDIT_TITLE;?></td>
+      	<?}?>
+      	<?if($PAGE_AUTH["del"]=="Y"){?>
+      	<td width="5%"><?=$DEL_TITLE;?></td>
+      	<?}?>
+</tr>
+<?
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$temp_LET_ID = $data[LET_ID];
+		$current_list .= ((trim($current_list))?", ":"") . "'" . $temp_LET_ID ."'";
+		$PER_ID = $data[PER_ID];
+		$LET_NO = $data[LET_NO];
+		$LET_DATE = show_date_format($data[LET_DATE], 1);
+		
+		$cmd = "	select 	PN_NAME, PER_NAME, PER_SURNAME 
+				from		PER_PERSONAL a, PER_PRENAME b 
+				where	a.PER_ID=$PER_ID and a.PN_CODE=b.PN_CODE ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$PN_NAME = $data_dpis2[PN_NAME];
+		$PER_NAME = $data_dpis2[PER_NAME];
+		$PER_SURNAME = $data_dpis2[PER_SURNAME];				
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($LET_ID == $temp_LET_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+		
+		$cmd = "	select SCH_NAME from PER_LETTERSHIP where SCH_CODE='$SCH_CODE' ";
+		$db_dpis2->send_cmd($cmd);
+		$data_dpis2 = $db_dpis2->get_array();
+		$SCH_NAME = $data_dpis2[SCH_NAME];
+?>
+<tr height="23" class="<?=$class?>" <?=$onmouse_event?>>
+      <td align="center"><?=$temp_LET_ID?></td>
+      <td>&nbsp;<?="$PN_NAME$PER_NAME $PER_SURNAME"?></td>      
+      <td>&nbsp;<?=$LET_NO?></td>
+      <td align='center'><?=$LET_DATE?></td>
+      <td align="center">&nbsp;<a href="<?=("javascript:call_view_data(".$temp_LET_ID.");")?>" ><img src="images/icon_eye.gif" alt="ดูหนังสือรับรอง" width="16" height="16" border="0"></a></td>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?=("javascript:call_edit_data(".$temp_LET_ID.");")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขหนังสือรับรอง"></a></td>
+	<?}?>
+	<?if($PAGE_AUTH["del"]=="Y"){?>
+	<td align="center">&nbsp;<a href="<?=("javascript:confirm_delete('$temp_LET_ID','$LET_NO : $PN_NAME$PER_NAME $PER_SURNAME')")?>"><img src="images/b_drop.png" border="0" alt="ลบหนังสือรับรอง"></a></td>
+	<?}?>
+</tr>
+	<? } // while ?>
+	
+<?if($PAGE_AUTH["edit"]=="Y"){?>
+<tr class="table_footer" height="22">
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+	<td>&nbsp;</td>
+       <td>&nbsp;</td>
+	<td>&nbsp;</td>      
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>      
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+</tr>
+<?}?>
+</table>
+
+<? if($total_page > 1) : ?>
+<table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+<tr>
+	<td><?=$page_link?></td>
+</tr>
+</table>
+<? endif; ?>&nbsp;
+<? } // if  count show ?>
+
+	<input type="hidden" name="current_list" value="<?=$current_list?>">
+</form></td>
+</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

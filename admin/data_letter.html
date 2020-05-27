@@ -1,0 +1,258 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_letter.php"); 
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($command=="DELETE"){ ?>parent.refresh_opener(true);<? } ?>
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function confirm_delete(data_id , data_label){
+		if(confirm("Do you want to delete this record [ " + data_label + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.LET_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_search_person (code, name) {	
+		if(form1.DEPARTMENT_ID.value.trim()==""){
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			return false;
+		} // end if
+		
+		var per_id = eval("form1." + code);
+		var per_name = eval("form1." + name);		
+		parameter = "&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+		childReturn = window.showModalDialog("search_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");		
+			per_id.value = arrValue[0];
+			per_name.value = arrValue[1];
+			if(code=="PER_ID_SIGN1") form1.LET_POSITION.value = arrValue[6];
+		}
+	}	
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "หนังสือรับรอง";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_letter.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_letter.html";
+	} 
+	
+	function call_export_file() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "หนังสือรับรอง";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_letter_rtf.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_letter.html";
+	}	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+<tr><td>&nbsp;</td></tr>
+<tr>
+	<td align="left" valign="top"><form name="form1" method="post" action="data_letter.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+		<input type="hidden" name="command" value="">
+		<input type="hidden" name="LET_ID" value="<?=$LET_ID?>">&nbsp;
+	<table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+	<tr>
+	  <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+           <tr>
+             <td colspan="4" height="5"></td>
+           </tr>
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+             <td>
+			 	<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:80%" class="textbox" readonly>&nbsp;&nbsp;
+				<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+				<? if(($CTRL_TYPE==1 || $CTRL_TYPE==2) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?><input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry();"><? } // end if ?>
+			 </td>
+             <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+             <td>
+			 	<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:80%" class="textbox" readonly>&nbsp;&nbsp;
+				<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+				<? if($CTRL_TYPE != 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?><input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();"><? } // end if ?>
+			 </td>
+           </tr>
+           <tr>
+             <td align="right" width="15%"><span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+             <td width="35%"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:80%" class="textbox" readonly>&nbsp;&nbsp;
+	      		<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		      <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+		      <input type="button" name="butt_cardno" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person('PER_ID','PER_NAME');">
+		      <? } ?>	      </td>
+             <td align="right" width="17%"><span class="label_alert">*</span>&nbsp;เลขที่หนังสือรับรอง&nbsp;:&nbsp;</td>
+             <td width="33%"><input type="text" name="LET_NO" value="<?=$LET_NO?>" class="textbox">&nbsp;</td>
+           </tr>
+           <tr>
+             <td align="right">เหตุที่ขอ&nbsp;:&nbsp;</td>
+             <td colspan="2"><input type="text" name="LET_REASON" value="<?=$LET_REASON?>" style="width:70%" class="textbox" ></td>
+	      <td>
+	         <input type="radio" name="LET_LANG" value="1" <?=($LET_LANG == 1)? "checked" : "";?>>ภาษาไทย&nbsp;&nbsp;
+		  <input type="radio" name="LET_LANG" value="2" <?=($LET_LANG == 2)? "checked" : "";?>>ภาษาอังกฤษ	      </td>
+           </tr>
+           <tr>
+             <td align="right">วันที่ออกหนังสือ&nbsp;:&nbsp;</td>
+             <td><input type="text" name="LET_DATE" id="LET_DATE" value="<?=$LET_DATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.LET_DATE,this.value)">&nbsp;&nbsp;
+		      <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>	      
+		      <input type="button" class="button" onClick="return showCalendar('LET_DATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+		      <? } ?>	      </td>
+             <td align="right">&nbsp;</td>
+             <td></td>	      
+           </tr>	
+           <tr>
+             <td align="right"><span class="label_alert">*</span>&nbsp;ผู้ลงนาม&nbsp;:&nbsp;</td>
+             <td><input type="text" name="PER_NAME_SIGN1" value="<?=$PER_NAME_SIGN1?>" style="width:80%" class="textbox" readonly>&nbsp;&nbsp;
+		      <input type="hidden" name="PER_ID_SIGN1" value="<?=$PER_ID_SIGN1?>">
+			<? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) { ?>
+	      		<input type="button" name="button" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_person('PER_ID_SIGN1','PER_NAME_SIGN1');">
+			<? } ?>		</td>	    
+             <td align="right">ตำแหน่งผู้ลงนาม&nbsp;:&nbsp;</td>
+             <td><input type="text" name="LET_POSITION" value="<?=$LET_POSITION?>" style="width:80%" class="textbox"></td>
+           </tr>	 
+           <tr>
+	      <td></td>
+             <td align="right">	         
+	         <input type="radio" name="LET_ASSIGN" value="1" <?=($LET_ASSIGN == 1)? "checked" : "";?>>
+	         แทน&nbsp;&nbsp;&nbsp;&nbsp;
+	         <input type="radio" name="LET_ASSIGN" value="2" <?=($LET_ASSIGN == 2)? "checked" : "";?>>
+	         รักษาการแทน&nbsp;</td>	    
+             <td colspan="2"><input type="text" name="LET_SIGN" value="<?=$LET_SIGN?>" style="width:50%" class="textbox"></td>
+           </tr>        
+        <tr><td height="5" colspan="4"></td></tr>	        
+           <tr align="center">
+             <td height="30" colspan="4">
+               <? 	if ($BUTTON_DISPLAY==1) { ?>
+               <input type="submit" name="Reset2" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="window.parent.close(); self.close();" class="button" >
+               <? } else { ?>
+               <img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="window.parent.close(); self.close();">&nbsp;
+               <?}?>
+<? if ($LET_ID) { ?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="พิมพ์หนังสือรับรอง" onClick="call_export_file(); form1.action += '?VIEW=1'; " class="button" >
+              <? } else { ?>
+              <input name="image22" type="image" onClick="call_export_file(); form1.action += '?VIEW=1'; "  src="images/print02.gif" alt="พิมพ์หนังสือรับรอง" border="0">
+              <?}?>
+	<? if ($UPD) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+      		  <? } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='UPDATE';"  src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+              <?}?>
+              <?}?> 
+      		  <?if($PAGE_AUTH["del"]=="Y"){?>
+      		  <? 	if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Submit22" type="button" class="button" onClick="confirm_delete(<?=$LET_ID?> , '<?="$LET_NO : $PN_NAME $PER_NAME $PER_SURNAME"?>');" value="<?=$DEL_TITLE?>">
+      		  <? } else { ?>
+              <img src="images/delete.gif" alt="<?=$DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete(<?=$LET_ID?> , '<?="$LET_NO : $PN_NAME $PER_NAME $PER_SURNAME"?>');">&nbsp;
+              <?}?>
+              <?}?> 
+	<? } 		
+} else { ?>
+      		  <? 	if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+      		  <? } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+              <?}?> 
+		  <?if($PAGE_AUTH["add"]=="Y"){?>
+		  <? if ($BUTTON_DISPLAY==1) { ?>
+		  <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="เพิ่มและพิมพ์หนังสือรับรอง">
+		  <? } else { ?>
+          <input name="image3" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="เพิ่มและพิมพ์หนังสือรับรอง" border="0">
+          <?}?>
+          <?}?> 
+<? } ?>             </td>
+           </tr>
+         </table></td>
+	</tr>
+</table>
+</form>	
+</td>
+</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<? if($command=="ADD"){ ?> 
+//	call_pdf_report(); 
+	call_export_file();
+	parent.refresh_opener(true);
+<? }?>
+</script>
+</html>

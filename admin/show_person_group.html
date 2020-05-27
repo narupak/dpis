@@ -1,0 +1,163 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	if( $command=="COPY" && trim($SELECTED_PER_ID) ){
+//		echo $auth_list."<br>";
+		$ARRSELECTED_PER_ID=explode(",",$SELECTED_PER_ID);
+		for($j=0; $j < count($ARRSELECTED_PER_ID); $j++) {
+				//อัพเดทพาสเวิร์ด 1234
+/*				
+				$setpwd = md5(1234);
+				$cmd = " update user_detail set password = '$setpwd' where group_id=$ARRSELECTED_PER_ID[$j] ";
+				$db->send_cmd($cmd);
+*/				
+				//echo "$cmd<br>";
+				//------------------
+			$arr_auth = explode("|", substr($auth_list, 1, -1));
+			for($i=0; $i<count($arr_auth); $i++){
+				$auth_detail = explode(",", $arr_auth[$i]);
+				$cmd = " select group_id from user_privilege where group_id=$ARRSELECTED_PER_ID[$j] and page_id=$auth_detail[1] and menu_id_lv0=$auth_detail[2] and menu_id_lv1=$auth_detail[3] and menu_id_lv2=$auth_detail[4] and menu_id_lv3=$auth_detail[5] ";
+				if(!$db->send_cmd($cmd)) :
+					$cmd = " insert into user_privilege (group_id,page_id,menu_id_lv0,menu_id_lv1,menu_id_lv2,menu_id_lv3,can_add,can_edit,can_del,can_inq,can_print,can_confirm)
+									 values ($ARRSELECTED_PER_ID[$j], $auth_detail[1], $auth_detail[2], $auth_detail[3], $auth_detail[4], $auth_detail[5], '$auth_detail[6]', '$auth_detail[7]', '$auth_detail[8]', '$auth_detail[9]', '$auth_detail[10]', '$auth_detail[11]') ";
+					$db->send_cmd($cmd);
+				else :
+					$cmd = " update user_privilege 
+									 set	can_add = '$auth_detail[6]',
+									 		can_edit = '$auth_detail[7]',
+											can_del = '$auth_detail[8]',
+											can_inq = '$auth_detail[9]',
+											can_print = '$auth_detail[10]',
+											can_confirm = '$auth_detail[11]'
+									 where group_id=$ARRSELECTED_PER_ID[$j] and page_id=$auth_detail[1] and menu_id_lv0=$auth_detail[2] and menu_id_lv1=$auth_detail[3] and menu_id_lv2=$auth_detail[4] and menu_id_lv3=$auth_detail[5] ";
+					$db->send_cmd($cmd);
+				endif;
+//				$db->show_error();
+			}
+		}
+
+		insert_log("$MENU_TITLE_LV0 > $MENU_TITLE_LV1 > คัดลอกสิทธิ์กลุ่มผู้ใช้งาน [$group_name_th]");
+	}
+	
+	if(trim($SELECTED_LIST)) $arr_search_condition[] = "(id in ($SELECTED_LIST))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	//หาชื่อผู้ที่มีในระบบการ login
+	$cmd1 ="select count(id) as count_data from user_group
+					$search_condition
+					order by code";
+	$db->send_cmd($cmd1);
+	//echo $cmd1;
+	//$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>รายชื่อผู้รับ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.isSubmit.value = true;
+		form1.submit();
+	}
+	
+	function confirm_delete(msg_id , user_id, user_name){
+		if(confirm("ต้องการลบผู้รับ [ " + user_name + " ] ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.MSG_ID.value = msg_id;
+			form1.USER_ID.value = user_id;
+			form1.submit();
+		} // end if
+	}
+</script>
+<body>
+<form action="show_person_group.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command" value="<?=$command?>">
+  <input type="hidden" name="MSG_ID" value="<?=$MSG_ID?>">
+  <input type="hidden" name="USER_ID" value="<?=$USER_ID?>">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <input type="hidden" name="isSubmit">
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบรายชื่อกลุ่มผู้ใช้งานที่เลือก ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+			$total_page = ceil( $count_data / $data_per_page );	
+			$page_link = create_link_page($total_page, $current_page);
+			$limit_data = "";
+
+			//หาชื่อกลุ่มที่มีทั้งหมด
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd1 ="select id,name_th,name_en from user_group 
+							$search_condition
+							order by code
+							$limit_data";
+			//echo $cmd1;
+			$count_page_data = $db->send_cmd($cmd1);
+			//$db->show_error();
+			if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="5%" height="25" align="center"><?=$SEQ_NO_TITLE?></td>
+	<td width="35%" align="center">ชื่อกลุ่มผู้ใช้งาน </td>
+  </tr>
+   <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+			while($datausr = $db->get_array()) :
+				$datausr = array_change_key_case($datausr, CASE_LOWER);
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				
+				$TMP_PER_ID = $datausr[id];
+                $TMP_PER_GROUPNAME = $datausr[name_th];
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_PER_ID<::>$TMP_PER_GROUPNAME";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$data_count?></td>
+    <td>&nbsp;<?=$TMP_PER_GROUPNAME?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+	<p align="center"><input type="submit" name="Reset2" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="window.parent.close(); self.close();" class="button" ></p>
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

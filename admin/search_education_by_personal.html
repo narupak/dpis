@@ -1,0 +1,221 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_per_id)) {
+		$arr_search_condition[] = "(PER_ID=$search_per_id)";
+		$db_dpis->send_cmd(" select PN_NAME, PER_NAME, PER_SURNAME from PER_PERSONAL a, PER_PRENAME b 
+					      where a.PER_ID=$search_per_id and a.PN_CODE=b.PN_CODE");
+		$data = $db_dpis->get_array();
+		$PER_FULLNAME = $data[PN_NAME] . $data[PER_NAME] ." ". $data[PER_SURNAME];
+	}
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+	
+  	$cmd = " select 	count(b.EN_CODE) as count_data 
+		 	from 	PER_EDUCNAME a, PER_EDUCATE b  
+			where 	EN_ACTIVE=1 and a.EN_CODE=b.EN_CODE 
+					$search_condition ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>วุฒิการศึกษา</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+function  add_en_list( isChecked, en_code ){
+	var en_list = document.form1.search_en_code.value;
+	var arr_en = new Array();
+	arr_en = en_list.split(",");
+	if(isChecked) {
+		arr_en.push(en_code);
+	} else {
+		idx=-1;
+		for(i=0; i<arr_en.length; i++) {
+			if (arr_en[i] == en_code) {
+				idx=i;
+				break;
+			}
+		}
+		if (idx > -1)	arr_en.splice(idx,1);
+	}
+	var st_en = arr_en.toString();
+	if (st_en.substr(0,1)==",") { st_en=st_en.substr(1); }
+	document.form1.search_en_code.value = st_en;	
+}
+
+function  call_ok(){
+		var ret_val = "1<::>"+document.form1.search_en_code.value;
+		parent.refresh_opener(ret_val);
+}
+
+function  call_clear( ){
+	document.form1.search_en_code.value = "";
+	form1.submit();
+//	parent.refresh_opener(document.form1.search_en_code.value);
+}
+
+</script>
+<body>
+<form action="search_education_by_personal.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="search_per_id" value="<?=$search_per_id?>">
+  <input type="hidden" name="search_en_code" value="<?=$search_en_code?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล<?=$EN_TITLE?>ของ <?=$PER_FULLNAME?> ทั้งสิ้น <?=($count_data + 0)?> รายการ </td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+		
+		if($DPISDB=="odbc"){
+			if($current_page > 1){
+				$cmd = " select top $start_record EN_CODE from PER_EDUCNAME where EN_ACTIVE=1 $search_condition order by EN_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[EN_CODE]'";
+				$limit_data = " and EN_CODE not in (". implode(", ", $arr_exclude) .")";				
+			} // if
+			$cmd = " select 	top $data_per_page
+							b.EN_CODE, EN_NAME, EN_SHORTNAME , b.INS_CODE, b.EDU_ENDDATE, b.EDU_TYPE
+					 from 	PER_EDUCNAME a, PER_EDUCATE b  
+					 where 	EN_ACTIVE=1 and a.EN_CODE=b.EN_CODE
+							$search_condition
+							$limit_data
+					order by	b.EDU_SEQ
+						   ";
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+								select 	b.EN_CODE, EN_NAME, EN_SHORTNAME,b.INS_CODE, b.EDU_ENDDATE, b.EDU_TYPE
+								from 	PER_EDUCNAME a, PER_EDUCATE b  
+								where 	EN_ACTIVE=1 and a.EN_CODE=b.EN_CODE
+										$search_condition
+										$limit_data
+								order by	b.EDU_SEQ
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";				 					 
+						   
+		}elseif($DPISDB=="mysql"){
+			if($current_page > 1){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // if
+			$cmd = " select 	b.EN_CODE, EN_NAME, EN_SHORTNAME, b.INS_CODE, b.EDU_ENDDATE, b.EDU_TYPE
+					 from 	PER_EDUCNAME a, PER_EDUCATE b  
+					 where 	EN_ACTIVE=1 and a.EN_CODE=b.EN_CODE
+							$search_condition
+					order by	b.EDU_SEQ
+							$limit_data
+						   ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="3%" height="25" align="center"></td>
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center"><?=$EN_TITLE?></td>
+    <td width="40%" align="center">ชื่อย่อ</td>
+  </tr>
+  <? 
+  			$arr_en_code = explode(",",$search_en_code);
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_EN_CODE = trim($data[EN_CODE]);
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_EN_CODE'";
+				$TMP_EN_NAME = trim($data[EN_NAME]);
+				$TMP_EN_NAME = str_replace("'", "&rsquo;", $TMP_EN_NAME);	
+				$TMP_EN_SHORTNAME = trim($data[EN_SHORTNAME]);
+				$TMP_EN_SHORTNAME = str_replace("'", "&rsquo;", $TMP_EN_SHORTNAME);	
+	
+				//หาชื่อสถานศึกษา
+				$TMP_INS_CODE = $data[INS_CODE];
+				if($TMP_INS_CODE){
+					$cmd = " select INS_NAME from PER_INSTITUTE where INS_CODE='$TMP_INS_CODE' ";
+					$db_dpis2->send_cmd($cmd);
+					$data2 = $db_dpis2->get_array();
+					$TMP_INS_NAME = $data2[INS_NAME];
+				} // end if
+				//วันสำเร็จการศึกษา
+				$EDU_ENDDATE = show_date_format($data[EDU_ENDDATE], 1);
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+//				echo "edu_type=".$data[EDU_TYPE]."[".strpos($data[EDU_TYPE],"2")."] $search_en_code==$TMP_EN_CODE:".strpos($search_en_code, $TMP_EN_CODE);
+				if (strpos($search_en_code, $TMP_EN_CODE) !== false) { // มีค่า EN_CODE ใน $search_en_code
+					$markchk = "checked";
+				} else {
+					$markchk = "";
+				}
+				
+				$returnValue = "$TMP_EN_CODE<::>$TMP_EN_NAME<::>$TMP_INS_CODE<::>$TMP_INS_NAME<::>$EDU_ENDDATE<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+  	<td><input type="checkbox" name="educhk<?=$TMP_EN_CODE?>" value="<?=$TMP_EN_CODE?>" <?=$markchk?> onClick="add_en_list(this.checked, '<?=$TMP_EN_CODE?>')"></td>
+    <td height="22" align="center"><?=$TMP_EN_CODE?></td>
+    <td>&nbsp;<?=$TMP_EN_NAME?></td>
+    <td>&nbsp;<?=$TMP_EN_SHORTNAME?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+  <tr>
+  	<td><input type="button" name="ok" value="ok" onClick="call_ok();" ></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+  	<td align="center"><input type="button" name="ok" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="call_ok();" >
+  	&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" name="ok" value=" <?=$CLEAR_TITLE?> " onClick="call_clear();" ></td>
+  </tr>
+</table>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

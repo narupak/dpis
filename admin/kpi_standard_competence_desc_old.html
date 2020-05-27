@@ -1,0 +1,137 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/kpi_standard_competence_desc.php");	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+  	<tr>
+    	<td align="left" valign="top">
+		<form name="form1" method="post" action="kpi_standard_competence_desc.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PL_CODE" value="<?=$PL_CODE?>">
+          <input type="hidden" name="LEVEL_NO" value="<?=$LEVEL_NO?>">
+		  <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+  &nbsp;
+<?
+	$cmd = " SELECT CP_CODE
+						FROM PER_STANDARD_COMPETENCE 
+						WHERE PL_CODE='$PL_CODE'	AND LEVEL_NO='$LEVEL_NO' AND ORG_ID=$ORG_ID ";
+	//echo($cmd);
+	$count_data = $db_dpis->send_cmd($cmd);
+?>
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบมาตรฐานสมรรถนะของสายงานและระดับตำแหน่งทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>    
+<?
+	if($DPISDB=="odbc"){
+		$cmd = "	select		a.CP_CODE, b.CP_NAME, a.TARGET_LEVEL, b.CP_MODEL 
+							from		PER_STANDARD_COMPETENCE a, PER_COMPETENCE b 
+							where 	a.CP_CODE=b.CP_CODE and a.PL_CODE='$PL_CODE' and a.LEVEL_NO='$LEVEL_NO'
+							order by 	a.CP_CODE 	";	
+	}elseif($DPISDB=="oci8"){
+		$cmd = "	select		a.CP_CODE, b.CP_NAME, a.TARGET_LEVEL, b.CP_MODEL 
+							from		PER_STANDARD_COMPETENCE a, PER_COMPETENCE b 
+							where 	a.CP_CODE=b.CP_CODE and a.PL_CODE='$PL_CODE' and a.LEVEL_NO='$LEVEL_NO'
+							order by 	a.CP_CODE 	";	
+	}elseif($DPISDB=="mysql"){
+		/*$cmd = "	select		psc.CP_CODE, pc.CP_NAME, psc.TARGET_LEVEL, pc.CP_MODEL 
+							from		PER_STANDARD_COMPETENCE psc, PER_COMPETENCE pc 
+							where 	psc.CP_CODE=pc.CP_CODE and psc.PL_CODE='$PL_CODE' and psc.LEVEL_NO='$LEVEL_NO'
+							order by 	psc.CP_CODE 	";	*/
+		$cmd = "	SELECT psc.CP_CODE, pc.CP_NAME, psc.TARGET_LEVEL, pc.CP_MODEL 
+						FROM PER_STANDARD_COMPETENCE psc, PER_COMPETENCE pc
+						WHERE psc.CP_CODE=pc.CP_CODE 
+						AND psc.PL_CODE='$PL_CODE' 
+						AND psc.LEVEL_NO='$LEVEL_NO'
+						AND psc.ORG_ID='$ORG_ID'
+						GROUP BY psc.CP_CODE 
+						ORDER BY psc.CP_CODE";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+/*	echo("<textarea cols='100' rows='5'>");
+	$db_dpis->show_error();
+	echo("</textarea>");
+	*/
+	if ($count_page_data) {
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+    <tr align="center" class="table_head">
+	  <td width="6%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td width="20%"><strong>ประเภทสมรรถนะ</strong></td>
+      <td><strong>สมรรถนะ</strong></td>
+      <td width="12%"><strong>ระดับที่กำหนด</strong></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_CP_CODE = trim($data[CP_CODE]);
+		$current_list .= ((trim($current_list))?",":"") . $TMP_CP_CODE;
+		$TMP_CP_NAME = trim($data[CP_NAME]);
+		$TMP_TARGET_LEVEL = trim($data[TARGET_LEVEL]);
+		$TMP_CP_MODEL = trim($data[CP_MODEL]);
+		
+		if($TMP_CP_MODEL==1) $TMP_CP_MODEL = "สมรรถนะหลัก";
+		elseif($TMP_CP_MODEL==2) $TMP_CP_MODEL = "สมรรถนะผู้บริหาร";
+		elseif($TMP_CP_MODEL==3) $TMP_CP_MODEL = "สมรรถนะประจำสายงาน";
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($CP_CODE==$TMP_CP_CODE){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr  class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_count?></td>
+      <td>&nbsp;<?=$TMP_CP_MODEL?></td>
+      <td>&nbsp;<?=$TMP_CP_NAME?></td>
+      <td align="center"><input type="text" name="ARR_TARGET_LEVEL[<?=$TMP_CP_CODE?>]" value="<?=$TMP_TARGET_LEVEL?>" style="text-align:right;" size="5" class="textbox" onKeyPress="NumOnly();"></td>
+    </tr>
+    <? } ?>
+	<?
+	//echo("PAGE_AUTH[\"edit\"] - ".$PAGE_AUTH["edit"]);
+	if($PAGE_AUTH["edit"]=="Y"){
+	?>
+    <tr class="table_footer"  height="25">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td align="center"><?if($PAGE_AUTH["edit"]=="Y"){?><input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE'" value="<?=$EDIT_TITLE?>"><?}?></td>
+    </tr>
+	<?}	// while?>
+  </table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<br>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

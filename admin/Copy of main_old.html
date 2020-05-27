@@ -1,0 +1,720 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/function_share.php");		/////////
+
+
+	$cmd = " select code, name_th, group_level, pv_code, org_id from user_group where id=$SESS_USERGROUP ";
+	$db->send_cmd($cmd);
+//	$db->show_error();
+	$data = $db->get_array();
+	$SESS_GROUPCODE = $data[code];
+	
+//	echo "test--".$SESS_MINISTRY_ID."=".md5("PKG1".$SESS_MINISTRY_ID)." [ $SPKG1 ] ~ ".$SESS_DEPARTMENT_ID."+".$SESS_USERGROUP."($SESS_GROUPCODE) == $LOGON_GROUP - $CTRL_TYPE - $SESS_USERGROUP_LEVEL ";
+
+//กระบวนการสร้าง
+if($_FILES['MSG_DOCUMENT']['name']) {
+	$temp_document_name = $_FILES['MSG_DOCUMENT']['name'];
+}
+if($command=='ADDRCVNEWS' && !empty($MSG_HEADER)){	//เพิ่มข่าว
+//	print("<pre>");	
+//        echo "$command<br>";	
+//		print_r($_POST);
+//        echo "<br>=--===-==<br>";
+//	print("</pre>");
+//	echo "$SELECTED_PER_ID <== SELECTED_PER_ID<br>";	
+	$UPDATE_DATE = date("Y-m-d H:i:s");
+	$MSG_POST_DATE = $UPDATE_DATE;
+	//เพิ่มลง 2 ตาราง
+	//หา MSG_ID ล่าสุด
+	$cmd = " select max(MSG_ID) as max_id from PER_MESSAGE ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$MSG_ID = $data[max_id] + 1;
+	
+	$cmd = "insert into PER_MESSAGE(MSG_ID, MSG_SOURCE,MSG_HEADER, MSG_DETAIL, MSG_POST_DATE, MSG_START_DATE, MSG_FINISH_DATE, USER_ID, MSG_TYPE,MSG_SHOW, MSG_DOCUMENT, UPDATE_USER, UPDATE_DATE)  values 
+	('$MSG_ID', '$MSG_SOURCE',  '$MSG_HEADER', '$MSG_DETAIL', '$MSG_POST_DATE', '$MSG_START_DATE', '$MSG_FINISH_DATE', '$SESS_USERID', '$MSG_TYPE','1', '$temp_document_name', '$SESS_USERID', '$UPDATE_DATE')";
+	$db_dpis->send_cmd($cmd);
+    //echo "+++ $cmd ++ <br>";
+    //นำค่า MSG_ID เพื่อเชื่อโยงกับผู่ที่ได้รับข่าวสารนั้น $MSG_ID
+    //หา UMSG_ID ล่าสุด
+    $cmd = " select max(UMSG_ID) as max_id from PER_USERMESSAGE ";
+    $db_dpis->send_cmd($cmd);
+    $data = $db_dpis->get_array();
+    $data = array_change_key_case($data, CASE_LOWER);
+    $UMSG_ID = $data[max_id];
+
+    $ARRSELECTED_PER_ID=explode(",",$SELECTED_PER_ID);
+    foreach($ARRSELECTED_PER_ID as $temp_per_id) {
+        $UMSG_ID++; //เพิ่มทีละหนึ่ง
+        $cmd = "Insert into PER_USERMESSAGE(UMSG_ID,MSG_ID,PER_ID,MSG_STATUS )  
+                        values ($UMSG_ID,$MSG_ID,$temp_per_id,'1')"; 
+        $db_dpis->send_cmd($cmd);
+        //echo "$cmd <br>";
+    } //end for
+} elseif($command=='UPDRCVNEWS')  {
+
+//	print("<pre>");	
+//        echo "$command<br>";	
+//        print_r($_POST);
+//        echo "<br>=--===-==<br>";
+//        print_r($MSGPER_ID);	
+//	print("</pre>");
+    
+	$UPDATE_DATE = date("Y-m-d H:i:s");
+	$MSG_POST_DATE = $UPDATE_DATE;
+    
+    $cmd = "update PER_MESSAGE set  MSG_SOURCE = '$MSG_SOURCE' ,MSG_HEADER = '$MSG_HEADER', 
+    MSG_DETAIL = '$MSG_DETAIL', MSG_POST_DATE =  '$MSG_POST_DATE', MSG_START_DATE = '$MSG_START_DATE', MSG_FINISH_DATE =  '$MSG_FINISH_DATE', 
+    USER_ID = '$USER_ID', MSG_TYPE = '$MSG_TYPE',MSG_SHOW = '1' , MSG_DOCUMENT = '$MSG_DOCUMENT', UPDATE_USER = '$SESS_USERID', UPDATE_DATE = '$UPDATE_DATE'
+    where MSG_ID = '$MSG_ID'";
+	$db_dpis->send_cmd($cmd);
+	//echo $cmd;
+    
+    //นำค่า MSG_ID เพื่อเชื่อโยงกับผู่ที่ได้รับข่าวสารนั้น $MSG_ID
+    //หา UMSG_ID ล่าสุด
+    $cmd = "delete from PER_USERMESSAGE where MSG_ID = MSG_ID = '$MSG_ID'";
+    $db_dpis->send_cmd($cmd);
+    
+    $cmd = " select max(UMSG_ID) as max_id from PER_USERMESSAGE ";
+    $db_dpis->send_cmd($cmd);
+    $data = $db_dpis->get_array();
+    $data = array_change_key_case($data, CASE_LOWER);
+    $UMSG_ID = $data[max_id];
+    $ARRSELECTED_PER_ID=explode(",",$SELECTED_PER_ID);
+    foreach($ARRSELECTED_PER_ID as $temp_per_id) {
+        $UMSG_ID++; //เพิ่มทีละหนึ่ง
+        $cmd = "Insert into PER_USERMESSAGE(UMSG_ID,MSG_ID,PER_ID,MSG_STATUS )  
+                        values ($UMSG_ID,$MSG_ID,$temp_per_id,'1')"; 
+        $db_dpis->send_cmd($cmd);
+//       echo "$cmd <br>";
+    } //end for
+} 
+elseif($command == "UPDATEIMG") {
+	//echo "++$_POST[MSG_ID]++  ".$_FILES[MSG_DOCUMENT][name]."<br>";    
+	//print_r($_POST);
+    move_uploaded_file($_FILES[MSG_DOCUMENT][tmp_name],'./uploaded/'.$_FILES[MSG_DOCUMENT][name]);
+}
+//echo $command;
+?>
+<html>
+<head>
+<title><?=$webpage_title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script language="JavaScript" type="text/JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function call_show_person () {	
+		parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;
+		childReturn = window.showModalDialog("show_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+	}
+
+	function call_select_person () {	
+		parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;
+		childReturn = window.showModalDialog("select_userdetail_msg_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+//		alert(childReturn);
+		form1.SELECTED_PER_ID.value = childReturn;
+		//alert(form1.SELECTED_PER_ID.value);
+		if(childReturn){ 
+			form1.btn_view_list.style.display = "block";
+			/////form1.list_type[1].checked=true;
+			
+			form1.submit(); /////
+		}else{
+			form1.btn_view_list.style.display = "none";
+		} // end if
+	}
+	
+	function confirm_delete(srh_id , srh_name){
+		if(confirm("ต้องการลบประวัติการดำรงตำแหน่งนี้ ใช่หรือไม่ [ " + srh_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.POH_ID.value = srh_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function call_edit_message (mes_id) {
+		parameter = "";
+		if(mes_id > 0) parameter = "&MES_ID=" + mes_id;
+		childReturn = window.showModalDialog("personal_message_form_frame.html?UPD=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn) document.form1.submit();
+	}
+	
+	function call_view_message (mes_id) {
+		parameter = "";
+		if(mes_id > 0) parameter = "&MES_ID=" + mes_id;
+		childReturn = window.showModalDialog("personal_message_form_frame.html?VIEW=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+		// if(childReturn) document.form1.submit();		
+	}
+
+	function check(f) {   /////////////////////
+		if(f.MSG_HEADER.value=="") {
+			alert("กรุณาระบุหัวข้อ");
+			f.MSG_HEADER.focus();
+			return false;
+		} 
+		else if(f.MSG_TYPE.value=="") {
+			alert("กรุณาระบุ ประเภท");
+			f.MSG_TYPE.focus();
+			return false;
+		}
+		else  {
+			f.submit();
+			return true;
+		}
+	}
+</script>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+	<tr>
+	  <td><? include("header_menu.html")?></td>
+  </tr>
+  	<tr>
+    	<td align="left" valign="top"> 
+      	<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal" height="100%">
+        <tr> 
+          <td align="left" valign="top"> 
+		    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr> 
+                <td height="28"><table  border="0" cellspacing="0" cellpadding="0" class="current_location_table">
+                  <tr>
+                    <td width="4%" height="28">&nbsp;</td>
+                    <td class="current_location">&reg;&nbsp;Welcome .... </td>
+					<td width="40" class="current_location_right">&nbsp;</td>
+                  </tr>
+                </table></td>
+              </tr>
+            </table>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+              <tr> 
+                <td height="5"></td>
+              </tr>
+              <tr> 
+                <td align="center" valign="top">
+				<? if(($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3){ $MAIN_VIEW = 1; $PER_ID = $SESS_PER_ID; include("personal_master_desc.html"); } ?>
+				</td>
+              </tr>
+			<!---เพิ่มเติม--->  
+              <tr> 
+                <td align="center" valign="top"><table width="90%" border="1" align="center" cellpadding="0" cellspacing="0"  class="input_table">
+				<tr>
+				  <td>
+				    <table width="100%" border="0" cellspacing="2" cellpadding="0">
+				      <tr valign="top" class="table_head">
+				        <td colspan="5" valign="top" class="text_disabled">&nbsp;&nbsp;<a href="main.html?COMMAND=SYSTEM"  class="table_head">วิธีการใช้งานระบบ</a></td>
+				        </tr>
+				      <?
+					if( !$current_page ) $current_page = 1;
+					if(!$data_per_page) $data_per_page = 30;
+					$start_record = ($current_page - 1) * $data_per_page;
+					
+					//connect to database
+					$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);	
+					//AND ---- join USER
+					//echo $SESS_USERID;
+
+					$today = date("Y-m-d");		//LEFT(trim(e.POH_EFFECTIVEDATE), 10)
+					$today = "2009-01-01";
+					$cmd = "select * from PER_MESSAGE where MSG_SHOW = '1' order by MSG_POST_DATE desc";
+					$countdata = $db_dpis->send_cmd($cmd);
+					//$db_dpis->show_error();
+					if($countdata){
+					while($data = $db_dpis->get_array()){
+						${"temp_".MSG_ID} = trim($data[MSG_ID]);
+						$POSTUSRNAME=""; $MSG_POST_DATE="";
+						$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+						//print_r($arr_temp);
+						$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+						
+						//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+					    $cmd1 ="select fullname from user_detail where id=$data[USER_ID]";	
+						$db->send_cmd($cmd1);
+						$datausr = $db->get_array();
+						$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID;				
+						
+					$class = "table_body";
+					$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+					if($MSG_ID==${"temp_".MSG_ID} ){ 
+						$class = "table_body_over";
+						$onmouse_event = "";
+					} // end if
+					
+					$total_page = ceil( $count_data / $data_per_page );
+					$page_link = create_link_page($total_page, $current_page);
+					?>
+				      
+				      <tr valign="top">
+				        <td width="5%" align="center" valign="top" class="text_disabled">
+				          <? if($data[MSG_SHOW] == '0') { ?>
+				          <img src="images/new-icon.gif" width="20" height="17">
+				          <? } else { ?>
+				          <img src="images/open-icon.gif" width="21" height="18">
+				          <? } ?></td>
+				        <td width="8%" valign="top" class="text_disabled"><!--ถ้ามีไฟล์แนบ-->
+				          <a href="main.html?MSG_ID=<?=${"temp_".MSG_ID}; ?>" class="text_disabled"><b>
+				            <?=$MSG_POST_DATE; ?></b>
+				            </a></td>
+				        <td valign="top" class="text_disabled">&nbsp;
+				          <a href="main.html?MSG_ID=<?=${"temp_".MSG_ID}; ?>" class="text_disabled"><b><?=trim($data[MSG_HEADER]); ?></b></a></td>
+				        <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=${"temp_".MSG_ID}; ?>" class="text_disabled"><b>
+				          <?=$POSTUSRNAME; ?>
+				          </b></a></td>
+				        <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=${"temp_".MSG_ID}; ?>" class="text_disabled"><b>
+				          <?=$data[MSG_SOURCE]; ?>
+				          </b></a></td>
+				        <td width="5%" align="center" class="text_disabled">
+				          <? if(trim($data[MSG_DOCUMENT])) { ?><img src="images/attach.gif" width="13" height="19" alt="<?=trim($data[MSG_DOCUMENT]); ?>"><? } ?></td>
+				        </tr>
+				      <?
+					}
+					}else{
+					?>
+				      <tr>
+				        <td class="text_disabled" align="center" valign="top" colspan="9">ยังไม่มีข้อมูล</td>
+				        </tr>
+				      <?
+					}
+					?>
+				      </table>
+				    </td>
+				  </tr></table>
+				  <? if($total_page > 1) : ?>
+				  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+					<tr>
+					  <td><?=$page_link?></td>
+					</tr>
+				  </table>
+				  <? endif; ?>&nbsp;
+				  </td>
+			</tr>
+               <tr> 
+                <td align="center" valign="top"><table width="90%" border="1" cellspacing="0" cellpadding="0" class="input_table">
+                  <tr>
+				   <td>
+<?
+    if($MSG_ID) {
+        $cmd = "update PER_USERMESSAGE set MSG_STATUS = '0' where MSG_ID=".$MSG_ID ." and PER_ID = $SESS_USERID";
+        $db_dpis->send_cmd($cmd);
+        
+        $cmd = "select * from PER_MESSAGE where MSG_ID=".$MSG_ID;
+        $db_dpis->send_cmd($cmd);
+        $update_data = $db_dpis->get_array();
+		if(empty($SELECTED_PER_ID)) {
+            $cmd = "select PER_ID from PER_USERMESSAGE where MSG_ID=".$MSG_ID;
+            $db_dpis->send_cmd($cmd);
+            while($userid_data = $db_dpis->get_array()) {
+                $temp[] = $userid_data[PER_ID];
+            }
+            $SELECTED_PER_ID = implode(',',$temp);
+        }
+    }
+?>
+						 <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal" >
+						 	<tr valign="top" class="table_head">
+								<td width="50%" valign="left">&nbsp;&nbsp;<a href="main.html?COMMAND=NEWS"  class="table_head">ข่าวสารและประชาสัมพันธ์</a></td>
+							</tr>
+						 <tr>
+							<td>
+							  <table width="100%"  border="0" cellspacing="2" cellpadding="0">
+                              <?
+                            if($SESS_USERID == '1') {
+								$cmd = "select * from PER_MESSAGE M
+                            				where SUBSTR(trim(MSG_FINISH_DATE), 1, 10) >= '".$today."' 
+                                            			AND MSG_TYPE=1 
+											order by MSG_POST_DATE desc";	
+                            } else {
+								$cmd = "select * from PER_MESSAGE M ,PER_USERMESSAGE U
+                            				where SUBSTR(trim(MSG_FINISH_DATE), 1, 10) >= '".$today."' 
+                                            			AND MSG_TYPE=1 
+                                                        and M.MSG_ID = U.MSG_ID
+                                                        and (U.PER_ID = '$SESS_USERID' or '$SESS_USERID' = '1') 
+											order by MSG_POST_DATE desc";	
+                            }
+							$countdata = $db_dpis->send_cmd($cmd);
+							//$db_dpis->show_error();
+							//echo "$cmd<br>";
+							if($countdata > 0){
+							while($data = $db_dpis->get_array()){
+								${"temp_".MSG_ID} = trim($data[MSG_ID]);
+								$POSTUSRNAME=""; $MSG_POST_DATE="";
+								$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+								//print_r($arr_temp);
+								$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+								
+								//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+								$cmd1 ="select fullname from user_detail where id=$data[USER_ID]";
+								$db->send_cmd($cmd1);
+								//	$db->show_error();
+								$datausr = $db->get_array();
+								$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID	
+						?>
+							    <tr>
+							      <td width="5%" align="center" valign="top" class="text_disabled"><!--ปักหมุด-->
+							        <? if($data[MSG_SHOW] == '0') { ?>
+                                    <img src="images/new-icon.gif" width="20" height="17">
+                                    <? } else { ?>
+                                    <img src="images/open-icon.gif" width="21" height="18">
+                                  <? } ?></td>
+							      <td width="8%" valign="top" class="text_disabled"><b><?=$MSG_POST_DATE; ?></b></td>
+							      <td valign="top" class="text_disabled">&nbsp;
+                                  <a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+							        <?=trim($data[MSG_HEADER]); ?>
+							      </b></a></td>
+							      <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+							        <?=$POSTUSRNAME; ?>
+							      </b></a></td>
+							      <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+							        <?=$data[MSG_SOURCE]; ?>
+							      </b></a></td>
+							      <td width="5%" align="center" valign="top" class="text_disabled"><? if(isset($data[MSG_DOCUMENT])) { ?>
+                                    <img src="images/attach.gif" width="13" height="19">
+                                  <? } ?></td>
+						        </tr>
+							    <?
+							}
+							}else{
+						?>
+							    <tr>
+							      <td class="text_disabled" align="center" valign="top" colspan="10">ยังไม่มีข้อมูล</td>
+						        </tr>
+							    <?
+						}
+						?>
+						      </table>
+						    </td>
+						</tr>
+						 </table>
+					</td>
+                  </tr>
+				  </table>
+                 <br>
+                  <table width="90%" border="1" cellspacing="0" cellpadding="0" class="input_table" align="center">
+                    <tr>
+                      <td>
+                        <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal" >
+                        <tr valign="top" class="table_head">
+                          <td width="50%" valign="left">&nbsp;&nbsp;<a href="main.html?COMMAND=LETTER" class="table_head">หนังสือเวียนอิเล็กทรอนิกส์-หนังสือคำสั่งอิเล็กทรอนิกส์</a></td>
+                        </tr>
+                        <tr>
+                          <td><table width="100%"  border="0" cellspacing="2" cellpadding="0">
+                            <?                        
+                            if($SESS_USERID == '1') {
+								$cmd = "select * from PER_MESSAGE M
+                            				where SUBSTR(trim(MSG_FINISH_DATE), 1, 10) >= '".$today."' 
+                                            			AND MSG_TYPE=2 
+											order by MSG_POST_DATE desc";	
+                            } else {
+								$cmd = "select * from PER_MESSAGE M ,PER_USERMESSAGE U
+                            				where SUBSTR(trim(MSG_FINISH_DATE), 1, 10) >= '".$today."' 
+                                            			AND MSG_TYPE=2 
+                                                        and M.MSG_ID = U.MSG_ID
+                                                        and (U.PER_ID = '$SESS_USERID' or '$SESS_USERID' = '1') 
+											order by MSG_POST_DATE desc";	
+                            }
+							$countdata = $db_dpis->send_cmd($cmd);
+							//$db_dpis->show_error();
+							//echo "$cmd<br>";
+							if($countdata > 0){
+							while($data = $db_dpis->get_array()){
+								${"temp_".MSG_ID} = trim($data[MSG_ID]);
+								$POSTUSRNAME=""; $MSG_POST_DATE="";
+								$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+								//print_r($arr_temp);
+								$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+								
+								//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+								$cmd1 ="select fullname from user_detail where id=$data[USER_ID]";
+								$db->send_cmd($cmd1);
+								//	$db->show_error();
+								$datausr = $db->get_array();
+								$POSTUSRNAME = $datausr[fullname];			//$SESS_USERID;	
+						?>
+                            <tr>
+                              <td width="5%" align="center" valign="top" class="text_disabled"><!--ปักหมุด-->
+                                <? if($data[MSG_SHOW] == '0') { ?>
+                                <img src="images/new-icon.gif" width="20" height="17">
+                                <? } else { ?>
+                                <img src="images/open-icon.gif" width="21" height="18">
+                                <? } ?></td>
+                              <td width="8%" valign="top" class="text_disabled"><b><?=$MSG_POST_DATE; ?></b></td>
+                              <td valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+                                <?=trim($data[MSG_HEADER]); ?>
+                              </b></a></td>
+                              <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+                                <?=$POSTUSRNAME; ?>
+                              </b></a></td>
+                              <td width="15%" valign="top" class="text_disabled">&nbsp;<a href="main.html?MSG_ID=<?=$data[MSG_ID]; ?>" class="text_disabled"><b>
+                                <?=$data[MSG_SOURCE]; ?>
+                              </b></a></td>
+                              <td width="5%" align="center" valign="top" class="text_disabled"><? if(isset($data[MSG_DOCUMENT])) { ?>
+                                <img src="images/attach.gif" width="13" height="19">
+                                <? } ?></td>
+                              </tr>
+                            <?
+							}	
+							}else{
+						?>
+                            <tr>
+                              <td class="text_disabled" align="center" valign="top" colspan="10">ยังไม่มีข้อมูล</td>
+                              </tr>
+                            <?
+					   }
+					   ?>
+                          </table></td>
+                        </tr>
+                      </table></td>
+                    </tr>
+                  </table>
+                  </td>
+			</tr>
+			  </table>
+				  </td>
+			</tr>
+				<?
+				//ข่าว ปชส.
+				if($COMMAND=='NEWS' || $COMMAND=='LETTER'|| $COMMAND=='SYSTEM' || $SESS_USERID == '1' || $SESS_USERID == $update_data[USER_ID]){ 
+				?>
+				<tr> 
+                <td align="center" valign="top">
+				<form name="form1" method="post" action="main.html"  enctype="multipart/form-data">
+				<input type="hidden" name="COMMAND" value="<?=$COMMAND; ?>">
+				<table width="90%" border="0" cellspacing="0" cellpadding="0" class="input_table">
+				<tr valign="top" class="table_head">
+				  <td align="center">&nbsp;</td>
+				  </tr>
+				<tr valign="top" class="table_head">
+                    <td align="center"><? if($COMMAND=='NEWS') { ?>ข่าวสารและประชาสัมพันธ์<? } elseif($COMMAND=='LETTER') { ?> หนังสือเวียนอิเล็กทรอนิกส์-หนังสือคำสั่งอิเล็กทรอนิกส์<? } ?></td>
+                  </tr>	
+ <!--tr>
+   <td>
+  <table width="100%" border="0" align="center" cellpadding="1" cellspacing="1"  class="black_normal">
+    <tr align="center" class="table_head">
+      <td width="5%"><input name="" type="button" value="ลบ"></td>
+      <td width="10%" valign="top">ลำดับ&nbsp;</td>
+      <td width="50%" valign="top">หัวข้อ&nbsp;</td>
+      <td width="35%" valign="top">วันที่เริ่มแสดงผล&nbsp;- วันที่หยุดแสดงผล&nbsp;</td>
+      </tr>
+    <?
+							$cmd = "select * from PER_MESSAGE where SUBSTR(trim(MSG_FINISH_DATE), 1, 10) >= '".$today."' AND MSG_TYPE=1 order by MSG_POST_DATE desc";
+							$countdata = $db_dpis->send_cmd($cmd);
+							//$db_dpis->show_error();
+							if($countdata > 0){
+							while($data = $db_dpis->get_array()){
+								${"temp_".MSG_ID} = trim($data[MSG_ID]);
+								$POSTUSRNAME=""; $MSG_POST_DATE="";
+								$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+								//print_r($arr_temp);
+								$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+								
+								//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+								$cmd1 ="select fullname from user_detail where id=$data[USER_ID]";
+								$db->send_cmd($cmd1);
+								//	$db->show_error();
+								$datausr = $db->get_array();
+								$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID	
+						?>
+    <tr valign="top">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      </tr>
+    <?
+							}
+							}else{
+						?>
+    <tr>
+      <td align="center" valign="top" colspan="4">ยังไม่มีข้อมูล</td>
+      </tr>
+    <?
+						}
+						?>
+    </table>
+  </td>
+</tr-->	
+                  <tr>
+                    <td>&nbsp;</td>
+                  </tr>				
+                  <tr>
+                    
+                    <td class="text_disabled">
+					<script language = "javascript">
+                        function onKey() 
+                        { 
+                            if (window.event.keyCode == 13) // Enter pressed?
+                            { 
+                                 document.getElementById("addMSG").click(); 
+                            } 
+                        } document.attachEvent("onkeydown",onKey); // react to pressing anywhere in the page*/
+                    </script>
+					<table width="100%"  border="0" class="black_normal">
+                      <tr>
+                        <td><!--<input type="hidden" name="MSG_ORG_NAME" value="">-->
+                          <strong>ผู้รับ:</strong></td>
+                        <td nowrap="nowrap"><input name="btn_select_list" type="button" class="button" value="เลือกจากรายชื่อ" onClick="call_select_person();">
+                          &nbsp;
+                          <input name="btn_view_list" type="button" class="button" value="ดูรายชื่อที่เลือก" style="display:none;" onClick="call_show_person();">
+                          <? 
+   if($SELECTED_PER_ID){
+		if(trim($SELECTED_PER_ID)) $arr_search_condition[] = "(user_link_id in ($SELECTED_PER_ID))";
+		$search_condition = "";
+		if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+	
+		$cmd1 ="select username,user_link_id,fullname from user_detail 
+						$search_condition
+						order by username
+						$limit_data";
+//		echo "$cmd1<br>";
+//		$db->show_error();
+		$count_page_data = $db->send_cmd($cmd1);
+		if($count_page_data){
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+  			while($data = $db->get_array()) :
+				$data_count++;
+
+				$TMP_PER_ID = $data[user_link_id];
+				$TMP_PER_FULLNAME=$data[fullname];
+//				echo "<input type='hidden' name='MSGPER_ID[]'  value='$TMP_PER_ID'>";
+//  				echo "<br>".$TMP_PER_FULLNAME;
+  ?>
+                          <?	endwhile; ?>
+                          <?
+} // end if
+} //end  if($SELECTED_PER_ID)
+?>
+                          <input type="hidden" name="USER_ID" value="<?=$SESS_USERID; ?>">
+                          <input type="hidden" name="UPDATE_USER" value="">
+                          <?if($MSG_ID) { ?>
+                          <input type="hidden" name="command" value="UPDRCVNEWS">
+                          <input type="hidden" name="MSG_ID" value="<?=$MSG_ID?>">
+                          <? } else {?>
+                          <input type="hidden" name="command" value="ADDRCVNEWS">
+                          <? } ?>
+                          <? if($SESS_PER_ID != ""){ $SELECTED_PER_ID = $SESS_PER_ID; } ?>
+                          <input type="hidden" name="SELECTED_PER_ID" value="<?=$SELECTED_PER_ID?>">
+                          <input type="hidden" name="current_page" value="<?=$current_page?>">
+                          <input type="hidden" name="total_page" value="<?=$total_page?>">
+                          <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+                          <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+                          <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+                          <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+                          <!-- <input type="hidden" name="command">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">-->
+                          <input type="hidden" name="isSubmit"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>สังกัด : </strong></td>
+                        <td><input name="MSG_SOURCE" type="text" class="textbox" style="width=65%" value="<?=$update_data[MSG_SOURCE]?>"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>หัวข้อ:</strong></td>
+                        <td><input name="MSG_HEADER" type="text" class="textbox" style="width=65%" value="<?=$update_data[MSG_HEADER]?>">
+                          &nbsp;
+                          <!--<input name="input" type="checkbox" value="">
+                          &nbsp;ปักหมุด--></td>
+                      </tr>
+                      <tr>
+                        <td><strong>รายละเอียด:</strong></td>
+                        <td><textarea name="MSG_DETAIL"  rows="3" class="selectbox" style="width=65%"><?=$update_data[MSG_DETAIL]?></textarea></td>
+                      </tr>
+                      <tr>
+                        <td><strong>วันที่เริ่มแสดงผล:</strong></td>
+                        <td><input type="text" name="MSG_START_DATE" value="<?=$update_data[MSG_START_DATE]?>" class="textbox" onKeyPress="DateOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                          &nbsp;&nbsp;
+                          <input name="reset4" type="reset" class="button" onClick="return showCalendar('MSG_START_DATE', 'dd/mm/y');" value="...."></td>
+                      </tr>
+                      <tr>
+                        <td><strong>วันที่หยุดแสดงผล:</strong></td>
+                        <td><input type="text" name="MSG_FINISH_DATE" value="<?=$update_data[MSG_FINISH_DATE]?>" class="textbox" onKeyPress="DateOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                          &nbsp;&nbsp;
+                          <input name="reset3" type="reset" class="button" onClick="return showCalendar('MSG_FINISH_DATE', 'dd/mm/y');" value="...."></td>
+                      </tr>
+                      <!--tr>
+                        <td><strong>รายการเอกสาร:</strong></td>
+                        <td>sss</td>
+                      </tr-->
+                      <tr>
+                        <td><strong>เพิ่มเอกสาร:</strong></td>
+                        <td>
+                          <input type="file" name="MSG_DOCUMENT" class="black_small">
+<input name="Submit" type="submit" class="button" onClick="if(form1.MSG_DOCUMENT.value.trim() != ''){ form1.command.value='UPDATEIMG';}else{ alert('ระบุรูปใหม่ที่ต้องการเปลี่ยน'); form1.MSG_DOCUMENT.focus(); return false; }" value="อัพโหลด"></td>
+                      </tr>
+                      <tr>
+                        <td><strong>ประเภท:</strong></td>
+                        <td><input name="MSG_TYPE" type="radio" value="0" <? if($COMMAND=='SYSTEM' || $update_data[MSG_TYPE] == '0'){	echo "checked"; } ?>>
+                          &nbsp;วิธีการใช้งานระบบ
+<input name="MSG_TYPE" type="radio" value="1" <? if($COMMAND=='NEWS' || $update_data[MSG_TYPE] == '1'){	echo "checked"; } ?>>
+                          &nbsp;ข่าวสารและประชาสัมพันธ์
+                          <input name="MSG_TYPE" type="radio" value="2" <? if($COMMAND=='LETTER' || $update_data[MSG_TYPE] == '2'){	echo "checked"; } ?>>
+                          &nbsp;หนังสือเวียนอิเล็กทรอนิกส์ </td>
+                      </tr>
+                      <tr>
+                        <td>&nbsp;</td>
+                        <td><input name="Input" type="button" id="addMSG" value="เพิ่ม" onClick="javascript:return check(form1); "></td>
+                      </tr>
+                    </table></td>
+                    
+                  </tr>
+                </table> </form></td>
+              </tr>
+				<?	
+				} //end COMMAND
+                	$cmd = "select * from PER_MESSAGE where MSG_ID=".$MSG_ID." order by MSG_POST_DATE";
+					$db_dpis->send_cmd($cmd);
+					$data = $db_dpis->get_array();
+                     if($SESS_USERID != '1' and $SESS_USERID != $data[USER_ID]) {
+				?>
+	              <tr>
+	                <td align="center" valign="top">&nbsp;</td>
+          </tr>
+	              <tr> 
+                <td align="center" valign="top"><table width="90%" border="0" class="input_table">
+                  <tr valign="top" class="table_head">
+                    <td align="center" colspan="3"><?=trim($data[MSG_HEADER]); ?></td>
+                  </tr>
+                  <tr>
+                    <td width="5%">&nbsp;</td>
+                    <td class="text_disabled"><?=$data[MSG_DETAIL]; ?></td>
+                    <td width="5%">&nbsp;</td>
+                  </tr>
+                  <tr>
+                    <td>&nbsp;</td>
+                    <td class="text_disabled"><?=$data[MSG_DOCUMENT]; ?></td>
+                    <td>&nbsp;</td>
+                  </tr>
+				<tr valign="top" class="table_head">
+                    <td align="left" colspan="3">โดย: <?=$POSTUSRNAME; ?> | วันที่ <?=$MSG_POST_DATE; ?> | <?=$data[MSG_SOURCE]; ?></td>
+                  </tr>
+                </table></td>
+              </tr>
+				<?	
+				}
+				?>
+            </table></td>
+        </tr>
+      </table>
+    	</td>
+  	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script language="JavaScript"  type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<?=$alert_adding_command; ?>
+</script>
+</html>

@@ -1,0 +1,860 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+
+	$field_formula = stripslashes($field_formula);
+    
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+//	echo "SELECTED_LIST = $SELECTED_LIST, s_query_pair = $s_query_pair, s_query_pair_show = $s_query_pair_show<br>";
+//	echo "text1=$text1|<br>";
+	if ($command=="DELETE") {
+		$cmd = " select * FROM REPGEN_REPORT_FORMAT where REPORT_ID=$REPORT_ID ";
+		
+		$db_dpis->send_cmd($cmd);
+		if ($data = $db_dpis->get_array()) {
+        	$cmd = "  delete from REPGEN_REPORT_FORMDETAIL where REPORT_ID=$REPORT_ID ";
+//			echo "delete report detail $cmd<br>";
+			$db_dpis->send_cmd($cmd);	// ส่ง command delete
+            
+        	$cmd = "  delete from REPGEN_REPORT_FORMAT where REPORT_ID=$REPORT_ID ";
+//			echo "delete report $cmd<br>";
+			$db_dpis->send_cmd($cmd);	// ส่ง command delete
+            
+	        $text1="";	// Clear ค่า text1 เพื่อให้อ่านข้อมูลใหม่
+            $field_data="";
+            $fld_type="";
+            $REPORT_ID="";
+			$command = "";
+    	}
+	}
+    
+	if ($command=="SAVE") {
+		$UPDATE_DATE = date("Y-m-d H:i:s");
+        
+        $buff = $QUERY_ID_TEXT;
+		$QUERY_ID_TEXT="$SELECTED_LIST&$s_query_pair&$s_query_pair_show";
+		$b_report_size = "$rep_size|$report_w|$report_h|$report_unit";		// 	'A4 แนวตั้ง|210|297|mm'
+        
+		$cmd = " select * FROM REPGEN_REPORT_FORMAT where REPORT_ID=$REPORT_ID ";
+		
+		$cnt = $db_dpis->send_cmd($cmd);
+//		echo "1.$cmd<br>";
+		if ($cnt > 0) {
+        	$cmd = "  update REPGEN_REPORT_FORMAT set REPORT_NAMECODE = '$REPORT_NAMECODE', REPORT_TITLE = '$REPORT_TITLE', REPORT_SIZE = '$b_report_size', QUERY_ID_TEXT = '$QUERY_ID_TEXT', HEAD_TEMP_ID = $HEAD_TEMP_ID, TAIL_TEMP_ID = $TAIL_TEMP_ID, UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE' where REPORT_ID = $REPORT_ID ";
+//			echo "$cmd<br>";
+			$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+
+			if ($text1) {
+		        $cmd = " delete from REPGEN_REPORT_FORMDETAIL where REPORT_ID=$REPORT_ID ";
+				$db_dpis->send_cmd($cmd);	// ส่ง command delete ทั้งหมดเพิ่มเพิ่มใหม่
+                        
+				$arr_text = explode("^", $text1);	// field1,formula1,title1,format1^field2,formula2,title2,format2^......
+				$arr_data = (array) null;
+				for($i = 0; $i < count($arr_text); $i++) {
+        			if ($arr_text[$i]) {
+	        			$a_field = explode(",", $arr_text[$i]);
+						$field = $a_field[0];
+						$formula = $a_field[1];
+						$title = $a_field[2];
+		                $format = $a_field[3];	// format ex numberfix!20!!R;
+
+		        		$cmd = "  insert into REPGEN_REPORT_FORMDETAIL (REPORT_ID, FIELD_NO, FORMULA, FIELD_TITLE, FIELD_FORMAT) values ($REPORT_ID, $field, '$formula', '$title', '$format') ";
+//						echo "$cmd<br>";
+						$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+					}
+            	}
+			}
+		} else {
+			$cmd = " select max(REPORT_ID) as max_id FROM REPGEN_REPORT_FORMAT ";
+		
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+			$new_ID=$data[max_id]+1;
+
+			if (!$REPORT_NAMECODE) {
+                $cmd = " select max(REPORT_NAMECODE) as max_form FROM REPGEN_REPORT_FORMAT where REPORT_NAMECODE like 'REPORT%' ";
+    
+                $db_dpis->send_cmd($cmd);
+                $data = $db_dpis->get_array();
+                $data = array_change_key_case($data, CASE_LOWER);
+                $namebuff = $data[max_form];
+    //			echo "new $new_ID, $namebuff<br>";
+                $nextid = (int)substr($namebuff,4);
+                $nextid++;	// เพิ่มค่าต่อไป
+                $new_NAME="REPORT$nextid";
+                $REPORT_NAMECODE = $new_NAME;
+			}
+            
+			$REPORT_ID = $new_ID;
+
+        	$cmd = "  insert into REPGEN_REPORT_FORMAT (REPORT_ID, REPORT_NAMECODE, REPORT_TITLE, REPORT_SIZE, QUERTY_ID_TEXT, HEAD_TEMP_ID, TAIL_TEMP_ID, UPDATE_USER, UPDATE_DATE) values ($new_ID, '$new_NAME', '$REPORT_TITLE', '$b_report_size', '$QUERY_ID_TEXT', $HEAD_TEMP_ID, $TAIL_TEMP_ID, $SESS_USERID, '$UPDATE_DATE') ";
+
+//			echo "$cmd<br>";
+			$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+
+			if ($text1) {
+		        $cmd = " delete from REPGEN_REPORT_FORMDETAIL where REPORT_ID=$REPORT_ID ";
+				$db_dpis->send_cmd($cmd);	// ส่ง command delete ทั้งหมดเพิ่มเพิ่มใหม่
+                        
+				$arr_text = explode("^", $text1);	// field1,formula1,title1,format1^field2,formula2,title2,format2^......
+				$arr_data = (array) null;
+				for($i = 0; $i < count($arr_text); $i++) {
+        			if ($arr_text[$i]) {
+	        			$a_field = explode(",", $arr_text[$i]);
+						$field = $a_field[0];
+						$formula = $a_field[1];
+						$title = $a_field[2];
+		                $format = $a_field[3];	// format ex numberfix!20!!R;
+
+		        		$cmd = "  insert into REPGEN_REPORT_FORMDETAIL (REPORT_ID, FIELD_NO, FORMULA, FIELD_TITLE, FIELD_FORMAT) values ($REPORT_ID, $field, '$formula', '$title', '$format') ";
+//						echo "$cmd<br>";
+						$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+					}
+            	}
+			}
+        }
+        $text1="";	// Clear ค่า text1 เพื่อให้อ่านข้อมูลใหม่
+		$command = "SEARCH";
+	}
+    
+	if ($command=="COPY" && $HEAD_TEMP_ID) {
+		$UPDATE_DATE = date("Y-m-d H:i:s");
+        
+		$cmd = " select max(REPORT_ID) as max_id FROM REPGEN_REPORT_FORMAT ";
+		
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		$new_ID=$data[max_id]+1;
+
+		$cmd = " select max(REPORT_NAMECODE) as max_form FROM REPGEN_REPORT_FORMAT where REPORT_NAMECODE like 'REPORT%' ";
+
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		$namebuff = $data[max_form];
+//		echo "new $new_ID, $namebuff<br>";
+		$nextid = (int)substr($namebuff,4);
+		$nextid++;	// เพิ่มค่าต่อไป
+		$new_NAME="REPORT$nextid";
+
+		$cmd = " select * FROM REPGEN_REPORT_FORMAT where REPORT_ID=$REPORT_ID ";
+		
+		$db_dpis->send_cmd($cmd);
+		if ($data = $db_dpis->get_array()) {
+			$data = array_change_key_case($data, CASE_LOWER);
+			$size = $data["REPORT_SIZE"];
+			$query = $data["QUERY_ID_TEXT"];
+			$head = $data["HEAD_TEMP_ID"];
+			$tail = $data["TAIL_TEMP_ID"];
+        	$cmd = "  insert into REPGEN_REPORT_FORMAT (REPORT_ID, REPORT_NAMECODE, REPORT_TITLE, REPORT_SIZE, QUERTY_ID_TEXT, UPDATE_USER, UPDATE_DATE) values ($new_ID, '$new_NAME', 'New Report $new_NAME', '$size', '$query', $head, $tail, $SESS_USERID, '$UPDATE_DATE') ";
+//			echo "$cmd<br>";
+			$db_dpis->send_cmd($cmd);	// ส่ง command insert หรือ update
+            
+			$cmd1 = " select * FROM REPGEN_REPORT_FORMDETAIL where REPORT_ID=$REPORT_ID order by FIELD_NO ";
+		
+			$db_dpis1->send_cmd($cmd1);
+			while ($data1 = $db_dpis1->get_array()) {
+				$data1 = array_change_key_case($data1, CASE_LOWER);
+				$field = $data1["FIELD_NO"];
+				$formula = $data1["FORMULA"];
+				$title = $data1["FIELD_TITLE"];
+				$format = $data1["FIELD_FORMAT"];
+        		$cmd2 = "  insert into REPGEN_REPORT_FORMDETAIL (REPORT_ID, FIELD_NO, FORMULA, FIELD_TITLE, FIELD_FORMAT) values ($REPORT_ID, $field, '$formula', '$title', '$format') ";
+//				echo "$cmd2<br>";
+				$db_dpis2->send_cmd($cmd2);	// ส่ง command insert หรือ update
+			} // end while
+            
+		} // end if ($data = $db_dpis->get_array())
+        
+		$REPORT_ID = $new_ID;
+		$text1="";	// Clear ค่า text1 เพื่อให้อ่านข้อมูลใหม่
+   		$command = "SEARCH";
+	} // end if ($command=="COPY" && $HEAD_TEMP_ID)
+
+	$paper_size = array( "A4 แนวตั้ง", "A4 แนวนอน" );
+	$paper_size_w = array( "210", "297" );
+	$paper_size_h = array( "297", "210" );
+	$paper_unit = array( "mm", "mm" );
+?>
+<script language="JavaScript">
+	var paper_size_w = new Array( "210", "297" );
+	var paper_size_h = new Array( "297", "210" );
+	var paper_unit = new Array( "mm", "mm" );
+</script>
+<?
+//	echo "text1=$text1<br>";
+	if (!$ruler) $ruler = 0;
+	if ($command=="SEARCH" && $REPORT_ID) {
+		$cmd = " select * FROM REPGEN_REPORT_FORMAT where REPORT_ID=$REPORT_ID ";
+		
+		$db_dpis->send_cmd($cmd);
+		if ($data = $db_dpis->get_array()) {
+			$data = array_change_key_case($data, CASE_LOWER);
+			$REPORT_NAMECODE = $data["REPORT_NAMECODE"];
+			$REPORT_TITLE = $data["REPORT_TITLE"];
+			$REPORT_SIZE = $data["REPORT_SIZE"];
+			$QUERY_ID_TEXT = $data["QUERY_ID_TEXT"];
+			$HEAD_TEMP_ID = $data["HEAD_TEMP_ID"];
+			$TAIL_TEMP_ID = $data["TAIL_TEMP_ID"];
+            
+			$cmd1 = " select * FROM REPGEN_REPORT_FORMDETAIL where REPORT_ID=$REPORT_ID order by FIELD_NO ";
+		
+			$db_dpis1->send_cmd($cmd1);
+            $text1 = "";
+			while ($data1 = $db_dpis1->get_array()) {
+				$data1 = array_change_key_case($data1, CASE_LOWER);
+				$field = $data1["FIELD_NO"];
+				$formula = $data1["FORMULA"];
+				$title = $data1["FIELD_TITLE"];
+				$format = $data1["FIELD_FORMAT"];
+                
+                if ($text1)
+	                $text1 .= "|$field,$formula,$title,$format";
+				else
+	                $text1 = "$field,$formula,$title,$format";
+			} // end while
+            
+			$cmd1 = " select * FROM REPGEN_HEADTEMP where HEAD_TEMP_ID=$HEAD_TEMP_ID ";
+			echo "head cmd1=$cmd1<br>";
+			$db_dpis1->send_cmd($cmd1);
+			if ($data1 = $db_dpis1->get_array()) {
+				$data1 = array_change_key_case($data1, CASE_LOWER);
+				$HEAD_TEMP_TEXT = $data1["HEAD_TEMP_TEXT"];
+				$HEAD_UNIT = $data1["HEAD_UNIT"];
+				$HEAD_H = $data1["HEAD_H"];
+				$HEAD_NAME_CODE = $data1["HEAD_NAME_CODE"];
+    		}
+            
+			$cmd1 = " select * FROM REPGEN_TAILTEMP where TAIL_TEMP_ID=$TAIL_TEMP_ID ";
+			echo "tail cmd1=$cmd1<br>";			
+			$db_dpis1->send_cmd($cmd1);
+			if ($data1 = $db_dpis1->get_array()) {
+				$data1 = array_change_key_case($data1, CASE_LOWER);
+				$TAIL_TEMP_TEXT = $data1["TAIL_TEMP_TEXT"];
+				$TAIL_UNIT = $data1["TAIL_UNIT"];
+				$TAIL_H = $data1["TAIL_H"];
+				$TAIL_NAME_CODE = $data1["TAIL_NAME_CODE"];
+    		}
+		} else {	// กรณี ข้อมูลใหม่
+  			// ถ้า กำหนดให้ $text1="" และ $REPORT_ID=1 เมื่ออ่านข้อมูลไม่ได้ จะถือว่าเป็นการสร้างใหม่
+			$cmd = " select max(REPORT_ID) as max_id FROM REPGEN_REPORT_FORMAT ";
+		
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+			$REPORT_ID=$data[max_id]+1;
+
+			$cmd = " select max(REPORT_NAMECODE) as max_form FROM REPGEN_REPORT_FORMAT where REPORT_NAMECODE like 'REPORT%' ";
+		
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+            $namebuff = $data[max_form];
+//			echo "new $HEAD_ID, $namebuff<br>";
+            $nextid = (int)substr($namebuff,4);
+            $nextid++;	// เพิ่มค่าต่อไป
+			$REPORT_NAMECODE="REPORT$nextid";
+
+			$REPORT_TITLE = 'New Report $new_NAME';
+            $REPORT_SIZE = 'A4 แนวตั้ง|210|297|mm';
+            $QUERTY_ID_TEXT = "";
+		}	// if ($data = $db_dpis->get_array())
+//		$command = "";
+    }
+//	echo "text1=$text1<br>";
+
+    // form ใช้เฉพาะในโปรแกรมนี้
+    if ($REPORT_SIZE) {
+    	$buff = explode("|",$REPORT_SIZE);
+        $c = strpos($buff[0], " ");
+        $paper = strtolower(substr($buff[0],0,$c));
+        $orientation = (strpos($buff[0], "แนวตั้ง")!==false? "p" : "l");
+        $paper_h = $buff[1];
+        $paper_w = $buff[2]; 
+        $paper_unit = $buff[3];
+    } else {
+        $paper = "a4";
+        $orientation = "p";
+        $paper_h = "210";
+        $paper_w = "297"; 
+        $paper_unit = "mm";    	
+    }
+	$tformat = array('paper-size'=>$paper,	'metric'=>$paper_unit, 'marginLeft'=>6, 'marginTop'=>6, 'marginRight'=>6, 'marginBottom'=>6);
+    
+	if (!trim($field_data)) $field_data=0;
+	$last_field_index = $field_data;	// ข้อมูลที่เลือกไว้ รายการก่อนหน้า
+
+	// สร้าง PDF file หัวรายงาน เพื่อมาแสดงใน EMBED PDF tag เพื่อเป็น viewer
+	define('FPDF_FONTPATH','../PDF/font/');
+	include ("../PDF/fpdf.php");
+	include ("../PDF/pdf_extends_DPIS.php");
+	include ("../PDF/PDF_REPGEN.php");
+
+	$pdf = new PDF_REPGEN($tformat);
+
+	if ($ruler == 1) $f_ruler = true; else $f_ruler = false;
+    
+//	echo "HEAD_TEMP_ID=$HEAD_TEMP_ID]<br>";
+    if ($HEAD_TEMP_ID) {
+    	echo "HEAD<br>";
+		$pdf->Print_REPGEN($HEAD_TEMP_TEXT,1,$f_ruler, true);	// last argument = false mean not add new page
+		$pdf->SetDisplayMode('fullwidth');
+//		$pdf->SetDisplayMode('fullpage');
+	}
+
+	if ($text1) {
+		$head_text1 = "";
+		$head_width1 = "";
+		$head_align1 = "";
+        
+        $column_function[0] = (($NUMBER_DISPLAY==2)?"TNUM":"ENUM");
+        $column_function[1] = (($NUMBER_DISPLAY==2)?"TNUM-2":"ENUM-2");
+        $column_function[2] = (($NUMBER_DISPLAY==2)?"TNUM-2":"ENUM-2");
+
+		$arr_column_map = (array) null;
+		$arr_column_sel = (array) null;
+		for($i=0; $i < count($heading_text); $i++) {
+			$arr_column_map[] = $i;		// link index ของ head 
+			$arr_column_sel[] = 1;			// 1=แสดง	0=ไม่แสดง   ถ้าไม่มีการปรับแต่งรายงาน ก็เป็นแสดงหมด
+		}
+		$arr_column_width = $heading_width;	// ความกว้าง
+		$arr_column_align = $data_align;		// align
+		$COLUMN_FORMAT = implode(",",$arr_column_map)."|".implode(",",$arr_column_sel)."|".implode(",",$arr_column_width)."|".implode(",",$arr_column_align);
+
+		$arr_text = explode("|", $text1);	// field1,formula1,title1,format1|field2,formula2,title2,format2|......
+		$arr_data = (array) null;
+		for($i = 0; $i < count($arr_text); $i++) {
+        	if ($arr_text[$i]) {
+	        	$a_field = explode("^", $arr_text[$i]);
+                $type = explode("!", $a_field[3]);	// format ex numberfix!20!!R;
+                if ($head_text1)
+					$head_text1 .= ",".$a_field[2];
+				else
+					$head_text1 = $a_field[2];
+                if ($head_align1)
+					$head_align1 .= ",C";
+				else
+					$head_align1 = "C";
+               	$len = (int) $type[1];
+                if ($head_width1)
+					$head_width1 .= ",$len";
+				else
+					$head_width1 = "$len";
+				switch (strtolower($type[0])) {	// ส่วนหน้า ex numberfix, numbershow, text
+					case "numberfix" :		// numberfix
+                        if ($type[2]) {	// digit
+							$dig = (int) $type[2];
+	                        $number = 1234567890.1234;
+                        } else {
+                            $dig = 0;
+                            $number = 1234567890;
+						}
+                        if ($dig==0)
+                            $arr_data[] = $number;
+                        else
+                            $arr_data[] = number_format ($number , $dig , '.' , '');
+						if ($type[3]) 	// align
+							$data_align[] = strtoupper($type[3]);
+						else
+							$data_align[] = "L";
+					break;
+					case "numbershow" :		// numbershow
+                        if ($type[2]) {	// digit
+							$dig = (int) $type[2];
+							$number = 1234567890.1234;
+                        } else {
+                            $dig = 0;
+							$number = 1234567890;
+						}
+                        if ($dig==0)
+                            $arr_data[] = number_format ($number);
+                        else
+                            $arr_data[] = number_format ($number , $dig , '.' , ',');
+						if ($type[3]) 	// align
+							$data_align[] = strtoupper($type[3]);
+						else
+							$data_align[] = "L";
+					break;
+					case "text" :	// text
+						$mytext = "xxxx XXXX xxxx XXXX xxxx XXXX xxxx XXXX xxxx XXXX xxxx XXXX xxxx XXXX xxxx XXXX";
+						$arr_data[] = $mytext;
+						if ($type[2]) 	// align
+							$data_align[] = strtoupper($type[2]);
+						else
+							$data_align[] = "L";
+					break;
+				}
+			}
+		}
+
+		$result = $pdf->open_tab($head_text1, $head_width1, 7, "TRHBL", $head_align1, "", "14", "b", "0066CC", "EEEEFF", $COLUMN_FORMAT, $col_function);
+		if (!$result) echo "****** error ****** on open table for $table<br>";
+
+		$result = $pdf->add_data_tab($arr_data, 7, "TRHBL", $data_align, "angsa", "14", "", "000000", "", $TAIL_H);
+		if (!$result) echo "****** error ****** add data to table at record count = $data_count <br>";
+
+		$pdf->close_tab("");         
+	}
+    
+//	echo "TAIL_TEMP_ID=$TAIL_TEMP_ID]<br>";
+    if ($TAIL_TEMP_ID) {
+    	echo "TAIL<br>";
+		$pdf->Print_REPGEN($TAIL_TEMP_TEXT,1,$f_ruler, false);	// last argument = false mean not add new page
+	}
+
+	$pdf->Output("../PDF/tmp_report.pdf", "F");
+	// จบการ สร้าง PDF file HEAD ของรายงาน เพื่อมาแสดงใน EMBED PDF tag
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" src="java_scripts/function_url_code.js"></script> 
+<script language="JavaScript">
+
+function call_cancel() {
+	if (confirm("ยกเลิกการแก้ไขหัวรายงาน และดึงข้อมูลเก่า แน่นอน?")) {
+		var d = document;
+		var text_data = d.getElementById("text1");
+		text_data.value = "";	// กำหนด text1 เป็น "" เพื่อให้อ่านข้อมูลจากฐานข้อมูล
+		d.form1.field_data.value="";	// Clear ค่า field_data เพื่อให้โปรแกรม กำหนด field index ให้เริ่มต้อนที่รายการแรก
+		d.form1.fld_type.value="";		// Clear ค่า fld_type เพื่อให้โปรแกรม อ่านค่า ประเภท จาก รายการตาม field index
+		d.form1.command.value="UPDATE";
+		d.form1.submit();
+	}
+}
+
+function call_det_cancel() {
+	var d = document;
+	if (confirm("ยกเลิกการแก้ไขรายการข้อมูล และดึงข้อมูลเก่า แน่นอน?")) {
+		d.form1.command.value="UPDATE";
+		d.form1.submit();
+	}
+}
+
+function call_add_field() {
+	var d = document;
+	var text_data = d.getElementById("text1");
+	text_data.value = "";	// กำหนด text1 เป็น "" เพื่อให้อ่านข้อมูลจากฐานข้อมูล
+	d.form1.HEAD_TEMP_ID.value="999999999";	
+		// กำหนดค่า HEAD_TEMP_ID เพื่อให้โปรแกรมอ่านข้อมูลนามบัตรไม่ได้ 
+		// จะได้เข้าสู่การสร้างนามบัตรใหม่
+	d.form1.field_data.value="";	// Clear ค่า field_data เพื่อให้โปรแกรม กำหนด field index ให้เริ่มต้อนที่รายการแรก
+	d.form1.fld_type.value="";		// Clear ค่า fld_type เพื่อให้โปรแกรม อ่านค่า ประเภท จาก รายการตาม field index
+	d.form1.command.value="UPDATE";
+	d.form1.submit();
+}
+
+function call_save() {
+	// บันทึก รูปแบบรายงาน
+	var d = document;
+	mixtext();
+	d.form1.command.value = "SAVE";
+	d.form1.submit();
+}
+
+function call_saveas() {
+	// บันทึก บัตรพนง.
+	var d = document;
+
+	// update รายการรายละเอียดที่ทำรายการสุดท้ายลงใน text1 ก่อน ทำการบันทึก
+	var lfld=d.form1.last_field_index.value;
+	if (lfld) 	mixtext();
+	// จบการ update รายการรายละเอียด
+	
+	d.form1.command.value = "COPY";
+	d.form1.submit();
+}
+
+function call_font(font) {
+		parameter = "";
+		parameter = "&get_font=" + font;
+		childReturn = window.showModalDialog("pick_pdf_font_frame.html?VIEW=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 350px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn) {
+//			alert(childReturn);
+			arrValue = childReturn.split("<::>");
+			if (arrValue[0]=="0") {
+				arrDetail = arrValue[1].split(",");
+				document.form1.font_name.value = arrDetail[0]+","+arrDetail[1]+","+arrDetail[2];
+				document.form1.text_align.value = arrDetail[3];
+				mixtext();
+				document.form1.submit();
+			}
+		}
+}
+
+function d2h(d) {return d.toString(16);}
+function h2d(h) {return parseInt(h,16);} 
+
+function call_color(typ) {
+	if (typ==1) {
+		co = document.form1.font_color.value;
+	} else {
+		co = document.form1.line_color.value;
+	}
+	arr_color = co.split(",");
+	rr = h2d(arr_color[0]);
+	gg = h2d(arr_color[1]);
+	bb = h2d(arr_color[2]);
+	parameter = "&r=" + rr + "&g=" + gg + "&b=" + bb;
+  	returnVal = window.showModalDialog("colorpickup_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 420px; dialogWidth: 590px; status: No; resizable: No; help: No; statusbar: No;");
+	if (returnVal) {
+		arrValue = returnVal.split("<::>");
+		if (arrValue[1]) {
+			if (typ == 1)
+				document.form1.font_color.value = arrValue[1].substr(0,2)+","+arrValue[1].substr(2,2)+","+arrValue[1].substr(4,2);
+			else
+				document.form1.line_color.value = arrValue[1].substr(0,2)+","+arrValue[1].substr(2,2)+","+arrValue[1].substr(4,2);
+			mixtext();
+			document.form1.submit();
+		} // end if (arrValue[1])
+	}
+}
+
+function call_addfield() {
+	var d = document;
+	var text1 = d.form1.text1.value;
+	if (!text1) {
+	} else { // ถ้า text1 มีค่า
+		var fldtype = d.getElementById("field_data");
+	}
+}
+
+function mixtext() {
+	// แก้ไข text1 จากข้อมูลบนจอที่แก้ไข ตาม last_field_index
+	var d = document;
+	var fldtype = d.getElementById("field_type");
+//	alert("fldtype="+fldtype.value);
+
+		var fixtext = d.form1.fixtext.value;
+		var fixetext = d.form1.fixetext.value;
+		var fld_x = d.form1.fld_x.value;
+		var fld_y = d.form1.fld_y.value;
+		var fld_w = d.form1.fld_w.value;
+		var font_name = d.form1.font_name.value;
+		a = d.form1.text_align;
+		for(k=0; k < a.length; k++)
+			if (a[k].checked) { talign = a[k].value; break; }
+		var font_color = d.form1.font_color.value;
+		var thistext = "text,"+fixtext+","+fixetext+","+fld_x+","+fld_y+","+fld_w+","+font_name+","+talign+","+font_color;
+
+	var l_fld_idx = d.form1.last_field_index;
+	var text_data = d.getElementById("text1");
+	arr_data = text_data.value.split("|");
+//	alert("arr_data.length="+arr_data.length);
+	var ret_data="";
+	for(i=0; i<arr_data.length; i++)
+		if (i==l_fld_idx.value)
+			ret_data = ret_data?ret_data+"|"+thistext:thistext;
+		else
+			ret_data = ret_data?ret_data+"|"+arr_data[i]:arr_data[i];
+	text_data.value = ret_data;
+//	alert(text_data.value);
+}
+
+function call_search_report() {
+		parameter = "";
+		childReturn = window.showModalDialog("search_report_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.REPORT_ID.value = arrValue[0];
+			form1.REPORT_NAME.value = arrValue[1];
+			form1.text1.value = "";
+			form1.submit();
+		} // end if
+}
+
+function call_select_query() {
+		parameter = "&SELECTED_LIST="+form1.SELECTED_LIST.value+"&s_query_pair="+form1.s_query_pair.value+"&s_query_pair_show="+form1.s_query_pair_show.value;
+		childReturn = window.showModalDialog("repgen_select_query_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>" + parameter,"","dialogHeight: 600px; dialogWidth: 1000px; status: No; resizable: No; help: No; statusbar: No;");
+//		alert("childReturn="+childReturn);
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.SELECTED_LIST.value = arrValue[0];
+			form1.s_query_pair.value = arrValue[1];
+			if (form1.s_query_pair.value)
+				form1.QUERY_ID_TEXT.value = form1.s_query_pair.value;
+			else
+				form1.QUERY_ID_TEXT.value = form1.SELECTED_LIST.value;	// กรณีเปํน Query เดี่ยว ๆ
+			form1.s_query_pair_show.value = arrValue[2];
+			form1.submit();
+		} // end if
+}
+
+function call_setformula() {
+		var v_formula = URLEncode(form1.field_formula.value, true);
+		parameter = "&FORMULA="+v_formula+"&SELECTED_LIST="+form1.SELECTED_LIST.value+"&s_query_pair="+form1.s_query_pair.value+"&s_query_pair_show="+form1.s_query_pair_show.value;
+//		alert(parameter);
+		childReturn = window.showModalDialog("repgen_formula_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>" + parameter,"","dialogHeight: 600px; dialogWidth: 1000px; status: No; resizable: No; help: No; statusbar: No;");
+//		alert("childReturn="+childReturn);
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.field_formula.value = arrValue[0];
+			form1.submit();
+		} // end if
+}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="repgen_repdesign.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+		  <input type="hidden" name="s_query_pair" value="<?=$s_query_pair?>">
+		  <input type="hidden" name="s_query_pair_show" value="<?=$s_query_pair_show?>">
+          <input type="hidden" id="text1" name="text1" value="<?=$text1?>">
+&nbsp;
+  <table width="98%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td>
+		<fieldset style="float:left;"><legend><label for="nc_part">ข้อมูลรายงาน</label></legend>
+			<input type="text" name="REPORT_NAMECODE" value="<?=$REPORT_NAMECODE?>" size="80" class="textbox">
+			<input type="hidden" name="REPORT_ID" value="<?=$REPORT_ID?>">
+        	&nbsp;
+	        <input name="btnsearch" type="button" class="button" value="ค้นหา" onClick="call_search_tmp();">
+			<?if($PAGE_AUTH["add"]=="Y"){ ?>
+				&nbsp;
+    	    	<input name="btnadd" type="button" class="button" value="เพิ่ม" onClick="call_add_tmp();">
+			<? }
+            	if($PAGE_AUTH["edit"]=="Y"){ ?>
+	        	&nbsp;
+				<input name="btn_save" type="button" value="บันทึก" class="button" onClick="call_save();">
+	        	&nbsp;
+				<input name="btn_saveas" type="button" value="บันทึกเป็นตัวใหม่" class="button" onClick="call_saveas();">
+			<? } 
+            	if($PAGE_AUTH["del"]=="Y"){ ?>
+				&nbsp;&nbsp;
+		        <input name="btndel" type="button" class="button" value="..ลบ.." onClick="call_del_tmp();">
+			<? } ?>
+	        &nbsp;&nbsp;
+			<input name="btn_cancel" type="button" value="ดึงข้อมูลเดิม" class="button" onClick="call_cancel();">
+		</fieldset>
+		<input type="hidden" name="last_field_index" value="<?=$last_field_index?>">
+		</td>
+	</tr>
+    <tr>
+    	<td>
+		<fieldset style="float:left;"><legend><label for="field_data"></label></legend>
+        	หัวรายงาน : &nbsp;
+<!--		<select class="selectbox" id="rep_head" name="rep_head" onChange="form1.HEAD_TEMP_ID.value=this.value" <?=($command=="UPDATE")?"disabled":""?>>-->
+			<select class="selectbox" id="rep_head" name="rep_head" onChange="form1.HEAD_TEMP_ID.value=this.value;" >
+					<option value="0" <?=($rep_head==0?"selected":"")?>>"<<ไม่มีหัวรายงาน>>"</option>
+            <?
+				$cmd = " select * from REPGEN_HEADTEMP order by HEAD_NAME_CODE ";
+		
+				$db_dpis1->send_cmd($cmd);
+				while ($data1 = $db_dpis1->get_array()) {
+            ?>
+					<option value="<?=$data1[HEAD_TEMP_ID]?>" <?=($rep_head==$data1[HEAD_TEMP_ID]?"selected":"")?>><?=$data1[HEAD_NAME_CODE];?></option>
+            <?
+				}
+            ?>
+			</select>
+	        <input type="hidden" name="HEAD_TEMP_ID" value="<?=$HEAD_TEMP_ID?>">
+            &nbsp;
+        	ท้ายรายงาน : &nbsp;
+<!--		<select class="selectbox" id="rep_tail" name="rep_tail" onChange="form1.TAIL_TEMP_ID.value=this.value" <?=($command=="UPDATE")?"disabled":""?>>-->
+			<select class="selectbox" id="rep_tail" name="rep_tail" onChange="form1.TAIL_TEMP_ID.value=this.value;" >
+					<option value="0" <?=($rep_head==0?"selected":"")?>>"<<ไม่มีท้ายรายงาน>>"</option>
+            <?
+				$cmd = " select * from REPGEN_TAILTEMP order by TAIL_NAME_CODE ";
+		
+				$db_dpis1->send_cmd($cmd);
+				while ($data1 = $db_dpis1->get_array()) {
+            ?>
+					<option value="<?=$data1[TAIL_TEMP_ID]?>" <?=($rep_head==$data1[TAIL_TEMP_ID]?"selected":"")?>><?=$data1[TAIL_NAME_CODE];?></option>
+            <?
+				}
+            ?>
+			</select>
+    	    <input type="hidden" name="TAIL_TEMP_ID" value="<?=$TAIL_TEMP_ID?>">
+        	&nbsp;
+			ขนาดกระดาษ&nbsp;:&nbsp;
+			<select class="selectbox" name="rep_size" onChange="form1.report_w.value=paper_size_w[this.value]; form1.report_h.value=paper_size_h[this.value]; form1.report_unit.value=paper_unit[this.value];">
+<!--			<option value="0" <?=($rep_size=="0")?"selected":""?>>== หน่วย ==</option>-->
+			<?
+            	echo "1..$rep_size<br>";
+            	if (!$rep_size) $rep_size = 0;
+            	echo "2..$rep_size<br>";
+				for($i=0; $i < count($paper_size); $i++) {
+                	if ($rep_size==$i) {
+                    	$report_w = $paper_size_w[$i];
+                    	$report_h = $paper_size_h[$i];
+                    	$report_unit = $paper_unit[$i];
+                    }
+			?>
+				<option value="<?=$i?>" <?=($rep_size==$i)? "selected":""?>><?=$paper_size[$i]?></option>
+			<?
+				}
+			?>
+			</select>
+    	    &nbsp;กว้าง&nbsp;:&nbsp;
+        	<input type="text" name="report_w" value="<?=$report_w?>" size="5" class="textbox" readonly>
+    	    &nbsp;สูง&nbsp;:&nbsp;
+        	<input type="text" name="report_h" value="<?=$report_h?>" size="5" class="textbox" readonly>
+    	    &nbsp;หน่วย&nbsp;:&nbsp;
+        	<input type="text" name="report_unit" value="<?=$report_unit?>" size="5" class="textbox" readonly>
+			&nbsp;
+			<input name="ruler" type="checkbox" value="1" onClick="call_table();" <?=($ruler=="1")?"checked":""?>>ตาราง
+			&nbsp;&nbsp;<br>
+			ประโยคเลือกข้อมูล (Query) : &nbsp;
+<!--		<select class="selectbox" id="rep_query" name="rep_query" onChange="form1.QUERY_LIST.value=this.value;" > <!-- multiple="multiple">
+            <?
+				$cmd = " select * from REPGEN_QUERY order by QUERY_NAME ";
+		
+				$db_dpis1->send_cmd($cmd);
+				while ($data1 = $db_dpis1->get_array()) {
+            ?>
+					<option value="<?=$data1[QUERY_ID]?>" <?=($rep_head==$data1[QUERY_ID]?"selected":"")?>><?=$data1[QUERY_NAME];?></option>
+            <?
+				}
+            ?>
+			</select>-->
+    	    <input type="text" name="QUERY_ID_TEXT" value="<?=$QUERY_ID_TEXT?>" size="60" readonly>
+    	    <input type="button" name="bt_query" value="เลือก" class="button" onClick="call_select_query();">
+    	    <input type="button" name="bt_clear_query" value="ล้างค่า" class="button" onClick="form1.QUERY_ID_TEXT.value=''; form1.SELECTED_LIST.value=''; form1.s_query_pair.value=''; form1.s_query_pair_show.value=''; ">
+		</fieldset>
+        <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</p><br>
+		<fieldset style="float:left;"><legend><label for="field_data">รายการข้อมูล</label></legend>
+			<select class="selectbox" id="field_data" name="field_data" onkeydown="if(window.event.keyCode===46) { var a = this.options, i = a.length; while(i--) { if(a[i].selected) { a[i] = null; } }; }" onChange="getdata();" size="9" style="width: 20em;" <?=$command=="ADD"?"disabled":""?>>
+<?
+            if ($text1) {
+                $arr_text = explode("^", $text1);	// field1,formula1,title1,format1^field2,formula2,title2,format2^......
+                $arr_data = (array) null;
+				$field_width = 0;
+                $dig = "";
+				$field_align = "";
+				$field_name = "";
+				$field_formula = "";
+                for($i = 0; $i < count($arr_text); $i++) {
+					if ($arr_text[$i]) {
+                        $a_field = explode(",", $arr_text[$i]);
+						$field_name =  $a_field[0];
+						$field_formula =  $a_field[1];
+						$field_title =  $a_field[2];
+?>
+						<option value="<?=$i?>" <?=($field_data)==$i ? "selected":""?>><?=$field_title?></option>
+<?
+                        $type = explode("|", $a_field[3]);	// format ex numberfix|20|2|R
+						if ($field_data==$i) {
+							$field_label =  $a_field[2];
+							$field_label_align = "C";
+							$field_width = (int) $type[1];
+                            $field_type = strtolower($type[0]);
+							switch ($field_type) {	// ประเภท ex numberfix, numbershow, text
+            	                case "numberfix" :		// numberfix
+                	                if ($type[2])	// digit
+                    	                 $field_digit = (int) $type[2];
+                        	        else
+                            	         $field_digit = 0;
+                	                if ($type[3]) 	// align
+										$field_data_align = strtoupper($type[3]);
+                        	        else
+                            	        $field_data_align = "L";
+	                            break;
+    	                        case "numbershow" :		// numbershow
+        	                        if ($type[2])	// digit
+            	                         $field_digit = (int) $type[2];
+                	                else
+                    	                 $field_digit = 0;
+        	                        if ($type[3]) 	// align
+            	                        $field_data_align = strtoupper($type[3]);
+                	                else
+                    	                $field_data_align = "L";
+                        	    break;
+								case "text" :	// text
+                                	$field_digit = "";
+    	                            if ($type[2]) 	// align
+        	                            $field_data_align = strtoupper($type[2]);
+            	                    else
+                	                    $field_data_align = "L";
+                    	        break;
+							} // end switch
+						} // end if ($field_data)==$i)
+					} // end if ($arr_text[$i])
+				} // end while loop
+			} // end if ($text)
+?>
+			</select>&nbsp;&nbsp;
+		</fieldset>
+
+		<fieldset style="float:left;"><legend><label for="field_format">รายละเอียดข้อมูล</label></legend>
+			รหัส :&nbsp;<input type="text" name="field_name" class="textbox" value="<?=$field_name?>" size="20">&nbsp;&nbsp;
+        	ชื่อ :&nbsp;<input type="text" name="field_title" class="textbox" value="<?=$field_title?>" size="70"><br>
+			รูปแบบนำเสนอ&nbsp;:&nbsp;
+			<select class="selectbox" id="field_type" name="field_type" onChange="">
+				<option value="text" <?=($field_type)=="text"?"selected":""?>>ข้อความ</option>
+				<option value="numberfix" <?=($field_type)=="numberfix"?"selected":""?>>12345.6789</option>
+				<option value="numbershow" <?=($field_type)=="numbershow"?"selected":""?>>12,345.6789</option>
+				<option value="money" <?=($field_type)=="monry"?"selected":""?>>12,345.68</option>
+				<option value="datetime1" <?=($field_type)=="datetime1"?"selected":""?>>ว/ด/ปปปป ชม:นท:วท</option>
+				<option value="datetime2" <?=($field_type)=="datetime2"?"selected":""?>>ว ม.ค. ปปปป ชม:นท:วท</option>
+				<option value="date1" <?=($field_type)=="date1"?"selected":""?>>ว/ด/ปปปป</option>
+				<option value="date2" <?=($field_type)=="date2"?"selected":""?>>ว ม.ค. ปปปป</option>
+				<option value="time" <?=($field_type)=="time"?"selected":""?>>ชม:นท:วท</option>
+			</select>&nbsp;&nbsp;<br>
+            สูตร :&nbsp;<br><textarea id="field_formula" name="field_formula" cols="120" rows="5"  readonly><?=$field_formula?></textarea>&nbsp;&nbsp;
+        	<input type="button" name="bt_formula" value="กำหนดสูตร" class="button" onClick="call_setformula();">&nbsp;&nbsp;<br>
+            กว้าง (ตัวอักษร) :&nbsp;<input type="text" name="field_width" class="textbox" value="<?=$field_width?>" size="5">&nbsp;&nbsp;
+<?
+            if ($field_type=="numberfix" || $field_type=="numbershow") {
+            	if (!$field_digit) $field_digit=0;
+?>
+	            ทศนิยม :&nbsp;<input type="text" name="field_digit" class="textbox" value="<?=$field_digit?>" size="5">&nbsp;&nbsp;
+<?
+            }
+?>
+			จัดแสดง :&nbsp;
+			<select class="selectbox" id="field_align" name="field_align" onChange="">
+				<option value="l" <?=($field_align)=="l"?"selected":""?>>ชิดซ้าย</option>
+				<option value="c" <?=($field_align)=="c"?"selected":""?>>กลาง</option>
+				<option value="r" <?=($field_alignn)=="r"?"selected":""?>>ขวา</option>
+			</select>&nbsp;&nbsp;<br><br>
+        	<input type="button" name="bt_addfield" value="เพิ่มข้อมูล" class="button" onClick="call_addfield();">&nbsp;&nbsp;
+		</fieldset>
+		</td>
+    </tr>
+    <tr>
+    	<td>
+      	<fieldset style="float:left;width:1200;height:1000;">
+        	<legend id="nc"><label for="tmp_namecard">รูปแบบรายงาน</label></legend>
+			<div id="tmp_viewer">
+	        <embed src="../PDF/tmp_report.pdf#toolbar=0&navpanes=0&scrollbar=0&zoom=100" width="1200" height="1000"/>
+            </div>
+        </fieldset>
+        </td>
+	</tr>
+  </table> 
+  </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

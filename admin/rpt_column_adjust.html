@@ -1,0 +1,775 @@
+<? 
+//	echo "para_string=$para_string , COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+//	echo "table=$table, form_part=$form_part, rpt_format=$rpt_format<br>";
+	if ($form_part) {
+		$form_part_name = $form_part;
+	} else {
+    	if (strtolower(substr($table,0,4))=="per_")
+		    $form_part_name = strtolower(substr($table,4));
+		else
+		    $form_part_name = $table;
+    }
+
+	$c = strpos(strtolower($rpt_format), "_format");
+    if ($c === false) { exit("รูปแบบชื่อรายงาน ($rpt_format) ไม่ถูกต้อง ต้องเป็นชื่อรายงานที่ต่อท้ายด้วย '_format'"); }
+    $report_send_name = substr($rpt_format,0,$c);
+    if ($report_send_name=="rpt_master_table_new") {
+    	$report_send_name = "rpt_master_".$form_part_name.""; 
+	}
+//	echo "1..$rpt_format ($report_send_name) DEPARTMENT_NAME=$DEPARTMENT_NAME<br>";
+
+	if ($command=="SAVE") {
+    	if ($USER_ID && $USER_ID!=$SESS_USERID) exit("รหัสผู้ใช้ ($SESS_USERID) นี้ ไม่สามารถแก้ไขรายการนี้ได้ โปรดตรวจสอบ..");
+    	$UPDATE_DATE = date("Y-m-d H:i:s");
+    	if ($FORMAT_SEQ==0 || $FORMAT_SEQ==99) {
+		    $cmd = " select * from RPT_ADJUST_FORMAT where RPT_NAME='$report_send_name' and FORMAT_NAME='$FORMAT_NAME' ";
+			$cnt = $db_dpis->send_cmd($cmd);
+            if ($cnt) exit("พบชื่อซ้ำสำหรับรายงานนี้ ไม่สามารถสร้างใหม่ได้ โปรดตรวจสอบ...");
+
+		    $cmd = " select max(FORMAT_SEQ) as max_seq from RPT_ADJUST_FORMAT where RPT_NAME='$report_send_name' and USER_ID=$SESS_USERID ";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+			$next_seq = $data[max_seq] + 1;
+
+		    $cmd = " insert into RPT_ADJUST_FORMAT (RPT_NAME, USER_ID, FORMAT_SEQ, FORMAT_NAME, COLUMN_FORMAT, UPDATE_USER, UPDATE_DATE) values ('$report_send_name', $SESS_USERID, $next_seq, '$FORMAT_NAME', '$COLUMN_FORMAT', $SESS_USERID, '$UPDATE_DATE')";
+			$db_dpis->send_cmd($cmd);
+//			echo "insert-$cmd<br>";
+			$FORMAT_SEQ	 = $next_seq;
+		} else {
+		    $cmd = " select * from RPT_ADJUST_FORMAT where RPT_NAME='$report_send_name' and USER_ID=$SESS_USERID and FORMAT_SEQ=$FORMAT_SEQ ";
+			$cnt = $db_dpis->send_cmd($cmd);
+
+			if ($cnt > 0) {
+			    $cmd = " update RPT_ADJUST_FORMAT set FORMAT_NAME='$FORMAT_NAME', COLUMN_FORMAT='$COLUMN_FORMAT', UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE' where RPT_NAME='$report_send_name' and USER_ID=$SESS_USERID and FORMAT_SEQ=$FORMAT_SEQ ";
+				$db_dpis->send_cmd($cmd);
+//				echo "update-$cmd<br>";
+			} else {
+            	exit("*** Error UPDATE table RPT_ADJUST_FORMAT key RPT_NAME='$report_send_name' and USER_ID=$SESS_USERID and FORMAT_SEQ=$FORMAT_SEQ ***");
+            }
+        }
+    }
+
+//	echo "FORMAT_SEQ=$FORMAT_SEQ, FORMAT_NAME=$FORMAT_NAME, COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+    $format_list = (array) null;
+    $cmd = " select * from RPT_ADJUST_FORMAT where RPT_NAME='$report_send_name' and (USER_ID=$SESS_USERID or USER_ID=1) order by FORMAT_SEQ ";
+//	echo "cmd=$cmd<br>";
+	$db_dpis->send_cmd($cmd);
+	while ( $data = $db_dpis->get_array() ) {
+		$data = array_change_key_case($data, CASE_LOWER);
+		$format_list[uid][] = $data[user_id];
+		$format_list[seq][] = $data[format_seq];
+		$format_list[name][] = $data[format_name];
+		$format_list[column][] = $data[column_format];
+//		echo "seq:".$data[format_seq].", name:".$data[format_name]."<br>";
+        if (!$FORMAT_SEQ && $COLUMN_FORMAT==$data[column_format]) { 
+        	$FORMAT_SEQ=$data[format_seq]; 
+            $FORMAT_NAME=$data[format_name]; 
+            $USER_ID=$data[user_id];
+		} else if (!$COLUMN_FORMAT && $FORMAT_SEQ==$data[format_seq] && $command!="RESET") { 
+        	$COLUMN_FORMAT=$data[column_format]; 
+            $FORMAT_NAME=$data[format_name]; 
+            $USER_ID=$data[user_id]; 
+		} else {
+        	if (!$FORMAT_SEQ)	$FORMAT_SEQ = 0;
+		}
+    } // end while
+//	echo "FORMAT_SEQ=$FORMAT_SEQ, FORMAT_NAME=$FORMAT_NAME, COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+
+    include("report/$rpt_format"); 	// report format
+    
+//	echo "COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+//	echo "COLUMN_IDX=$COLUMN_IDX, MOVETO=$MOVETO, SHOWFLAG=$SHOWFLAG, F_ALIGN=$F_ALIGN, rdoMovePos=$rdoMovePos, f_moveto=$f_moveto<br>";
+//	echo "FORMAT_SEQ=$FORMAT_SEQ, FORMAT_NAME=$FORMAT_NAME, COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+
+	if ($COLUMN_IDX < 0 || $COLUMN_IDX=="") $f_moveto = 0;
+	if (!$rdoMovePos) $rdoMovePos=2;	// default ตำแหน่งการย้ายให้เป็น ต่อหลัง column ที่เลือก
+
+    // manage head
+    $head_line = 1;	// หาค่า maximum ของ จำนวนบรรทัดของ head
+    for($i=0; $i < count($heading_text); $i++) {
+        $buff_head = explode("|",$heading_text[$i]);
+        if ($head_line < count($buff_head)) $head_line = count($buff_head);
+	}
+    for($i=0; $i < count($heading_text); $i++) {
+        $buff_head = explode("|",$heading_text[$i]);
+        for($j=0; $j < $head_line; $j++) {
+//        	echo "col $i, line $j-".$buff_head[$j];
+            $c = strpos($buff_head[$j],"<**");
+            if ($c !== false) {
+//	            echo ", grp"."<br>";
+                $c1 = strpos($buff_head[$j],"**>",$c+3);
+                $grp = substr($buff_head[$j],$c+3,$c1-$c-3);
+                $txt = substr($buff_head[$j],$c1+3);
+                $sub_head_text[$i][$j] = $txt;
+                $sub_head_grp[$i][$j] = $grp;
+//				echo "$i, $j -- $txt ($grp) $c,$c1<br>";
+            } else {
+//	            echo ""."<br>";
+                $sub_head_text[$i][$j] = $buff_head[$j];
+                $sub_head_grp[$i][$j] = "";
+            }
+        }	// end for $j
+//		echo "subhead $i : ".implode(",",$sub_head_text[$i])." : ".implode(",",$sub_head_grp[$i])."<br>";
+    }	// end for $i
+
+    // หาจำนวน column ที่แสดง
+    $num_col_show = 0;
+    for($iii=0; $iii < count($arr_column_sel); $iii++) 
+    	if ($arr_column_sel[$iii]==1) $num_col_show++;
+//	echo "num_col_show=$num_col_show<br>";
+//	จบการ หาจำนวน column ที่แสดง
+
+	if ($command=="MOVEGRP") {
+//		echo "COLUMN_IDX=$COLUMN_IDX, MOVETO=$MOVETO, SHOWFLAG=$SHOWFLAG, F_ALIGN=$F_ALIGN<br>";
+        if ($f_moveto == 1) {	// ทำเรื่องย้าย
+            $iii = $COLUMN_IDX;
+            $start_idx = -1;
+//			echo "$iii-$start_idx-$COLUMN_IDX-$MOVETO<br>";
+            $founded = false;
+            $lineno = 0;
+            $grpno = "";
+	        for($j=0; $j < $head_line; $j++) {
+                if (!$grpno)
+					$grpno = $sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j];
+	            while($iii >= 0) {
+//					echo "j:$j-grp [".$arr_column_map[$COLUMN_IDX]."] : ".$sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]." == grp [$iii] : ".$sub_head_grp[$arr_column_map[$iii]][$j]."<br>";
+    	        	if  ($grpno==$sub_head_grp[$arr_column_map[$iii]][$j]) {
+        	        	$start_idx = $iii;
+                        $founded=true;
+			            $lineno = $j;
+					}
+                	$iii--;
+				}
+				if ($founded) {
+                	for($kk=$start_idx; $kk < count($arr_column_map); $kk++) {
+                    	if ($sub_head_grp[$arr_column_map[$kk]][$j]==$grpno)  $grpcnt++;
+                    }
+                	break;
+				}
+				// จบการ หา column เริ่มต้นและบรรทัดที่มีกลุ่มนี้
+			}
+//			echo "start_idx=$start_idx, lineno=$lineno, grpno=$grpno, grpcnt=$grpcnt<br>";
+            $tmp_grp_map_array = array_slice($arr_column_map, $start_idx, $grpcnt);	// ดึงค่ากลุ่มออกมาทั้งกลุ่ม
+//			echo "move grp array is ".implode(",",$tmp_grp_map_array)."<br>";
+			if ($rdoMovePos==1)  {
+            	$moveto_idx = $MOVETO;	// ย้ายไปวางข้างหน้า ตำแหน่ง ตรงตามที่ต้องการ
+	            if  ($moveto_idx == 0) {
+					$arr_column_map = array_merge_recursive($tmp_grp_map_array, $arr_column_map);		// วางลงตำแหน่งข้างหน้า column แรก ใช้ merge
+//					echo "grp 1.1..arr_column_map=".implode(",",$arr_column_map)."<br>";
+                } else {
+                	array_splice($arr_column_map, $moveto_idx, 0, $tmp_grp_map_array);	// แทรกค่าใหม่ element ที่จะย้ายไปตำแหน่งหลัง $MOVETO
+//					echo "grp 1.2..arr_column_map=".implode(",",$arr_column_map)."<br>";
+				}
+			} else {
+            	$moveto_idx = $MOVETO + 1;	// // ย้ายไปวางข้างหน้า ตำแหน่งต้องบวกไปอีก 1
+	            if  ($moveto_idx >= count($arr_column_map)) { 
+					$arr_column_map = array_merge_recursive($arr_column_map, $tmp_grp_map_array);		// วางลงตำแหน่งข้างหลัง column สุดท้าย ใช้ merge
+//					echo "grp 1.3..arr_column_map=".implode(",",$arr_column_map)."<br>";
+				} else {
+					array_splice($arr_column_map, $moveto_idx, 0, $tmp_grp_map_array);	// แทรกค่าใหม่ element ที่จะย้ายไปตำแหน่งหลัง $MOVETO
+//					echo "grp 1.4..arr_column_map=".implode(",",$arr_column_map)."<br>";
+				}
+			}
+            if ($COLUMN_IDX > $MOVETO) $start_idx += $grpcnt;
+			array_splice($arr_column_map, $start_idx, $grpcnt);	// ย้ายทั้งกลุ่มที่ตำแหน่งเดิมออก
+//			echo "grp 2..arr_column_map=".implode(",",$arr_column_map)."<br>";
+
+			$COLUMN_IDX = $moveto_idx;	// แก้ค่า COLUMN_IDX ตัวชี้ตำแหน่งที่ย้ายไปแล้วให้เป็นตำแหน่งที่ย้ายไป            
+		} // end if ($f_moveto == 1)
+   		$COLUMN_FORMAT = implode(",",$arr_column_map)."|".implode(",",$arr_column_sel)."|".implode(",",$arr_column_width)."|".implode(",",$arr_column_align);
+		$f_moveto = 0;
+    } // end if ($command=="MOVEGRP")
+    
+	if ($command=="ADJUST") {
+		//  "COLUMN_IDX=$COLUMN_IDX, MOVETO=$MOVETO, SHOWFLAG=$SHOWFLAG, F_ALIGN=$F_ALIGN";
+        if ($arr_column_width[$arr_column_map[$COLUMN_IDX]] != $COLW)	$arr_column_width[$arr_column_map[$COLUMN_IDX]] = $COLW;	// ปรับปรุงความกว้าง
+        if ($arr_column_sel[$arr_column_map[$COLUMN_IDX]] != $SHOWFLAG) {
+        	$arr_column_sel[$arr_column_map[$COLUMN_IDX]] = $SHOWFLAG;
+            // เพิ่มค่าความกว้างให้กับ column ก่อนหน้า
+            if ($COLUMN_IDX > 0) {
+            	$f_addwidth = false;
+            	$kk = $COLUMN_IDX-1;
+            	while ($kk >= 0) {
+	                if ($arr_column_sel[$arr_column_map[$kk]]==1) {
+			            $arr_column_width[$arr_column_map[$kk]] += $arr_column_width[$arr_column_map[$COLUMN_IDX]];
+                        $f_addwidth = true;
+                        break;
+					}
+                    $kk--;
+				}
+			}
+			if (!$f_addwidth) {
+            	$kk = $COLUMN_IDX+1;
+            	while ($kk < count($arr_column_map)) {
+	                if ($arr_column_sel[$arr_column_map[$kk]]==1) {
+			            $arr_column_width[$arr_column_map[$kk]] += $arr_column_width[$arr_column_map[$COLUMN_IDX]];
+                        $f_addwidth = true;
+                        break;
+					}
+                    $kk++;
+				}
+			}
+			if (!$f_addwidth)  echo "**** Nothing Display ****<br>";
+            // จบการเพิ่มค่าความกว้างให้กับ column ก่อนหน้า
+		}
+        if ($arr_column_align[$arr_column_map[$COLUMN_IDX]] != $F_ALIGN)	$arr_column_align[$arr_column_map[$COLUMN_IDX]] = $F_ALIGN;
+
+        if ($f_moveto == 1) {	// ทำเรื่องย้าย
+			if ($MOVETO > $COLUMN_IDX) $f_moveback = true;
+        	$f_move = 0; $errmsg="";
+	        for($j=0; $j < $head_line; $j++) {
+				if (!$grpno)
+					$grpno = $sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j];
+				if ($rdoMovePos==1) {	// ย้ายไปวางข้างหน้า
+	    	    	if ($MOVETO > 0 && $sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j] != $sub_head_grp[$arr_column_map[$MOVETO]][$j]
+                    				&& $sub_head_grp[$arr_column_map[$MOVETO]][$j]
+    	            				&& $sub_head_grp[$arr_column_map[$MOVETO-1]][$j]==$sub_head_grp[$arr_column_map[$MOVETO]][$j]) { // ย้ายเข้าไประหว่างกลุ่มอื่น ไม่ได้
+						$f_move = 1; $errmsg = "ไม่สามารถย้ายเข้าไประหว่างกลุ่มอื่นได้";
+					} else if ($sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]
+                					&& $sub_head_grp[$arr_column_map[$MOVETO]][$j]!=$sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]
+                    	            && (($MOVETO > 0 && $sub_head_grp[$arr_column_map[$MOVETO-1]][$j]!=$sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]) 
+                                    		||  $MOVETO==0) ) {	// ย้ายไปนอกกลุ่มไม่ได้
+						$f_move = 2; $errmsg = "ไม่สามารถย้ายออกไปนอกกลุ่มได้";
+					}
+				} else {	// ย้ายไปวางข้างหลัง 
+	    	    	if ($MOVETO < $num_col_show && $sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j] != $sub_head_grp[$arr_column_map[$MOVETO]][$j]
+                    				&& $sub_head_grp[$arr_column_map[$MOVETO]][$j]
+    	            				&& $sub_head_grp[$arr_column_map[$MOVETO+1]][$j]==$sub_head_grp[$arr_column_map[$MOVETO]][$j]) { // ย้ายเข้าไประหว่างกลุ่มอื่น ไม่ได้
+						$f_move = 1; $errmsg = "ไม่สามารถย้ายเข้าไประหว่างกลุ่มอื่นได้";
+					} else if ($sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]
+                					&& $sub_head_grp[$arr_column_map[$MOVETO]][$j]!=$sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]
+                    	            && (($MOVETO < $num_col_show && $sub_head_grp[$arr_column_map[$MOVETO+1]][$j]!=$sub_head_grp[$arr_column_map[$COLUMN_IDX]][$j]) 
+                                    		||  $MOVETO==$num_col_show) ) {	// ย้ายไปนอกกลุ่มไม่ได้
+						$f_move = 2; $errmsg = "ไม่สามารถย้ายออกไปนอกกลุ่มได้";
+					}
+				}
+        	} // end for loop $j
+            if ($f_move==0) {
+            	$start_idx = $COLUMN_IDX;
+                $grpcnt = 1;
+                $lineno = $j;
+//	            echo "start_idx=$start_idx, lineno=$lineno, grpno=$grpno, grpcnt=$grpcnt<br>";
+    	        $tmp_grp_map_array = array_slice($arr_column_map, $start_idx, $grpcnt);	// ดึงค่ากลุ่มออกมาทั้งกลุ่ม
+				if ($rdoMovePos==1)  {
+        	    	$moveto_idx = $MOVETO;	// ย้ายไปวางข้างหน้า ตำแหน่ง ตรงตามที่ต้องการ
+	        	    if  ($moveto_idx == 0) {
+                		$arr_column_map = array_merge_recursive($tmp_grp_map_array, $arr_column_map);		// วางลงตำแหน่งข้างหน้า column แรก ใช้ merge
+//						echo "1.1..arr_column_map=".implode(",",$arr_column_map)."<br>";
+        	        } else {
+            	    	array_splice($arr_column_map, $moveto_idx, 0, $tmp_grp_map_array);	// แทรกค่าใหม่ element ที่จะย้ายไปตำแหน่งหลัง $MOVETO
+//						echo "1.2..arr_column_map=".implode(",",$arr_column_map)."<br>";
+					}
+				} else {
+            		$moveto_idx = $MOVETO + 1;	// // ย้ายไปวางข้างหน้า ตำแหน่งต้องบวกไปอีก 1
+	            	if  ($moveto_idx >= count($arr_column_map)) { 
+                		$arr_column_map = array_merge_recursive($arr_column_map, $tmp_grp_map_array);		// วางลงตำแหน่งข้างหลัง column สุดท้าย ใช้ merge
+//						echo "1.3..arr_column_map=".implode(",",$arr_column_map)."<br>";
+					} else {
+                		array_splice($arr_column_map, $moveto_idx, 0, $tmp_grp_map_array);	// แทรกค่าใหม่ element ที่จะย้ายไปตำแหน่งหลัง $MOVETO
+//						echo "1.4..arr_column_map=".implode(",",$arr_column_map)."<br>";
+					}
+				}
+	            if ($COLUMN_IDX > $MOVETO) $start_idx += $grpcnt;
+				array_splice($arr_column_map, $start_idx, $grpcnt);	// ย้ายทั้งกลุ่มที่ตำแหน่งเดิมออก
+//				echo "2..arr_column_map=".implode(",",$arr_column_map)."<br>";
+
+				$COLUMN_IDX = $moveto_idx;	// แก้ค่า COLUMN_IDX ตัวชี้ตำแหน่งที่ย้ายไปแล้วให้เป็นตำแหน่งที่ย้ายไป            
+            } // end if ($f_move==0)
+		} // end if ($f_moveto == 1)
+   		$COLUMN_FORMAT = implode(",",$arr_column_map)."|".implode(",",$arr_column_sel)."|".implode(",",$arr_column_width)."|".implode(",",$arr_column_align);
+        if ($f_move == 0)	$f_moveto = 0;	// ถ้าการย้ายไม่เกิด error ให้ disable checkbox move (ย้าย)
+    }
+//	echo "after COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+    // loop หาจำนวน column ที่ไม่แสดง ติดต่อกัน
+    $arr_colspan = (array) null;
+    for($iii=0; $iii < count($arr_column_map); $iii++) $arr_colspan[] = 1;
+    $cnt=0;
+    $iii = 0;
+    while($iii < count($arr_column_map)) {
+//		echo "iii>$iii-".$arr_column_map[$iii]."--".count($arr_column_map)."<br>";
+    	$jjj = $iii+1;
+    	while($jjj < count($arr_column_map) && (!$arr_column_sel[$arr_column_map[$jjj]] || $arr_column_sel[$arr_column_map[$jjj]] != 1)) {
+//			echo "jjj>$jjj-".$arr_column_sel[$arr_column_map[$jjj]]."<br>";
+        	$cnt++;
+            $jjj++;
+    	}
+        $arr_colspan[$iii]=$cnt+1;
+        $cnt=0;
+        $cnt=0;
+        $iii=$jjj;
+    }
+    // end loop หาจำนวน column ที่ไม่แสดงติดต่อกัน
+//	echo "FORMAT_SEQ=$FORMAT_SEQ, FORMAT_NAME=$FORMAT_NAME, COLUMN_FORMAT=$COLUMN_FORMAT<br>";
+
+//	echo "arr_colspan=".implode(",",$arr_colspan)."<br>";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+
+	function call_reset() {	
+		if (confirm("ต้องการตั้งเป็นค่าเดิม แน่นอน?")) {
+			form1.COLUMN_FORMAT.value="";
+			form1.COLUMN_IDX.value=-1;
+			form1.command.value="RESET";
+			form1.no_unload.value = 1;
+			form1.submit();
+		}
+	}
+
+	function call_update_column(idx) {
+//		alert(typeof form1.f_moveto);
+		if (typeof form1.f_moveto!='undefined') form1.f_moveto.checked = false;	// เพื่อการตั้งค่า การย้ายให้เป็นไม่มีการย้ายทุกครั้งที่ เรียก column ใหม่
+		form1.COLUMN_IDX.value=idx;
+		form1.no_unload.value = 1;
+		form1.submit();
+	}
+
+	function call_change() {	
+		if (form1.SHOWFLAG.checked) form1.SHOWFLAG.value="1"; else form1.SHOWFLAG.value="0";
+//		alert("data-"+form1.COLUMN_IDX.value+" | "+form1.MOVETO.value+" | "+form1.F_ALIGN.value+" | "+form1.SHOWFLAG.value);
+		if (document.form1.rdoPos1.checked)  form1.rdoMovePos.value=1;
+		else if (document.form1.rdoPos2.checked)  form1.rdoMovePos.value=2;
+//		alert(form1.f_moveto.value+"|"+document.form1.rdoPos1.checked+":"+document.form1.rdoPos2.checked+"="+form1.rdoMovePos.value);
+		form1.command.value = "ADJUST";
+		form1.format_changed.value = 1;
+		form1.no_unload.value = 1;
+		form1.submit();
+	}
+	
+	function call_movegrp() {
+		if (form1.SHOWFLAG.checked) form1.SHOWFLAG.value="1"; else form1.SHOWFLAG.value="0";
+//		alert("data-"+form1.COLUMN_IDX.value+" | "+form1.MOVETO.value+" | "+form1.F_ALIGN.value+" | "+form1.SHOWFLAG.value);
+		form1.command.value = "MOVEGRP";
+		form1.no_unload.value = 1;
+		form1.submit();
+	}
+	
+	function call_check_moveto() {
+//		alert("checked f_moveto = "+form1.f_moveto.checked);
+		var x=document.getElementById("MOVETO");
+		var rdoPos1=document.getElementById("rdoPos1");
+		var rdoPos2=document.getElementById("rdoPos2");
+		if (form1.f_moveto.checked) {
+			form1.f_moveto.value="1"; 
+			rdoPos1.disabled = false;
+			rdoPos2.disabled = false;
+   			x.disabled=false;
+		} else {
+			form1.f_moveto.value="0";
+			rdoPos1.disabled = true;
+			rdoPos2.disabled = true;
+   			x.disabled=true;
+		}
+	}
+	
+	function call_refreshMoveto() {
+		if (document.form1.rdoPos1.checked)  form1.rdoMovePos.value=1;
+		else if (document.form1.rdoPos2.checked)  form1.rdoMovePos.value=2;
+		form1.no_unload.value = 1;
+		form1.submit();
+	}
+
+	function call_select_new_format(selobj) {
+//		alert(selobj.name+":"+selobj.value);
+		if (selobj.value==0 || selobj.value==99) {
+			form1.COLUMN_FORMAT.value="";
+			form1.FORMAT_NAME.value="";
+			form1.format_changed.value=0;
+			form1.no_unload.value = 1;
+			form1.submit();
+		} if (form1.format_changed.value==1)  {
+			if (!confirm("มีการแก้ไขค้างอยู่ จะบันทึกก่อนหรือไม่?")) {
+				form1.COLUMN_FORMAT.value="";
+				form1.format_changed.value=0;
+				form1.no_unload.value = 1;
+				form1.submit();
+			}
+		} else {
+			form1.COLUMN_FORMAT.value="";
+			form1.format_changed.value=0;
+			form1.no_unload.value = 1;
+			form1.submit();
+		}
+	}
+	
+	function call_save() {
+		if (form1.format_changed.value==1)  {
+			if (form1.FORMAT_NAME.value.length==0) {
+				alert("โปรดป้อนชื่อการปรับปรุงรูปแบบรายงานก่อน..");
+				form1.FORMAT_NAME.focus;
+			} else {
+				form1.command.value = "SAVE";
+				form1.no_unload.value = 1;
+				form1.format_changed.value=0;
+				form1.submit();
+			}
+		} else {
+			alert("รูปแบบรายงานยังไม่มีการเปลี่ยนแปลง ยังไม่มีการบันทึก..");
+		}
+	}
+
+	function call_unload() {
+//		alert("COULMN_FORMAT="+form1.COLUMN_FORMAT.value+", FORMAT_SEQ="+form1.FORMAT_SEQ.value);
+//		if (form1.FORMAT_SEQ.value==0) form1.COLUMN_FORMAT.value="";
+		if (form1.format_changed.value==1) {
+			if (!confirm("มีการแก้ไขค้างอยู่ จะบันทึกก่อนหรือไม่?")) {
+				parent.refresh_opener(form1.COLUMN_FORMAT.value);
+			}
+		} else {  
+			parent.refresh_opener(form1.COLUMN_FORMAT.value);
+		}
+	}
+
+	function call_close() {
+		if (form1.no_unload.value!=1) call_unload();
+	}
+	
+	function dynamic_param()
+	{
+		var parameters = new Array();
+		if (!form1.para_string.value) {	// ถ้ามีค่า ใน form1.para_string.value แปลว่า ไม่ใช่รอบแรก และมีการเก็บค่า parameter ที่ส่งเข้ามาแล้ว เอามาใช้
+			parameters = location.search.substring(1).split("&");
+		} else	{	// รอบแรก ใช่ค่าที่ส่งเข้ามาครั้งแรก
+			parameters = form1.para_string.value.split("&");
+		}
+		var para = new Array();
+		for(var i=0; i < parameters.length; i++) {
+//			alert(i+">>"+parameters[i]);
+			var temp = parameters[i].split("=");	// ตัดแบ่งค่า ชื่อ parameter และ ค่า value ออกจากกัน
+			var para_name = unescape(temp[0]);
+			var para_val = unescape(temp[1]);
+			var ele = document.getElementsByName(para_name);	// อ่านค่าชื่อ element ที่มีสร้างไว้แล้วในโปรแกรม นำไป check เพื่อจะได้ไม่ต้องสร้าง ซ้ำ
+//			alert("ele:"+ele.item(0)+" ("+para_name+")");
+			if (ele.item(0)==null) {	// แปลว่า ชื่อ parameter ตัวนี้ยังไม่มีการสร้างใน form1
+//				alert(i+">>"+para_name+"===>"+para_val);
+				para.push(para_name+"="+para_val);		// เก็บค่า parameter ให้เหมือนใน url เพื่ออ่านค่าใน รอบต่อไป
+				document.getElementById('text').innerHTML += "<input type='hidden' value='"+para_val+"' name='"+para_name+"' id='"+para_name+"' />";	// สร้างชื่อ parameter ตัวนี้ใน form1
+			}
+		}
+		form1.para_string.value = para.join("&");	// เก็บค่า เหมือน url ไว้ใช้ในรอบต่อไป
+//		alert("para="+form1.para_string.value);
+	}
+
+</script>
+<body onLoad="dynamic_param();" onUnload="if (form1.no_unload.value!=1) call_unload();">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr> 
+	  <td align="left" valign="top">
+<?
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+    <tr> 
+	  <td align="center" valign="top">&nbsp; </td>
+	</tr>
+    <tr> 
+	  <td align="center" valign="top"><span class="label_alert">การปรับปรุงรูปแบบรายงาน</span></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="rpt_column_adjust.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="COLUMN_FORMAT" value="<?=$COLUMN_FORMAT?>">
+          <input type="hidden" name="COLUMN_IDX" value="<?=$COLUMN_IDX?>">
+          <input type="hidden" name="rpt_format" value="<?=$rpt_format?>">
+          <input type="hidden" name="table" value="<?=$table?>">
+          <input type="hidden" name="form_part" value="<?=$form_part?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="no_unload" value="">
+          <input type="hidden" name="format_changed" value="<?=$format_changed?>">
+			<div id="text">
+				<input type="hidden" name="para_string" value="<?=$para_string?>">
+				<!-- hidden dynamic text -->
+			</div>
+			&nbsp;&nbsp; 
+			<table width="96%" align="center" cellpadding="0" cellspacing="0" class="input_table" border="0">
+<? 		//	echo "FORMAT_SEQ=".$FORMAT_SEQ." (".($FORMAT_SEQ==0).")<br>"; ?>
+	    		<tr><td><input type="hidden" name="USER_ID" value="<?=$USER_ID?>">
+	               		<select name="FORMAT_SEQ" id="FORMAT_SEQ"  onChange="call_select_new_format(this);">
+							<option value='99' <?=($FORMAT_SEQ==99?'selected':'')?>><==== รูปแบบตั้งต้น =====></option>
+							<option value='0' <?=($FORMAT_SEQ==0?'selected':'')?>><==== รูปแบบ Default =====></option>
+<?
+							if (count($format_list[seq]) > 0) {
+                            	for($i=0; $i < count($format_list[seq]); $i++) {
+?>
+									<option value='<?=$format_list[seq][$i]?>' <?=($FORMAT_SEQ==$format_list[seq][$i]?'selected':'')?>><?=$format_list[name][$i].(($format_list[uid][$i]==1 && $SESS_USERID!=1)?" (ADMIN)":"")?></option>
+<?
+								} // end for loop
+							} // end if 
+?>
+						</select>&nbsp;&nbsp;&nbsp;&nbsp;<input type="text" name="FORMAT_NAME" id="FORMAT_NAME"  value="<?=$FORMAT_NAME?>" <?=(($FORMAT_SEQ>0 && $FORMAT_SEQ<99)?"readonly":"")?> size="30">&nbsp;&nbsp;&nbsp;&nbsp;<input type="button" class="button" name="bt_close" value="ปิดหน้าต่าง และ ส่งรูปแบบกลับ" onClick="call_close();">
+				</td></tr>
+			</table>
+			<table width="96%" align="center" cellpadding="0" cellspacing="0" class="input_table" border="0">
+	    		<tr>
+  					<td width="100%" align="left" colspan="<?=count($heading_text)?>" style="font-size:smaller;">&nbsp;&nbsp;<font color="#0000FF">ลำดับตามแบบเก่า</font>&nbsp;&nbsp;&nbsp;&nbsp;<font color="#FF0000">ลำดับที่จะแสดง</font></td>
+				</tr>
+			</table>
+			<table width="96%" align="center" cellpadding="0" cellspacing="0" class="input_table"  border="1" style="border-style:solid; border-width:thin; border-spacing:0; border-collapse:collapse;">
+	    		<tr>
+<?
+					for($i=0; $i < count($arr_column_map); $i++) {
+						if ($arr_column_sel[$arr_column_map[$i]] == 1) {
+							$col_w = floor((int)$arr_column_width[$arr_column_map[$i]] / $total_show_width * 100);
+?>
+   	  						<td colspan="<?=$arr_colspan[$i]?>" width="<?=$col_w?>%" align="center" bgcolor="#CCCCCC" style="font-size:smaller; color:<?=$fcolor?>;"><?=($arr_column_map[$i]+1)?></td>
+<? 
+						} // end if ($arr_column_sel[$arr_column_map[$i]] == 1)
+					}                    
+?>
+				</tr>
+	    		<tr>
+<?
+					for($i=0; $i < count($arr_column_map); $i++) {
+                    	if ($arr_column_sel[$arr_column_map[$i]] == 1) {	// แสดงเฉพาะที่เลือกไว้ ตามลำดับเดิมที่ไม่ได้ map เพื่อต้องการ index เดิม
+	                       	$col_w = floor((int)$arr_column_width[$arr_column_map[$i]] /$total_show_width * 100);	// 	ความกว้างที่รวมไว้แล้ว
+?>
+   	  						<td colspan="<?=$arr_colspan[$i]?>" width="<?=$col_w?>%" align="center" bgcolor="#CCCCCC" style="font-size:smaller; color:#F00;"><?=($i+1)?></td>
+<? 
+						}
+					}                    
+?>
+				</tr>
+                <tr>
+<?
+				for($j=0; $j < $head_line; $j++) {
+					$grp="";
+					for($i=0; $i < count($arr_column_map); $i++) {
+//                    	echo "i=$i, sel=".$arr_column_sel[$arr_column_map[$i]]."<br>";
+                    	if ($arr_column_sel[$arr_column_map[$i]] == 1) {	// แสดงเฉพาะที่เลือกไว้ ตามลำดับที่จัดใหม่แล้ว
+							if ($sub_head_grp[$arr_column_map[$i]][$j] != $grp) {
+                	        	if ($grp && $sub_head_grp[$arr_column_map[$i]][$j]) {	// จบกลุ่ม column แบบต่อกลุ่มใหม่
+                    	        	$col_w = floor($sum_w / $total_show_width * 100);
+//    	  							echo "line $j-->grp [$grp]($iidx) (colspan:$colspan+colcnt:$colcnt-1), w_td=$col_w, align=$align, text=$txt, w=$sum_w, map=".$arr_column_map[$iidx]."<br>";
+									if ($j < $head_line && $sub_head_grp[$arr_column_map[$i]][$j+1]==$grp)
+                                        $border = "border-bottom:none; border-top:none;";
+									else
+                                        $border = "border-bottom:thin; border-top:none;";
+//									echo "1....i=$i,j=$j, grp=$grp, border=$border, txt=$txt<br>";
+?>
+    	  							<td colspan="<?=($colspan+$colcnt-1)?>" width="<?=$col_w?>%" align="center" onClick="call_update_column(<?=$iidx?>);" style="cursor:hand; font-size:smaller;<?=$border?>"><?=str_replace("*Enter*","<br>", $txt)?></td>
+<? 
+//                               	echo "กลุ่มมีค่า แต่ grp[$grp] มีหรือไม่มีก็ได้<br>";
+			                        $grp = $sub_head_grp[$arr_column_map[$i]][$j];
+        		                    $align = $arr_column_align[$arr_column_map[$i]];
+            		                $sum_w = (int)$arr_column_width[$arr_column_map[$i]];
+                	    	        $txt = $sub_head_text[$arr_column_map[$i]][$j];
+                                    $colspan = $arr_colspan[$i];
+                                    $iidx = $i;
+									$colcnt = 1;
+								} else if ($sub_head_grp[$arr_column_map[$i]][$j]) {	// แปลว่า  ก่อนหน้าไม่เป็นกลุ่ม แล้วมาเจอกลุ่มที่ตัวนี้
+//                                	echo "กลุ่มมีค่า แต่ grp[$grp] มีหรือไม่มีก็ได้<br>";
+			                        $grp = $sub_head_grp[$arr_column_map[$i]][$j];
+        		                    $align = $arr_column_align[$arr_column_map[$i]];
+            		                $sum_w = (int)$arr_column_width[$arr_column_map[$i]];
+                	    	        $txt = $sub_head_text[$arr_column_map[$i]][$j];
+                                    $colspan = $arr_colspan[$i];
+                                    $iidx = $i;
+									$colcnt = 1;
+                                } else {	// ก่อนหน้านี้เป็นกลุ่ม 1 ตัวนี้ไม่ใช่กลุ่ม
+                    	        	$col_w = floor($sum_w / $total_show_width * 100);
+//    	  							echo "line $j-->grp [$grp]($iidx) (colspan:$colspan+colcnt:$colcnt-1), w_td=$col_w, align=$align, text=$txt, w=$sum_w, map=".$arr_column_map[$iidx]."<br>";
+									if ($j < $head_line && $sub_head_grp[$arr_column_map[$i]][$j+1]==$grp)
+                                        $border = "border-bottom:none; border-top:none;";
+									else
+                                        $border = "border-bottom:thin; border-top:none;";
+//									echo "2....i=$i,j=$j, grp=$grp, border=$border, txt=$txt<br>";
+?>
+    	  							<td colspan="<?=($colspan+$colcnt-1)?>" width="<?=$col_w?>%" align="center" onClick="call_update_column(<?=$iidx?>);" style="cursor:hand; font-size:smaller;<?=$border?>"><?=str_replace("*Enter*","<br>", $txt)?></td>
+<? 
+	                    	    	$grp = "";
+	                        	    $align = "";
+    	                        	$sum_w = 0;
+	        	                    $txt = "";
+                                    $colspan=0;
+	        	       	            $colcnt = 1;
+
+									// แสดงรายการตัวปัจจุบันที่ไม่ใช่กลุ่ม
+	    	                    	$col_w = floor((int)$arr_column_width[$arr_column_map[$i]] / $total_show_width * 100);
+// 									echo "line $j-->no grp ($i)=>colspan=".$arr_colspan[$i].", w_td=$col_w, align=".$arr_column_align[$arr_column_map[$i]].", text=". $sub_head_text[$arr_column_map[$i]][$j].", w=".$arr_column_width[$arr_column_map[$i]].", map=".$arr_column_map[$i]."<br>";
+                                    $border = "border-bottom:none; border-top:none;";
+?>
+	    		  					<td colspan="<?=$arr_colspan[$i]?>" width="<?=$col_w?>%" align="center" onClick="call_update_column(<?=$i?>);" style="cursor:hand; font-size:smaller;<?=$border?>"><?=str_replace("*Enter*","<br>", $sub_head_text[$arr_column_map[$i]][$j])?></td>
+<? 
+                                }
+							} else { // $sub_head_grp[$arr_column_map[$i]][$j]==$grp
+                            	if ($grp) {  // แปลว่า ยังอยู่ในกลุ่มเดียวกัน
+	                	        	$colcnt++;
+    	                            if ($colspan > 0 && $colspan < $arr_colspan[$i]) $colspan = $arr_colspan[$i];
+        	                        $sum_w += (int)$arr_column_width[$arr_column_map[$i]];
+								} else { //	แปลว่า ตัวก่อนไม่ใช่กลุ่ม ตัวนี้ก็ไม่ใช่กลุ่ม
+	    	                    	$col_w = floor((int)$arr_column_width[$arr_column_map[$i]] / $total_show_width * 100);
+// 									echo "line $j-->no grp ($i)=>colspan=".$arr_colspan[$i].", w_td=$col_w, align=".$arr_column_align[$arr_column_map[$i]].", text=". $sub_head_text[$arr_column_map[$i]][$j].", w=".$arr_column_width[$arr_column_map[$i]].", map=".$arr_column_map[$i]."<br>";
+                                    $border = "border-bottom:none; border-top:none;";
+?>
+	    		  					<td colspan="<?=$arr_colspan[$i]?>" width="<?=$col_w?>%" align="center" onClick="call_update_column(<?=$i?>);" style="cursor:hand; font-size:smaller;<?=$border?>"><?=str_replace("*Enter*","<br>", $sub_head_text[$arr_column_map[$i]][$j])?></td>
+<? 
+                                }
+                            }
+						}	// if ($arr_column_sel[$arr_column_map[$i]] == 1)
+					}	// end for loop $i  วิ่งแนว column
+   	               	if ($grp) {	// เมื่อครบ loop แล้ว แต่ยังมีกลุ่มยังไม่จบ ทำการจบกลุ่ม column
+       	               	$col_w = floor($sum_w / $total_show_width * 100);
+//						echo "line $j-->grp [$grp]($iidx) (colspan:$colspan+colcnt:$colcnt-1), w_td=$col_w, align=$align, text=$txt, w=$sum_w, map=".$arr_column_map[$iidx]."<br>";
+                        if ($j < $head_line && $sub_head_grp[$arr_column_map[$i]][$j+1]==$grp)
+                            $border = "border-bottom:none; border-top:none;";
+                        else
+                            $border = "border-bottom:thin; border-top:none;";
+//						echo "3....i=$i,j=$j, grp=$grp, border=$border, txt=$txt<br>";
+?>
+    	  				<td colspan="<?=($colspan+$colcnt-1)?>" width="<?=$col_w?>%" align="center" onClick="call_update_column(<?=$iidx?>);" style="cursor:hand; font-size:smaller;<?=$border?>"><?=str_replace("*Enter*","<br>", $txt)?></td>
+<? 
+					}                    
+?>
+				</tr>
+<?                
+				} // end for loop $j วิ่งแนว บรรทัด
+?>
+	    		<tr>
+<?
+					for($i=0; $i < count($arr_column_map); $i++) {
+                    	if ($arr_column_sel[$arr_column_map[$i]] == 1) {	// แสดงเฉพาะที่เลือกไว้ ตามลำดับที่จัดใหม่แล้ว
+	                       	$col_w = floor((int)$arr_column_width[$arr_column_map[$i]] / $total_head_width * 100);	// 	ความกว้างที่รวมไว้แล้ว
+?>
+   	  						<td colspan="<?=$arr_colspan[$i]?>" width="<?=$col_w?>%" align="<?=($arr_column_align[$arr_column_map[$i]]=='C'?'center':($arr_column_align[$arr_column_map[$i]]=='L'?'left':'right'))?>"  onClick="call_update_column(<?=$i?>);" " style="cursor:hand; font-size:smaller; color:#F00;"><?="ข้อมูลที่ ".($arr_column_map[$i]+1)?></td>
+<? 
+						}
+					}                    
+?>
+				</tr>
+			</table>
+			<table width="96%" align="center" cellpadding="0" cellspacing="0" class="input_table" border="0">
+			    <tr> 
+				  <td  colspan="2" align="center" >&nbsp;</td>
+				</tr>
+			    <tr> 
+				  <td colspan="2" align="center"><textarea readonly cols="150"><?=$COLUMN_FORMAT?></textarea></td>
+				</tr>
+			    <tr> 
+				  <td colspan="2">&nbsp;</td>
+				</tr>
+			    <tr> 
+				  <td  colspan="2" align="center" ><input type="button" class="button" name="bt_reset" value="Reset" onClick="call_reset();">&nbsp;&nbsp;<input type="button" class="button" name="bt_save" value="บันทึก" onClick="call_save();"></td>
+				</tr>
+			    <tr> 
+				  <td  colspan="2" align="center" >&nbsp;</td>
+				</tr>
+			</table>
+<?
+			if ($COLUMN_IDX > -1) {
+            	$HEADTEXT = $heading_text[$arr_column_map[$COLUMN_IDX]];
+            	$F_ALIGN = $arr_column_align[$arr_column_map[$COLUMN_IDX]];
+            	$SHOWFLAG = $arr_column_sel[$arr_column_map[$COLUMN_IDX]];
+            	$COLW = $arr_column_width[$arr_column_map[$COLUMN_IDX]];
+/*            	if (count($arr_column_map) > 0) {
+					for($i = 0; $i < count($arr_column_map); $i++) {
+                    	if ($arr_column_sel[$arr_column_map[$i]] == 1) {	// แสดงเฉพาะที่เลือกไว้ ตามลำดับที่จัดใหม่แล้ว
+                           	echo ">$COLUMN_IDX, $i>".$arr_column_map[$COLUMN_IDX]."!=".$arr_column_map[$i]." && ".$arr_column_map[$COLUMN_IDX]."!=".$arr_column_map[$i+1]."<br>";
+						}
+					}
+				}*/
+?>
+			<table width="96%" align="center" cellpadding="0" cellspacing="0" class="input_table" border="0">
+			    <tr> 
+				  <td  colspan="2" align="center" valign="top">&nbsp;</td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">Column ที่ :&nbsp;</span></td><td><?=($COLUMN_IDX+1)?></td>
+				</tr>
+			    <tr> 
+				  <td  colspan="2" align="center" valign="top">&nbsp;</td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">หัวเรื่อง :&nbsp;</span></td>
+                  <td align="left"><input type="text" name="HEADTEXT" value="<?=$HEADTEXT?>" size="50" readonly></td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">ย้าย Column :&nbsp;</span></td>
+                  <td align="left"><input type="checkbox" name="f_moveto" id="f_moveto" value="<?=$f_moveto?>" onClick="call_check_moveto();" <?=($f_moveto==1?"checked":"")?> >&nbsp;&nbsp;
+                  		&nbsp;&nbsp;<input name="rdoMovePos" type="radio" id="rdoPos1" value="1" <?=($rdoMovePos==1?"checked":"")?> <?=($f_moveto!=1?"disabled":"")?> onClick="call_refreshMoveto();">&nbsp;วางไว้หน้า
+                        &nbsp;&nbsp;<input name="rdoMovePos" type="radio" id="rdoPos2" value="2" <?=($rdoMovePos==2?"checked":"")?> <?=($f_moveto!=1?"disabled":"")?> onClick="call_refreshMoveto();">&nbsp;วางไว้หลัง&nbsp;&nbsp;
+                  		<select name="MOVETO" id="MOVETO" style="width:300px;" <?=($f_moveto!=1?"disabled":"")?>>
+            <?
+		            	if (count($arr_column_map) > 0) {
+							for($i = 0; $i < count($arr_column_map); $i++) {
+		                    	if ($arr_column_sel[$i] == 1) {	// แสดงเฉพาะที่เลือกไว้ ตามลำดับที่จัดใหม่แล้ว
+                                	if ($rdoMovePos==1) $next_idx_block = $i-1; else $next_idx_block = $i+1;
+                                	if ($arr_column_map[$COLUMN_IDX]!=$arr_column_map[$i] && $arr_column_map[$COLUMN_IDX]!=($arr_column_map[$next_idx_block])) {
+			?> 
+										<option value="<?=$i;?>" <?=($MOVETO==$i ? "selected" : "")?>><?=($i+1)." ".$heading_text[$arr_column_map[$i]];?></option> 
+			<? 
+            						}
+            					} // end if ($arr_column_sel[$i] == 1)
+							} // end for $i loop
+						} // end if ($arr_col)
+			?>
+						</select>
+					</td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">การจัดวาง :&nbsp;</span></td>
+                  <td align="left">
+	               		<select name="F_ALIGN" id="F_ALIGN" >
+							<option value='L' <?=($F_ALIGN=='L'?'selected':'')?>>ซ้าย</option>
+							<option value='C' <?=($F_ALIGN=='C'?'selected':'')?>>กลาง</option>
+							<option value='R' <?=($F_ALIGN=='R'?'selected':'')?>>ขวา</option>
+						</select>&nbsp;&nbsp;&nbsp;&nbsp;<font color="#FF0000">*** การจัดวางจะมีผลกับข้อมูลเท่านั้น ส่วนหัวไม่สามารถเปลี่ยนแปลงได้</font>
+				  </td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">ต้องการให้แสดง :&nbsp;</span></td>
+                  <td align="left"><input type="checkbox" name="SHOWFLAG" value="<?=$SHOWFLAG?>" <?=($SHOWFLAG==1?"checked":"")?>></td>
+				</tr>
+			    <tr> 
+				  <td align="right" valign="top"><span class="label_alert">ความกว้าง :&nbsp;</span></td>
+                  <td align="left"><input type="text" name="COLW" id="COLW" value="<?=$COLW?>" size="10">&nbsp;&nbsp;(<font color="#0000FF">ความกว้างทั้งหมดของตาราง=<?=$total_show_width?></font>)</td>
+				</tr>
+			    <tr> 
+				  <td colspan="2">&nbsp;</td>
+				</tr>
+<?
+				if ($errmsg) {
+?>
+			    <tr> 
+				  <td colspan="2" align="center"><span class="label_alert"><?=$errmsg?></span>
+<?
+                  		if ($f_move==2) echo "&nbsp;&nbsp;<input type='button' class='button' name='bt_movegrp' value='ย้ายทั้งกลุ่ม' onClick='call_movegrp();'>";
+?>
+                  </td>
+				</tr>
+<?
+				}
+?>
+			    <tr> 
+				  <td colspan="2" align="center"><input type="button" class="button" name="bt_update" value="ปรับปรุง" onClick="call_change();"></td>
+				</tr>
+			    <tr> 
+				  <td colspan="2">&nbsp;</td>
+				</tr>
+			</table>
+<?
+			}
+?>
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

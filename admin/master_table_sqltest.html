@@ -1,0 +1,687 @@
+<?
+include("../php_scripts/connect_database.php");
+include("php_scripts/function_share.php");	
+include("php_scripts/load_per_control.php");
+
+if( !$current_page ) $current_page = 1;
+if(!$data_per_page) $data_per_page = 30;
+$start_record = ($current_page - 1) * $data_per_page;
+
+if (!$SQL_CMD) $SQL_CMD = $_GET["SQL_CMD"];
+if (!$SQL_CMD) $SQL_CMD = $_POST["SQL_CMD"];
+$SQL_CMD = stripslashes($SQL_CMD);
+// เริ่มการ convert ไทย รหัส unicode กลับ เป็นตัวอักษรในระบบ window-874
+$newstr = "";
+$idx = strpos($SQL_CMD,"{");
+while($idx !== false) {
+    $idx1 = strpos($SQL_CMD,"}", $idx+1); 
+    if ($idx1 !== false) {
+        $uni = (int)substr($SQL_CMD,$idx+1,$idx1-$idx-1);
+        //echo "uni=$uni<br>";
+        $w874_ch = chr($uni - 3424);
+        $SQL_CMD = substr($SQL_CMD,0,$idx).$w874_ch.substr($SQL_CMD,$idx1+1);
+    }
+    $idx = strpos($SQL_CMD,"{"); 
+}
+// จบการ convert ไทย รหัส unicode กลับ เป็นตัวอักษรในระบบ window-874
+
+//echo "SQL_CMD=$SQL_CMD<br>";
+
+if ($command=="EXECUTE"){
+    $cmd = $SQL_CMD;
+    //echo "EXECUTE..... cmd=$cmd<br>";
+    if ($connect_db=="db_dpis35")
+        $db_dpis35->send_cmd($cmd);
+    elseif ($connect_db=="db_att")
+        $db_att->send_cmd($cmd);
+    else
+        $db_dpis->send_cmd($cmd);
+}
+/*    
+function sql_check($sqlcommand) {
+    $sql = strtolower($sqlcommand);
+    $c = strpos($sql, "select");
+    if ($c!==false) {
+        $c1 = strpos($sql, "from");
+        if ($c1!==false) {
+            $sqltype = "select";
+            $c2 = strpos($sql, "where");
+            if ($c2!==false) $table_list = trim(substr($sqlcommand,$c1+4,$c2-$c1-4));
+            else $table_list = trim(substr($sqlcommand,$c1+4));
+            $a_table_list = explode(",", $table_list);
+            if (count($a_table_list) == 1) {	// แสดงว่ามี table เดียว หรือ เป็นการ join แบบ join .. on
+                $cc1 = strpos($table_list, "join");	// check แบบ join on
+            if ($cc1 !== false) {	// แสดงว่ามีการ join
+                $a_table_list = (array) null;
+                $tab = explode("join", $table_list);
+                $last_join = "";
+                for($i=0; $i < count($tab); $i++) {
+                    $c_link = strpos($tab[$i],"on");
+                    if ($c_link!==false) { // ถ้าเจอแสดงว่าเป็น ตารางรอง
+                        $a_table_list[] = trim(substr($tab[$i],0,$c_link));
+                        $a_join_typ[] = $last_join;
+                        $c_jtyp = strpos($tab[$i],"left");
+                        if ($c_jtyp!==false) {		// เป็น left join
+                            $a_join_link[] = trim(substr($tab[$i],$c_link+2,$c_jtyp-$c_link-2));
+                            $last_join = "left";
+                        } else {
+                            $c_jtyp = strpos($tab[$i],"right");
+                            if ($c_jtyp!==false) {		// เป็น right join
+                                $a_join_link[] = trim(substr($tab[$i],$c_link+2,$c_jtyp-$c_link-2));
+                                $last_join = "right";
+                            } else {
+                                $a_join_link[] = trim(substr($tab[$i],$c_link+2));
+                                $last_join = "eq";
+                            }
+                        }
+                    } else {	// ตารางหลัก
+                        if ($i==0) {
+                            $c_jtyp = strpos($tab[$i],"left");
+                            if ($c_jtyp!==false) {		// เป็น left join
+                                $a_table_list[] = trim(substr($tab[$i],0,$c_jtyp));
+                                $last_join = "left";
+                            } else {
+                                $c_jtyp = strpos($tab[$i],"right");
+                                if ($c_jtyp!==false) {		// เป็น right join
+                                    $a_table_list[] = trim(substr($tab[$i],0,$c_jtyp));
+                                    $last_join = "right";
+                                } else {
+                                    $a_table_list[] = trim($tab[$i]);
+                                    $last_join = "eq";
+                                }
+                            }
+                        } else {
+                            // wrong format
+                            $err = "wrong format-it 'on' at main table";
+                    }
+                } // end if (strpos($tab[$i],"on")!==false)
+            } // end for loop $i
+        }
+    }
+    $a_tab_alias = (array) null;
+    $a_tab_name = (array) null;
+    for($i=0; $i < count($a_table_list); $i++) {
+        $buff = trim(explode(" ", $a_table_list[$i]));
+        //$a_tab_alias[] = (trim($buff[1]) ? trim($buff[1]) : trim($buff[0]));	// ถ้ากำหนด alias ให้ table ก็ใช้ alias ถ้าไม่ก็ใช้เชื่อ table
+        $a_tab_alias[] = trim($buff[1]);
+        $a_tab_name[] = trim($buff[0]);
+    }
+    $selected_list = trim(substr($sqlcommand,$c+6,$c1-$c-6));
+    if ($selected_list=="*") {
+        $sqltype .= "all";	// selectall is select *
+        $field_list = (array) null;
+        for($i=0; $i < count($a_tab_name); $i++) {
+            if ($a_tab_name[$i]) {
+                if($DPISDB=="odbc"){
+                    $strSQL = "SELECT * FROM ".$a_tab_name[$i];
+                }elseif($DPISDB=="oci8"){
+                    $strSQL = "SELECT * FROM ".$a_tab_name[$i];
+                }elseif($DPISDB=="mysql"){
+                    $strSQL = "SHOW COLUMNS FROM ".$a_tab_name[$i];
+                } // end if
+                if ($connect_db=="db_dpis35") {
+                    $db_dpis35->send_cmd($strSQL);
+                    $field_list[$i] = $db_dpis35->list_fields($a_tab_name[$i]);
+                } elseif ($connect_db=="db_att") {
+                    $db_att->send_cmd($strSQL);
+                    $field_list[$i] = $db_att->list_fields($a_tab_name[$i]);
+                } else {
+                    $db_dpis->send_cmd($strSQL);
+                    $field_list[$i] = $db_dpis->list_fields($a_tab_name[$i]);
+                }
+            } // end if ($a_tab_name[$i])
+        } // end for loop
+        
+        $arr_fields = (array) null;
+        for($i=0; $i < count($a_tab_name); $i++) {
+            for($j=1; $j<=count($field_list[$i]); $j++) {
+                if (in_array($field_list[$i][$j]["name"], $arr_fields)) { // ถ้าชื่อปกติมีแล้ว
+                    $fldname = $field_list[$i][$j]["name"]."_".$a_tab_alias[$i];
+                    if (in_array($fldname, $arr_fields)) {	// ถ้าชื่อตามหลังด้วย alias มีแล้ว
+                        $cnt=1;
+                        $fldname1 = $fldname."_".$cnt;
+                        while(in_array($fldname1, $arr_fields)) {	// ชื่อตามด้วย alias และตามด้วย cnt
+                            $cnt++;
+                            $fldname1 = $fldname."_".$cnt;
+                        }
+                        $arr_fields[] = $fldname1;
+                    }
+                } // end if (in_array($field_list[$i][$j]["name"], $arr_fields))
+            }
+        }
+    } else {
+        $a_selected_list = explode(",", $selected_list);
+        $a_column_alias = (array) null;
+        $a_column_name = (array) null;
+        for($i=0; $i < count($a_selected_list); $i++) {
+            $buff = trim(explode("as", $a_selected_list[$i]));
+            if ($buff[1]) {
+                $a_column_alias[] = $buff[1];	// alias column name
+                $a_column_name[] = $buff[0];	// data column name
+            } else {
+                $subbuff = explode(".",$buff[0]);
+                $c_alias = ($subbuff[1] ? $subbuff[1]."_".$subbuff[0] : $subbuff[0]);	// เช่น a.PER_ID จะเปลี่ยนเป็น PER_ID_a แต่ถ้ามีค่าเดียว คือ ไม่มี . คั่น alias ก็จะชื่อนั้น [0]
+                $a_column_alias[] = $c_alias;	// alias column name
+                $a_column_name[] = $buff[0];	// data column name
+            }
+        }
+    } // end if ($selected_list=="*")
+}
+}
+} // end function sql_check
+*/
+
+    //echo "SQL_CMD=$SQL_CMD<br>";
+    $sqlcommand = strtolower($SQL_CMD);
+
+    if ($sqlcommand){
+        $ret = 0;
+        $a_sqlcheck = explode(" ",$sqlcommand);
+        $err = "";
+        $into_table = "";
+        $cmdtyp = $a_sqlcheck[0];
+        if ($cmdtyp=="select") {
+            $sel_cmd = $sqlcommand; 
+        } else if ($cmdtyp=="insert") {
+            $cv = strpos($sqlcommand,"values");
+            $c = strpos($sqlcommand,"(");
+            if ($c!==false)
+                $c1 = strpos($sqlcommand,")");
+            if ($c1!==false)
+                if ($c  > $cv) { // อยู่หลัง values แสดงว่าเป็น value list
+                    $val_list = substr($sqlcommand,$c+1,$c1-$c-1);
+                    $col_list = "";
+                } else { // อยู่ก่อน values แสดงว่าเป็น column name list
+                    $col_list = substr($sqlcommand,$c+1,$c1-$c-1);
+                    $c = strpos($sqlcommand,"(", $c1+1);
+                    if ($c!==false)
+                        $c1 = strpos($sqlcommand,")",$c+1);
+                        if ($c1!==false)
+                            $val_list = substr($sqlcommand,$c+1,$c1-$c-1);
+                }
+                $into_table = ($a_sqlcheck[1]=="into" ? $a_sqlcheck[2] : $a_sqlcheck[1]);	// ปกติแล้ว คำสั่ง insert into table ดังนั้น ตัวที่ 0=insert 1=into 2=table
+                $where = "";
+                if ($col_list) {
+                    $a_col_list = explode(",", $col_list);
+                    $a_val_list = explode(",", $val_list);
+                    $a_where = (array) null;
+                    for($ii=0; $ii < count($a_col_list); $ii++) {
+                        $a_where[] = trim($a_col_list[$ii])."=".trim($a_val_list[$ii]);
+                    }
+                    $where = "where ".implode(" and ", $a_where);
+                }
+                $sel_cmd = "select ".($col_list ? $col_list : "*")." from ".$into_table." ".$where;
+        } else if ($cmdtyp=="update") {
+            // แปลง update ให้เป็น select
+            $c = strpos($sqlcommand,"set");
+            $updtable = trim(substr($sqlcommand,6,$c-6));
+            $c1 = strrpos($sqlcommand,"where");	// หา where ตัวสุดท้าย
+            $col_list = "*";
+            if ($c!==false) {	// ถ้ามี คำ set
+                if ($c1!==false) {		// ถ้ามีคำ where
+                    $col_val= substr($sqlcommand,$c+3,$c1-$c-3);
+                    $a_col_val = explode(",",$col_val);
+                    $a_col_list = (array) null;
+                    $a_val_list = (array) null;
+                    for($ii=0; $ii < count($a_col_val); $ii++) {
+                        $c = strpos($a_col_val[$ii],"=");echo $c;
+                        //$buff[0] = substr($a_col_val[$ii],0,$c-1);/*เดิม จะทำการลบ 1*/
+                        $buff[0] = substr($a_col_val[$ii],0,$c);/*ปรับปรุง ไม่ต้องลบ1*/
+                        $buff[1] = substr($a_col_val[$ii],$c+1);
+                        //$buff = explode("=",$a_col_val[$ii]);
+                        $a_col_list[] = trim($buff[0]);
+                        $a_val_list[] = trim($buff[1]);
+                        //echo "col=".$buff[0]." , val=".$buff[1]."<br>";
+                    }
+                    $textbuff = $col_val;
+
+                    $c3 = strpos($textbuff,",");
+                    //echo ".....c3=$c3{".($c3!==false)."}....$textbuff<br>";
+                    while ($c3!==false) {
+                        $l_str = substr($textbuff,0,$c3);
+                        //echo "l_str=$l_str<br>";
+                        if (strpos($l_str,"substr(")!==false) $c4 = strpos($textbuff,",",$c3+1);
+                        else $c4 = $c3;
+                        
+                        if ($c4!==false) {
+                            $l_str = substr($textbuff,0,$c4-1);
+                            $buff = explode("=",$l_str);
+                            $a_col_list[] = trim($buff[0]);
+                            $a_val_list[] = trim($buff[1]);
+                            //echo "1..col=".$buff[0]." , val=".$buff[1]."<br>";
+                            $textbuff = substr($textbuff,$c4+1);
+                            $c3 = strpos($textbuff,",");
+                        }else{
+                            //print_r( $textbuff);            
+                            $l_str = $textbuff;
+                            $buff = explode("=",$l_str);
+                            $a_col_list[] = trim($buff[0]);
+                            $a_val_list[] = trim($buff[1]);
+                            //echo "2..col=".$buff[0]." , val=".$buff[1]."<br>";
+                            $textbuff = "";
+                            $c3 = strpos($textbuff,",");
+                        }
+                    }
+                    // print_r ($a_col_list);
+                    $col_list = implode(",", $a_col_list);
+                    $val_list = implode(",", $a_val_list);
+                    //echo "3..col=".$col_list." , val=".$val_list."<br>";
+                }
+            }
+            
+            if ($c1!==false) $where = substr($sqlcommand, $c1+5);
+            else $where = "";
+            
+            $wherecond = "";
+            // แปลง where condition
+            if ($where) {
+           
+                $arr_and = explode(" and ",$where);
+                for($i=0; $i < count($arr_and); $i++) {
+                    //echo "$i---".$arr_and[$i]."<br>";
+                    $arr_or = explode(" or ",$arr_and[$i]);
+                    $arr_where_or = (array) null;
+                    for($j=0; $j < count($arr_or); $j++) {
+                       // echo "$j---".$arr_or[$j]."<br>";
+                        $founded = 0;
+                        $ww = "";
+                        for($k=0; $k < count($a_col_list); $k++) {
+                        //echo $a_col_list[$k].'<br>';
+                            $p = strpos($arr_or[$j], $a_col_list[$k]);
+                            if ($p!==false) {
+                                //echo "---($i,$j,$k)==>".$arr_or[$j]."<br>";
+                                $ww = $a_col_list[$k]."=".$a_val_list[$k];
+                                $founded = 1;
+                                break;
+                            }
+                        } // end for $k
+                        //echo 'founded>>'.$ww;
+                        if ($founded) $arr_where_or[] = $ww;
+                        else $arr_where_or[] = $arr_or[$j];
+                    } // end for $j
+                    //echo '<pre>'; print_r($arr_where_or);
+                    $arr_where_and[] = implode(" or ",$arr_where_or);
+                } // end for $i
+                
+                $where = "where ".implode(" and ",$arr_where_and);
+            } // end if ($where)
+            //echo "col_list=$col_list, val_list=$val_list<br>";
+            //$sel_cmd = "select ".$col_list." from ".$a_sqlcheck[1]." ".$where;
+            
+            $sel_cmd = "select ".$col_list." from ".$updtable." ".$where;
+            //echo "update ... sel_cmd=$sel_cmd<br>";
+        } else if ($cmdtyp=="delete") {
+            //if (!in_array("where", $a_sqlcheck)) {
+            //delete with not where condition  Are you sure???
+            //}
+            $sel_cmd = str_replace("delete", "select *", $sqlcommand);
+        } else {
+            //echo "SQL Command -- $sqlcommand<br>";
+            $err = "not support this sql ($sqlcommand)";
+        }
+        
+        $count_data = 0;
+        if (!$err) {
+        //echo $sel_cmd;
+            if ($connect_db=="db_dpis35")
+                $count_data = $db_dpis35->send_cmd($sel_cmd);
+            elseif ($connect_db=="db_att")
+                $count_data = $db_att->send_cmd($sel_cmd);
+            else
+                $count_data = $db_dpis->send_cmd($sel_cmd);
+                //echo "sel_cmd=$sel_cmd($count_data)<br>";
+                //echo "(count_data($count_data)>0 && command=='$command' && cmdtyp=='$cmdtyp')<br>";
+                //echo $col_list;
+            if ($count_data>0 && $cmdtyp=="update") {
+                $a_col_list = explode(",",$col_list);
+                $a_val_list = explode(",",$val_list);
+                $upd=true;
+                if ($connect_db=="db_dpis35")
+                    $data1 = $db_dpis35->get_array();
+                elseif ($connect_db=="db_att")
+                    $data1 = $db_att->get_array();
+                else
+                    $data1 = $db_dpis->get_array();
+                
+                for($ii=0; $ii < count($a_col_list); $ii++) {
+                    $res = str_replace("'","",$a_val_list[$ii]);
+                    //echo "data1(".$data1[strtoupper($a_col_list[$ii])].")<==>res($res)<br>";
+                    if ($data1[strtoupper($a_col_list[$ii])]==$res) {
+                        $upd=false;
+                    }
+                }
+                //if ($command=="EXECUTE" && !$upd) $err = "Error - UPDATE not success...";
+                if ($command!="EXECUTE" && !$upd) $err = "Error - data in database is the same not need to UPDATE...";
+            }
+            
+            if (!$err && $count_data==0 && $command!="EXECUTE" && ($cmdtyp=="update" || $cmdtyp=="delete")) $err = "Error - '".strtoupper($cmdtyp)."' data not founded...";
+            if (!$err && $count_data==0 && $command=="EXECUTE" && $cmdtyp=="delete") { 
+                $err = "'".strtoupper($cmdtyp)."' data complete $last_count records..."; $ret = 1; 
+            }
+        }
+    } else {
+        $count_data = 0;
+        $err = "ไม่มี SQL Command ส่งเข้ามา";
+        $ret = 0;
+    }
+?>
+<html>
+    <head>
+        <title>การทดสอบ ประโยคขอข้อมูล (SQL Command)</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+        <!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+        <link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+    </head>
+    <script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+    <script>
+        function change_current_page( page ){
+            form1.command.value = "c";
+            form1.current_page.value = page;
+            form1.submit();
+        }
+
+        function call_execute(lastcount){
+            form1.last_count.value = lastcount;
+            form1.command.value = "EXECUTE";
+            form1.submit();
+        }
+	function call_report_csv() {
+            var sql = form1.sel_cmd.value.split(" ");
+            var sqlcommand = form1.sqlcommand.value;
+            var sqltype = sql[0];
+            var currDate = new Date();
+            var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+            rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+            var report_title = "รายงานข้อมูล '"+(form1.command.value=="EXECUTE" ? "หลัง" : "ก่อน")+"' การประมวลผล SQL||["+sqlcommand+"]";
+            document.form1.report_title.value = report_title;
+            document.form1.target = "_blank";
+            var parameter = "?report_title="+report_title+"&sel_cmd="+form1.sel_cmd.value+"&UTC" + rptDate;
+            
+            document.form1.action = "report/rpt_sqltest_csv.php"+parameter;
+                
+            document.form1.submit();
+            document.form1.target = "_self";
+            document.form1.action = "master_table_sqltest.html";
+        }
+        function call_report(type) {
+            //		alert("command="+form1.command.value);
+            var sql = form1.sel_cmd.value.split(" ");
+            var sqlcommand = form1.sqlcommand.value;
+            var sqltype = sql[0];
+            var currDate = new Date();
+            var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+            rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+            var report_title = "รายงานข้อมูล '"+(form1.command.value=="EXECUTE" ? "หลัง" : "ก่อน")+"' การประมวลผล SQL||["+sqlcommand+"]";
+            //		alert("report_title="+report_title);
+            document.form1.report_title.value = report_title;
+            document.form1.target = "_blank";
+            var parameter = "?report_title="+report_title+"&sel_cmd="+form1.sel_cmd.value+"&UTC" + rptDate;
+            //		alert("parameter="+parameter);
+            if (type==1)
+                document.form1.action = "report/rpt_sqltest.php"+parameter;
+            else
+                document.form1.action = "report/rpt_sqltest_xls.php"+parameter;
+            document.form1.submit();
+            document.form1.target = "_self";
+            document.form1.action = "master_table_sqltest.html";
+        } 
+
+        function call_return(){
+            if (!form1.command.value) {
+                //			alert("return==>"+"<?=$ret?>"+form1.ret.value);
+                parent.refresh_opener(form1.ret.value+"<::>");
+            }
+        }
+    </script>
+    <body onUnload="call_return();">
+        <form action="master_table_sqltest.html" method="get" enctype="multipart/form-data" name="form1">
+            <input type="hidden" name="current_page" value="<?=$current_page?>">
+            <input type="hidden" name="total_page" value="<?=$total_page?>">
+            <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+            <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+            <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+            <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+            <input type="hidden" name="SQL_CMD" value="<?=$SQL_CMD?>">
+            <input type="hidden" name="sqlcommand" value="<?=$sqlcommand?>">
+            <input type="hidden" name="col_list" value="<?=$col_list?>">
+            <input type="hidden" name="val_list" value="<?=$val_list?>">
+            <input type="hidden" name="into_table" value="<?=$into_table?>">
+            <input type="hidden" name="sel_cmd" value="<?=$sel_cmd?>">
+            <input type="hidden" name="last_count" value="<?=$last_count?>">
+            <input type="hidden" name="command" value="<?=$command?>">
+            <input type="hidden" name="report_title">
+            <input type="hidden" name="ret" value="<?=$ret?>">
+            &nbsp;
+            <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                    <td valign="top" class="layout_inactive">&nbsp;การทดสอบ ประโยคขอข้อมูล (SQL Command)</td>
+                </tr>
+                <tr>
+                    <td valign="top">&nbsp;</td>
+                </tr>
+                <tr>
+                    <td valign="top">
+                        <table><tr><td width="10%" align="right" valign="top">&nbsp;ประโยค&nbsp;:&nbsp;</td><td><textarea id="SQL_CMD" name="SQL_CMD" cols="100" rows="4" onFocus="fieldFocus='SQL_CMD'"; readonly><?=$SQL_CMD?></textarea>&nbsp;</td></tr></table></td>
+                </tr>
+                <?
+                if ($err) {
+                ?>
+                <tr>
+                    <td valign="top"><font color="#FF0000" size="+3"><b><?=$err?></b></font>
+                    </td>
+                </tr>
+            </table>
+            <?
+            } else {
+            if ($command!="EXECUTE" && ($cmdtyp == "insert" || $cmdtyp == "update" || $cmdtyp == "delete")) {
+            $last_count = 0;
+            if (($cmdtyp == "insert" && $count_data > 0) || ($cmdtyp == "update" && $count_data == 0) || ($cmdtyp == "delete" && $count_data == 0)) {
+            ?>
+            <tr>
+                <td align="center">
+                    <font color="#0000FF" size="+1">ไม่สามารถทำการ '<?=$cmdtyp?>' เพราะพบข้อมูลซ้ำ</font>
+                </td>
+            </tr>
+            <?
+            } else {
+            ?>
+            <tr>
+                <td align="center">
+                    <input type="button" name="bt_EXECUTE" value="ยืนยัน '<?=strtoupper($cmdtyp);?>'" onClick="call_execute(<?=$count_data?>);">
+                </td>
+            </tr>
+            <?
+            }
+            $ret = 0;
+            }
+            if ($command!="EXECUTE" && $cmdtyp == "insert" && $count_data == 0) {
+            ?>
+            <tr>
+                <td align="center">&nbsp;
+                </td>
+            </tr>
+            <tr>
+                <td align="center"><font color="#996600" size="+1">*** ข้อมูลที่จะทำการ INSERT ***</font>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+                        <?
+                        $a_col_list = explode(",",$col_list);
+                        $a_val_list = explode(",",$val_list);
+                        $col_w = floor(100/count($a_col_list));
+                        echo "<tr class='table_body_over' onClick='' style='' $onmouse_event>";
+                        for($ii=0; $ii < count($a_col_list); $ii++) {
+                        echo "<td width='$col_w%'>".$a_col_list[$ii]."</td>";
+                        }
+                        echo "<tr>";
+                        echo "<tr class='$class' onClick='' style='' $onmouse_event>";
+                        for($ii=0; $ii < count($a_val_list); $ii++) {
+                        echo "<td>".stripslashes($a_val_list[$ii])."</td>";
+                        }
+                        echo "<tr>";
+                        ?>
+                    </table>
+                </td>
+            </tr>
+            <?
+            } else {
+            if ($count_data > 0) {
+            if ($command=="EXECUTE" && $cmdtyp == "insert") {
+            $msg = "INSERT ข้อมูลเรียบร้อยแล้ว จำนวน $count_data รายการ";
+            $ret = 1;
+            } else if ($command=="EXECUTE" && $cmdtyp == "update") {
+            $msg = "UPDATE ข้อมูลเรียบร้อยแล้ว จำนวน $count_data รายการ";
+            $ret = 1;
+            } else if ($command=="EXECUTE" && $cmdtyp == "delete") {
+            $msg = "DELETE ข้อมูลไม่ได้ ข้อมูลยังมีอยู่ จำนวน $count_data รายการ";
+            $ret = 1;
+            } else if ($command!="EXECUTE" && $cmdtyp == "update") {
+            $msg = "ข้อมูลที่จะ UPDATE จำนวน $count_data รายการ";
+            $ret = 0;
+            } else if ($command!="EXECUTE" && $cmdtyp == "delete") {
+            $msg = "ข้อมูลที่จะ DELETE จำนวน $count_data รายการ";
+            $ret = 0;
+            } else {
+            $msg = "ข้อมูลมีทั้งสิ้น $count_data รายการ";
+            $ret = 0;
+            }
+            } else {
+            if ($command=="EXECUTE" && $cmdtyp == "insert") {
+            $msg = "INSERT ข้อมูลไม่สำเร็จ หาข้อมูลที่ INSERT ได้  0 รายการ";
+            $ret = 0;
+            } else if ($command=="EXECUTE" && $cmdtyp == "update") {
+            $msg = "UPDATE ข้อมูลไม่สำเร็จ จำนวน $last_count รายการ";
+            $ret = 0;
+            } else if ($command=="EXECUTE" && $cmdtyp == "delete") {
+            $msg = "DELETE ข้อมูลเรียบร้อยแล้วจำนวน $last_count รายการ";
+            $ret = 1;
+            } else if ($command!="EXECUTE" && $cmdtyp == "update") {
+            $msg = "ไม่พบข้อมูลที่จะ UPDATE";
+            $ret = 0;
+            } else {
+            $msg = "ไม่พบข้อมูลที่ต้องการ";
+            $ret = 0;
+            }
+            }
+            ?>
+            <tr>
+                <td height="30" align="center" class="label_hilight">
+                    <table width="100%"  class="table_body_3"><tr>
+                            <td width="20%" align="left"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+                                <? if ($BUTTON_DISPLAY==1) { ?>
+                                <input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE?>" onClick="call_report(1);">
+                                <?  } else { ?>
+                                <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_report(1);">
+                                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+                            <td align="center"><?=$msg?></td>
+                            <td width="20%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+                                <? if ($BUTTON_DISPLAY==1) { ?>
+                                <input name="btn_exportcsv" type="button" class="button" style="width:130" value="ส่งออกไฟล์ CSV" onClick="call_report_csv();">
+                                <input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE?>" onClick="call_report(2);">
+                                <?  } else { ?>
+                                <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_report(2);">
+                                <? } ?>                <? }else{ echo "&nbsp;"; } ?></td>
+                        </tr></table>
+                </td>
+            </tr>
+        </table>
+        <script language="JavaScript">form1.ret.value="<?=$ret?>";</script>
+        <?
+        $total_page = ceil( $count_data / $data_per_page );
+        $page_link = create_link_page($total_page, $current_page);
+        $limit_data = "";
+
+        if($DPISDB=="odbc"){	
+        $select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+        $cmd = "	select *	from	 ( select	top $select_top * from (
+        select top ". ($data_per_page * $current_page) ." ".substr($sel_cmd,6).") ) 	";	
+        }elseif($DPISDB=="oci8"){
+        $rec_start = (($current_page-1) * $data_per_page) + 1;
+        $rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+        $cmd = "select * from (
+        select rownum rnum, q1.* from ( ".$sel_cmd.")  q1	) where rnum between $rec_start and $rec_end  ";						
+        }elseif($DPISDB=="mysql"){
+        $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+        $cmd = $sel_cmd;
+        } // end if
+
+        if ($connect_db=="db_dpis35"){
+        $count_page_data = $db_dpis35->send_cmd($cmd);
+        //echo "db_dpis35";
+        } elseif ($connect_db=="db_att"){
+        $count_page_data = $db_att->send_cmd($cmd);
+        //echo "db_att";
+        }else{
+        $count_page_data = $db_dpis->send_cmd($cmd);
+        //echo "db_dpis";
+        }
+        //			$db_dpis->show_error();
+        //			$db_dpis35->show_error();
+        //			$db_att->show_error();
+        //			echo "--$cmd($count_page_data)<br>";
+        if($count_page_data){
+        ?>
+        <table width="98%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+            <? 
+            $current_list = "";
+            $data_count = 0;
+            //				echo ">>>>$select_list<br>";
+            while(($connect_db=="db_dpis35") ? $data = $db_dpis35->get_array() : (($connect_db=="db_att") ? $data = $db_att->get_array() : $data = $db_dpis->get_array())) :
+            $data = array_change_key_case($data, CASE_LOWER);
+            if ($data_count==0) {
+            $col_cnt = count($data);
+            $w_avg = floor(100 / $col_cnt);
+            ?>
+            <tr class="table_head">
+                <td width="<?=$w_avg;?>%" height="25" align="left">ลำดับที่</td>
+                <?
+                foreach($data as $key => $val) {
+                if ($key !== "rnum") {
+                ?>
+                <td width="<?=$w_avg;?>%" height="25" align="left"><?=$key;?></td>
+                <?
+                }
+                }
+                ?>
+            </tr>
+            <?
+            }
+            $data_count++;
+            if($data_count > $data_per_page) break;
+            $totcnt = ($current_page - 1) * $data_per_page;
+
+            $class = "table_body";
+            //					echo "<tr class='$class' onClick='' style='cursor:hand;' $onmouse_event>";
+            echo "<tr class='$class' onClick='' style='' $onmouse_event>";
+            echo "<td>".($totcnt + $data_count)."</td>";
+            foreach($data as $key => $val) {
+            if ($key !== "rnum") {
+            echo "<td>".stripslashes($val)."</td>";
+            }
+            }
+            echo "<tr>";
+            ?>
+            <!--  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+                <td height="22" align="center"><?=$totcnt + $data_count?></td>
+                <td>&nbsp;<?=$val?></td>
+              </tr>-->
+            <?			endwhile; ?>
+        </table>
+        <? if($total_page > 1) : ?>
+        <table width="98%" border="0" align="center" cellpadding="2" cellspacing="2"  class="table_body_3">
+            <tr>
+                <td><?=$page_link?></td>
+            </tr>
+        </table>
+        <? endif; ?>&nbsp;
+        <?
+        } // end if($count_page_data)
+        } // end if ($cmdtyp == "insert")
+        } // end if ($err)
+        ?>
+        <input type="hidden" name="current_list" value="<?=$current_list?>">
+    </form>
+</body>
+</html>

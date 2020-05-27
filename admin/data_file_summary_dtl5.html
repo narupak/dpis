@@ -1,0 +1,249 @@
+<?
+	$SUM_QTY += 0;
+
+	if($command == "UPDATE" && trim($OP_CODE) && trim($PM_CODE) && trim(LEVEL_NO)){
+		$cmd = " update PER_SUM_DTL5 set
+						 	SUM_QTY = $SUM_QTY,
+							UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE'
+						 where SUM_ID=$SUM_ID and trim(OP_CODE)='$OP_CODE' and trim(PM_CODE)='$PM_CODE' and trim(LEVEL_NO)='$LEVEL_NO'
+					   ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+	
+	if($command == "DELETE" && trim($OP_CODE) && trim($PM_CODE) && trim(LEVEL_NO)){
+		$cmd = " delete from PER_SUM_DTL5 where SUM_ID=$SUM_ID and trim(OP_CODE)='$OP_CODE' and trim(PM_CODE)='$PM_CODE' and trim(LEVEL_NO)='$LEVEL_NO' ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+
+	if($UPD){
+		$cmd = " select		a.OP_CODE, b.OP_NAME, a.PM_CODE, c.PM_NAME, a.LEVEL_NO, d.LEVEL_NAME, a.SUM_QTY
+						 from		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+						 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+						 				and trim(a.OP_CODE)='$OP_CODE' and trim(a.PM_CODE)='$PM_CODE' and trim(a.LEVEL_NO)='$LEVEL_NO'
+					   ";
+		$db_dpis->send_cmd($cmd);
+//		echo "$cmd<br>";
+//		$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		$OP_NAME = $data[OP_NAME];
+		$PM_NAME = $data[PM_NAME];
+		$LEVEL_NAME = $data[LEVEL_NAME];
+		$SUM_QTY = $data[SUM_QTY];
+	} // end if
+	
+	if(!$UPD){
+		$OP_CODE = "";
+		$OP_NAME = "";
+		$PM_CODE = "";
+		$PM_NAME = "";
+		$LEVEL_NO = "";
+		$LEVEL_NAME = "";
+		$SUM_QTY = "";
+	} // end if
+	
+	$cmd = " select		a.SUM_ID
+					 from		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+					 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+				   ";
+	$count_data = $db_dpis->send_cmd($cmd);
+
+	$total_page = ceil( $count_data / $data_per_page );
+	if($current_page > $total_page) $current_page = $total_page;
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<script>
+	function confirm_delete(data_id0, data_id1, data_id2, data_label){
+		if(confirm("ต้องการลบข้อมูลสรุปจำนวนสำนักงานประจำจังหวัดนี้ใช่หรือไม่ [ " + data_label + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.OP_CODE.value = data_id0;
+			form1.PM_CODE.value = data_id1;
+			form1.LEVEL_NO.value = data_id2;
+			form1.submit();
+		} // end if
+	}
+</script>
+<input type="hidden" name="OP_CODE" value="<?=$OP_CODE?>">
+<input type="hidden" name="PM_CODE" value="<?=$PM_CODE?>">
+<input type="hidden" name="LEVEL_NO" value="<?=$LEVEL_NO?>">
+<? if($UPD){ ?>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  <tr>
+    <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td colspan="2" height="5"></td>
+      </tr>
+      <tr>
+        <td width="35%" height="22" align="right">กลุ่มสำนักงานประจำจังหวัด&nbsp;:&nbsp;</td>
+        <td width="65%"><input type="text" name="OP_NAME" value="<?=$OP_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right"><?=$PM_TITLE?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="PM_NAME" value="<?=$PM_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right"><?=$LEVEL_TITLE?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="LEVEL_NAME" value="<?=$LEVEL_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right">จำนวนสำนักงาน&nbsp;:&nbsp;</td>
+        <td><input type="text" name="SUM_QTY" value="<?=$SUM_QTY?>" class="textbox"></td>
+      </tr>
+	  <tr>
+	  	<td colspan="2" height="5"></td>		
+	  </tr>
+      <tr align="center">
+        <td height="30" colspan="2"><? if ($UPD) { ?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onclick="form1.command.value='CANCEL'" class="button">
+          <?  } else { ?>
+          <input name="image2" type="image" onclick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Submit22" type="submit" class="button" onclick="form1.command.value='UPDATE'" value="<?=$EDIT_TITLE?>" />
+          <?  } else { ?>
+          <input name="image22" type="image" onclick="form1.command.value='UPDATE'" src="images/save.png" alt="<?=$EDIT_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?}?>
+          <? } else { ?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>" />
+          <?  } else { ?>
+          <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onclick="form1.reset();" />&nbsp;
+          <? } echo "&nbsp; &nbsp;";?>
+          <?if($PAGE_AUTH["add"]=="Y"){?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Submit2" type="submit" class="button" onclick="form1.command.value='ADD'" value="<?=$ADD_TITLE?>" />
+          <?  } else { ?>
+          <input name="image23" type="image" onclick="form1.command.value='ADD'" src="images/save.png" alt="<?=$ADD_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?}?>
+          <?}?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<? } // end if ?>
+ &nbsp;
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+      <tr height="22">
+        <!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+        <td align="center">พบข้อมูลสรุปจำนวนสำนักงานประจำจังหวัด ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+      </tr>
+    </table></td>
+  </tr>
+</table>
+ &nbsp;
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record (trim(a.OP_CODE) + '|' + trim(a.PM_CODE) + '|' trim(a.LEVEL_NO)) as concat_pk 
+							 from 		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+							 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+							 order by a.OP_CODE, a.PM_CODE, a.LEVEL_NO ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." (trim(a.OP_CODE) + '|' + trim(a.PM_CODE) + '|' trim(a.LEVEL_NO)) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " select		top $data_per_page
+										a.OP_CODE, b.OP_NAME, a.PM_CODE, c.PM_NAME, a.LEVEL_NO, d.LEVEL_NAME, a.SUM_QTY
+						 from 		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+						 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+						$limit_data
+						order by	a.OP_CODE, a.PM_CODE, a.LEVEL_NO "; 
+	}elseif($DPISDB=="oci8"){
+		$tmp1 = $current_page * $data_per_page;
+		$tmp2 = ($current_page - 1) * $data_per_page;
+		$cmd = "select * from (
+							select alist.*, rownum  rnum from (	
+								 select		a.OP_CODE, b.OP_NAME, a.PM_CODE, c.PM_NAME, a.LEVEL_NO, d.LEVEL_NAME, a.SUM_QTY
+								 from		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+								 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+								 order by a.OP_CODE, a.PM_CODE, a.LEVEL_NO
+							) alist
+							where rownum <= $tmp1
+						) where rnum > $tmp2   ";						
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select	a.OP_CODE, b.OP_NAME, a.PM_CODE, c.PM_NAME, a.LEVEL_NO, d.LEVEL_NAME, a.SUM_QTY
+						 from 		PER_SUM_DTL5 a, PER_ORG_PROVINCE b, PER_MGT c, PER_LEVEL d
+						 where	a.OP_CODE=b.OP_CODE and a.PM_CODE=c.PM_CODE and a.LEVEL_NO=d.LEVEL_NO and a.SUM_ID=$SUM_ID
+						order by	a.OP_CODE, a.PM_CODE, a.LEVEL_NO
+							$limit_data "; 
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db_dpis->show_error();
+	if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head" align="center">
+    <td height="25" width="20%">กลุ่มสำนักงานประจำจังหวัด</td>
+    <td><?=$PM_TITLE?></td>
+    <td width="20%"><?=$LEVEL_TITLE?></td>
+    <td height="22">จำนวนสำนักงาน</td>
+    <td width="5%"><?=$EDIT_TITLE?>&nbsp;</td>
+    <td width="5%"><?=$DEL_TITLE?>&nbsp;</td>
+  </tr>
+  <?
+		$current_list = "";
+		$data_count = 0;
+  		while($data = $db_dpis->get_array()) :
+			$data_count++;
+			if($data_count > $data_per_page) break;
+			$TMP_OP_CODE = trim($data[OP_CODE]);
+			$TMP_PM_CODE = trim($data[PM_CODE]);
+			$TMP_LEVEL_NO = trim($data[LEVEL_NO]);
+			$current_list .= ((trim($current_list))?",":"") . ($TMP_OP_CODE ."|". $TMP_PM_CODE ."|". $TMP_LEVEL_NO);
+
+			$OP_NAME = $data[OP_NAME];
+			$PM_NAME = $data[PM_NAME];
+			$LEVEL_NAME = $data[LEVEL_NAME];
+			$SUM_QTY = number_format($data[SUM_QTY]);
+
+			$class = "table_body";
+			$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+			if($OP_CODE==$TMP_OP_CODE && $PM_CODE==$TMP_PM_CODE && $LEVEL_NO==$TMP_LEVEL_NO){ 
+				$class = "table_body_over";
+				$onmouse_event = "";
+			} // end if		
+  ?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+    <td height="22" align="center">&nbsp;<?=$OP_NAME?></td>
+    <td>&nbsp;<?=$PM_NAME?></td>
+    <td align="center"><?=level_no_format($LEVEL_NO)?></td>
+    <td align="right"><?=$SUM_QTY?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:form1.action+='?UPD=1';form1.OP_CODE.value='$TMP_OP_CODE'; form1.PM_CODE.value='$TMP_PM_CODE'; form1.LEVEL_NO.value='$TMP_LEVEL_NO'; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขสรุปจำนวนสำนักงานประจำจังหวัด"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:confirm_delete('$TMP_OP_CODE','$TMP_PM_CODE','$TMP_LEVEL_NO','$OP_NAME : $PM_NAME : $TMP_LEVEL_NO : $SUM_QTY')"?>"><img src="images/b_drop.png" border="0" alt="ลบสรุปจำนวนสำนักงานประจำจังหวัด"></td>
+	  <?}?>
+  </tr>
+  <?
+  		endwhile;
+  ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+	} // end if
+?>

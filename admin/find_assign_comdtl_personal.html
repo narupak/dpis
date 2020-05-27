@@ -1,0 +1,84 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	
+	if( trim($PER_ID) ) {
+		$cmd = "	select 	PER_CARDNO, PER_BIRTHDATE, PER_TYPE, POS_ID, POEM_ID, LEVEL_NO, PER_SALARY  
+				from 	PER_PERSONAL 
+				where 	PER_ID=$PER_ID  ";
+		$db_dpis->send_cmd($cmd);		
+		$data = $db_dpis->get_array();
+		$PER_CARDNO = trim($data[PER_CARDNO]);
+		$PER_TYPE = trim($data[PER_TYPE]);		
+		$arr_temp = explode("-", trim($data[PER_BIRTHDATE]));
+		$PER_BIRTHDATE = substr($arr_temp[2], 0, 2) ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+		$POS_ID = trim($data[POS_ID]);
+		$POEM_ID = trim($data[POEM_ID]);
+		$LEVEL_NO = trim($data[LEVEL_NO]);
+		$CMD_OLD_SALARY = trim($data[PER_SALARY]);		
+	
+	  	$cmd = " select LEVEL_NAME from PER_LEVEL where LEVEL_NO = '$LEVEL_NO' ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();					
+		$LEVEL_NAME = trim($data[LEVEL_NAME]);		
+				
+		if ($PER_TYPE == 1) {
+			$cmd = "	select	POS_NO, a.PL_CODE, PL_NAME, ORG_ID, ORG_ID_1, ORG_ID_2 ,LEVEL_NO 
+							from		PER_POSITION a, PER_LINE b 
+							where	POS_ID=$POS_ID and a.PL_CODE=b.PL_CODE ";
+		} elseif ($PER_TYPE == 2) {
+			$cmd = "	select	POEM_NO, a.PN_CODE, PN_NAME, ORG_ID, ORG_ID_1, ORG_ID_2 
+							from		PER_POS_EMP a, PER_POS_NAME b 
+							where	POEM_ID=$POEM_ID and a.PN_CODE=b.PN_CODE";
+		}
+		$db_dpis->send_cmd($cmd);		
+		$data = $db_dpis->get_array();
+		$PL_PN_CODE 		= ($PER_TYPE == 1)? 	trim($data[PL_CODE]) : trim($data[PN_CODE]);
+		$CMD_POSITION 		= ($PER_TYPE == 1)? 	trim($data[PL_NAME]) : trim($data[PN_NAME]);
+		$CMD_POSPOEM_NO 	= ($PER_TYPE == 1)?		trim($data[POS_NO]) : trim($data[POEM_NO]);
+		$LEVEL_NO_POS = trim($data[LEVEL_NO]);
+		if(trim($LEVEL_NO_POS)){	
+			$cmd = "select LEVEL_NAME from PER_LEVEL where LEVEL_NO='$LEVEL_NO_POS'";
+			$db_dpis->send_cmd($cmd);
+			$Level = $db_dpis->get_array();
+			$LEVEL_NAME_POS=$Level[LEVEL_NAME];
+		}	
+
+		$ORG_ID = $data[ORG_ID];
+		$ORG_ID_1 = $data[ORG_ID_1];
+		$ORG_ID_2 = $data[ORG_ID_2];	
+		
+		if ($ORG_ID)			$tmp_ORG_ID[] =  $ORG_ID;
+		if ($ORG_ID_1)		$tmp_ORG_ID[] =  $ORG_ID_1;
+		if ($ORG_ID_2)		$tmp_ORG_ID[] =  $ORG_ID_2;
+		$search_org_id = implode(", ", $tmp_ORG_ID);
+		
+		$cmd = " select ORG_ID, ORG_NAME from PER_ORG 	where ORG_ID in ($search_org_id) ";
+		$db_dpis->send_cmd($cmd);		
+		while ( $data = $db_dpis->get_array() ) {
+			$ORG_NAME = ($ORG_ID == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME ;
+			$ORG_NAME_1 = ($ORG_ID_1 == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_1 ;
+			$ORG_NAME_2 = ($ORG_ID_2 == trim($data[ORG_ID]))?  trim($data[ORG_NAME]) : $ORG_NAME_2 ;						
+		}
+	}
+	
+?>
+<script>
+	parent.document.form1.PER_CARDNO.value = '<?=$PER_CARDNO?>';
+	parent.document.form1.PER_BIRTHDATE.value = '<?=$PER_BIRTHDATE?>';
+	parent.document.form1.PER_TYPE.value = '<?=$PER_TYPE?>';
+
+	parent.document.form1.PL_PN_CODE.value = '<?=$PL_PN_CODE?>';
+	parent.document.form1.CMD_POSITION.value = '<?=$CMD_POSITION?>';
+	parent.document.form1.CMD_POSPOEM_NO.value = '<?=$CMD_POSPOEM_NO?>';	
+	parent.document.form1.CMD_LEVEL2.value = '<?=$LEVEL_NAME?>';
+	parent.document.form1.CMD_LEVEL.value = '<?=$LEVEL_NO?>';	
+	parent.document.form1.CMD_LEVEL3.value = '<?=$LEVEL_NAME_POS?>';
+	parent.document.form1.CMD_LEVEL1.value = '<?=$LEVEL_NO_POS?>';	
+	parent.document.form1.CMD_OLD_SALARY.value = '<?=$CMD_OLD_SALARY?>';
+	parent.document.form1.CMD_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.CMD_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.CMD_ORG5.value = '<?=$ORG_NAME_2?>';
+</script>

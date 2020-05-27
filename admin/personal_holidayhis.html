@@ -1,0 +1,563 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/personal_holidayhis.php");
+	include("php_scripts/load_per_control.php");
+	
+	$cmd =" select 		count(HH_ID) as count_data 
+					from 		PER_HOLIDAYHIS
+					where		PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(hh_id , hg_name){
+		if(confirm("ต้องการลบข้อมูลประวัติวันหยุด (พิเศษ) ใช่หรือไม่ [ " + hg_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.HH_ID.value = hh_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_holiday_group (code, name) {	
+		parameter = "";
+		HG_CODE = eval("form1." + code);
+		HG_NAME = eval("form1." + name);
+	    call_openDialog("search_holiday_group.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กลุ่มวันหยุด");		
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+	
+	function setLayer(layerID){
+		if(document.getElementById(layerID)){
+			if(document.getElementById(layerID).style.display=='none'){
+				document.getElementById(layerID).style.display='block';	
+			}else{
+				document.getElementById(layerID).style.display='none';
+			}
+			if(document.getElementById(layerID).style.visibility=='hidden'){
+				document.getElementById(layerID).style.visibility='visible';
+			}else{
+				document.getElementById(layerID).style.visibility='hidden';
+			}
+		}
+	}
+	function confirm_update() {
+		if(form1.START_DATE.value=="") {
+		alert("กรุณาระบุ ตั้งแต่วันที่");
+		form1.START_DATE.focus();
+		return false;
+		} 
+		else if(form1.END_DATE.value=="") {
+		alert("กรุณาระบุ ถึงวันที่");
+		form1.END_DATE.focus();
+		return false;
+		}
+		else if(form1.HG_NAME.value=="") {
+		alert("กรุณาเลือก กลุ่มวันหยุด");
+		form1.HG_NAME.focus();
+		return false;
+		}
+		 else  if(form1.START_DATE.value && form1.END_DATE.value)
+			intMinDate = Date.parse(form1.START_DATE.value);
+			intMaxDate = Date.parse(form1.END_DATE.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ ไม่ถูกต้อง");
+				form1.END_DATE.focus();
+				 return false;
+			}
+		form1.command.value='UPDATE';
+		return true;
+	}
+	
+	function confirm_add() {
+		if(form1.START_DATE.value=="") {
+		alert("กรุณาระบุ ตั้งแต่วันที่");
+		form1.START_DATE.focus();
+		return false;
+		} 
+		else if(form1.END_DATE.value=="") {
+		alert("กรุณาระบุ ถึงวันที่");
+		form1.END_DATE.focus();
+		return false;
+		}
+		else if(form1.HG_NAME.value=="") {
+		alert("กรุณาเลือก กลุ่มวันหยุด");
+		form1.HG_NAME.focus();
+		return false;
+		}
+		 else  if(form1.START_DATE.value && form1.END_DATE.value)
+			intMinDate = Date.parse(form1.START_DATE.value);
+			intMaxDate = Date.parse(form1.END_DATE.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ ไม่ถูกต้อง");
+				form1.END_DATE.focus();
+				 return false;
+			}
+		form1.command.value='ADD';
+		return true;
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_holiday_group") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				HG_CODE.value = arrValue[0];
+				HG_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลกลุ่มวันหยุด":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		$setPerStyle="display:none; visibility:hidden";
+		if($UPD||$VIEW||($BKK_FLAG==1&&$ADD_NEXT==1)){ $setPerStyle="display:block; visibility:visible"; }
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_holidayhis.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="HH_ID" value="<?=$HH_ID?>">
+          <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">	   
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%">	<? if (!$HIDE_HEADER) { ?>
+          &nbsp;<? if ($BUTTON_DISPLAY==1) { ?>
+		  <input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_holidayhis'"><!--history.back(); --><?  } else {  echo "&nbsp; &nbsp;"; ?>
+<img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_holidayhis'">
+<? } echo "&nbsp; &nbsp;"; ?>
+		  <? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td>
+              <?php
+              if($show_btn_add){
+              ?>
+              <table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body" onClick="javascript:setLayer('id_work_cyclehis');"><?=($UPD)?"แก้ไข":$ADDTAB_TITLE?>ข้อมูล</td>
+		  </tr>		
+	  </table>
+               <?php }?>
+          </td>
+	</tr>
+  </table>
+  <table id="id_work_cyclehis" width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" style="<?=$setPerStyle; ?>" 
+  onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td align="right" height="22">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FROM_DATE_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                  <tr>
+                    <td width="30%" height="22"><input type="text" name="START_DATE" id="START_DATE" value="<?=$START_DATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.START_DATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>                    </td>
+                    <td>&nbsp;&nbsp;
+                        <? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn_startdate" class="button" onClick="return showCalendar('START_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+                        <? endif; ?></td>
+                  </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td align="right" height="22">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$TO_DATE_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                  <tr>
+                    <td width="30%" height="22"><input type="text" name="END_DATE" id="END_DATE" value="<?=$END_DATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.END_DATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>                    </td>
+                    <td>&nbsp;&nbsp;
+                        <? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn_enddate" class="button" onClick="return showCalendar('END_DATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">
+                        <? endif; ?></td>
+                  </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td nowrap width="17%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;กลุ่มวันหยุด&nbsp;:&nbsp;</td>
+              <td width="33%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                  <tr>
+                    <td width="30%" height="22"><input type="text" name="HG_NAME" value="<?=$HG_NAME?>" style="width:100%" class="textbox" readonly>
+                        <input type="hidden" name="HG_CODE" value="<?=$HG_CODE?>"></td>
+                    <td width="40%">&nbsp;&nbsp;
+                        <? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกลุ่มวันหยุด" onClick="call_search_holiday_group('HG_CODE', 'HG_NAME');">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.HG_NAME.value=''; form1.HG_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+                        <? endif; ?>                    </td>
+                  </tr>
+              </table></td>
+            </tr>
+            <tr>
+              <td align="right" valign="top"><?=$REMARK_TITLE; ?>&nbsp;:&nbsp;</td>
+              <td colspan="3"><textarea name="REMARK" rows="3" cols="70" class="selectbox" style="width:85%"><?=$REMARK?></textarea></td>
+            </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:80%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+          </table></td>
+        </tr>
+        <tr>
+          <td height="5" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no"></iframe></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25">
+		  		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_edit" type="submit" class="button" onClick="return confirm_update();"  value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+            <input name="image2" type="image" onClick="return confirm_update();"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+				<? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.HG_CODE.value='';" class="button" > 
+			  <?  } else { ?>
+            <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.HG_CODE.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_add" type="submit" class="button" onClick="return confirm_add();"  value="<?=$ADD_TITLE?>">
+			  <?  } else { ?>
+            <input name="image2" type="image" onClick="return confirm_add();"  src="images/save.png" alt="<?=$ADD_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+			  <?}?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+			  <?  } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+            <? } echo "&nbsp; &nbsp;";?>
+			  <?}?></td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td></tr>
+      </table></td>
+    </tr>
+  </table> 
+ <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลกลุ่มวันหยุดทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+  
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//(ค่าเริ่มต้น) ตั้งแต่วันที่
+		$order_str = "ORDER BY START_DATE ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//กลุ่มวันหยุด
+		$order_str = "ORDER BY pat.HG_NAME  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ถึงวันที่
+		$order_str = "ORDER BY END_DATE ".$SortType[$order_by];
+	} elseif($order_by==4) {	//หมายเหตุ
+		$order_str =  "ORDER BY REMARK  ".$SortType[$order_by];
+	}
+	
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(HH_ID) as concat_pk from PER_HOLIDAYHIS pah, PER_HOLIDAY_GROUP pat where	PER_ID=$PER_ID and pah.HG_CODE=pat.HG_CODE $search_condition order by $order_by ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(HH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = " SELECT 		top  $data_per_page 
+												HH_ID, pah.HG_CODE, pat.HG_NAME, START_DATE, END_DATE, REMARK, AUDIT_FLAG 
+						 FROM			PER_HOLIDAYHIS pah, PER_HOLIDAY_GROUP pat
+						 WHERE		PER_ID=$PER_ID and pah.HG_CODE=pat.HG_CODE 
+												$limit_data
+						$order_str ";
+	}elseif($DPISDB=="oci8"){	
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		HH_ID, pah.HG_CODE, pat.HG_NAME, START_DATE, END_DATE, REMARK, AUDIT_FLAG   
+								  from 		PER_HOLIDAYHIS pah, PER_HOLIDAY_GROUP pat
+								  where 		PER_ID=$PER_ID and pah.HG_CODE=pat.HG_CODE 
+								  $order_str  
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";	
+	}elseif($DPISDB=="mysql"){
+		$cmd = " SELECT 	HH_ID, pah.HG_CODE, pat.HG_NAME, START_DATE, END_DATE, REMARK, AUDIT_FLAG 
+						 FROM			PER_HOLIDAYHIS pah, PER_HOLIDAY_GROUP pat
+						 WHERE		PER_ID=$PER_ID and pah.HG_CODE=pat.HG_CODE 
+						$order_str 
+												$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td height="25" onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>กลุ่มวันหยุด</td>
+      <td width="13%" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?><?=$FROM_DATE_TITLE;?></strong></td>
+      <td width="12%" onClick="call_sort(3);"><strong><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$TO_DATE_TITLE;?></td>
+	<td width="25%" onClick="call_sort(4);"><strong><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$REMARK_TITLE;?></td>
+	<td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+       <td width="4%">จำนวนไฟล์</td>
+	    <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all" value="1" onClick="set_check_all(this.checked,'list_audit_id',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+	</tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_HH_ID = $data[HH_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_HH_ID;
+		$TMP_HG_NAME = $data[HG_NAME];
+		$TMP_START_DATE = show_date_format($data[START_DATE], $DATE_DISPLAY);
+		$TMP_END_DATE = show_date_format($data[END_DATE], $DATE_DISPLAY);
+		$TMP_REMARK = $data[REMARK];
+		$TMP_HG_CODE = $data[HG_CODE];
+		$TMP_HG_NAME = $data[HG_NAME];	
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($HH_ID==$TMP_HH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr align="center" class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25"><?=$num_order?></td>
+      <td align="left">&nbsp;<?=$TMP_HG_NAME?></td>
+      <td><?=$TMP_START_DATE?></td>
+      <td><?=$TMP_END_DATE?></td>
+      <td><?=$TMP_REMARK?></td>
+      <td><a href="<?="javascript:form1.action+='?VIEW=1';form1.HH_ID.value=$TMP_HH_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติกลุ่มวันหยุด" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td><?=$AUDITED_TITLE?></td>
+	  	<? } else { ?>
+		      <td><a href="<?="javascript:form1.action+='?UPD=1';form1.HH_ID.value=$TMP_HH_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติกลุ่มวันหยุด"></a></td>
+	  	<?}?>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td>&nbsp;</td>
+	  	<? } else { ?>
+		      <td><a href="<?="javascript:confirm_delete($TMP_HH_ID,'$TMP_HG_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติกลุ่มวันหยุด"></a></td>
+	  	<?}?>
+	  <?}?>
+	  <? $parameter1=$parameter2=$parameter3=$parameter4="";	?>
+	 <? if($ATTACH_FILE==1){
+				$parameter1="PER_ATTACHMENT";	$parameter2="70";	$parameter3="กลุ่มวันหยุด";	$parameter4=$PER_ID;
+			}else{
+				$parameter1="PER_HOLIDAYHIS";	$parameter2=$TMP_HH_ID;	$parameter3=$TMP_HG_NAME;	$parameter4=$PER_ID;
+			}
+	  ?>
+	  <td align="center">&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td align="center"><input type="checkbox" id="list_audit_id<?=$data_count; ?>" name="list_audit_id[]" onClick="set_uncheck_all(this.checked,form1.list_audit_all,this.id)" value="<?=$TMP_HH_ID?>" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>></td><? } ?>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>      
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+	   <td>&nbsp;</td>
+	    <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+		<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+			<tr><td colspan="9">&nbsp;</td></tr>
+			<tr><td colspan="9"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+		</table>
+  <? } // if  count show ?>
+  		  <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

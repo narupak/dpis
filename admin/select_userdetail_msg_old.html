@@ -1,0 +1,491 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_name)) $arr_search_condition[] = "(fullname like '%$search_name%')";
+  	if(trim($search_address)) $arr_search_condition[] = "(address like '%$search_address%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	//หาชื่อผู้ที่มีในระบบการ login
+	$cmd1 ="select username, d.id, titlename, fullname, name_th 
+    				from user_detail d inner join user_group g on g.id = d.group_id 
+						$search_condition
+					order by g.group_level desc, g.id desc 
+                  ";
+	$count_data=$db->send_cmd($cmd1);
+	//echo $cmd1;
+	//$db->show_error();
+    if (!$ALL_PER_LIST && $count_data) {
+		$ARR_ALL_PER = (array) null;
+		$ARR_ALL_GRP= (array) null;
+		$data_count=0;	
+		while($datausr = $db->get_array()) {	
+			$data_count++;
+			$datausr = array_change_key_case($datausr, CASE_LOWER);
+			$ARR_ALL_PER[] = $datausr[id];
+            $ARR_ALL_GRP[] = $datausr[name_th];
+		} // end while
+        $ALL_PER_LIST = implode(",",$ARR_ALL_PER);
+        $ALL_GRP_LIST = implode(",",$ARR_ALL_GRP);
+	} // end if (!$ALL_PER_LIST && $count_data)
+    
+    function check_full_group_php($per_id){
+	   	global $ALL_PER_LIST, $ALL_GRP_LIST, $SELECTED_LIST;
+
+//		echo "per_id=$per_id<br>";
+		$arr_per = explode(",", $ALL_PER_LIST);
+		$arr_grp = explode(",", $ALL_GRP_LIST);
+		$arr_selected = explode(",", $SELECTED_LIST);
+
+		// หา index เริ่มต้นของ กลุ่ม/PER_ID ที่ต้องการ
+		$target_per_idx = array_search($per_id,  $arr_per);
+		$target_grp_idx = array_search($arr_grp[$target_per_idx], $arr_grp); // หา index ตัวแรกของกลุ่มนี้
+		$target_firstper_idx = array_search($arr_per[$target_grp_idx],  $arr_per); // หา per_id แรก ตาม index แรกของกลุ่ม
+
+		$target_idx = $target_firstper_idx;		
+//		$target_idx = $target_per_idx;		
+		$chk_grp = $arr_grp[$target_idx];
+		$cnt_full=0;
+		$cnt_exist=0;
+		while ($chk_grp == $arr_grp[$target_idx]) {
+//			echo "per_id=$per_id, grp[$target_idx]=".$arr_grp[$target_idx]."<br>";
+			$c = array_search($arr_per[$target_idx], $arr_selected);
+			if ($c !== false) $cnt_exist++; // นับเฉพาะที่เลือกไว้
+			$cnt_full++; // นับทั้งหมด
+        	$target_idx++;
+        }
+		return ($cnt_full==$cnt_exist);
+	} // end function count_grp
+?>
+<html>
+<head>
+<title>รายชื่อผู้ใช้งาน</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.isSubmit.value = true;
+		form1.submit();
+	}
+
+	function search_group_head_onpage(per_id) {
+		getObj = document.getElementsByTagName("input");
+		cur_id = "child_"+per_id;
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objID = getObj[i].id;
+//			alert(objID);
+			if( objID == cur_id ){ 
+				cur_idx = i;
+				break;
+			}
+		} // end for
+		ret_objID = "";
+		for(i=cur_idx; i >= 0; i--){
+			if(getObj[i].type != "checkbox") continue;
+			objID = getObj[i].id;
+			if (objID.substr(0,7) == "parent_") {
+				ret_objID = objID;
+				break;
+			}
+		}	// end for
+		
+		return ret_objID;
+	} // end function search_group_head_onpage
+	
+	function search_str_like_arr(arr_str_list, str_search){
+		var ARR_LIST = arr_str_list.split(",");
+
+		var idx = -1;
+		for(i=0; i < ARR_LIST.length; i++) {
+			if (ARR_LIST[i] == str_search) {
+				idx = i;
+				break;
+			}
+		}
+		return idx;
+	} // end function count_grp
+
+	function remove_str_like_arr(arr_str_list, str_remove){
+		var ARR_LIST = arr_str_list.split(",");
+
+		var idx = -1;
+		for(ii=0; ii < ARR_LIST.length; ii++) {
+			if (ARR_LIST[ii] == str_remove) {
+				ARR_LIST.splice(ii,1);
+				break;
+			}
+		}
+
+		return ARR_LIST.toString();
+	} // end function count_grp
+
+	function first_pergrp_id(per_id){
+		var ALL_PER_LIST = form1.ALL_PER_LIST.value;
+		var ALL_GRP_LIST = form1.ALL_GRP_LIST.value;
+		
+		// หา index ของ PER_ID ที่รับมาต้องการ
+		var target_peridx = search_str_like_arr(ALL_PER_LIST , per_id);
+		var arr_per = ALL_PER_LIST.split(",");
+		
+		// หา index แรก ของ group ของ PER_ID ที่รับมา
+		var arr_grp = ALL_GRP_LIST.split(",");
+		var target_grpidx = search_str_like_arr(ALL_GRP_LIST , arr_grp[target_peridx]);
+
+//		alert("pergrp_id="+arr_per[target_grpidx]);
+		return arr_per[target_grpidx]; // ส่งค่า per_id ที่เป็นค่าแรกของ กลุ่มกลับไป
+	} // end function count_grp
+	
+	function check_full_group(per_id, SELECTED_LIST){
+		var ALL_PER_LIST = form1.ALL_PER_LIST.value;
+		var ALL_GRP_LIST = form1.ALL_GRP_LIST.value;
+		
+		// หา index เริ่มต้นของ กลุ่ม/PER_ID ที่ต้องการ
+		var arr_per = ALL_PER_LIST.split(",");
+		var target_idx = search_str_like_arr(ALL_PER_LIST, per_id);
+		
+		var arr_grp = ALL_GRP_LIST.split(",");
+		var chk_grp = arr_grp[target_idx];
+		var cnt_full=0;
+		var cnt_exist=0;
+		while(chk_grp==arr_grp[target_idx]) {
+			var c = search_str_like_arr(SELECTED_LIST , arr_per[target_idx]);
+//			alert("ตำแหน่ง per_id["+arr_per[target_idx]+"] พบที่ตำแหน่ง "+c);
+			if (c > -1) cnt_exist++; // นับเฉพาะที่เลือกไว้
+			cnt_full++; // นับทั้งหมด
+			target_idx++;
+		}
+		return (cnt_full==cnt_exist);
+	} // end function count_grp
+
+	function control_all(isChecked){
+		getObj = document.getElementsByTagName("input");
+		search_str = "SELECT_PER";
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+//			alert(objName);
+			if( search_str == objName ){ 
+				if(getObj[i].disabled == false) getObj[i].checked = isChecked;
+				PER_ID = getObj[i].name.substr(getObj[i].name.lastIndexOf( "_" ) + 1);
+			} // end if
+		}	// end for
+		if(isChecked){
+			form1.CHECKALL.value = "1";
+			form1.SELECTED_LIST.value = form1.ALL_PER_LIST.value;
+		} else {
+			form1.CHECKALL.value = "";
+			form1.SELECTED_LIST.value = "";
+		}
+//		alert(form1.SELECTED_LIST.value);
+	} 
+	
+	function update_list(isChecked, PER_ID, dataCount){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		var ALL_PER_LIST = form1.ALL_PER_LIST.value;
+		var CHECKALL = form1.CHECKALL;
+
+		if(isChecked){
+			var countChecked = 0;
+			if(SELECTED_LIST=="") SELECTED_LIST = ""+PER_ID;
+			else SELECTED_LIST += (","+PER_ID);
+
+			var arr_selected = SELECTED_LIST.split(",");
+			var arr_per_all = ALL_PER_LIST.split(",");
+			if (arr_selected.length == arr_per_all.length) {
+				CHECKALL.checked = true;
+				CHECKALL.value = "1";
+			}
+			pergrp_id = first_pergrp_id(PER_ID);
+//			alert("check-"+pergrp_id+","+PER_ID);
+			getObj = document.getElementById("parent_"+pergrp_id);
+//			alert("1 checked getObj="+getObj.value);
+			if (!getObj) { // ถ้าหา parent_perid แรกไม่เจอเพราะอยู่ในหน้าก่อน ก็หาในหน้านี้แทน
+				oname = search_group_head_onpage(PER_ID);
+				getObj = document.getElementById(oname);
+//				alert("checked getObj="+getObj.value);
+			}
+			if (check_full_group(pergrp_id, SELECTED_LIST)) {
+				getObj.checked=true;
+			} else {
+				getObj.checked=false;
+			}
+		}else{
+			if (CHECKALL.checked) {
+				CHECKALL.checked = false;
+				CHECKALL.value = "";
+			}
+			SELECTED_LIST = remove_str_like_arr(SELECTED_LIST, PER_ID);
+			pergrp_id = first_pergrp_id(PER_ID);
+//			alert("notcheck-"+pergrp_id+","+PER_ID);
+			getObj = document.getElementById("parent_"+pergrp_id);
+			if (!getObj) { // ถ้าหา parent_perid แรกไม่เจอเพราะอยู่ในหน้าก่อน ก็หาในหน้านี้แทน
+				oname = search_group_head_onpage(PER_ID);
+				getObj = document.getElementById(oname);
+//				alert("not checked getObj="+getObj.value);
+			}
+			if (check_full_group(pergrp_id, SELECTED_LIST)) {
+				getObj.checked=true;
+			} else {
+				getObj.checked=false;
+			}
+		} // end if
+		form1.SELECTED_LIST.value = SELECTED_LIST;
+//		tot_per = ALL_PER_LIST.split(",").length;
+//		sel_per = SELECTED_LIST.split(",").length;
+//		alert("update-"+tot_per+"/"+sel_per);
+	}
+	
+<!-- Begin
+function Check(head,chk)
+{
+	var SELECTED_LIST = form1.SELECTED_LIST.value;
+	var ALL_PER_LIST = form1.ALL_PER_LIST.value;
+	var ALL_GRP_LIST = form1.ALL_GRP_LIST.value;
+	var CHECKALL = form1.CHECKALL;
+
+//	alert("head.value="+head.value);
+	if(head.checked==true){
+		pergrp_id = first_pergrp_id(head.value);
+		var target_idx = search_str_like_arr(ALL_PER_LIST , pergrp_id);
+		var arr_per = ALL_PER_LIST.split(",");
+		
+		var arr_grp = ALL_GRP_LIST.split(",");
+		var chk_grp = arr_grp[target_idx];
+		while(chk_grp==arr_grp[target_idx]) {
+//			alert("per_id="+arr_per[target_idx]+",grp="+arr_grp[target_idx]);
+			var chk_child = document.getElementById("child_"+arr_per[target_idx]);
+			if (chk_child) {
+				chk_child.checked = true;
+			}
+			if (search_str_like_arr(SELECTED_LIST , arr_per[target_idx]) == -1) {
+				if(SELECTED_LIST=="") SELECTED_LIST = arr_per[target_idx];
+				else SELECTED_LIST += (","+arr_per[target_idx]);
+			}
+			target_idx++;
+		}
+		var arr_selected = SELECTED_LIST.split(",");
+		var arr_per_all = ALL_PER_LIST.split(",");
+//		alert("SELECTED_LIST="+SELECTED_LIST+","+arr_selected.length+"=="+arr_per_all.length);
+		if (arr_selected.length == arr_per_all.length) {
+			CHECKALL.checked = true;
+			CHECKALL.value = "1";   //refresh
+		}
+ 	} else { //if(head.checked==false)
+		if (CHECKALL.checked) {
+			CHECKALL.checked = false;
+			CHECKALL.value = "";
+		}
+		// หา index เริ่มต้นของ กลุ่ม/PER_ID ที่ต้องการ
+		pergrp_id = first_pergrp_id(head.value);
+		var target_idx = search_str_like_arr(ALL_PER_LIST , pergrp_id);
+		var arr_per = ALL_PER_LIST.split(",");
+			
+		var arr_grp = ALL_GRP_LIST.split(",");
+		var chk_grp = arr_grp[target_idx];
+		while(chk_grp==arr_grp[target_idx]) {
+//			alert("per_id="+arr_per[target_idx]+",grp="+arr_grp[target_idx]);
+			var chk_child = document.getElementById("child_"+arr_per[target_idx]);
+			if (chk_child) {
+				chk_child.checked = false;
+			}
+			if (search_str_like_arr(SELECTED_LIST , arr_per[target_idx]) > -1) {
+				SELECTED_LIST = remove_str_like_arr(SELECTED_LIST, arr_per[target_idx]);
+			}
+			target_idx++;
+		}
+ 	} // if
+	form1.SELECTED_LIST.value = SELECTED_LIST;
+//	tot_per = ALL_PER_LIST.split(",").length;
+//	sel_per = SELECTED_LIST.split(",").length;
+//	alert("group-"+tot_per+"/"+sel_per);
+}
+// End -->
+
+</script>
+<body onUnload="if(!form1.isSubmit.value){ form1.isSubmit.value=true; parent.refresh_opener(form1.SELECTED_LIST.value); }">
+<form action="select_userdetail_msg.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="ALL_PER_LIST" value="<?=$ALL_PER_LIST?>">
+  <input type="hidden" name="ALL_GRP_LIST" value="<?=$ALL_GRP_LIST?>">
+  <input type="hidden" name="ALL_GRP_CHK" value="<?=$ALL_GRP_CHK?>">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <input type="hidden" name="EXCEPT_PER_ID" value="<?=$EXCEPT_PER_ID?>">
+  <input type="hidden" name="EXCEPT_LIST" value="<?=$EXCEPT_LIST?>">
+  <input type="hidden" name="isSubmit">
+&nbsp;
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="35%"><input type="text" name="search_name" value="<?=$search_name?>" style="width:80%" class="textbox"></td>
+              <td width="15%" align="right">สังกัด&nbsp;:&nbsp;</td>
+              <td width="35%"><input type="text" name="search_address" value="<?=$search_address?>" style="width:80%" class="textbox"></td>
+            </tr>
+            <tr align="center">
+              <td height="25" colspan="4">
+			    <? if ($BUTTON_DISPLAY==1) { ?>
+			    <input name="button" type="button" class="button" value="<?=$CLOSE_WINDOW_TITLE?>" onClick="self.close();">
+			    <?  } else { ?>
+                <img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="self.close();">&nbsp;
+                <? } echo "&nbsp; &nbsp;";?>			  
+			    <? if ($BUTTON_DISPLAY==1) { ?>
+			    <input name="Submit" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0; form1.isSubmit.value=true;">
+			  <input name="Submit2" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_name.value=''; form1.search_address.value=''; form1.current_page.value=0; form1.isSubmit.value=true;">
+			  <? } else { ?>
+              <input name="image2" type="image" onClick="form1.current_page.value=0; form1.isSubmit.value=true;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+              <input name="image2" type="image" onClick="form1.search_name.value=''; form1.search_address.value=''; form1.current_page.value=0; form1.isSubmit.value=true;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+              <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+	  </td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบรายชื่อผู้ใช้งาน ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+		$ARR_ALL_PER = (array) null;
+		$ARR_ALL_GRP = (array) null;
+        $ARR_ALL_PER = explode(",",$ALL_PER_LIST);
+       $ARR_ALL_GRP = explode(",",$ALL_GRP_LIST);
+
+		$total_page = ceil( $count_data / $data_per_page );	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+
+		//หาชื่อผู้ที่มีในระบบการ login
+		if($db_type=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd1 ="select username, d.id, titlename, fullname, name_th 
+						from user_detail d inner join user_group g on g.id = d.group_id 
+						$search_condition
+						order by g.group_level desc, g.id desc 
+						$limit_data";
+		}else if($db_type=="oci8"){
+			$search_condition = str_replace(" where ", " and ", $search_condition);
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		
+			$cmd1 ="select * from (
+							select rownum rnum, q1.* from ( 
+								select username, d.id, titlename, fullname, name_th 
+								from user_detail d,user_group g 
+								where g.id=d.group_id $search_condition
+								order by g.group_level desc, g.id desc 
+							)  q1
+						) where rnum between $rec_start and $rec_end  ";
+		}		
+//		echo $cmd1;
+		$count_page_data = $db->send_cmd($cmd1);
+//		$db->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="3%" align="center"><input type="checkbox" name="CHECKALL" value="<?=$checkall?>" onClick="control_all(this.checked);"></td>
+    <td align="center"><?=$FULLNAME_TITLE?></td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+            $CUR_GROUPNAME = "";
+            $ARR_SELECTED = explode(',',$SELECTED_LIST);
+			
+			while($datausr = $db->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$datausr = array_change_key_case($datausr, CASE_LOWER);
+				$TMP_PER_ID = $datausr[id];
+				$TMP_PER_FULLNAME=$datausr[titlename] . $datausr[fullname];
+                $TMP_PER_GROUPNAME = $datausr[name_th];
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_PER_ID<::>$TMP_PER_FULLNAME";
+				
+				$checked = "";
+//				echo "if(in_array($TMP_PER_ID, $ARR_SELECTED))=".in_array($TMP_PER_ID, $ARR_SELECTED)."<br>";
+				if(in_array($TMP_PER_ID, $ARR_SELECTED)){ 
+					$count_selected++;
+					$checked = "checked";
+				} // end if
+				
+				$disabled = "";
+				if(in_array($TMP_PER_ID, $ARR_EXCEPT)) $disabled = "disabled";
+//				echo "if($CUR_GROUPNAME != $TMP_PER_GROUPNAME)<br>";
+                if($CUR_GROUPNAME != $TMP_PER_GROUPNAME) {
+                	$TMP_PER_FULLNAME = $TMP_PER_GROUPNAME;
+                    $CUR_GROUPNAME = $TMP_PER_GROUPNAME;
+                    $checked_grp = "";
+					if (check_full_group_php($TMP_PER_ID)) $checked_grp = "checked";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+  <? $PARENT_PER_ID = $TMP_PER_ID; 
+//  		echo $PARENT_PER_ID." = ".$TMP_PER_ID."<br>"; 		
+  ?>
+	<td align="center"><input type="checkbox" name="SELECT_PER_<?=$TMP_PER_ID?>" id="parent_<?=$TMP_PER_ID?>" value="<?=$TMP_PER_ID?>" onClick="Check(document.form1.parent_<?=$TMP_PER_ID?>, document.form1.child_<?=$TMP_PER_ID?>);" <?=$checked_grp?> <?=$disabled?>></td>
+    <td>&nbsp;<?=$TMP_PER_FULLNAME;	?></td>
+  </tr>
+<?
+	               	$TMP_PER_FULLNAME = $datausr[titlename] . $datausr[fullname];
+?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+	<td align="center">&nbsp;</td>
+    <td><input type="checkbox" name="SELECT_PER_<?=$TMP_PER_ID?>" value="<?=$TMP_PER_ID?>" id="child_<?=$PARENT_PER_ID; ?>"  onClick="update_list(this.checked, <?=$TMP_PER_ID?>, <?=$count_page_data?>);"  <?=$checked?> <?=$disabled?>><?=$TMP_PER_FULLNAME;	?></td>
+  </tr>
+<?
+				}
+				else {
+	               	$TMP_PER_FULLNAME = $datausr[titlename] . $datausr[fullname];
+                    $TMP_GROUPNAME = $TMP_PER_GROUPNAME;
+?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+	<td align="center">&nbsp;</td>
+    <td>
+      <input type="checkbox" name="SELECT_PER_<?=$TMP_PER_ID?>" value="<?=$TMP_PER_ID?>" id="child_<?=$TMP_PER_ID; ?>" onClick="update_list(this.checked, <?=$TMP_PER_ID?>, <?=$count_page_data?>);"  <?=$checked?> <?=$disabled?>><?=$TMP_PER_FULLNAME;	?></td>
+  </tr>
+<?				} ?>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>
+<script>
+<? if($count_selected==$count_page_data && $count_selected){ ?>form1.CHECKALL.checked=true;<? } ?>
+</script>

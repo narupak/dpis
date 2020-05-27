@@ -1,0 +1,344 @@
+<? 
+	include("../php_scripts/connect_database.php");
+    
+	$target_dir = "uploads/";
+	$target_file = $target_dir . basename($_FILES["EXCEL_FILE"]["name"]);
+	$RealFile = $target_file;
+//	if ($impfile) $impfile = stripslashes($impfile);
+//	$c = strrpos($RealFile,".");
+//	if ($c) $imptype = strtolower(substr($RealFile, $c+1));
+//	echo "form=$form , impfile=$impfile , RealFile=$RealFile , imptype=$imptype<br>";
+
+	include("php_scripts/select_cgd_salary_excel.php"); 
+	include("php_scripts/load_per_control.php");
+	
+	//$search_per_type = (isset($search_per_type))? $search_per_type : 1;
+
+	switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+
+			$search_ct_code = '140';
+			$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+			$db_dpis->send_cmd($cmd);	
+			$data = $db_dpis->get_array();
+			$search_ct_name = $data[CT_NAME];
+
+			break;
+		case 3 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$MINISTRY_ID = $MINISTRY_ID;
+			$MINISTRY_NAME = $MINISTRY_NAME;
+			$DEPARTMENT_ID = $DEPARTMENT_ID;
+			$DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if(!$search_ct_code) $search_ct_code = '140';
+	$cmd = " select CT_NAME from PER_COUNTRY where trim(CT_CODE)='$search_ct_code' ";
+	$db_dpis->send_cmd($cmd);	
+	$data = $db_dpis->get_array();
+	$search_ct_name = $data[CT_NAME];
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script language="JavaScript" src="java_scripts/function_utility.js"></script>
+<script language="JavaScript">
+	var total_rpt_order = 1;
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+		
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+	
+	function form_initialize(){
+		for(var i=1; i<=total_rpt_order; i++) eval("document.all.RPTORD_ROW_" + i + ".className='table_body';");
+		document.all.RPTORD_ORDER_1.disabled = true;
+		document.all.RPTORD_ORDER_1.value = "POSNO";
+		document.all.RPTORD_LABEL_1.innerText = "เลขที่ตำแหน่ง";
+		document.all.RPTORD_ROW_1.className = "table_body";
+//		document.all.IMG_DOWN_1.style.display = "block";
+	}
+
+	function checkUpload(){
+		if(form1.EXCEL_FILE.value != ''){ 
+			if(document.form1.EXCEL_FILE.value.lastIndexOf(".xls")==-1 && document.form1.EXCEL_FILE.value.lastIndexOf(".Xls")==-1) {
+		   		alert("ระบุไฟล์ Excel เท่านั้น");
+		   		document.form1.EXCEL_FILE.focus();
+		   		return false;
+			}else if(document.form1.SAH_DOCNO.value==""){
+				alert("กรุณาระบุคำสั่งเลขที่");
+				document.form1.SAH_DOCNO.focus();
+				return false;
+			}else if(document.form1.SAH_DOCDATE.value==""){
+				alert("กรุณาระบุวันที่ผู้บริหารลงนามในคำสั่ง");
+				document.form1.SAH_DOCDATE.focus();
+				return false;
+			} else {
+				form1.RealFile.value=form1.EXCEL_FILE.value;
+//				form1.command.value='CONVERT'; 
+				form1.command.value='UPLOAD'; 
+				//__alert(form1.EXCEL_FILE.value+' '+form1.RealFile.value);
+				return ProcessUploading();
+			}
+		}else{ 
+			alert('ระบุไฟล์ Excel'); 
+			form1.EXCEL_FILE.focus();
+			return false; 
+		}
+	}
+
+	function check_enddate(){
+		if(document.form1.SAH_LAST_SALARY.checked == false ){ 
+			alert('หากไม่เป็นข้อมูลการเลื่อนเงินเดือนล่าสุด กรุณาระบุวันที่สิ้นสุด');
+			document.form1.SAH_ENDDATE.disabled = false;
+			document.form1.SAH_ENDDATE.focus();
+			document.form1.btn_SAH_ENDDATE.disabled = false;
+			
+		} 
+		if(document.form1.SAH_LAST_SALARY.checked == true ){ 
+			document.form1.SAH_ENDDATE.value = '';
+			document.form1.SAH_ENDDATE.disabled = true;
+			document.form1.btn_SAH_ENDDATE.disabled = true;
+		} 
+	}
+	
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<span id="defaultTheme"></span>
+<body onLoad="check_enddate();">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="center" valign="top">
+		<form name="form1" method="post" action="select_cgd_salary_excel.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		&nbsp;
+		<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td colspan="2" height="5"></td>
+          </tr>
+                    <tr>
+              <td width="20%" height="25" align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+					  <td><select class="selectbox" name="search_per_type" onChange="javascript:setPerType(this.value);">		  
+					<? 
+						$checkclick = "";	$styleline[1] = $styleline[2] = $styleline[3] = $styleline[4] ="display:none";
+						if($SESS_PER_TYPE==0){ $search_per_type = (isset($search_per_type))?  $search_per_type : 1;	} 
+		foreach($PERSON_TYPE as $key=>$value){  
+			if($SESS_PER_TYPE==0){	//ทั้งหมด
+				$disinput[$key] = "";		$disinput[0]="";	
+				$chinput[$key] = "";		
+				if(trim($search_per_type) && $search_per_type==$key){	//ค้นหา
+					$chinput[$key] = " selected";		$chinput[0]="";		$styleline[$key] = "display:block";
+			   }
+			}else if(trim($SESS_PER_TYPE) && $SESS_PER_TYPE==$key){	//ประเภทอื่น
+				$chinput[$key] = " selected";		 $chinput[0]="";		$disinput[$key]="";		$styleline[$key] = "display:block";
+			}
+?>	
+			<option name="search_per_type" value="<?=$key; ?>" <?=$chinput[$key]." ".$disinput[$key]; ?>><?=$value; ?></option>
+<?
+	  } //end foreach 
+?>
+	</select>
+				  </td>
+              <td width="20%" height="25" align="right">ไฟล์ Excel&nbsp;:&nbsp;</td>
+              <td width="30%" align="left"><input name="EXCEL_FILE" type="file" class="black_small">&nbsp;<input name="RealFile" type="hidden" value="">
+			  <?if($excel_msg) echo "ถ่ายโอนข้อมูล ".$excel_msg?>&nbsp;<?=$EXCEL_FILE;	?></td>
+                    </tr>
+                    <tr>
+                      <td height="22" align="right"><?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+                      <td>
+                      	<input name="search_budget_year" type="text" class="textbox" size="5" value="<?=($search_budget_year)?>" onKeyPress="return DigitOnly();">
+					  </td>
+                      <td height="22" align="right">&nbsp;</td>
+                      <td>
+						  <input type="radio" name="search_kf_cycle" value="1" <?=($search_kf_cycle==1 || !$search_kf_cycle)?"checked":""?>> ครั้งที่ 1
+                          <input type="radio" name="search_kf_cycle" value="2" <?=($search_kf_cycle==2)?"checked":""?>> ครั้งที่ 2						</td>
+                    </tr>
+        <tr align="center">
+			<td colspan="2" align="left">
+				<input type="checkbox" name="SAH_LAST_SALARY" value="Y" onClick="check_enddate();" <?=($SAH_LAST_SALARY=='Y' || !isset($SAH_LAST_SALARY))?"checked":""?>>เป็นประวัติการรับเงินเดือนล่าสุด
+				  	[ วันที่สิ้นสุด ] : <input type="text" name="SAH_ENDDATE" id="SAH_ENDDATE" value="<?=$SAH_ENDDATE?>" class="black_small" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SAH_ENDDATE,this.value)">&nbsp;<input type="reset" name="btn_SAH_ENDDATE" class="button" onClick="return showCalendar('SAH_ENDDATE', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">&nbsp;&nbsp;
+			</td>
+			<td colspan="2" align="left">
+				<input type="checkbox" name="PER_SALARY_CURRENT_UPDATE" value="Y" <?=($PER_SALARY_CURRENT_UPDATE=='Y' || !isset($PER_SALARY_CURRENT_UPDATE))?"checked":""?> >ปรับปรุงเงินเดือนปัจจุบันตามไฟล์ Excel นี้
+			</td>
+        </tr>
+            <tr>
+              <td width="20%" height="22" align="right">คำสั่งเลขที่&nbsp;:&nbsp;</td>
+              <td width="30%"><input type="text" name="SAH_DOCNO" value="<?=$SAH_DOCNO?>" style="width:50%" class="textbox"></td>
+              <td width="20%" align="right">วันที่ผู้บริหารลงนามในคำสั่ง&nbsp;:&nbsp;</td>
+                  <td width="30%">
+				  	<input type="text" name="SAH_DOCDATE" id="SAH_DOCDATE" value="<?=$SAH_DOCDATE?>" style="width:50%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SAH_DOCDATE,this.value)">&nbsp;&nbsp;
+				  	<input type="reset" class="button" onClick="return showCalendar('SAH_DOCDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+			  	  </td>
+            </tr>
+        <tr align="center">
+          <td colspan="4" height="30">
+			   <? 	if ($BUTTON_DISPLAY==1) { ?>
+			   <input name="Submit22" type="submit" class="button" onClick="return checkUpload();" value="<?=$IMPORT_TITLE?>">
+			   <? } else { ?>
+               <input name="image3" type="image" onClick="return checkUpload();" src="images/ok.gif" alt="<?=$IMPORT_TITLE?>" border="0">
+               <?}?>		  
+		  	  <? 	if ($BUTTON_DISPLAY==1) { ?>
+		  	  <input type="reset" name="reset" value="<?=$CLEAR_TITLE?>" class="button">
+		  	  <? } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset(); form_initialize();">&nbsp;
+              <?}?>
+		 </td>
+        </tr>
+        <tr>
+          <td colspan="4" height="5"></td>
+          </tr>
+		<tr>
+		<td colspan="4">
+                  <table width="95%" border="1" align="center" class="label_normal">
+                      <tr>
+                        <td colspan="17"><b>รูปแบบ Excel <span class="label_alert">(สำหรับลูกจ้างประจำ ในช่องผลการประเมิน ให้ป้อนข้อมูล 0.5 ขั้น, 1 ขั้น, 1.5 ขั้น, 2 ขั้น, เงินตอบแทนพิเศษ 2% ,เงินตอบแทนพิเศษ 4% หรือข้อมูลหลักประเภทการเคลื่อนไหว)</span></b></td>
+                      </tr>
+                      <tr align="center">
+                        <td class="table_body" width="5%">เลขประจำตัวประชาชน</td>
+                        <td class="table_body" width="5%">ชื่อ-นามสกุล</td>
+                        <td class="table_body" width="5%">เลขตำแหน่ง</td>
+                        <td class="table_body" width="5%">ชื่อตำแหน่ง</td>
+                        <td class="table_body" width="5%">ระดับตำแหน่ง</td>
+                        <td class="table_body" width="5%">เงินเดือน</td>
+                        <td class="table_body" width="5%">เงินเดือนสูงสุด</td>
+                        <td class="table_body" width="5%">ฐานในการคำนวณ</td>
+                        <td class="table_body" width="5%">ร้อยละของการประเมิน</td>
+                        <td class="table_body" width="5%">ร้อยละของการเลื่อน</td>
+                        <td class="table_body" width="5%">จำนวนเงินที่คำนวณได้</td>
+                        <td class="table_body" width="5%">จำนวนเงินที่ได้รับการเลื่อนจริง</td>
+                        <td class="table_body" width="5%">เงินตอบแทนฯ</td>
+                        <td class="table_body" width="5%">รวม</td>
+                        <td class="table_body" width="5%">เงินเดือนหลังเลื่อน</td>
+                        <td class="table_body" width="5%">ผลการประเมิน</td>
+                        <td class="table_body" width="5%">หมายเหตุ</td>
+                      </tr>
+                      <tr align="center">
+                        <td width="5%">1234567890123</td>
+                        <td width="5%">นายสมชาย ใจดี</td>
+                        <td width="5%">1</td>
+                        <td width="5%">นักบริหาร</td>
+                        <td width="5%">สูง</td>
+                        <td width="5%">69350</td>
+                        <td width="5%">69810</td>
+                        <td width="5%">66460</td>
+                        <td width="5%">94.64</td>
+                        <td width="5%">3.9</td>
+                        <td width="5%">2600</td>
+                        <td width="5%">460</td>
+                        <td width="5%">2131.94</td>
+                        <td width="5%">2591.94</td>
+                        <td width="5%">69810</td>
+                        <td width="5%">ดีเด่น</td>
+                        <td width="5%">&nbsp;</td>
+                      </tr>
+                    </table>
+				</td>	
+          </tr>
+        <tr>
+          <td colspan="4" height="5"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table> 
+	  </form>	
+	  </td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+
+<?=$alert_adding_command?>
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

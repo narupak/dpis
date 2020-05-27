@@ -1,0 +1,454 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_bonusquota.php");
+	
+	if ($command == "PROCESS" || $command == "VIEW") { 
+		if ($BONUSDTL_TYPE == 1) {				// โครงสร้างตามกฎหมาย
+				if($current_page > 1){
+					if($DPISDB=="odbc"){
+						$limit_data = " and ORG_ID not in (select top $start_record ORG_ID from PER_ORG where ORG_ID_REF=$DEPARTMENT_ID and ORG_ACTIVE=1 order by ORG_NAME) ";
+					}elseif($DPISDB=="mysql"){
+						$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+					}	
+				} // end if 
+				
+				if($DPISDB=="odbc"){
+					$cmd = "	select		top $data_per_page 
+													ORG_ID, ORG_NAME
+									from			PER_ORG
+									where		ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1  
+													$limit_data
+								order by 		ORG_NAME 	";	
+				}elseif($DPISDB=="oci8"){		
+					$rec_start = (($current_page-1) * $data_per_page) + 1;
+					$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+					$cmd = "select * from (
+									   select rownum rnum, q1.* from ( 
+											  select 		ORG_ID, ORG_NAME 
+											  from 		PER_ORG
+											  where		ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1 
+														$search_condition
+											  order by 	ORG_NAME
+									   )  q1
+								) where rnum between $rec_start and $rec_end  ";							
+				}elseif($DPISDB=="mysql"){
+					$cmd = "	select		ORG_ID, ORG_NAME
+									from			PER_ORG
+									where		ORG_ID_REF=$DEPARTMENT_ID and OL_CODE='03' and ORG_ACTIVE=1  
+									order by 		ORG_NAME
+														$limit_data 	";	
+				} // end if
+		
+		} elseif ($BONUSDTL_TYPE == 2) {			// โครงสร้างตามมอบหมายงาน
+				if($current_page > 1){
+					if($DPISDB=="odbc"){
+						$limit_data = " and ORG_ID not in (select top $start_record ORG_ID from PER_ORG where ORG_ID_REF=$DEPARTMENT_ID and ORG_ACTIVE=1 order by ORG_NAME) ";
+					}elseif($DPISDB=="mysql"){
+						$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+					}
+				} // end if 
+				if($DPISDB=="odbc"){
+					$cmd = "	select		top $data_per_page 
+													ORG_ID, ORG_NAME
+									from			PER_ORG_ASS
+									where		OL_CODE='03' and ORG_ACTIVE=1  
+											$limit_data
+								order by 	ORG_NAME 	";	
+				}elseif($DPISDB=="oci8"){		
+					$rec_start = (($current_page-1) * $data_per_page) + 1;
+					$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+					$cmd = "select * from (
+									   select rownum rnum, q1.* from ( 
+											  select 		ORG_ID, ORG_NAME 
+											  from 		PER_ORG_ASS
+											  where		OL_CODE='03' and ORG_ACTIVE=1 
+															$search_condition
+											  order by 	ORG_NAME
+									   )  q1
+								) where rnum between $rec_start and $rec_end  ";							
+				}elseif($DPISDB=="mysql"){
+					$cmd = "	select		ORG_ID, ORG_NAME
+									from			PER_ORG_ASS
+									where		OL_CODE='03' and ORG_ACTIVE=1  
+									order by 	ORG_NAME
+														$limit_data 	";	
+				} // end if		
+		}
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+	} 	//  endif ($command == "PROCESS") 	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(bonus_year, bonus_type , bonus_name){
+		var bonus_name = form1.BONUS_YEAR.value ;
+		for (var i = 0; i < form1.BONUS_TYPE.length; ++i) {
+			if (form1.BONUS_TYPE[i].checked == true) {
+				if (i == 0)				bonus_name += " : ข้าราชการ";
+				else if (i == 1)		bonus_name += " : ลูกจ้างประจำ";
+				else if (i == 2)		bonus_name += " : พนักงานราชการ";	
+				else if (i == 3)		bonus_name += " : ลูกจ้างชั่วคราว";	
+			}
+		}
+	
+		if(confirm("ต้องการลบโควตาเงินรางวัลประจำปีนี้ใช่หรือไม่ [ " + bonus_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.submit();
+		} // end if
+	}
+	
+	function check_submit () {
+		if ( form1.BONUS_YEAR.value != ''  && form1.BONUS_QUOTA.value != '' ) {
+
+			<?
+			$cmd = " select BONUS_YEAR, BONUS_TYPE from PER_BONUSQUOTA 
+						  where BONUS_YEAR and BONUS_TYPE ";
+			$db_dpis1->send_cmd($cmd);
+			$data1 = $db_dpis1->get_array();
+			if (true) {			
+			?>
+				form1.command.value='PROCESS';
+				form1.submit();
+			<? 
+			}  // end if 
+			?>			
+		}	// end if 
+	}		// end function 
+
+	function check_view () {	
+		if ( form1.BONUS_YEAR.value != ''  && form1.BONUS_QUOTA.value != '') {
+			form1.command.value = "VIEW";
+			form1.submit();
+		}
+	}	
+		
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_data_bonusquota_search () {	
+		parameter = "";
+		childReturn = window.showModalDialog("data_bonusquota_search_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.BONUS_YEAR.value = arrValue[0];
+			form1.BONUS_QUOTA.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = arrValue[3];
+			form1.command.value = "VIEW";
+			form1.submit();
+		} // end if
+	}	
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_pdf_report() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_bonusquota.php?report_title=" + report_title + "&BONUSDTL_TYPE=<?=$BONUSDTL_TYPE?>&table=<?=$table?>";
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_bonusquota.html";
+	} 
+	
+	function call_export_file() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_bonusquota_xls.php?report_title=" + report_title + "&BONUSDTL_TYPE=<?=$BONUSDTL_TYPE?>&table=<?=$table?>";
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_bonusquota.html";
+	}		
+</script>
+<script type="text/javascript" language="JavaScript">
+function check() {
+	if(form1.BONUS_YEAR.value=="") {
+		alert("กรุณาระบุ<?=$YEAR_TITLE?>");
+		form1.BONUS_YEAR.focus();
+		return false;
+		} 
+		else if(form1.BONUS_QUOTA.value=="") {
+		alert("กรุณาระบุโควต้าที่ได้รับการจัดสรรค์");
+		form1.BONUS_QUOTA.focus();
+		return false;
+		}
+		else  return true;
+		}
+</script>
+
+
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>	
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_bonusquota.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="EDU_ID" value="<?=$EDU_ID?>">
+        &nbsp;&nbsp; 
+		<table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">คำนวนผล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">   
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		  <tr><td height="3"></td></tr>
+                      <tr>
+                        <td align="right">
+							<span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;
+						</td>
+                        <td>
+						  <input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:200" class="textbox" readonly>
+						  <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+						  <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()"><? } // end if ?>
+						  <input type="hidden" name="MINISTRY_ID" value="<?=trim($MINISTRY_ID)?>">
+						</td>
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:200" class="textbox" readonly>&nbsp;
+            <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+			<input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()"><? } // end if ?>
+            <input type="hidden" name="DEPARTMENT_ID" value="<?=trim($DEPARTMENT_ID)?>"></td>
+                      </tr>
+                      <tr> 
+			   <td width="23%" height="22" align="right"><?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+                        <td width="33%"><input type="text" name="BONUS_YEAR" value="<?=$BONUS_YEAR?>" class="textbox" onKeyPress="DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>> 
+                          &nbsp;&nbsp; </td>			 
+                        <td width="3%" height="22">&nbsp;</td>
+                        <td> 
+				     <? 
+						  $chinput[0]=" checked";		$disinput[0] = " disabled";	//ทั้งหมด
+				          foreach($PERSON_TYPE as $key=>$value){  
+							  $chinput[$key]="";		$disinput[$key] = " disabled";
+							  if($SESS_PER_TYPE==0){	//ทั้งหมด
+							  		$disinput[$key] = "";		$disinput[0]="";	
+									$chinput[$key] = "";		
+									if(trim($BONUS_TYPE) && $BONUS_TYPE==$key){	//ค้นหา
+										$chinput[$key] = " checked";			 $chinput[0]="";
+								   }
+							  }else if(trim($SESS_PER_TYPE) && $SESS_PER_TYPE==$key){	//ประเภทอื่น
+							  		$chinput[$key] = " checked";		 $chinput[0]="";		$disinput[$key]="";
+							  }
+						  ?>
+						<input name="BONUS_TYPE" type="radio" value="<?=$key; ?>"  <?=$chinput[$key]." ".$disinput[$key]; ?>>&nbsp;<?=$value; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<? } ?>
+						</td>
+                      </tr>
+                      <tr> 
+                        <td height="22" align="right">โควตาที่ได้รับการจัดสรร&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="BONUS_QUOTA" value="<?=$BONUS_QUOTA?>" class="textbox" style="text-align:right" onKeyPress="NumOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td height="22">&nbsp;</td>
+                        <td> 
+			   	<input name="BONUSDTL_TYPE" type="radio" value="1" onClick="check_view();" <?=($BONUSDTL_TYPE==1)?"checked":""?> <?=($command=="PROCESS" || $command=="VIEW")? "":"disabled";?>>&nbsp;โครงสร้างตามกฎหมาย&nbsp;&nbsp; 
+				<input name="BONUSDTL_TYPE" type="radio" value="2" onClick="check_view();" <?=($BONUSDTL_TYPE==2)?"checked":""?> <?=($command=="PROCESS" || $command=="VIEW")? "":"disabled";?>>&nbsp;โครงสร้างตามคำสั่งมอบหมายงาน&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                        </td>
+                      </tr>
+			<tr height="25">
+				<td colspan="4" align="center">
+<? if ($command != "PROCESS" && $command != "VIEW") { ?>			<? if ($BUTTON_DISPLAY==1) { ?>			 
+			 	<input name="Submit2" type="button" class="button" onClick="check_submit(); return check();" value="คำนวนผล"><?  } else { ?>
+              <input name="image2" type="image" onClick="check_submit(); return check();" src="images/ok.gif" alt="คำนวนผล">
+              <? } echo "&nbsp; &nbsp;"; ?>
+<? } elseif ($command == "PROCESS" || $command == "VIEW") { ?><? if ($BUTTON_DISPLAY==1) { ?>
+			 	<input name="Submit1" type="submit" class="button" onClick="form1.command.value='CANCEL';" value="<?=$CANCEL_TITLE?>">	<?  } else { ?>
+            <input name="image2" type="image" onClick="form1.command.value='CANCEL';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?><? if ($BUTTON_DISPLAY==1) { ?>
+			 	<input name="Submit4" type="button" class="button" onClick="confirm_delete();" value="<?=$DEL_TITLE?>"><?  } else { ?>
+              <img src="images/delete.gif" alt="<?=$DEL_TITLE?>" width="32" height="32" border="0" onClick="confirm_delete();">
+              <? } echo "&nbsp; &nbsp;";?>
+<? } ?>			<? if ($BUTTON_DISPLAY==1) { ?>
+					<input name="Submit4" type="button" class="button" onClick="call_data_bonusquota_search();" value="<?=$SEARCH_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="call_data_bonusquota_search();" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>
+				</td>
+			</tr>
+                    </table></td>
+	 </tr>
+      </table></td>
+    </tr>
+  </table> 
+&nbsp;  
+    <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+<!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+              <!--td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td -->
+<!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+            </tr>
+          </table>  
+	</td></tr>
+</table>  
+<?
+	if ($count_page_data) {
+?>
+        <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+          <tr align="center" class="table_head"> 
+            <td width="10%" height="22"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+            <td width="45%"><strong><?=$ORG_TITLE;?></strong></td>
+            <td ><strong>เงินที่จัดสรร</strong></td>
+          </tr>
+          <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_ORG_ID = $data[ORG_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_ORG_ID;
+		$TMP_ORG_NAME = $data[ORG_NAME];
+
+		if ($BONUSDTL_TYPE == 1) {					// โครงสร้างตามกฎหมาย
+			$cmd = " select BONUSQ_QTY from PER_BONUSQUOTADTL1 
+						  where BONUS_YEAR='$BONUS_YEAR' and BONUS_TYPE=$BONUS_TYPE and ORG_ID=$TMP_ORG_ID";
+		} elseif ($BONUSDTL_TYPE == 2) {			// โครงสร้างตามมอบหมายงาน
+			$cmd = " select BONUSQ_QTY from PER_BONUSQUOTADTL2 
+						  where BONUS_YEAR='$BONUS_YEAR' and BONUS_TYPE=$BONUS_TYPE and ORG_ID=$TMP_ORG_ID";
+		}
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		${"COUNT_MONEY$TMP_ORG_ID"} = $data2[BONUSQ_QTY];
+		$SUM_COUNT_MONEY += ${"COUNT_MONEY$TMP_ORG_ID"};
+		
+		// insert data
+		if ($command == "PROCESS") {
+			$cmd = " insert into PER_BONUSQUOTADTL1 
+				   	(BONUS_YEAR, BONUS_TYPE, ORG_ID, BONUSQ_QTY, DEPARTMENT_ID, UPDATE_USER, UPDATE_DATE)
+					values
+					('$BONUS_YEAR', $BONUS_TYPE, $TMP_ORG_ID, 0, $DEPARTMENT_ID, $SESS_USERID, '$UPDATE_DATE') ";
+			$db_dpis2->send_cmd($cmd);	
+		}
+		
+		${"COUNT_MONEY$TMP_ORG_ID"} = number_format(${"COUNT_MONEY$TMP_ORG_ID"}, 2, '.', ',');
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($ORG_ID==$TMP_ORG_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+          <tr class="<?=$class?>" <?=$onmouse_event?>> 
+            <td height="22" align="center"><?=$data_num?></td>
+            <td>&nbsp;<?=$TMP_ORG_NAME?></td>
+            <td align="center"><input type="text" name="COUNT_MONEY<?=$TMP_ORG_ID?>" value="<?=${"COUNT_MONEY$TMP_ORG_ID"}?>" style="text-align:right" onKeyPress="NumOnly();">
+				<input type="hidden" name="COF_ORG_ID[]" value="<?=$TMP_ORG_ID?>">			
+			</td>
+          </tr>
+<? } // end while 
+		$REST_COUNT_MONEY = str_replace(",", "", $BONUS_QUOTA) - $SUM_COUNT_MONEY; 
+		$SUM_COUNT_MONEY = number_format($SUM_COUNT_MONEY, 2, '.', ',');
+		$REST_COUNT_MONEY = number_format($REST_COUNT_MONEY, 2, '.', ',');
+?>
+          <tr class="<?=$class?>" <?=$onmouse_event?>> 
+            <td height="22" colspan="2" align="right"><strong>รวม</strong>&nbsp;&nbsp;&nbsp;&nbsp; </td>
+            <td align="right"><?=$SUM_COUNT_MONEY?>&nbsp;&nbsp;&nbsp;&nbsp; </td>
+          </tr>
+          <tr class="<?=$class?>" <?=$onmouse_event?>> 
+            <td height="22" colspan="2" align="right"><strong>คงเหลือ</strong>&nbsp;&nbsp;&nbsp;&nbsp; </td>
+            <td align="right"><?=$REST_COUNT_MONEY?>&nbsp;&nbsp;&nbsp;&nbsp; </td>
+          </tr>	   	   
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <tr class="table_footer" height="22"> 
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td align="center">
+    	     	<? if ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") : ?><? if ($BUTTON_DISPLAY==1) { ?>
+				<input type="submit" name="" value="<?=$EDIT_TITLE?>" class="button" style="width:80" onClick="form1.action+='?UPD=1';form1.command.value='VIEW'">			<?  } else { ?>
+            <input name="image2" type="image" onClick="form1.action+='?UPD=1';form1.command.value='VIEW'"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?> 
+			    <? endif; ?>
+			</td>	
+		  </tr>
+          <?}?>
+        </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

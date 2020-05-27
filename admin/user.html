@@ -1,0 +1,970 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/user.php"); 
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<style>
+    .btnDuplicate {
+        
+        font-family: 'Tahoma,MS Sans Serif,Cordia New';
+        FONT-SIZE: 95%;
+        color: #000000;
+        text-decoration: none;
+        cursor: hand;
+        background: url(images/cssbtnDuplicate.png) no-repeat;
+    }
+</style>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+
+function check_data(command){
+	if(form1.group_id.value=="" || form1.group_id.value==0){
+		alert('กรุณาเลือกกลุ่มผู้ใช้งาน');
+	}else if(form1.username.value==""){
+		alert('กรุณาใส่ชื่อผู้ใช้งาน');
+		form1.username.focus();
+	}else if(form1.passwd.value=="" && command!="UPDATE"){
+		alert('กรุณาใส่รหัสผ่าน');
+		form1.passwd.focus();
+	}else if(form1.passwd.value.length<4  && command!="UPDATE"){
+		alert('รหัสผ่านสั้นเกินไป');
+		form1.passwd.focus();
+	}else if(form1.confirm_passwd.value!=form1.passwd.value){
+		alert('การยืนยันรหัสผ่านไม่ตรงกับรหัสผ่านที่ใส่ไว้');
+		form1.confirm_passwd.focus();
+	}else if(form1.user_name.value==""){
+		alert('กรุณาใส่ชื่อ');
+		form1.user_name.focus();
+	}else{
+		form1.command.value = command;
+		form1.submit();
+	}
+}
+
+function check_passwd_length(obj){
+	if(obj.value.length<4){
+		alert("รหัสผ่านสั้นเกินไป");
+		obj.focus();
+	}
+}
+
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function call_back(url){
+	form1.current_page.value = 0;
+	form1.action = url;
+	form1.selectFlag.value = '0';
+	form1.submit();
+}
+function confirm_delete(user_id , username){
+	if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + username + " ] ?")){
+		form1.command.value = "DELETE";
+		form1.id.value = user_id;
+		form1.submit();
+	} // end if
+}
+
+	function call_search_person () {	
+		parameter = "";
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1000,600,"รายชื่อ<?=$PERSON_TITLE?>");	
+	}
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+
+function check_add(form1) { 
+    var tmplink_username='';
+    try {
+        tmplink_username=form1.link_username.value;
+    }
+    catch(err) {
+      tmplink_username=form1.new_username.value;
+    }
+	if(form1.new_username.value==""  && form1.link_username.value=="") {
+		alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+		//form1.new_usename.focus();
+		return false;
+		} 
+		else if(form1.passwd.value=="") {
+                    alert("กรุณาระบุข้อมูลรหัสผ่าน");
+                    form1.passwd.focus();
+                    return false;
+		}
+		else if(form1.confirm_passwd.value=="") {
+                    alert("กรุณาระบุข้อมูล ยืนยันรหัสผ่าน");
+                    form1.confirm_passwd.focus();
+                    return false;
+		}   
+		else if(form1.confirm_passwd.value!=form1.passwd.value) {
+                    alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+                    form1.confirm_passwd.focus();
+                    return false;
+		}
+                else if (form1.new_username.value==form1.passwd.value || tmplink_username==form1.passwd.value){
+                    alert("รหัสผ่าน ระบบไม่อนุญาตให้ใช้ค่าเดียวกับชื่อผู้ใช้งาน");
+                    form1.passwd.value='';
+                    form1.confirm_passwd.value='';
+                    form1.passwd.focus();
+                    return false;
+                }else  {
+		
+                    form1.command.value='ADD'; 
+
+                    return true; 
+		}
+	}
+		
+	function check_upd(form1) { 
+            var tmplink_username='';
+            try {
+                tmplink_username=form1.link_username.value;
+            }
+            catch(err) {
+              tmplink_username=form1.new_username.value;
+            }
+		if(form1.select_group_id.value == 0) {
+                    alert('เลือกกลุ่มผู้ใช้งาน'); 
+                    form1.select_group_id.focus(); 
+                    return false;
+		}else if(form1.new_username.value==""  && form1.link_username.value=="") {
+                    alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+                    //form1.new_usename.focus();
+                    return false;
+		} 
+/*		else if(form1.passwd.value=="") {
+		alert("กรุณาระบุข้อมูลรหัสผ่าน");
+		form1.passwd.focus();
+		return false;
+		}
+		else if(form1.confirm_passwd.value=="") {
+		alert("กรุณาระบุข้อมูล ยืนยันรหัสผ่าน");
+		form1.confirm_passwd.focus();
+		return false;
+		}  */
+		else if(form1.confirm_passwd.value!=form1.passwd.value) {
+                    alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+                    form1.confirm_passwd.focus();
+                    return false;
+		}else if ( (form1.passwd.value!="" && form1.confirm_passwd.value!="")&&(form1.new_username.value==form1.passwd.value || tmplink_username==form1.passwd.value) ){
+                    alert("รหัสผ่าน ระบบไม่อนุญาตให้ใช้ค่าเดียวกับชื่อผู้ใช้งาน");
+                    form1.passwd.value='';
+                    form1.confirm_passwd.value='';
+                    form1.passwd.focus();
+                    return false;
+                }else  {
+                    form1.command.value='UPDATE'; 
+                    return true; 
+		}
+	}
+	function insert_user(){
+	var grp_level = document.getElementById('group_level').value;
+	var group_id = document.getElementById('group_id').value;
+	parameter = "&grp_level="+grp_level+"&group_id="+group_id;
+	   call_openDialog("user_decide.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,higth=500,width=300,"สร้างบัญชี");
+	}
+	function call_sort(flag) {
+           
+		form1.order_by2.value=flag;		form1.sort_by2.value=flag;
+                
+		if(form1.sort_type2.value==flag+":asc"){
+			form1.sort_type2.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type2.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				var new_passwd = "";
+				arrValue = returnValue.split("<::>");
+				form1.user_link_id.value = arrValue[0];
+				form1.user_titlename.value = arrValue[18];
+				form1.user_name.value = arrValue[19];
+				form1.link_username.value = arrValue[2];
+	
+				new_passwd = arrValue[3].substr(0, 10);
+				arr_temp = new_passwd.split("-");
+				new_passwd = arr_temp[2] + arr_temp[1] + (parseInt(arr_temp[0], 10) + 543);
+				
+				form1.passwd.value = new_passwd;
+				form1.confirm_passwd.value = new_passwd;
+				
+				form1.user_address.value = arrValue[4];
+							
+				form1.user_type[1].checked=true;
+				form1.user_name.readOnly = true;
+				form1.user_address.readOnly = true;
+			}
+		}else if(src.indexOf("user_decide.html") > -1) {
+					if(returnValue){
+                                //location.reload();
+                               form1.submit() =  form1.current_page.value=0;
+				} // end if
+		}else if(src.indexOf("answer_flag.html") > -1){
+			if(returnValue==1){
+			form1.submit() =  form1.current_page.value=0;
+			}
+		}  		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+        
+        function call_export_file() {
+		var currDate = new Date();
+                var search_code = '';
+                var search_name = '';
+                if(form1.search_code.value){
+                    search_code = form1.search_code.value;
+                }
+                if(form1.search_name.value){
+                    search_name = form1.search_name.value;
+                }
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?> > รายชื่อผู้ใช้งาน";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_user_xls.php?report_title=" + report_title + "&order_str2=" + form1.order_by2.value +"&sort_type2=" + form1.sort_type2.value + "&search_code=" + search_code + "&search_name=" + search_name + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "user.html";
+        }
+	
+function chksetvalues(idchk,idtxt,val){
+    
+    if(document.getElementById(idchk).checked==true){
+	//console.log(idchk+','+idtxt+',Y_'+val);
+        document.getElementById(idtxt).value='Y_'+val;
+    }else{
+	//console.log(idchk+','+idtxt+',N_'+val);
+        document.getElementById(idtxt).value='N_'+val;
+    }
+    
+}	
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+        <tr> 
+          <td align="left" valign="top"><? $OPTIONAL_TITLE=" &gt; รายชื่อผู้ใช้งาน"; include("current_location.html");?></td>
+		</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="user.html" enctype="multipart/form-data" >
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="group_id" id="group_id" value="<? echo $group_id; ?>">
+		  <input type="hidden" name="group_name_th" value="<? echo $group_name_th; ?>">
+		  <input type="hidden" name="id" id="id" value="<? echo $id; ?>">
+		  <input type="hidden" name="province_id" value="<?=$province_id?>">
+		  <input type="hidden" name="amphur_id" value="<?=$amphur_id?>">
+		  <input type="hidden" name="district_id" value="<?=$district_id?>">
+		  <input type="hidden" name="group_level" id="group_level" value="<?=$group_level?>">
+		  <input type="hidden" name="multi_id_n" id="multi_id_n" value="<?=$multi_id_n?>">
+		  
+		  
+&nbsp;
+  <table width="95%" border="0"  align="center" cellpadding="1" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+    <tr>
+      <td><a href="javascript:call_back('user_group.html')">กลุ่มผู้ใช้งาน</a> : <?=$group_name_th?> <? if(($group_code=="BUREAU" || substr($group_code, 0, 7)=="BUREAU_") && $group_level){ ?>[ <?=$DEPARTMENT_NAME.(($group_level==5)?"&nbsp;-&nbsp;$ORG_NAME":"")?> ]<? } // end if ?>
+      </td>
+    </tr>
+  </table>
+  <? if(($group_code == "ADMIN" || substr($group_code, 0, 6) == "ADMIN_" ) && $SESS_USERGROUP == 1){ ?>
+&nbsp;
+  <table width="55%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr align="center">
+          <td height="30">
+      		  <?if($PAGE_AUTH["add"]=="Y" && $PAGE_AUTH["del"]=="Y"){?>
+			  <input name="Submit22" type="submit" class="button" onClick="<? if($group_level){ ?>if(confirm('ต้องการนำเข้าข้อมูลส่วนราชการจากฐานข้อมูลระบบ ใช่หรือไม่ (ข้อมูลเก่าที่มีอยู่จะถูกลบไปทั้งหมดก่อน) ???')){ form1.command.value='LOADPOS'; return ProcessUploading(); }else{ return false; }<? }else{ ?>alert('กำหนดระดับกลุ่มผู้ใช้งานก่อน'); return false;<? } ?>" value="นำเข้าข้อมูลส่วนราชการจากฐานข้อมูลระบบ" style="width:250">
+			  <input name="Submit2" type="submit" class="button" onClick="if(confirm('ต้องการลบข้อมูลทั้งหมดใช่หรือไม่ ???')){ form1.command.value='DELETEPOS'; }else{ return false; }" value="ลบข้อมูลทั้งหมด"><br>
+			  <input name="Submit22" type="submit" class="button" onClick="<? if($group_level){ ?>if(confirm('ต้องการนำเข้าข้อมูลส่วนราชการ (มอบหมายงาน) จากฐานข้อมูลระบบ ใช่หรือไม่ (ข้อมูลเก่าที่มีอยู่จะถูกลบไปทั้งหมดก่อน) ???')){ form1.command.value='LOADASS'; return ProcessUploading(); }else{ return false; }<? }else{ ?>alert('กำหนดระดับกลุ่มผู้ใช้งานก่อน'); return false;<? } ?>" value="นำเข้าข้อมูลส่วนราชการ (มอบหมายงาน) จากฐานข้อมูลระบบ" style="width:300">
+			  <input name="Submit2" type="submit" class="button" onClick="if(confirm('ต้องการลบข้อมูล (มอบหมายงาน) ทั้งหมดใช่หรือไม่ ???')){ form1.command.value='DELETEASS'; }else{ return false; }" value="ลบข้อมูล (มอบหมายงาน) ทั้งหมด">
+			  <?}?> 
+		  </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+  <? } // end if ?>
+  &nbsp;
+  <? if(($group_code == "BUREAU" || substr($group_code, 0, 7) == "BUREAU_" ) && $SESS_USERGROUP == 1){ ?>
+&nbsp;
+  <table width="55%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr align="center">
+            <td height="30">
+                <?if($PAGE_AUTH["add"]=="Y" && $PAGE_AUTH["del"]=="Y"){?>
+                    <!--<input name="Submit22" type="submit" class="button" onClick="<? if($group_level){ ?>if(confirm('ต้องการนำเข้าข้อมูลข้าราชการจากฐานข้อมูลระบบ ใช่หรือไม่ (ข้อมูลเก่าที่มีอยู่จะถูกลบไปทั้งหมดก่อน) ???')){ form1.command.value='LOADDPIS'; return ProcessUploading(); }else{ return false; }<? }else{ ?>alert('กำหนดระดับกลุ่มผู้ใช้งานก่อน'); return false;<? } ?>" value="นำเข้าข้อมูลข้าราชการจากฐานข้อมูลระบบ" style="width:210">-->
+                    <input name="Submit22" type="button" class="button" onClick="insert_user();" value="นำเข้าข้อมูลข้าราชการจากฐานข้อมูลระบบ" >
+                <?}?> 
+                <?if($PAGE_AUTH["del"]=="Y"){?>
+                    <input name="Submit2" type="submit" class="button" onClick="if(confirm('ต้องการลบข้อมูลทั้งหมดใช่หรือไม่ ???')){ form1.command.value='DELETEALL'; }else{ return false; }" value="ลบข้อมูลทั้งหมด">
+                <?}?> 
+                <?if($PAGE_AUTH["edit"]=="Y"){?>
+                    <input name="Submit_Rename" type="submit" class="button" onClick="if(confirm('ต้องการปรับปรุงชื่อ-สกุลให้ตรงกับข้อมูลบุคลากรใช่หรือไม่ ???')){ form1.command.value='RENAMEACTIVE'; }else{ return false; }" value="ปรับปรุงชื่อ-สกุลให้ตรงกับข้อมูลบุคลากร">
+                <?}?>        
+            </td>
+        </tr>
+        <?php if($msg_chk){ ?>
+            <tr align="center" id="td_err">
+                <td height="30">
+                    <?php 
+                        if($msg_chk==1){
+                            $fontcolor = "style='color:green'";
+                            $msg_detail = "อัพเดทรายการสำเร็จ";
+                        }else{
+                            $fontcolor = "style='color:red'";
+                            $msg_detail = "อัพเดทรายการไม่สำเร็จ";
+                        }
+                    ?>
+                    <span id='show_error_name' name='show_error_name' <?=$fontcolor;?> >
+                        <?=$msg_detail;?>
+                    </span>
+                </td>
+            </tr>
+        <?php }else{ ?>
+            <tr align="center" id="td_err"> <td> <span id='show_error_name' name='show_error_name' > </span> </td> </tr>
+        <?php } ?>
+      </table></td>
+    </tr>
+  </table>
+  <? } // end if ?>
+  &nbsp;
+  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr class="table_body">
+          <td height="25" colspan="2"\>&nbsp;&nbsp;&nbsp;ข้อมูลเข้าระบบ</td>
+        </tr>
+        <?if( $error_signin ){?>
+        <tr align="center"> 
+          <td colspan="2" class="label_alert"> 
+            <?=$error_signin?>
+          </td>
+        </tr>
+        <?} // if?>
+        <tr>
+          <td width="28%" height="25" align="right"><b>กลุ่มผู้ใช้งาน&nbsp;:&nbsp;</b></td>
+          <td width="72%"><? if($UPD){ create_list_box("select id,name_th from user_group order by name_th", "select_group_id", $select_group_id, "== เลือกกลุ่มผู้ใช้งาน ==", "style=\"width:'70%'\" "); }else{ echo $group_name_th; } ?></td>
+        </tr>
+        <tr>
+          <td align="right" valign="top"><b>ชื่อผู้ใช้งาน&nbsp;:&nbsp;</b></td>
+          <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="2%" align="center"><input name="user_type" type="radio" value="M" <?=(!$user_link_id)?"checked":""?>></td>
+              <td>
+				<input name="new_username" type="text" class="textbox" value="<?=(!$user_link_id)?$username:""?>" size="20" maxlength="30" style="width:70%" onKeyPress="form1.user_type[0].checked=true;">
+				<input name="username" type="hidden" value="<?=$username?>">
+			  </td>
+            </tr>
+  <? if(($group_code == "BUREAU" || substr($group_code, 0, 7) == "BUREAU_" ) && $SESS_USERGROUP == 1){ ?>
+            <tr>
+              <td align="center"><input name="user_type" type="radio" value="T" <?=($user_link_id)?"checked":""?>></td>
+              <td>
+			  	<input name="link_username" type="text" class="textbox" value="<?=($user_link_id)?$username:""?>" size="20" maxlength="30" style="width:70%" readonly>
+				<? if ($BUTTON_DISPLAY==1) { ?>
+				<input name="btn2" type="button" class="button" value="เลือกรายชื่อข้าราชการ" onClick="call_search_person();">
+				<?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="เลือกรายชื่อข้าราชการ" width="32" height="32" border="0" onClick="call_search_person();">
+              <? } echo "&nbsp; &nbsp;"; ?>
+				<input name="user_link_id" type="hidden" value="<?=$user_link_id?>">
+			  </td>
+            </tr>
+  <? } ?>			
+          </table></td>
+        </tr>
+        <tr>
+          <td align="right"><? if($UPD){ ?><b>เปลี่ยนรหัสผ่าน : </b><? }else{ ?><b>รหัสผ่านใหม่ : </b><? } ?>&nbsp;</td>
+          <td><input name="passwd" id="passwd" type="password" autocomplete="new-password" class="textbox" value="<?=$passwd?>" size="20" maxlength="30" style="width:70%" >
+          </td> 
+        </tr>
+        <tr>
+          <td align="right"><b>ยืนยันรหัสผ่าน&nbsp;:&nbsp;</b></td>
+          <td><font face="MS Sans Serif" size="1">
+            <input name="confirm_passwd"  id="confirm_passwd" type="password" autocomplete="new-password" class="textbox"  value="<?=$confirm_passwd?>" size="20" maxlength="30" style="width:70%" >
+          </font> <span lang="en-us"><font color="#FF0000"></font></span></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><input  type="checkbox" name="chkshow" id="chkshow" value="Y" onclick="Displaypw();"> แสดงรหัสผ่าน</td>
+        </tr>
+		<!--
+		<?		
+//			$cmd = " select id, name_th from user_group where id<>1 and id<>$group_id order by name_th ";
+//			$count_other_group = $db->send_cmd($cmd);
+//			if($count_other_group && $SESS_USERGROUP==1 && $group_id!=1){
+		?>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td><table width="70%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		  	<?
+//				while($data = $db->get_array()){
+//					$data = array_change_key_case($data, CASE_LOWER);
+//					$inherit_group_id = $data[id];
+//					$inherit_group_name = $data[name_th];
+			?>
+            <tr>
+              <td width="3%" align="center"><input type="checkbox" name="list_inherit_group[]" value="<?//=$inherit_group_id?>" <?//=(in_array($inherit_group_id, $arr_inherit_group)?"checked":"")?>></td>
+              <td width="45%"><?//=$inherit_group_name?></td>
+			<?
+//					$data = $db->get_array();
+//					$data = array_change_key_case($data, CASE_LOWER);
+//					$inherit_group_id = $data[id];
+//					$inherit_group_name = $data[name_th];
+			?>
+              <td width="3%" align="center"><?// if($inherit_group_id){ ?><input type="checkbox" name="list_inherit_group[]" value="<?//=$inherit_group_id?>" <?//=(in_array($inherit_group_id, $arr_inherit_group)?"checked":"")?>><?// }else{ echo "&nbsp;"; } ?></td>
+              <td><?// if($inherit_group_id){ echo $inherit_group_name; }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+			<?
+//				} // end while
+			?>
+          </table></td>
+        </tr>
+		<? 
+//			} // end if 
+		?>
+		-->
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr class="table_body">
+          <td height="25" colspan="2"\>&nbsp;&nbsp;&nbsp;ข้อมูลส่วนตัว</td>
+        </tr>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td align="right"><?=$PRENAME_TITLE?>&nbsp;:&nbsp; </td>
+          <td><input name="user_titlename" type="text" class="textbox" value="<?=$user_titlename?>" size="20" maxlength="50" style="width:70%" <?=($user_link_id)?"readonly":""?>></td>
+        </tr>
+        <tr>
+          <td align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp; </td>
+          <td><input name="user_name" type="text" class="textbox" value="<?=$user_name?>" size="20" maxlength="50" style="width:70%" <?=($user_link_id)?"readonly":""?>></td>
+        </tr>
+        <tr>
+          <td align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+          <td><input name="user_address" type="text" class="textbox" value="<?=$user_address?>" size="20" maxlength="50" style="width:70%" <?=($user_link_id)?"readonly":""?>></td>
+        </tr>
+        <!--tr>
+          <td height="66" colspan="2" valign="top">
+		  	<iframe frameborder="0" scrolling="NO" height="66" width="100%"  valign="top" src= "province_inframe.html?province_id=<?=$province_id?>&amphur_id=<?=$amphur_id?>&district_id=<?=$district_id?>" id="P_SELECT" >SELECT</iframe>
+          </td>
+        </tr-->
+        <tr>
+          <td align="right">อีเมล์&nbsp;:&nbsp;</td>
+          <td><input name="user_email" type="text" class="textbox" value="<?=$user_email?>" size="20" maxlength="50" style="width:70%" ></td>
+        </tr>
+        <tr>
+          <td align="right">เบอร์โทร.&nbsp;:&nbsp;</td>
+          <td><input name="user_tel" type="text" class="textbox" value="<?=$user_tel?>" size="20" maxlength="50" style="width:70%" ></td>
+        </tr>
+        <tr>
+          <td align="right">เบอร์แฟกซ์.&nbsp;:&nbsp;</td>
+          <td><input name="user_fax" type="text" class="textbox" value="<?=$user_fax?>" size="20" maxlength="50" style="width:70%" ></td>
+        </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:70%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+        </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_DATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+        <tr bgcolor="#FFFFFF" align="center">
+          <td height="30" colspan="2"><? if ($UPD) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y"){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="submit" class="button" onClick="return check_upd(form1);" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="return check_upd(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>
+      		  <?}?> 
+		  	<? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'" class="button" >
+			  <?  } else { ?>
+              <input name="image22" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="submit" class="button" onClick="return check_add(form1);" value="<?=$ADD_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="return check_add(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+	  		  <?}?> 
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+      		  <?  } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?>
+          </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+  <?
+
+    
+
+
+	if(!$sort_by2) $sort_by2=1;
+	$sort_type2 = (isset($sort_type2))?  $sort_type2 : "1:asc";
+	$arrSort=explode(":",$sort_type2);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by2) $order_by2=1;
+	if (trim($search_code))		$arr_search_condition[] = "username like '%$search_code%'";
+	if (trim($search_name))	$arr_search_condition[] = "fullname like '%$search_name%'";	
+//	if (trim($search_name))	$arr_search_condition[] = "fullname like '$search_name%'";	
+	if(count($arr_search_condition)) $search_condition = " and ". implode(" and ", $arr_search_condition); 
+		
+	if($order_by2==1){	//(ค่าเริ่มต้น) ลำดับที่
+		$order_str2 = "username ".$SortType[$order_by2];
+  	}elseif($order_by2==2) {	//ชื่อ
+		$order_str2 = "fullname ".$SortType[$order_by2];
+  	} elseif($order_by2==3) {	//html
+		$order_str2 = "address ".$SortType[$order_by2];
+	}
+
+        //รหัสผู้ใช้ตรงกับรหัสผ่าน
+        $conditionUserPW='';
+        $val_user_flag=" user_flag='Y' AND ";
+        if($SESS_USERGROUP==1){
+            //echo 'รหัสผู้ใช้ตรงกับรหัสผ่าน :'.$chhuserpw;
+            $userpw_arr=array();
+            if($chhuserpw=='Y'){
+                $sql =" select username from user_detail where $val_user_flag group_id=$group_id $search_condition ";
+                $db->send_cmd($sql);
+                while ($data9 = $db->get_array()) {
+                    $data9 = array_change_key_case($data9, CASE_LOWER);
+                    $tmp_username_md5 = md5($data9[username]);
+                    $userpw_arr[]= " password='".$tmp_username_md5."'";
+                }
+            }
+            $inuserpw=implode(" or ",$userpw_arr);
+            if(count($userpw_arr)){
+                $conditionUserPW=' and ('.$inuserpw.')';
+            }
+            if($selectFlag=='0'){
+                $val_user_flag="";
+            }else{
+                if($selectFlag){
+                    $val_user_flag=" user_flag='".$selectFlag."' AND ";
+                }else{
+                    $val_user_flag="";
+                }
+            }
+        }
+	$cmd =" select count(id) as count_data from user_detail where $val_user_flag  group_id=$group_id $search_condition ".$conditionUserPW;
+//echo '<br><br>'.$cmd;
+	$db->send_cmd($cmd);
+//	$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+  ?>
+  &nbsp;
+  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+            <tr>
+                <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+                <td width="15%">
+                  <input type="text" name="search_code" value="<?=$search_code?>" style="width:98%" class="textbox" onKeyPress="return NumOnly(); return keyEnter(event,document.form1.Submit3);">
+                </td>
+                <td width="5%" align="right">ชื่อ&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_name" value="<?=$search_name?>" style="width:98%" class="textbox" onKeyPress="return keyEnter(event,document.form1.Submit3);"></td>
+                <td width="20%" align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+                  <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+                  <input name="Submit4" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_code.value=''; form1.search_name.value=''; form1.current_page.value=0;">
+                  <input name="Submit_duplicate" type="submit" class="btnDuplicate" value="     ตรวจสอบความปลอดภัยของรหัสผ่าน" onClick="form1.current_page.value=0;">
+                  <? } else { ?>
+                  <input name="image" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                  <input name="image" type="image" onClick="form1.search_code.value=''; form1.search_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                  
+                  <?}?></td>
+            </tr>
+            <?php if($SESS_USERGROUP==1){?>
+            <tr>
+                <td width="5%" align="right"></td>
+                <td width="15%"><input type="checkbox" name="chhuserpw" value="Y" <?php if($chhuserpw=='Y'){echo 'checked';} ?> > <font color='red'>รหัสผู้ใช้ตรงกับรหัสผ่าน</font></td>
+                <td width="5%" align="right"><font color='red'>สถานะ</font>&nbsp;:&nbsp;</td>
+                <td>
+                    <select id='selectFlag' name='selectFlag'>
+                        <option value="0" <?php if($selectFlag=='0'){echo 'selected';}?>>ทั้งหมด</option>
+                        <option value="Y" <?php if($selectFlag=='Y'){echo 'selected';}?>>ใช้งาน</option>
+                        <option value="N" <?php if($selectFlag=='N'){echo 'selected';}?>>ยกเลิก</option>
+                    </select>
+                </td>
+            </tr>
+            <?php }?>
+        <tr>
+          <td height="5"></td>
+          </tr>	 
+          </table></td>
+        </tr>
+		<tr>
+		  <td>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by2" value="<?=$order_by2?>">
+    <input type="hidden" name="sort_by2" value="<?=$sort_by2;?>">
+    <input type="hidden" name="sort_type2" value="<?=$sort_type2?>">
+<?=$SORT_TITLE?><br>
+<?php 
+if($SESS_USERGROUP==1 && $Submit_duplicate){
+    echo '<img src="images/iconfinder_exclamation.png" alt="รหัสผู้ใช้ตรงกับรหัสผ่าน แนะนำให้เปลี่ยนรหัสผ่าน" title="รหัสผู้ใช้ตรงกับรหัสผ่าน แนะนำให้เปลี่ยนรหัสผ่าน" >&nbsp;&nbsp;&nbsp;รหัสผู้ใช้ตรงกับรหัสผ่าน';
+    echo '&nbsp;&nbsp;&nbsp;<font color=red><s>ชื่อผู้ใช้งาน</s></font> : ชื่อผู้ใช้งานที่ถูกยกเลิก';
+}
+?>
+</td>
+</tr> 
+</table>
+              <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+                  
+                  <tr>
+                      <td><?= $fullname_ch?></td>
+                      <td>&nbsp;</td> 
+                  </tr>    
+              </table>      
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+                <td width="15%" height="22"><? if($PAGE_AUTH["print"]=="Y"){ ?><!--input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"--><? }else{ echo "&nbsp;"; } ?></td>
+                <td align="center">พบข้อมูลรายชื่อผู้ใช้งาน ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+              <!--<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>--> <!--input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"--><!--<? }else{ echo "&nbsp;"; } ?></td>-->
+                <td width="15%" align="right">
+			<? if($PAGE_AUTH["print"]=="Y"){ ?>
+				<input name="btn_export" type="button" class="button" style="width:180" value="ส่งออกรายชื่อผู้ใช้งาน" onClick="call_export_file();">
+			<? }else{ echo "&nbsp;"; } ?>
+		</td>
+            </tr>
+          </table></td>
+		</tr>
+  </table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );	
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($db_type=="mysql"){
+		$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+	}
+	if($current_page > 1){
+		if($db_type=="mssql"){
+			$limit_data = " and id not in (select top $start_record id from user_detail where user_flag='Y' and group_id = $group_id $search_condition order by group_id, username) ";
+		}elseif($db_type=="oci8"){
+			$limit_data = " and id not in (select * from (select id from user_detail where user_flag='Y' and group_id = $group_id $search_condition order by group_id, username) where rownum <= ". (($current_page - 1) * $data_per_page) .")";
+		}
+	} // end if 
+	
+	if($db_type=="mssql"){
+		$cmd = " select  	top $data_per_page id, group_id, username, fullname, user_link_id, address, titlename 
+						 from 		user_detail
+						 where user_flag='Y' and group_id = $group_id $search_condition
+						 				$limit_data
+						 order by $order_str2 ";
+	}elseif($db_type=="mysql"){
+		$cmd = " select  	id, group_id, username, fullname, user_link_id, address, titlename , password ,user_flag
+						 from 		user_detail
+						 where	user_flag='Y' and group_id=$group_id $search_condition
+						 order by $order_str2
+						 $limit_data ";
+	}elseif($db_type=="oci8"){
+		$cmd = " select		*
+						 from (
+							 select  	id, group_id, username, fullname, user_link_id, address, titlename ,password,user_flag
+							 from 		user_detail
+							 where	$val_user_flag group_id=$group_id $search_condition $conditionUserPW
+											$limit_data
+							 order by $order_str2
+						 ) where rownum <= $data_per_page ";
+	}
+	//echo "<pre>".$cmd; 
+	if ($db->send_cmd($cmd)) {
+		//$db->show_error();
+?>
+	<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal" >
+	  <tr align="center" class="table_head"> 
+		<td width="20%" height="20" onClick="call_sort(1);"><? if($order_by2==1&&$sort_by2==1){  if($SortType[$order_by2]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อผู้ใช้งาน</td>
+		<td onClick="call_sort(2);"><? if($order_by2==2&&$sort_by2==2){  if($SortType[$order_by2]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?><?=$FULLNAME_TITLE?> </td>
+		<td width="30%" onClick="call_sort(3);"><? if($order_by2==3&&$sort_by2==3){  if($SortType[$order_by2]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?><?=$ORG_TITLE?></td>
+		<?if($PAGE_AUTH["edit"]=="Y"){?>
+		<td width="5%"><?=$EDIT_TITLE?></td>
+		<?}?>
+		<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td width="5%"><?=$DEL_TITLE?></td>
+		<?}?>
+          <td width="5%"><strong><?=$ACTIVE_TITLE?></strong></td>
+	  </tr>
+	  <?
+		while ($data = $db->get_array()) {
+			$data = array_change_key_case($data, CASE_LOWER);
+                        $tag_s_begin='';
+                        $tag_s_end='';
+                        $user_flag = $data[user_flag];
+                        if($user_flag=='N'){
+                            $tag_s_begin='<font color=red><s>';
+                            $tag_s_end='</s></font>';
+                        }
+			$tmp_id = $data[id];
+			$username = $data[username];
+            $password = $data[password];
+                        
+
+                        
+                        
+			$user_link_id = $data[user_link_id];
+			if($user_link_id){
+				if($DPISDB=="odbc")
+					$cmd = " select 	b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE, d.ORG_NAME, f.ORG_NAME as EMP_ORG_NAME , h.ORG_NAME as EMPSER_ORG_NAME , j.ORG_NAME as TEMP_ORG_NAME
+									 from 	(	
+												  (
+													(
+														(
+															(
+																(
+															(
+																(
+																	PER_PERSONAL a
+																	left join PER_PRENAME b on (a.PN_CODE=b.PN_CODE)
+																) left join PER_POSITION c on (a.POS_ID=c.POS_ID)
+															) left join PER_ORG d on (c.ORG_ID=d.ORG_ID)
+														) left join PER_POS_EMP e on (a.POEM_ID=e.POEM_ID)
+													) left join PER_ORG f on (e.ORG_ID=f.ORG_ID)
+												) left join PER_POS_EMPSER g on (a.POEMS_ID=g.POEMS_ID)
+											) left join PER_ORG h on (g.ORG_ID=h.ORG_ID)
+										) left join PER_POS_TEMP i on (a.POT_ID=i.POT_ID)
+									) left join PER_ORG j on (i.ORG_ID=j.ORG_ID)
+									 where 	a.PER_ID=". $user_link_id;
+				elseif($DPISDB=="oci8")
+					$cmd = " select 	b.PN_NAME, a.PER_NAME, a.PER_SURNAME, a.PER_TYPE, d.ORG_NAME, f.ORG_NAME as EMP_ORG_NAME , h.ORG_NAME as EMPSER_ORG_NAME, j.ORG_NAME as TEMP_ORG_NAME
+									 from 		PER_PERSONAL a, PER_PRENAME b, PER_POSITION c, PER_ORG d, PER_POS_EMP e, PER_ORG f , PER_POS_EMPSER g , PER_ORG h , PER_POS_TEMP i , PER_ORG j
+									 where 	a.PN_CODE=b.PN_CODE(+) and a.POS_ID=c.POS_ID(+) and c.ORG_ID=d.ORG_ID(+) 
+													and a.POEM_ID=e.POEM_ID(+) and e.ORG_ID=f.ORG_ID(+) and a.POEMS_ID=g.POEMS_ID(+) and g.ORG_ID=h.ORG_ID(+) and a.POT_ID=i.POT_ID(+) and i.ORG_ID=j.ORG_ID(+)
+													and a.PER_ID=". $user_link_id;
+				$db_dpis->send_cmd($cmd);
+	//			echo $cmd;
+	//			$db_dpis->show_error();
+				$data_dpis = $db_dpis->get_array();
+				$user_name = $data_dpis[PN_NAME] . (trim($data[PN_NAME])?" ":"") . $data_dpis[PER_NAME] ." ". $data_dpis[PER_SURNAME];
+				if($data_dpis[PER_TYPE]==1) $address = $data_dpis[ORG_NAME];
+				elseif($data_dpis[PER_TYPE]==2) $address = $data_dpis[EMP_ORG_NAME];
+				elseif($data_dpis[PER_TYPE]==3) $address = $data_dpis[EMPSER_ORG_NAME];
+				elseif($data_dpis[PER_TYPE]==4) $address = $data_dpis[TEMP_ORG_NAME];
+			}else{
+				$address = $data[address];
+			} // end if
+	
+			$fullname = "";
+			if ($user_link_id) {
+				if($DPISDB=="odbc")
+					$cmd = " select 	b.PN_NAME, a.PER_NAME, a.PER_SURNAME 
+									 from 		PER_PERSONAL a
+													left join PER_PRENAME b on a.PN_CODE=b.PN_CODE
+									 where 	a.PER_ID=". $user_link_id;
+				elseif($DPISDB=="oci8")
+					$cmd = " select 	b.PN_NAME, a.PER_NAME, a.PER_SURNAME 
+									 from 		PER_PERSONAL a, PER_PRENAME b 
+									 where 	a.PN_CODE=b.PN_CODE(+) and a.PER_ID=". $user_link_id;
+				elseif($DPISDB=="mysql")
+					$cmd = " select 	b.PN_NAME, a.PER_NAME, a.PER_SURNAME 
+									 from 		PER_PERSONAL a
+													left join PER_PRENAME b on a.PN_CODE=b.PN_CODE
+									 where 	a.PER_ID=". $user_link_id;
+				$db_dpis->send_cmd($cmd);
+	//			$db_dpis->show_error();
+				$data_dpis = $db_dpis->get_array();
+	//___	$fullname = $data_dpis[PN_NAME] . (trim($data[PN_NAME])?" ":"") . $data_dpis[PER_NAME] ." ". $data_dpis[PER_SURNAME];
+			     /*เดิม*/	
+                            //$fullname = $data_dpis[PER_NAME] ." ". $data_dpis[PER_SURNAME];
+                            /* Release 5.1.0.5 Begin*/
+                            $fullname = $data_dpis[PN_NAME].$data_dpis[PER_NAME] ." ". $data_dpis[PER_SURNAME];
+                            /* Release 5.1.0.5 End*/
+			}	
+                        /*เดิม*/
+			//if (!trim($fullname)) $fullname = $data[fullname].$data[titlename];	
+                        /* Release 5.1.0.5 Begin*/
+                        if (!trim($fullname)) $fullname = $data[titlename].$data[fullname];	
+		        /* Release 5.1.0.5 End*/
+			$class = "table_body";
+			$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+			if($id==$tmp_id){ 
+				$class = "table_body_over";
+				$onmouse_event = "";
+			} // end if
+                        
+                        $iconchk='';
+                        $md5_username=md5($username);
+                        if($md5_username==$password && $SESS_USERGROUP==1 && $Submit_duplicate){
+                            $iconchk='<img src="images/iconfinder_exclamation.png" alt="รหัสผู้ใช้ตรงกับรหัสผ่าน แนะนำให้เปลี่ยนรหัสผ่าน" title="รหัสผู้ใช้ตรงกับรหัสผ่าน แนะนำให้เปลี่ยนรหัสผ่าน" >&nbsp;&nbsp;&nbsp;';
+                        }
+	?>
+	  <tr class="<?=$class?>" <?=$onmouse_event?>> 
+		<td align="center" height="25"><?php echo $iconchk;?><?=$tag_s_begin.$username.$tag_s_end;?></td>
+		<td>&nbsp;<?=$tag_s_begin.$fullname.$tag_s_end;?></td>
+		<td>&nbsp;<?=$tag_s_begin.$address.$tag_s_end;?></td>
+		<?if($PAGE_AUTH["edit"]=="Y" && $user_flag=='Y'){?>
+		<td align="center"><a href="<?="javascript:form1.action+='?UPD=1';form1.id.value=$tmp_id;form1.submit();"?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>
+		<?}else{
+                    echo '<td></td>';
+                }?>
+		<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td align="center">
+		  <? if($tmp_id != 1 && $user_flag=='Y') : ?>
+		  <a href="<?="javascript:confirm_delete($tmp_id,'[$username] $fullname')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a>
+		  <? endif; ?>&nbsp;		</td>
+		<?}?>
+          <?if($PAGE_AUTH["del"]=="Y"){?>
+		<td align="center">
+		  <? if($tmp_id != 1) : ?>
+            
+		 
+		  
+		  <input onclick="chksetvalues('listcheck_<?=$tmp_id?>','TXTCODE_<?=$tmp_id?>','<?=$tmp_id.'_'.$username.'_'.$user_flag.'_'.$user_link_id?>')" type="checkbox" name="listcheck_<?=$tmp_id;?>" id="listcheck_<?php echo $tmp_id;?>" <?=(($user_flag=="Y")?"checked":"")?>>
+		  
+		  <input  type="hidden" name="TXTCODE[]" id="TXTCODE_<?=$tmp_id?>" value="<?=$user_flag.'_'.$tmp_id.'_'.$username.'_'.$user_flag.'_'.$user_link_id?>">
+		 
+		  <? endif; ?>&nbsp;		</td>
+		<?}?>
+	  </tr>
+	  <? } ?>
+        <?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+	  <input type="submit" name="btn3" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG'" class="button" style="width:98%"><?  } else { ?>
+	  <input name="image" type="image" onClick="form1.command.value='SETFLAG'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">  
+	  <? } ?>
+      </td>
+    </tr>
+
+    <?}?>
+	</table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>
+  &nbsp;
+  <? } // if  count show ?>
+        </form>	
+		</td>
+	</tr>
+                
+</table>
+<script language="JavaScript" src="java_scripts/jquery-1.10.2.js"></script>
+<script type="text/javascript">	
+$(document).ready(function(){
+var multi_id_n = $('#multi_id_n').val();
+var id_discheck = multi_id_n.substr(0, multi_id_n.length -1 );
+var num_ch = '<?=$num_ch?>';
+
+if(id_discheck && (num_ch >= 2)){
+		parameter = "";
+	    call_openDialog("answer_flag.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&id_discheck="+id_discheck + parameter,1000,600,'ยืนยันการเลิกใช้งานรหัสผ่าน');	
+}
+});
+</script>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>
+<script>
+    function Displaypw(){
+        //alert('Displaypw :'+document.getElementById('chkshow').checked);
+        if(document.getElementById('chkshow').checked==true){
+           document.getElementById('passwd').type='text'; 
+           document.getElementById('confirm_passwd').type='text'; 
+        }else{
+           document.getElementById('passwd').type='password'; 
+           document.getElementById('confirm_passwd').type='password'; 
+        }   
+    }
+    $( document ).ready(function() {
+        $("#td_err").hide(8000);
+        //console.log( "ready!" );
+    });
+	
+$('form input').on('keypress', function(e) {
+    return e.which !== 13;
+});
+
+	
+</script>
+

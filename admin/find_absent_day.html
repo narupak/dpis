@@ -1,0 +1,485 @@
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">  
+<?
+	include("../php_scripts/connect_database.php");
+    include("php_scripts/function_share.php");
+//	include("php_scripts/session_start.php");
+	
+	$search_approve ="";
+	if($linkfrom=="personal_absenthis"){
+		$search_approve =" and APPROVE_FLAG=2";		//ดึงมาเฉพาะอันที่ ไม่ได้ถูก ไม่อนุญาต มา
+	}
+
+	//	นับจำนวนวันลา โดยไม่รวมวันหยุดเสาร์ - อาทิตย์ และวันหยุดราชการ (table) X
+	//วันเริ่มต้น
+	$arr_temp = explode("/", $STARTDATE);
+	$START_DAY = $arr_temp[0];
+	$START_MONTH = $arr_temp[1];
+	$START_YEAR = $arr_temp[2] - 543;
+	$STARTDATE_ce_era = $START_YEAR ."-". $START_MONTH ."-". $START_DAY;
+	
+	//ถึงวันที่
+	$arr_temp = explode("/", $ENDDATE);
+	$END_DAY = $arr_temp[0];
+	$END_MONTH = $arr_temp[1];
+	$END_YEAR = $arr_temp[2] - 543;
+	$ENDDATE = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;
+	$ENDDATE_ce_era = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;	
+
+//	echo "st ($STARTDATE_ce_era) - en ($ENDDATE_ce_era)<br>";
+	if(!$INVALID_STARTDATE && !$INVALID_ENDDATE){
+		//$ABSENT_DAY = 1;
+		$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+
+		if($AB_COUNT == 2){		//ไม่นับวันหยุดเท่านั้น***		// PERIOD 1 = ครึ่งเช้า / 2 = ครึ่งบ่าย / 3 = ทั้งวัน
+			$DAY_START_NUM = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+			$DAY_END_NUM = date("w", mktime(0, 0, 0, $END_MONTH, $END_DAY, $END_YEAR));
+			if(($DAY_START_NUM == 0 || $DAY_START_NUM == 6)  && ($DAY_END_NUM == 0 || $DAY_END_NUM == 6)){			// เริ่มต้น / สิ้นสุด เป็นวันเสาร์ - อาทิตย์  (หานอก loop)
+				$ABSENT_START_DAY = 0;
+			}else if(($DAY_START_NUM == 0 || $DAY_START_NUM == 6)  && ($DAY_END_NUM != 0 || $DAY_END_NUM != 6)){	// เริ่มต้น เป็นวันเสาร์ - อาทิตย์  / สิ้นสุด เป็นวันธรรมดา (หานอก loop)
+				$ABSENT_START_DAY = 0;
+			}else if(($DAY_START_NUM != 0 || $DAY_START_NUM != 6)  && ($DAY_END_NUM == 0 || $DAY_END_NUM == 6)){	// เริ่มต้น  เป็นวันธรรมดา / สิ้นสุด เป็นวันเสาร์ - อาทิตย์  (หานอก loop)
+				$ABSENT_START_DAY = 0;	
+			}else if(($DAY_START_NUM != 0 && $DAY_START_NUM != 6)  && ($DAY_END_NUM != 0 && $DAY_END_NUM != 6)){	 // เริ่มต้น / สิ้นสุด ไม่เป็นวันเสาร์ - อาทิตย์  (หานอก loop)
+//				$ABSENT_START_DAY = 1;	// ลองเอาออกก่อน ใน loop นับวันมันนับทุกวันอยู่แล้ว และ เช็ควันหยุดอยู่ใน loop อยู่แล้ว ไม่รู้ว่าส่วนนี้ทำทำไม
+				$ABSENT_START_DAY = 0;
+			}
+			
+			// หาวันเริ่มต้นเป็นวันหยุดหรือไม่ ?
+			if($DPISDB=="odbc") 
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+			elseif($DPISDB=="oci8") 
+				$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+			elseif($DPISDB=="mysql")
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+			$IS_HOLIDAY_START = $db_dpis->send_cmd($cmd);
+			
+			// หาวันสิ้นสุดเป็นวันหยุดหรือไม่ ?
+			if($DPISDB=="odbc") 
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+			elseif($DPISDB=="oci8") 
+				$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+			elseif($DPISDB=="mysql")
+				$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+			$IS_HOLIDAY_END = $db_dpis->send_cmd($cmd);
+			if($IS_HOLIDAY_START || $IS_HOLIDAY_END){		// ถ้าวันเริ่ม / สิ้นสุดเป็นวันหยุดราชการ  ก็ไม่นับตรงนี้
+				$ABSENT_START_DAY = 0;
+			}
+
+			// หักครึ่งวัน	// PERIOD 1 = ครึ่งเช้า / 2 = ครึ่งบ่าย / 3 = ทั้งวัน
+			// คิดคำนวณครึ่งวัน กรณีนี้ไม่นับครึ่งวันเพราะวันเริ่มต้น / สิ้นสุดเป็นวันหยุดอยู่แล้ว ไม่เอามาคิด	
+			// ถ้า ว / ด / ป เริ่มและสิ้นสุดเป็นวันเดียวกันและเป็นครึ่งวัน ทั้งเช้า / บ่ายไม่ต้องหัก 0.5
+            $period_err = 0;
+            $ABSENT_2_STARTPERIOD = 0;
+            $ABSENT_2_ENDPERIOD = 0;
+			if(trim("$START_YEAR-$START_MONTH-$START_DAY")==trim("$END_YEAR-$END_MONTH-$END_DAY")){
+				if($STARTPERIOD == 1 && $ENDPERIOD == 2){		// เริ่มต้น เป็นครึ่งเช้า และสิ้นสุด เป็นครึ่งบ่าย
+                	$period_err = 1;	//	"วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน โปรดแก้ไขเป็น 'ทั้งวัน'";
+				} else if($STARTPERIOD == 2 && $ENDPERIOD == 1){		// เริ่มต้นและสิ้นสุด เป็นครึ่งวันทั้งคู่  [ให้ตัวใดตัวหนึ่งเป็น 0.5]
+                	$period_err = 2;	//	"วันเดียวกัน เริ่มครึ่งบ่าย สิ้นสุดครึ่งเช้า ผิดรูปแบบ โปรดแก้ไขแก้ไข";
+				} else if($STARTPERIOD != 3 && $ENDPERIOD != 3){		// เริ่มต้นและสิ้นสุด เป็นครึ่งวันทั้งคู่ และเท่ากัน ก็คือ ครึ่งวัน เช้าหรือบ่าย  [ให้ตัวใดตัวหนึ่งเป็น 0.5]
+                    $ABSENT_2_STARTPERIOD = 0.5;
+				}else{
+					if($STARTPERIOD == 3 && ($ENDPERIOD == 1 || $ENDPERIOD == 2))		
+                    	$period_err = 3; // "วันเดียวกัน เริ่มทั้งวัน สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน โปรดแก้ไขสิ้นสุดเป็น 'ทั้งวัน'";
+					if($ENDPERIOD == 3 && ($STARTPERIOD == 1 || $STARTPERIOD == 2))	
+                    	$period_err = 4; // "วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดทั้งวัน ถือเป็น 1 วัน โปรดแก้ไขเริ่มเป็น 'ทั้งวัน'";
+				}
+			}else{
+				if($STARTPERIOD == 1){
+					$period_err = 5;	// "เริ่มวันแรกเป็นครึ่งเช้า เว้นบ่าย ไม่ถูกต้อง โปรดทำแยกเป็นลาอีก 1 รายการ";
+				} else if($STARTPERIOD == 2){		//  เริ่มวันแรกครึ่งบ่าย
+					if(($DAY_START_NUM == 0 || $DAY_START_NUM == 6) || $IS_HOLIDAY_START){	// ถ้าเป็นวันหยุดราชการหรือนักขัตฤกษ์ ไม่นับวัน
+						$ABSENT_2_STARTPERIOD = 0;
+					}else{  // case ปกติ วันธรรมดา
+						$ABSENT_2_STARTPERIOD = 0.5;
+					}
+				}
+				if($ENDPERIOD == 2){
+					$period_err = 6;	// "สิ้นสุดจบที่ครึ่งบ่าย เว้นเช้า ไม่ถูกต้อง โปรดทำแยกเป็นลาอีก 1 รายการ";
+				} else if($ENDPERIOD == 1){
+					if(($DAY_END_NUM == 0 || $DAY_END_NUM == 6) || $IS_HOLIDAY_END){	// ถ้าเป็นวันหยุดราชการหรือนักขัตฤกษ์ ไม่นับวัน
+						$ABSENT_2_ENDPERIOD = 0;
+					}else{  // case ปกติ วันธรรมดา
+						$ABSENT_2_ENDPERIOD = 0.5;
+					}
+				}
+			}
+		}else if($AB_COUNT == 1){		// นับวันหยุดเท่านั้น
+			$ABSENT_START_DAY = 1; 
+			// ถ้า ว / ด / ป เริ่มและสิ้นสุดเป็นวันเดียวกันและเป็นครึ่งวัน ทั้งเช้า / บ่ายไม่ต้องหัก 0.5
+            $period_err = "";
+            $ABSENT_2_STARTPERIOD = 0;
+            $ABSENT_2_ENDPERIOD = 0;
+			if(trim("$START_YEAR-$START_MONTH-$START_DAY")==trim("$END_YEAR-$END_MONTH-$END_DAY")){
+				if($STARTPERIOD == 1 && $ENDPERIOD == 2){		// เริ่มต้น เป็นครึ่งเช้า และสิ้นสุด เป็นครึ่งบ่าย
+                	$period_err = 1;	// "วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน\nโปรดแก้ไขเป็น 'ทั้งวัน'";
+				} else if($STARTPERIOD == 2 && $ENDPERIOD == 1){		// เริ่มต้นและสิ้นสุด เป็นครึ่งวันทั้งคู่  [ให้ตัวใดตัวหนึ่งเป็น 0.5]
+                	$period_err = 2;	// "วันเดียวกัน เริ่มครึ่งบ่าย สิ้นสุดครึ่งเช้า ผิดรูปแบบ\nโปรดแก้ไขให้ถูกต้อง";
+				} else if($STARTPERIOD != 3 && $ENDPERIOD != 3){		// เริ่มต้นและสิ้นสุด เป็นครึ่งวันทั้งคู่ และเท่ากัน ก็คือ ครึ่งวัน เช้าหรือบ่าย  [ให้ตัวใดตัวหนึ่งเป็น 0.5]
+                    $ABSENT_2_STARTPERIOD = 0.5;
+				}else{
+					if($STARTPERIOD == 3 && ($ENDPERIOD == 1 || $ENDPERIOD == 2))		
+                    	$period_err = 3;	// "วันเดียวกัน เริ่มทั้งวัน สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน\nโปรดแก้ไขสิ้นสุดเป็น 'ทั้งวัน'";
+					if($ENDPERIOD == 3 && ($STARTPERIOD == 1 || $STARTPERIOD == 2))	
+                    	$period_err = 4;	// "วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดทั้งวัน ถือเป็น 1 วัน\nโปรดแก้ไขเริ่มเป็น 'ทั้งวัน'";
+				}
+			} else {	// วันไม่เท่ากัน
+				if($STARTPERIOD == 1){		// เริ่มวันแรกเป็นครึ่งเช้า เว้นบ่าย ไม่ถูกต้อง โปรดทำแยกเป็นลาอีก 1 รายการ
+					$period_err = 5;	// "เริ่มวันแรกเป็นครึ่งเช้า เว้นบ่าย ไม่ถูกต้อง\nโปรดทำแยกเป็นลาอีก 1 รายการ";
+				} else if($ENDPERIOD == 2){		// สิ้นสุด เป็นครึ่งวันหลัง
+					$period_err = 6;	// "สิ้นสุดจบที่ครึ่งบ่าย เว้นเช้า ไม่ถูกต้อง โปรดทำแยกเป็นลาอีก 1 รายการ";
+				} else {
+                	if($STARTPERIOD == 2){		// เริ่มต้น เป็นครึ่งวันหลัง
+                    	$ABSENT_2_STARTPERIOD = 0.5;	
+					}
+                    if($ENDPERIOD == 1){		// สิ้นสุด เป็นครึ่งวันแรก
+                    	$ABSENT_2_ENDPERIOD = 0.5;
+					}
+				}            
+            }
+		}
+		
+        $ABSENT_START_DAY = 0;	// loop ต่อไปนี้นับใหม่หมดทุกวันแล้ว ไม่จำเป็นต้องใช้ ABSENT_START_DAY อีก
+		$TMP_ENDDATE = date("Y-m-d", mktime(0, 0, 0, $END_MONTH, ($END_DAY + 1), $END_YEAR));
+		$arr_temp = explode("-", $TMP_ENDDATE);
+		$END_DAY1 = $arr_temp[2];
+		$END_MONTH1 = $arr_temp[1];
+		$END_YEAR1 = $arr_temp[0];
+		while($START_YEAR!=$END_YEAR1 || $START_MONTH!=$END_MONTH1 || $START_DAY!=$END_DAY1){
+			$DAY_NUM = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+
+			if($AB_COUNT == 2){		//ไม่นับวันหยุดเท่านั้น***
+				if($DPISDB=="odbc") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				elseif($DPISDB=="mysql")
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+
+				if($DAY_NUM > 0 && $DAY_NUM < 6 && !$IS_HOLIDAY) $ABSENT_DAY++;
+?>
+ <!--        <script>
+                alert("1..<?=$START_YEAR?>-<?=$START_MONTH?>-<?=$START_DAY?>...count=<?=$ABSENT_DAY?>..");
+				</script>-->
+<?
+			}elseif($AB_COUNT == 1){	//นับ
+				$ABSENT_DAY++;
+?>
+<!--         <script>
+                alert("2..<?=$START_YEAR?>-<?=$START_MONTH?>-<?=$START_DAY?>...count=<?=$ABSENT_DAY?>..");
+				</script>-->
+<?
+			} // end if
+
+			$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, ($START_DAY + 1), $START_YEAR));
+			$arr_temp = explode("-", $TMP_STARTDATE);
+			$START_DAY = $arr_temp[2];
+			$START_MONTH = $arr_temp[1];
+			$START_YEAR = $arr_temp[0];
+		} // end while
+
+?>
+		<script>
+//			alert("ABSENT_DAY=<?=$ABSENT_DAY?> , ABSENT_START_DAY=<?=$ABSENT_START_DAY?> , ABSENT_2_STARTPERIOD =<?=$ABSENT_2_STARTPERIOD?> , ABSENT_2_ENDPERIOD=<?=$ABSENT_2_ENDPERIOD?>");
+		</script>
+<?
+
+		// สรุปรวมวันสุดท้าย //
+		$ABSENT_DAY = ($ABSENT_DAY + $ABSENT_START_DAY);		
+
+		// หักครึ่งวัน	// PERIOD 1 = ครึ่งเช้า / 2 = ครึ่งบ่าย / 3 = ทั้งวัน	//ถ้าไม่นับวันหยุด ให้ check ว่าวันที่เริ่มต้น / สิ้นสุดที่ลาครึ่งวัน(เช้า/บ่าย)นั้น เป็นวันหยุดราชการ/ เสาร์-อาทิตย์? ถ้าเป็นไม่ต้องเอามาคิด
+		$ABSENT_DAY = ($ABSENT_DAY -  ($ABSENT_2_STARTPERIOD + $ABSENT_2_ENDPERIOD));
+
+		/*** น่าจะผิด
+		if($STARTPERIOD == 2 && $ENDPERIOD == 1) $ABSENT_DAY -= 0.5;
+		if($STARTPERIOD != 3) $ABSENT_DAY -= 0.5;
+		if($ENDPERIOD != 3 && $TMP_STARTDATE != $ENDDATE) $ABSENT_DAY -= 0.5;
+		if($STARTPERIOD == 3 && $ENDPERIOD != 3 && $TMP_STARTDATE == $ENDDATE) $ABSENT_DAY -= 0.5;
+		***/
+		//$ABSENT_DAY = $ABSENT_DAY ."+".$STARTPERIOD."&&".$ENDPERIOD;
+	} // end if
+
+	// ======================================================
+	// ===== START process เช็คว่ามีการลาซ้ำกับวันที่เคยลาไปแล้วหรือไม่ =====
+	$count_confirm = $count_duplicate_date = 0;
+	if ($ABS_ID) {
+		if ($DPISDB == "odbc")		$absid_condition = " and (ABS_ID<>$ABS_ID) "; /*เดิม $ABS_id*/
+		elseif ($DPISDB == "oci8")	$absid_condition = " and (ABS_ID!=$ABS_ID) "; /*เดิม $ABS_id*/
+		elseif($DPISDB=="mysql") $absid_condition = " and (ABS_ID!=$ABS_ID) "; /*เดิม $ABS_id*/
+	}
+	if ($STARTPERIOD == 1) {
+		$startperiod_condition1 = " (ABS_STARTPERIOD in (1,3)) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD in (1,3)) ";
+	} elseif ($STARTPERIOD == 2) {
+		$startperiod_condition1 = " (ABS_STARTPERIOD in (2, 3)) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD in (2, 3)) ";
+	} elseif ($STARTPERIOD == 3) { 
+		$startperiod_condition1 = " (ABS_STARTPERIOD<=3) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD<=3) ";
+	}
+	if ($ENDPERIOD == 1) {
+		$endperiod_condition1 = " (ABS_STARTPERIOD in (1, 3)) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD in (1, 3)) ";
+	} elseif ($ENDPERIOD == 2) {
+		$endperiod_condition1 = " (ABS_STARTPERIOD in (2, 3)) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD in (2, 3)) ";
+	} elseif ($ENDPERIOD == 3) {	
+		$endperiod_condition1 = " (ABS_STARTPERIOD<=3) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD<=3) ";
+	}
+
+	if ($chkSave == 1 || $chkSave == 2) {
+		if ($chkSave == 1) {
+			// ===== เช็คว่ามีการเพิ่มการลาในข้อมูลเดือนที่ยืนยันแล้วหรือไม่ =====	
+//			$search_abs_startdate = (substr($STARTDATE, -4) - 543) ."-". substr($STARTDATE, 3, 2);
+//			$search_abs_enddate = (substr($ENDDATE, -4) - 543) ."-". substr($ENDDATE, 3, 2);	
+//			$cmd = "select ABS_MONTH from PER_ABSENT_CONF where ABS_MONTH like '$search_abs_startdate' or ABS_MONTH like '$search_abs_enddate' ";
+//			$count_confirm = $db_dpis->send_cmd($cmd);
+		}
+
+		$arr_temp = explode("-", $STARTDATE_ce_era);
+		$START_DAY = $arr_temp[2];
+		$START_MONTH = $arr_temp[1];
+		$START_YEAR = $arr_temp[0];
+		$tmp = mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR);
+		$tmp_date = date("Y-m-d", $tmp);
+		
+		while ($tmp_date <= $ENDDATE_ce_era && !trim($count_duplicate_date)) {
+                    if ($tmp_date == $STARTDATE_ce_era) {
+                    /*เดิม CANCEL_FLAG = 0*/
+                        // ===== เช็ควันลาเริ่มต้น
+                        $cmd = "select PER_ID 
+                                from PER_ABSENT 
+                                where PER_ID=$PER_ID $absid_condition $search_approve 
+                                    and ( '$tmp_date' = ABS_STARTDATE ) 
+                                    and $startperiod_condition1 
+                                    AND (CANCEL_FLAG not in(1) OR (ABS_STARTDATE<>OABS_STARTDATE OR ABS_ENDDATE<>OABS_ENDDATE) ) AND APPROVE_FLAG !=2 ";	
+                        $count_duplicate_date = $db_dpis->send_cmd($cmd); //echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+                        
+                        //$chkxx = $linkfrom;
+                        if (!trim($count_duplicate_date)) {
+                        //$chkxx = 1;
+                            $cmd = "select PER_ID 
+                                    from PER_ABSENT 
+                                    where PER_ID=$PER_ID $absid_condition $search_approve 
+                                        and ( '$tmp_date' = ABS_ENDDATE ) 
+                                        and $startperiod_condition2  
+                                        AND (CANCEL_FLAG not in(1) OR (ABS_STARTDATE<>OABS_STARTDATE OR ABS_ENDDATE<>OABS_ENDDATE) ) AND APPROVE_FLAG !=2 ";	
+                            $count_duplicate_date = $db_dpis->send_cmd($cmd);//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+                        }
+                    } elseif ($tmp_date == $ENDDATE_ce_era) {
+                    //$chkxx = 2;
+                        // ===== เช็ควันลาสิ้นสุด
+                        $cmd = "select PER_ID from PER_ABSENT where PER_ID=$PER_ID $absid_condition $search_approve and ( '$tmp_date' = ABS_STARTDATE ) and $endperiod_condition1  
+                        AND (CANCEL_FLAG not in(1) OR (ABS_STARTDATE<>OABS_STARTDATE OR ABS_ENDDATE<>OABS_ENDDATE) ) AND APPROVE_FLAG !=2 ";	
+                        $count_duplicate_date = $db_dpis->send_cmd($cmd);//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+                        if (!trim($count_duplicate_date)) {
+                        //$chkxx = 3;
+                            $cmd = "select PER_ID 
+                                    from PER_ABSENT 
+                                    where PER_ID=$PER_ID $absid_condition $search_approve 
+                                        and ( '$tmp_date' = ABS_ENDDATE ) 
+                                        and $endperiod_condition2  
+                                        AND (CANCEL_FLAG not in(1) OR (ABS_STARTDATE<>OABS_STARTDATE OR ABS_ENDDATE<>OABS_ENDDATE)) AND APPROVE_FLAG !=2  ";	
+                            $count_duplicate_date = $db_dpis->send_cmd($cmd);//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+                        }				
+                    } else {	
+                    //$chkxx = 4;
+                        // ===== เช็ควันลาว่าอยู่ในระหว่างวันลาเริ่มต้นและวันลาสิ้นสุดใน db		
+                        $cmd = "select PER_ID 
+                                from PER_ABSENT 
+                                where PER_ID=$PER_ID $absid_condition $search_approve 
+                                    and ABS_STARTDATE <= '$tmp_date' and ABS_ENDDATE >= '$tmp_date'  
+                                    AND (CANCEL_FLAG not in(1) OR (ABS_STARTDATE<>OABS_STARTDATE OR ABS_ENDDATE<>OABS_ENDDATE)) AND APPROVE_FLAG !=2  ";
+                        $count_duplicate_date = $db_dpis->send_cmd($cmd);//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";				
+                    }	
+
+                    //echo ++$num . " วัน || $tmp_date != $ENDDATE_ce_era<br>";				
+                    $num_day++;
+                    $tmp = mktime(0, 0, 0, $START_MONTH, $START_DAY+$num_day, $START_YEAR);	
+                    $tmp_date = date("Y-m-d", $tmp);			
+		}	// end while 
+	}	// end if
+       
+	// ===== END process เช็คว่ามีการลาซ้ำกับวันที่เคยลาไปแล้วหรือไม่ ===== 
+	// ====================================================
+    
+    // kittiphat 01/10/2561
+    // เช็คประเภทการลา เป็นลาพักผ่อนหรือไม่ 04= ลาพักผ่อน
+    $CHK_VACATION = 1; // ไม่เข้าเงื่อนไขเช็คลารอบปีงบประมาณหน้า
+    $CHK_NEXTYEAR = 0; // 0=ปีปัจจุบัน
+    if($AB_CODE=='04'){  //04= ลาพักผ่อน
+    
+        // เช็คว่าอายุงานครบ 6 เดือน หรือยัง
+        $cmd = " select PER_STARTDATE from PER_PERSONAL  where PER_STATUS = 1  and PER_ID = $PER_ID ";
+        $db_dpis->send_cmd($cmd);
+        $data = $db_dpis->get_array();
+        $PER_STARTDATE_To6 = trim($data[PER_STARTDATE]);
+        
+        if(!empty($PER_STARTDATE_To6)){
+            $CHECK_DATE = date("Y-m-d");
+            $AGE_DIFF_To6 = date_vacation($CHECK_DATE, $PER_STARTDATE_To6, "full");
+            $arr_temp_To6 = explode(" ", $AGE_DIFF_To6);
+            $Governor_Age_To6 = ($arr_temp_To6[0]*10000)+($arr_temp_To6[2]*100)+(($arr_temp_To6[4]*1));
+            
+            if($Governor_Age_To6>=600){  // เช็คว่าอายุงานครบ 6 เดือน
+
+                // เช็คดูว่าเป็นปีงบประมาณหน้าหรือไม่
+                // ปีงบประมาณปัจจุบัน
+                $date_now_To6=(date("Y") + 543).date("md"); 
+                $year_now_To6 = date("Y")+543;
+                $YEAR_to_NOW=$year_now_To6; 
+                if($date_now_To6>=$year_now_To6.'1001'){ 
+                  $YEAR_to_NOW=$year_now_To6+1; 
+                }
+                
+                // ปีงบประมาณที่เลือกลา
+                $arr_To6 = explode("/", $STARTDATE);
+                $date_absent_To6=$arr_To6[2].$arr_To6[1].$arr_To6[0]; 
+                $year_absent_To6 = $arr_To6[2];
+                $YEAR_to_ABSENT=$year_absent_To6; 
+                if($date_absent_To6>=$year_absent_To6.'1001'){ 
+                  $YEAR_to_ABSENT=$year_absent_To6+1; 
+                }
+                   
+                 if($YEAR_to_ABSENT> $YEAR_to_NOW){ // เช็คดูว่าเป็นปีงบประมาณหน้าหรือไม่
+						$CHK_NEXTYEAR = 1; // 1 = ปีงบประมาณถัดไป
+                       // เช็คดูว่ามีข้อมูลในปีงบประมาณหน้าหรือยัง
+                       $cmd = " select VC_DAY from PER_VACATION 
+                                    where VC_YEAR = '$YEAR_to_ABSENT'  and PER_ID = $PER_ID AND VC_DAY>0 ";
+                       $count_data = $db_dpis->send_cmd($cmd);
+                       
+                       if (!$count_data){ 
+                            $CHK_VACATION = 0; // ไม่มีข้อมูลในปีงบประมาณหน้า
+                       }
+                 
+                 } 
+     
+            } // end if($Governor_Age_To6>=600){ 
+        } // end if(trim($data[PER_STARTDATE]){
+    }
+    
+    // ====================================================
+?>
+
+
+<script>
+parent.document.form1.HID_count_duplicate_date.value = 0;
+  
+<? if (!$INVALID_STARTDATE && !$INVALID_ENDDATE && !$count_confirm && !$count_duplicate_date && !$period_err) { ?>
+		// check วันลาพักผ่อนเกิน
+		result_sum_AB_CODE_04 = 1;
+		parent.document.form1.<?=$VAR_DAY?>.value = '<?=$ABSENT_DAY?>';
+		parent.document.form1.HID_ABS_DAY.value = '<?=$ABSENT_DAY?>';
+		
+		<? if($CHK_NEXTYEAR==0){ ?>
+				parent.document.form1.AB_COUNT_04_NEXTYEAR.value = 0;
+				parent.document.form1.CHK_NEXTYEAR.value = 0;
+		<? }else{ ?>
+				parent.document.form1.CHK_NEXTYEAR.value = 1;
+		<? } ?>
+                //alert('xxx: <?=$ABSENT_DAY?>');
+		//alert(parseInt(parent.document.form1.<?=$VAR_DAY?>.value)+'::a::'+parseInt(parent.document.form1.AB_COUNT_04.value)+'::b::'+parent.document.form1.AB_CODE.value);
+//		alert("no err...<?=$period_err.'('.$ABSENT_DAY .','.$STARTPERIOD.",".$ENDPERIOD.') AB_COUNT='.$AB_COUNT;?>\n");
+		if(parent.document.form1.AB_CODE.value == '04' && (parent.document.form1.AB_COUNT_04.value >= 0)){
+				if( (parseFloat(parent.document.form1.AB_COUNT_04.value) - parseFloat(parent.document.form1.<?=$VAR_DAY?>.value)) < 0){ // วันที่ลาพักผ่อนมา เกินวันที่ยังเหลือสิทธิ์
+					// เดิม msg_sum_AB_CODE_04 = "ไม่สามารถลาพักผ่อนเกิน "+parseInt(parent.document.form1.AB_COUNT_04.value)+" วันได้";
+					/* ปรับแก้ให้แสดงวันเป็นทศนิยมได้ */
+					msg_sum_AB_CODE_04 = "ไม่สามารถลาพักผ่อนเกิน "+parseFloat(parent.document.form1.AB_COUNT_04.value)+" วันได้";
+					result_sum_AB_CODE_04 = 2;
+				}
+
+		}
+
+		if(result_sum_AB_CODE_04==1){
+
+					//-------------------------------begin kittiphat 01/10/2561  กรณีเลือกวันลาเป็นปีงบประมาณหน้า
+					<? if($CHK_VACATION==0){ ?>
+							//alert('ONE');
+							//ใช้ parent.calNextYear();
+					<? }else{ ?>
+							
+							<? if($CHK_NEXTYEAR==1){ ?>
+									//alert('TWO');
+									//ใช้ parent.calNextYearHave();
+							<? } ?>
+					<? } ?>
+					//------------------------------- end kittiphat 01/10/2561
+			
+                    parent.ProcessUploading();
+                    parent.calcDaysBetweenDateV2();
+					
+					
+					
+					
+			<? if(($command=="ADD" || $command=="UPDATE") && ($chkSave==1 || $chkSave ==2)){ ?>
+				parent.document.form1.command.value = '<?=$command; ?>';
+				parent.document.form1.submit();
+			<? } ?>
+                    <? if( $command=="CANCELSOMONE" ){ ?>
+                        parent.document.form1.command.value = 'CANCELSOMONE';
+                        parent.document.form1.submit();
+                    <? } ?>
+                    
+
+                     //parent.ProcessUploading();
+		}else{	// 2
+			
+			//-------------------------------begin kittiphat 01/10/2561  กรณีเลือกวันลาเป็นปีงบประมาณหน้า
+			<? if($CHK_VACATION==0){ ?>
+					//alert('TREE');
+					//ใช้ parent.calNextYear();
+			<? }else{ ?>
+					if(msg_sum_AB_CODE_04){
+						//alert('FOUR');
+						alert(msg_sum_AB_CODE_04);
+					}
+			<? }?>
+			//------------------------------- end kittiphat 01/10/2561
+			
+		}
+<? } else if ($period_err) { ?>	
+//		alert('1--><?=$period_err?>');
+		var p_err = "<?=$period_err?>";
+		var p_err_str = "";
+		switch(p_err)	{
+			case "1" :
+			  p_err_str = "วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน\nโปรดแก้ไขเป็น 'ทั้งวัน'";
+			  break;
+			case "2" :
+			  p_err_str = "วันเดียวกัน เริ่มครึ่งบ่าย สิ้นสุดครึ่งเช้า ไม่ถูกต้อง\nโปรดแก้ไข";
+			  break;
+			case "3" :
+			  p_err_str = "วันเดียวกัน เริ่มทั้งวัน สิ้นสุดครึ่งบ่าย ถือเป็น 1 วัน\nโปรดแก้ไขสิ้นสุดเป็น 'ทั้งวัน'\nหรือหากต้องการลา 0.5 วัน\nโปรดแก้ไขวันเริ่มต้นเป็น 'ครึ่งวัน'";
+			  break;
+			case "4" :
+			  p_err_str = "วันเดียวกัน เริ่มครึ่งเช้า สิ้นสุดทั้งวัน ถือเป็น 1 วัน\nโปรดแก้ไขเริ่มเป็น 'ทั้งวัน'";
+			  break;
+			case "5" :
+			  p_err_str = "เริ่มวันแรกเป็นครึ่งเช้า เว้นบ่าย ไม่ถูกต้อง\nโปรดทำแยกเป็นลาอีก 1 รายการ";
+			  break;
+			case "6" :
+			  p_err_str = "สิ้นสุดจบที่ครึ่งบ่าย เว้นเช้า ไม่ถูกต้อง\nโปรดทำแยกเป็นลาอีก 1 รายการ";
+			  break;
+			default:
+			  p_err_str = "";
+		}
+//		alert("err-->"+p_err+","+p_err_str);
+		parent.document.form1.<?=$VAR_DAY?>.value = '';
+		alert(p_err_str);
+<? } else if ($count_confirm) {
+//echo '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">';
+    ?>	
+		alert('ไม่สามารถเพิ่มข้อมูลการลา/สาย/ขาดได้  เนื่องจากมีการยืนยันข้อมูลแล้ว\n');
+<? } else if ($count_duplicate_date) { 
+    //echo '<meta  charset=utf8">';
+    ?>
+		parent.document.form1.HID_count_duplicate_date.value = 1;
+		alert("พบข้อมูลซ้ำ!!! กรุณาเลือกวันที่ใหม่อีกครั้ง\nกรณีที่ได้มีการยกเลิกวันลาไปแล้ว ต้องได้รับการอนุมัติการยกเลิกวันลาก่อน\nจึงจะทำการลาในวันดังกล่าวได้");
+<? } else { ?>
+		alert("<?=$INVALID_STARTDATE?><?=(($INVALID_STARTDATE && $INVALID_ENDDATE)? '\n' : '' )?><?=$INVALID_ENDDATE?>");
+<? } ?>
+</script>
+
+

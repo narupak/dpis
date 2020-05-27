@@ -1,0 +1,222 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_name)) $arr_search_condition[] = "(SC_NAME like '%$search_name%' or PER_NAME like '%$search_name%')";
+  	if(trim($search_surname)) $arr_search_condition[] = "(SC_SURNAME like '$search_surname%' or PER_SURNAME like '$search_surname%')";
+  	if(trim($search_cardno)) $arr_search_condition[] = "(SC_CARDNO like '$search_cardno%' or PER_CARDNO like '$search_cardno%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	if($command == "SEARCH"){
+	$cmd = " select 	count(SC_ID) as count_data 
+					 from 		PER_SCHOLAR 
+									$search_condition ";
+	$db_dpis->send_cmd($cmd);
+	//echo $cmd;
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";		
+	} // end if $command == "SEARCH"
+?>
+<html>
+<head>
+<title>รายชื่อผู้ได้รับทุน</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.command.value='SEARCH';
+		form1.submit();
+	}
+
+</script>
+<body>
+<form action="search_person_scholar.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_cardno" value="<?=$search_cardno?>" style="width:98%" class="textbox" onKeyPress="return DigitOnly();"></td>
+              <td colspan="2">&nbsp;</td>
+            </tr>
+            <tr>
+              <td width="20%" height="22" align="right"><?=$NAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="25%"><input type="text" name="search_name" value="<?=$search_name?>" style="width:98%" class="textbox"></td>
+              <td width="10%" align="right"><?=$SURNAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_surname" value="<?=$search_surname?>" style="width:70%" class="textbox"></td>
+            </tr>	     
+            <tr align="center">
+              <td height="25" colspan="4">
+			    <? if ($BUTTON_DISPLAY==1) { ?>
+			    <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.command.value='SEARCH'; form1.current_page.value=0;">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_cardno.value=''; form1.current_page.value=0;">
+			  <? } else { ?>
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.command.value='SEARCH'; form1.search_name.value=''; form1.search_surname.value=''; form1.search_cardno.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?>
+			  </td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+	  </td>
+    </tr>
+	<? if($command == "SEARCH"){ ?>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบรายชื่อผู้ได้รับทุน ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+		if($current_page > 1){
+			if($DPISDB=="odbc"){	
+				$cmd = " select		top $start_record trim(SC_ID) as concat_pk from PER_SCHOLAR 
+						  where		$search_condition order by SC_NAME, SC_SURNAME ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+				$limit_data = (trim($search_condition)?" and ":" where ")." trim(SC_ID) not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			}
+		}
+
+		if($DPISDB=="odbc"){	
+			$cmd = "	select 		SC_ID, SC_CARDNO, SC_NAME, SC_SURNAME, SCH_CODE, SC_STARTDATE, SC_ENDDATE, a.PER_ID, PER_NAME, 							
+								PER_SURNAME, a.PN_CODE as PN_CODE_SC, b.PN_CODE as PN_CODE_PER, a.PER_CARDNO  
+					from 		PER_SCHOLAR a left join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+					 		$search_condition $limit_data
+					order by 		SC_NAME, SC_SURNAME   ";
+		}elseif($DPISDB=="oci8"){
+		//	$search_condition = ((trim($search_condition))? " and " : "") . $search_condition;
+		$search_condition = str_replace(" where ", " and ", $search_condition);
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		SC_ID, SC_CARDNO, SC_NAME, SC_SURNAME, SCH_CODE, SC_STARTDATE, SC_ENDDATE, a.PER_ID, PER_NAME, 
+												PER_SURNAME, a.PN_CODE as PN_CODE_SC, b.PN_CODE as PN_CODE_PER, a.PER_CARDNO
+									from 		PER_SCHOLAR a, PER_PERSONAL b
+										where	a.PER_ID=b.PER_ID(+) $search_condition  
+												
+									order by 	SC_NAME, SC_SURNAME
+							   )  q1
+						) where rnum between $rec_start and $rec_end  "; 		
+		}elseif($DPISDB=="mysql"){
+			$cmd = "	select 		SC_ID, SC_CARDNO, SC_NAME, SC_SURNAME, SCH_CODE, SC_STARTDATE, SC_ENDDATE, a.PER_ID, PER_NAME, 							
+								PER_SURNAME, a.PN_CODE as PN_CODE_SC, b.PN_CODE as PN_CODE_PER, a.PER_CARDNO  
+					from 		PER_SCHOLAR a left join PER_PERSONAL b on (a.PER_ID=b.PER_ID)
+					 		$search_condition 
+					order by SC_NAME, SC_SURNAME
+							$limit_data   ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error(); echo "<hr>";
+		//echo $cmd; 
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="15%" height="25" align="center"><?=$CARDNO_TITLE?></td>
+    <td align="center"><?=$FULLNAME_TITLE?></td>
+    <td width="20%" align="center">ชื่อทุน</td>
+    <td width="10%" align="center">วันที่เริ่มศึกษา</td>
+    <td width="10%" align="center">วันที่สิ้นสุดระยะเวลาศึกษา</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_SC_ID = $data[SC_ID];
+				$current_list .= ((trim($current_list))?",":"") . $TMP_SC_ID;
+
+				$TMP_PER_ID = trim($data[PER_ID]);
+				$TMP_SC_CARDNO = $data[SC_CARDNO];
+				$TMP_SCH_CODE = $data[SCH_CODE];
+				$TMP_SC_STARTDATE = show_date_format($data[SC_STARTDATE], $DATE_DISPLAY);
+				$TMP_SC_ENDDATE = show_date_format($data[SC_ENDDATE], $DATE_DISPLAY);
+				$TMP_PER_CARDNO = $data[PER_CARDNO];
+
+                $cmd = " select SCH_NAME from PER_SCHOLARSHIP where SCH_CODE='$TMP_SCH_CODE' ";
+                $db_dpis1->send_cmd($cmd);
+                $data1 = $db_dpis1->get_array();
+                $TMP_SCH_NAME = $data1[SCH_NAME];
+
+				if ($TMP_PER_ID) {					// ถ้าเป็นข้าราชการ ฯ		
+					$TMP_PN_CODE = trim($data[PN_CODE_PER]);
+					$TMP_SC_NAME = $data[PER_NAME];
+					$TMP_SC_SURNAME = $data[PER_SURNAME];
+				} elseif (!$TMP_PER_ID) {			// ถ้าเป็นบุคคลทั่วไป
+					$TMP_PN_CODE = trim($data[PN_CODE_SC]);
+					$TMP_SC_NAME = $data[SC_NAME];
+					$TMP_SC_SURNAME = $data[SC_SURNAME];
+				}
+				if ($TMP_PN_CODE) {
+					$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$TMP_PN_CODE' ";
+					$db_dpis1->send_cmd($cmd);
+					$data1 = $db_dpis1->get_array();
+					$TMP_PN_NAME = $data1[PN_NAME];
+				}
+				$TMP_PER_FULLNAME = $TMP_PN_NAME . $TMP_SC_NAME . " " . $TMP_SC_SURNAME;
+				$TMP_PER_NAME = $TMP_SC_NAME . " " . $TMP_SC_SURNAME;
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_SC_ID<::>$TMP_PER_NAME<::>$TMP_SCH_NAME<::>$TMP_SC_STARTDATE<::>$TMP_SC_ENDDATE<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_PER_CARDNO?></td>
+    <td>&nbsp;<?=$TMP_PER_FULLNAME?></td>
+    <td>&nbsp;<?=$TMP_SCH_NAME?></td>
+    <td>&nbsp;<?=$TMP_SC_STARTDATE?></td>
+    <td>&nbsp;<?=$TMP_SC_ENDDATE?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+	} // end if $command == "SEARCH"
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

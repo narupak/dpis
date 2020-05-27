@@ -1,0 +1,1327 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_absent.php");
+	
+	if(!$PER_TYPE){ 	$PER_TYPE=1;  }
+	$ABS_STARTPERIOD = (trim($ABS_STARTPERIOD))? $ABS_STARTPERIOD : 3;
+	$ABS_ENDPERIOD = (trim($ABS_ENDPERIOD))? $ABS_ENDPERIOD : 3;
+	$ABS_LETTER = (trim($ABS_LETTER))? $ABS_LETTER : 1;
+	
+	$search_ab_code = trim($search_ab_code);
+	$search_abs_startdate = trim($search_abs_startdate);
+	$search_abs_enddate = trim($search_abs_enddate);		
+
+	$per_id_search = "";
+	$per_id_join = "";
+
+	/*if($SEARCHABS_PER_ID){		// $SEARCHABS_PER_ID (ผู้ลาที่ค้นหา)  + $PER_ID (ล็อกอิน)
+		$arr_search_condition[] = "(a.PER_ID = $SEARCHABS_PER_ID and (a.PER_ID = $PER_ID or a.REVIEW1_PER_ID = $PER_ID or a.REVIEW2_PER_ID = $PER_ID or a.AUDIT_PER_ID = $PER_ID or a.APPROVE_PER_ID = $PER_ID))";
+	}else{*/
+		if ($SESS_PER_ID){
+			$arr_search_condition[] = "(a.PER_ID = $SESS_PER_ID or a.REVIEW1_PER_ID = $SESS_PER_ID or a.REVIEW2_PER_ID = $SESS_PER_ID or a.AUDIT_PER_ID = $SESS_PER_ID or a.APPROVE_PER_ID = $SESS_PER_ID)";
+		}
+	//}
+
+	if ($search_ab_code)		$arr_search_condition[] = "(a.AB_CODE = '$search_ab_code')";
+	if ($search_per_type){
+		$arr_search_condition[] = "(trim(b.PER_TYPE) = $search_per_type)";
+	}else if ($search_per_type==0)	{	//ทั้งหมด
+		$arr_search_condition[] = "(trim(b.PER_TYPE) in('1','2','3','4')) ";
+	}
+	
+	if ($search_abs_startdate || $search_abs_enddate) {
+		$temp_date = explode("/", $search_abs_startdate);
+		$temp_start = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];
+		$temp_date = explode("/", $search_abs_enddate);
+		$temp_end = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];		
+		$arr_search_condition[] = "(a.ABS_STARTDATE >= '$temp_start' and a.ABS_ENDDATE <= '$temp_end')";
+	}
+
+	if(!$search_abs_approve)	$search_abs_approve=4;
+	if($search_abs_approve==4){	
+		$arr_search_condition[] = "(a.APPROVE_FLAG in(0,1,2) or a.APPROVE_FLAG is null)";
+	}else{
+		if($search_abs_approve==3){
+			$arr_search_condition[] = "(a.APPROVE_FLAG = 0 or a.APPROVE_FLAG is null)";
+		} else{
+			if($search_abs_approve==1)	$search_abs_approve_tmp = 1; 
+			if($search_abs_approve==2)	$search_abs_approve_tmp = 2; 
+			$arr_search_condition[] = "(a.APPROVE_FLAG in($search_abs_approve_tmp))";
+		}
+	}
+
+	if($search_cancel_flag==1) $arr_search_condition[] = "(a.CANCEL_FLAG = 1)";
+
+// SORT -----------------------
+	if(!$sort_by) $sort_by=3;
+	$sort_type = (isset($sort_type))?  $sort_type : "3:desc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=3;
+
+	if($order_by==1){	//ชื่อ-สกุล
+		$order_str = "b.PER_NAME ".$SortType[$order_by].",b.PER_SURNAME ".$SortType[$order_by];
+	}elseif($order_by==2){	//ประเภท
+		$order_str = "AB_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ตั้งแต่วันที่
+		$order_str = "ABS_STARTDATE ".$SortType[$order_by].",CREATE_DATE ".$SortType[$order_by];
+		//if($temp_todate){ 
+			//$having_str = "HAVING ABS_STARTDATE<= ('$temp_todate') ";
+		//}		
+	} elseif($order_by==4) {	//ถึงวันที่
+		$order_str =  "ABS_ENDDATE  ".$SortType[$order_by];
+	}elseif($order_by==5) {	//จำนวนวัน
+		$order_str = "ABS_DAY ".$SortType[$order_by];
+	}elseif($order_by==6) {	//การส่งใบลา
+		$order_str = "ABS_LETTER ".$SortType[$order_by];
+	}elseif($order_by==7) {	//อนุมัติ
+		$order_str = "a.APPROVE_FLAG ".$SortType[$order_by];
+	}elseif($order_by==8) {	//ประเภทบุคลากร
+		$order_str = "b.PER_TYPE ".$SortType[$order_by];
+	}elseif($order_by==9) {	//วันที่ส่งใบลา
+		$order_str = "a.CREATE_DATE ".$SortType[$order_by];
+	}
+//--------------------------------
+
+	$search_condition = "";
+	if ($arr_search_condition)	$search_condition = " and " . implode(" and ", $arr_search_condition);
+	
+	$cmd =" 	select 		a.PER_ID 
+			from 		PER_ABSENT a, PER_PERSONAL b
+			where	 a.PER_ID=b.PER_ID 
+						$search_condition 
+						order by 	$order_str";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<style type="text/css">
+<!--
+.style1 {
+	color: #FFFFFF;
+	font-weight: bold;
+}
+.style2 {color: #FFFFFF}
+.style3 {color: #393E4E}
+-->
+</style>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function confirm_delete(abs_id , ab_name){
+		if(confirm("ต้องการลบประวัติการลา นี้ [ " + ab_name + " ]  ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.ABS_ID.value = abs_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function compare_diff_date(startdate,enddate) {
+		  var StartDateArr  =  startdate.split("/");
+		  var StartDateF = new Date(StartDateArr[2],StartDateArr[1],StartDateArr[0]);
+		   
+		  var StopDateArr  =  enddate.split("/");
+		  var StopDateF = new Date(StopDateArr[2],StopDateArr[1],StopDateArr[0]);
+
+		if (StopDateF < StartDateF){
+		   return false;
+		}else{
+			return true;
+		}
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590');
+	}
+	
+	function call_search_person(var_type) {	
+		parameter = "";
+		if(form1.MINISTRY_ID.value)	parameter += "&isLock=1&LOCK_MINISTRY_ID="+form1.MINISTRY_ID.value;
+		if(form1.DEPARTMENT_ID.value)	parameter += "&LOCK_DEPARTMENT_ID="+form1.DEPARTMENT_ID.value;
+		if(form1.ORG_ID.value)	parameter += "&LOCK_ORG_ID="+form1.ORG_ID.value;
+		if(var_type=="APPROVE_" || var_type=="AUDIT_" || var_type=="REVIEW1_" || var_type=="REVIEW2_") {
+			if(form1.PER_ID.value)						parameter += "&EXCEPT_PER_ID=" + form1.PER_ID.value;
+			if(form1.APPROVE_PER_ID.value)	parameter += "," + form1.APPROVE_PER_ID.value;
+			if(form1.AUDIT_PER_ID.value)		parameter += "," + form1.AUDIT_PER_ID.value;
+			if(form1.REVIEW1_PER_ID.value)		parameter += "," + form1.REVIEW1_PER_ID.value;	
+			if(form1.REVIEW2_PER_ID.value)	parameter += "," + form1.REVIEW2_PER_ID.value;
+			if(var_type=="AUDIT_")					parameter += "&AUDIT_FLAG=1";
+		}
+		childReturn = window.showModalDialog("search_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>"+ parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			eval("form1."+var_type+"PER_ID.value = " + arrValue[0]);
+			eval("form1."+ var_type+"PER_NAME.value = '" + arrValue[1] + "'");
+			if(var_type!="APPROVE_" && var_type!="AUDIT_" && var_type!="REVIEW1_" && var_type!="REVIEW2_"){
+				form1.ORG_ID.value = arrValue[9];
+				form1.ORG_NAME.value = arrValue[4];
+	//			alert(form1.ORG_ID.value+":"+form1.ORG_NAME.value);
+				form1.submit(); 
+			} // end if
+		} // end if
+	}
+
+	function call_search_absenttype (code, name) {	
+		parameter = "";
+		ab_code = eval('form1.'+code);
+		ab_name = eval('form1.'+name);
+		parameter = "&data_absent_flag=1";
+		childReturn = window.showModalDialog("search_absenttype_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			ab_code.value = arrValue[0];
+			ab_name.value = arrValue[1];
+			document.form1.AB_COUNT.value = arrValue[2];
+			
+			if(ab_code.value.trim() == "10"){
+				document.form1.ABS_STARTPERIOD.value = 3;
+
+				document.form1.ABS_STARTPERIOD[0].disabled = true;
+				document.form1.ABS_STARTPERIOD[1].disabled = true;
+				document.form1.ABS_STARTPERIOD[2].disabled = true;
+
+				document.form1.ABS_ENDDATE.disabled = true;
+
+				document.form1.ABS_ENDPERIOD.value = 3;
+
+				document.form1.ABS_ENDPERIOD[0].disabled = true;
+				document.form1.ABS_ENDPERIOD[1].disabled = true;
+				document.form1.ABS_ENDPERIOD[2].disabled = true;
+
+				//document.form1.ABS_LETTER[0].disabled = true;
+				//document.form1.ABS_LETTER[1].disabled = true;
+				//document.form1.ABS_LETTER[2].disabled = true;	
+
+				document.form1.btn_enddate.disabled = true;
+			}else{
+				document.form1.ABS_STARTPERIOD[0].disabled = false;
+				document.form1.ABS_STARTPERIOD[1].disabled = false;
+				document.form1.ABS_STARTPERIOD[2].disabled = false;
+
+				document.form1.ABS_ENDDATE.disabled = false;
+
+				document.form1.ABS_ENDPERIOD[0].disabled = false;
+				document.form1.ABS_ENDPERIOD[1].disabled = false;
+				document.form1.ABS_ENDPERIOD[2].disabled = false;
+
+				//document.form1.ABS_LETTER[0].disabled = false;
+				//document.form1.ABS_LETTER[1].disabled = false;
+				//document.form1.ABS_LETTER[2].disabled = false;
+
+				document.form1.btn_enddate.disabled = false;
+			} // end else
+			
+			if(ab_code.value.trim() == "01" || ab_code.value.trim() == "02" || ab_code.value.trim() == "03"){
+				document.all.DIV_REASON.style.display = "block";
+			}else{
+				document.all.DIV_REASON.style.display = "none";
+			}
+		} // end if
+	}
+	
+	function show_all_absent () {
+		//form1.search_ab_code.value = ""; 
+		//form1.search_ab_name.value = ""; 
+		//form1.search_abs_startdate.value = ""; 
+		//form1.search_abs_enddate.value = ""; 
+		form1.search_abs_startdate.value = '';
+		form1.search_abs_enddate.value = '';
+		form1.search_abs_approve.value = 4;
+		//form1.SEARCHABS_PER_ID.value = '';
+		//form1.SEARCHABS_PER_NAME.value = '';
+		form1.search_ab_code.value = '';
+		form1.search_ab_name.value = '';
+		form1.search_per_type[0].selected = true;
+		form1.search_cancel_flag.checked = false;
+		form1.current_page.value=0;	
+		form1.submit();
+	}
+	
+	function calcDaysBetweenDate(chkSave,command){
+		var date = new Date();
+		thisdate = date.getDate();
+		thismonth = (parseInt(date.getMonth())+1);	
+		if(thisdate.toString().length==1)			thisdate = "0"+thisdate;
+		if(thismonth.toString().length==1)		thismonth = "0"+thismonth;	
+		var tothisdate = thisdate + "/" + thismonth + "/" + (parseInt(date.getFullYear())+543);	//หาวันที่ วันปัจจุบัน
+	
+		var str_start_date = form1.ABS_STARTDATE.value;
+		var str_end_date = form1.ABS_ENDDATE.value;
+		var ab_count = form1.AB_COUNT.value;
+		
+		//alert(form1.AB_CODE.value+'!!'+tothisdate+' -- '+str_start_date);
+
+		if(form1.AB_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทการลา");
+		form1.AB_NAME.focus();
+		return false;
+		} 
+		else if(str_start_date=="") {
+		alert("กรุณาระบุ ตั้งแต่วันที่");
+		form1.ABS_STARTDATE.focus();
+		return false;
+		}
+		else if(command=='ADD' && form1.AB_CODE.value!='01' && compare_diff_date(tothisdate, str_start_date)==false){   // วันปัจจุบัน > วันที่ key เริ่มต้น (เฉพาะลาป่วย (01) key ย้อนหลังได้ check เฉพาะวันเริ่มต้น)
+		alert('ไม่สามารถเพิ่มวันลาย้อนหลังของประเภท'+form1.AB_NAME.value+'ได้');
+		form1.ABS_STARTDATE.focus();
+		return false;
+		}
+		else if(str_end_date=="") {
+		alert("กรุณาระบุ  ถึงวันที่");
+		form1.ABS_ENDDATE.focus();
+		return false;
+		}
+		else if(compare_diff_date(str_start_date, str_end_date)==false){
+		alert('กรุณาระบุ ถึงวันที่ ใหม่ ต้องมีค่ามากกว่า ตั้งแต่วันที่');
+		form1.ABS_ENDDATE.focus();
+		return false;
+		}
+		else if(document.all.DIV_REASON.style.display == "block" && (form1.ABS_REASON && form1.ABS_REASON.value=="")) {
+		alert("กรุณาระบุ  เหตุผลการลา");
+		form1.ABS_REASON.focus();
+		return false;
+		}
+		else if(form1.APPROVE_PER_ID.value=="") {
+		alert("กรุณาระบุ  ผู้อนุญาตการลา");
+		form1.btn_approve_person.focus();
+		return false;
+		}
+else  {	
+
+		if(str_start_date){
+			var arrTmp = str_start_date.split("/");
+			var start_year = parseInt(arrTmp[2]) - 543;
+			var start_month = arrTmp[1];
+			var start_date = arrTmp[0];
+				
+			str_start_date = start_month + "/" + start_date + "/" + start_year;
+		}else{
+			alert("ใส่วันที่เริ่มต้น");
+			form1.ABS_DAY.value = "";
+			form1.ABS_STARTDATE.focus();
+			return false;
+		} // end if
+		
+		if(str_end_date){
+			var arrTmp = str_end_date.split("/");
+			var end_year = parseInt(arrTmp[2]) - 543;
+			var end_month = arrTmp[1];
+			var end_date = arrTmp[0];
+			
+			str_end_date = end_month + "/" + end_date + "/" + end_year;
+		}else{
+			if(form1.AB_CODE.value.trim() != "10"){	// is not late
+				alert("ใส่วันที่สิ้นสุด");
+				form1.ABS_DAY.value = "";
+				form1.ABS_ENDDATE.focus();
+				return false;
+			}
+		} // end if
+
+		// check วันลาระหว่างเดือน มี.ค - เม.ย. และ ก.ย. - ต.ค.
+		if((start_month=="03" && end_month=="04") || (start_month=="09" && end_month=="10")){
+			if(form1.AB_CODE.value.trim() == "04"){			// พักผ่อน		(ก.ย. - ต.ค.)
+				if(start_month=="09" && end_month=="10"){
+					alert("ไม่สามารถลาลาพักผ่อนระหว่างเดือนกันยายน ถึงตุลาคมได้");
+					form1.ABS_DAY.value = "";
+					form1.ABS_STARTDATE.focus();
+					return false;
+				}
+			}else{		//  อื่นๆ		(มี.ค - เม.ย. และ ก.ย. - ต.ค.)
+				if(start_month=="03" && end_month=="04"){
+					alert("ไม่สามารถลาระหว่างเดือนมีนาคม ถึงเมษายนได้");
+					form1.ABS_DAY.value = "";
+					form1.ABS_STARTDATE.focus();
+					return false;
+				}
+				if(start_month=="09" && end_month=="10"){
+					alert("ไม่สามารถลาระหว่างเดือนกันยายน ถึงตุลาคมได้");
+					form1.ABS_DAY.value = "";
+					form1.ABS_STARTDATE.focus();
+					return false;
+				}
+			}
+		} // end if
+
+		if(form1.AB_CODE.value.trim() != "10"){			// is not late
+			var STARTPERIOD = 0;
+			var objRadio = form1.ABS_STARTPERIOD;
+			STARTPERIOD = objRadio.options[objRadio.selectedIndex].value;
+	
+			var ENDPERIOD = 0;
+			var objRadio = form1.ABS_ENDPERIOD;
+			ENDPERIOD = objRadio.options[objRadio.selectedIndex].value;
+			//alert(STARTPERIOD+'+++'+ENDPERIOD);	
+
+			document.all.PROCESS_IFRAME.src = "find_absent_day.html?linkfrom='data_absent'&chkSave=" + chkSave + "&PER_ID=" + form1.PER_ID.value + "&ABS_ID=" + form1.ABS_ID.value + "&AB_CODE=" + form1.AB_CODE.value + "&AB_COUNT=" + form1.AB_COUNT.value + "&STARTDATE=" + form1.ABS_STARTDATE.value + "&STARTPERIOD=" + STARTPERIOD + "&ENDDATE=" + form1.ABS_ENDDATE.value + "&ENDPERIOD=" + ENDPERIOD + "&VAR_DAY=ABS_DAY&command=" +command;
+				
+		}else{										// is late
+			form1.ABS_DAY.value = "1";
+			if (form1.AB_CODE.value) { 
+				if (!form1.ABS_ID.value)				form1.command.value = "ADD";
+				else if (form1.ABS_ID.value)		form1.command.value = "UPDATE";
+				form1.submit();	
+			}
+		}
+} // end else
+/*		
+//		alert(str_start_date + " vs " + str_end_date);
+		var dayNum = calcDBD(str_start_date, str_end_date);
+//		var dayNum = myDBD(str_start_date, str_end_date);
+		if(dayNum == false || dayNum == "false"){ 
+			return false;
+		}else{ 
+			for (var i=0; i<3; i++) {
+				if ((i == 0 || i == 1) && (form1.ABS_STARTPERIOD[i].checked == true))
+					dayNum -= 0.5;
+				if ((i == 0 || i == 1) && (form1.ABS_ENDPERIOD[i].checked == true))
+					dayNum -= 0.5;				
+			}
+			form1.ABS_DAY.value = dayNum;
+			return true;
+		} // end if
+*/
+	return true;
+	}	
+
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	} 
+	
+	function call_export_file() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent_xls.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	}				
+
+	function call_export_rtf (ABS_ID, AB_CODE) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "data_absent";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent_rtf.php?report_title=" + report_title +"&ABS_ID="+ABS_ID+"&AB_CODE="+AB_CODE+ "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	}
+	
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+	function setLayer(layerID){
+		if(document.getElementById(layerID)){
+			if(document.getElementById(layerID).style.display=='none'){
+				document.getElementById(layerID).style.display='block';	
+			}else{
+				document.getElementById(layerID).style.display='none';
+			}
+			if(document.getElementById(layerID).style.visibility=='hidden'){
+				document.getElementById(layerID).style.visibility='visible';
+			}else{
+				document.getElementById(layerID).style.visibility='hidden';
+			}
+		}
+	}
+	
+	function call_sort(flag) {
+		if (flag==1) {
+			form1.order_by.value="1";		form1.sort_by.value="1";
+			if(form1.sort_type.value=="1:asc"){
+				form1.sort_type.value="1:desc";
+			}else{ //desc
+				form1.sort_type.value="1:asc";
+			}
+		} else if (flag==2) {
+			form1.order_by.value="2";		form1.sort_by.value="2";
+			if(form1.sort_type.value=="2:asc"){
+				form1.sort_type.value="2:desc";
+			}else{ //desc
+				form1.sort_type.value="2:asc";
+			}
+		} else if (flag==3) {
+			form1.order_by.value="3";		form1.sort_by.value="3";
+			if(form1.sort_type.value=="3:asc"){
+				form1.sort_type.value="3:desc";
+			}else{ //desc
+				form1.sort_type.value="3:asc";
+			}
+		} else if (flag==4) {
+			form1.order_by.value="4";		form1.sort_by.value="4";
+			if(form1.sort_type.value=="4:asc"){
+				form1.sort_type.value="4:desc";
+			}else{ //desc
+				form1.sort_type.value="4:asc";
+			}
+		} else if (flag==5) {
+			form1.order_by.value="5";		form1.sort_by.value="5";
+			if(form1.sort_type.value=="5:asc"){
+				form1.sort_type.value="5:desc";
+			}else{ //desc
+				form1.sort_type.value="5:asc";
+			}
+		} else if (flag==6) {
+			form1.order_by.value="6";		form1.sort_by.value="6";
+			if(form1.sort_type.value=="6:asc"){
+				form1.sort_type.value="6:desc";
+			}else{ //desc
+				form1.sort_type.value="6:asc";
+			}
+		} else if (flag==7) {
+			form1.order_by.value="7";		form1.sort_by.value="7";
+			if(form1.sort_type.value=="7:asc"){
+				form1.sort_type.value="7:desc";
+			}else{ //desc
+				form1.sort_type.value="7:asc";
+			}
+		} else if (flag==8) {
+			form1.order_by.value="8";		form1.sort_by.value="8";
+			if(form1.sort_type.value=="8:asc"){
+				form1.sort_type.value="8:desc";
+			}else{ //desc
+				form1.sort_type.value="8:asc";
+			}
+		} else if (flag==9) {
+			form1.order_by.value="9";		form1.sort_by.value="9";
+			if(form1.sort_type.value=="9:asc"){
+				form1.sort_type.value="9:desc";
+			}else{ //desc
+				form1.sort_type.value="9:asc";
+			}
+		} 
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>	  </td>	
+	  </tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_absent.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>">
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="command" value="">
+		<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		<input type="hidden" name="ABS_ID" value="<?=$ABS_ID?>">
+		<input type="hidden" name="chkconfirm_absent" value="">
+		&nbsp;&nbsp; <!-- ($ABS_REVIEW1_FLAG=="" && $ABS_REVIEW2_FLAG=="" && $ABS_AUDIT_FLAG=="" && $ABS_APPROVE_FLAG=="")--->
+		<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td  align="center"><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		    <tr><td height="5"></td></tr>
+	   		<tr>
+			  <td width="20%" nowrap="nowrap"align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE;?>&nbsp;:&nbsp;</td>
+			  <td width="30%"> <input type="text" name="PER_NAME" value="<?=$PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="PER_CODE" value="<?=$PER_CODE?>">
+                         <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && !$SESS_PER_ID) : ?>
+                         <input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="javascript:call_search_person('');">
+                         <? endif; ?></td>			
+			  <td width="20%" nowrap="nowrap" align="right"><?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;</td>
+			  <td width="30%"><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">			</tr>
+			<tr>
+	                <td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ประเภทการลา&nbsp;:&nbsp;</td>
+                        <td>
+								<input type="text" name="AB_NAME" value="<?=$AB_NAME?>"  style="width:75%" class="textbox" readonly> 
+                                <input type="hidden" name="AB_CODE" value="<?=$AB_CODE?>">				    
+								<? if((($SESS_PER_ID==$PER_ID && $AB_CODE=="") || $CAN_EDIT=="Y") && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                                <input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทการลา" onClick="call_search_absenttype('AB_CODE', 'AB_NAME');"> 
+                                <? endif; ?> 
+				    				<input type="hidden" name="AB_COUNT" value="<?=$AB_COUNT?>"></td>
+                        <td  align="right"><?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">			</td>
+                      </tr>
+			<tr>
+			  <td  align="right"><?=$ORG_TITLE;?>
+			    &nbsp;:&nbsp;</td>
+			  <td><input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>"  style="width:75%" class="textbox" readonly>
+                  <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">              </td>
+			  <td  align="right">&nbsp;</td>
+			  <td>&nbsp;</td>
+			  </tr>
+                      <tr> 
+                        <td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FROM_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="ABS_STARTDATE" id="ABS_STARTDATE" value="<?=$ABS_STARTDATE?>"  class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.ABS_STARTDATE,this.value);" <?=((!$ABS_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && trim($AB_CODE) != "10")?"":"readonly"?>>&nbsp;&nbsp;
+				<? if((($SESS_PER_ID==$PER_ID && $ABS_STARTDATE=="") || $CAN_EDIT=="Y") && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>						
+				<input type="reset" name="btn_startdate" class="button" onClick="return showCalendar('ABS_STARTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');"  value="<?=$SELECT_TITLE?>">                        
+				<? endif; ?>
+				&nbsp;<select name="ABS_STARTPERIOD" <?=($ABS_ID && $CAN_EDIT=="N")?"disabled":""?>>
+							   <option  value="1" <?=($ABS_STARTPERIOD==1)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>> ครึ่งวันเช้า</option>
+								<option  value="2" <?=($ABS_STARTPERIOD==2)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>> ครึ่งวันบ่าย</option>
+								<option  value="3" <?=($ABS_STARTPERIOD==3 || !$ABS_STARTPERIOD)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ทั้งวัน</option>
+					  </select>	<input type="hidden" name="ABS_STARTPERIOD_HIDDEN" value="<?=$ABS_STARTPERIOD; ?>">				</td>
+						<td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;
+						    <?=$TO_DATE_TITLE;?>
+						  &nbsp;:&nbsp;</td>
+						<td><input type="text" name="ABS_ENDDATE" id="ABS_ENDDATE" value="<?=$ABS_ENDDATE?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.ABS_ENDDATE,this.value)" <?=((!$ABS_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && trim($AB_CODE) != "10")?"":"readonly"?>>
+						  &nbsp;&nbsp;
+                          <? if((($SESS_PER_ID==$PER_ID && $ABS_ENDDATE=="") || $CAN_EDIT=="Y") && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                          <input type="reset" name="btn_enddate" class="button" onClick="return showCalendar('ABS_ENDDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>" <?=(trim($AB_CODE) != "10")?"":"disabled"?>>
+                          <? endif; ?>
+  &nbsp;
+  <select name="ABS_ENDPERIOD" <?=($ABS_ID && $CAN_EDIT=="N")?"disabled":""?>>
+    <option  value="1" <?=($ABS_ENDPERIOD==1)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>> ครึ่งวันเช้า</option>
+    <option  value="2" <?=($ABS_ENDPERIOD==2)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>> ครึ่งวันบ่าย</option>
+    <option  value="3" <?=($ABS_ENDPERIOD==3 || !$ABS_ENDPERIOD)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ทั้งวัน</option>
+  </select>
+  <input type="hidden" name="ABS_ENDPERIOD_HIDDEN" value="<?=$ABS_ENDPERIOD; ?>">                        </td>
+                      </tr>
+			<tr>
+			  <td  align="right" <?=(($SESS_PER_ID==$REVIEW1_PER_ID)?"style='color:#0000FF'":"")?>>ผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="REVIEW1_PER_NAME" value="<?=$REVIEW1_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="REVIEW1_PER_ID" value="<?=$REVIEW1_PER_ID?>">
+                         <? if(($SESS_PER_ID==$PER_ID && $ABS_REVIEW1_FLAG==0) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_review1_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('REVIEW1_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW1_PER_ID.value=''; form1.REVIEW1_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  <td align="right" <?=(($SESS_PER_ID==$REVIEW2_PER_ID)?"style='color:#0000FF'":"")?>>ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="REVIEW2_PER_NAME" value="<?=$REVIEW2_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="REVIEW2_PER_ID" value="<?=$REVIEW2_PER_ID?>">
+                         <? if(($SESS_PER_ID==$PER_ID && $ABS_REVIEW2_FLAG==0) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_review2_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('REVIEW2_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW2_PER_ID.value=''; form1.REVIEW2_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  </tr>
+			  <?  if($ABS_ID && ($REVIEW1_PER_ID || $REVIEW2_PER_ID)){ ?>
+					  <tr> 
+                        <? if($REVIEW1_PER_ID){ ?>
+						<td  nowrap="nowrap" align="right" <?=(($SESS_PER_ID==$REVIEW1_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_REVIEW1_FLAG" type="radio" value="1" <?=(($ABS_REVIEW1_FLAG==1)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$REVIEW1_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;เห็นควรอนุญาต&nbsp;&nbsp;<input name="ABS_REVIEW1_FLAG" type="radio" value="2" <?=(($ABS_REVIEW1_FLAG==2)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$REVIEW1_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;ไม่เห็นควรอนุญาต<input type="hidden" name="ABS_REVIEW1_FLAG_HIDDEN" value="<?=$ABS_REVIEW1_FLAG; ?>"><input type="hidden" name="REVIEW1_DATE" value="<?=$REVIEW1_DATE; ?>"><?=(($REVIEW1_DISPLAY_DATE)?"<br>(วันที่ ".$REVIEW1_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+						<? if($REVIEW2_PER_ID){ ?>
+						<td align="right" <?=(($SESS_PER_ID==$REVIEW2_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป&nbsp;&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_REVIEW2_FLAG" type="radio" value="1" <?=(($ABS_REVIEW2_FLAG==1)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$REVIEW2_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;เห็นควรอนุญาต&nbsp;&nbsp;<input name="ABS_REVIEW2_FLAG" type="radio" value="2" <?=(($ABS_REVIEW2_FLAG==2)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$REVIEW2_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;ไม่เห็นควรอนุญาต<input type="hidden" name="ABS_REVIEW2_FLAG_HIDDEN" value="<?=$ABS_REVIEW2_FLAG; ?>"><input type="hidden" name="REVIEW2_DATE" value="<?=$REVIEW2_DATE; ?>"><?=(($REVIEW2_DISPLAY_DATE)?"<br>(วันที่ ".$REVIEW2_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+                      </tr>
+			<? } ?>		  
+			<tr>
+			  <td  align="right" <?=(($SESS_PER_ID==$AUDIT_PER_ID)?"style='color:#0000FF'":"")?>>ผู้ตรวจสอบการลา&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="AUDIT_PER_NAME" value="<?=$AUDIT_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="AUDIT_PER_ID" value="<?=$AUDIT_PER_ID?>">
+                         <? if(($SESS_PER_ID==$PER_ID && $ABS_AUDIT_FLAG==0) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_audit_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('AUDIT_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.AUDIT_PER_ID.value=''; form1.AUDIT_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  <td  align="right" <?=(($SESS_PER_ID==$APPROVE_PER_ID)?"style='color:#0000FF'":"")?>>&nbsp;<span class="label_alert">*</span>&nbsp;ผู้อนุญาตการลา&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="APPROVE_PER_NAME" value="<?=$APPROVE_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="APPROVE_PER_ID" value="<?=$APPROVE_PER_ID?>">
+                         <? if(($SESS_PER_ID==$PER_ID && $ABS_APPROVE_FLAG==0) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_approve_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('APPROVE_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.APPROVE_PER_ID.value=''; form1.APPROVE_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  </tr>
+			  <?  if($ABS_ID && ($AUDIT_PER_ID || $APPROVE_PER_ID )){ ?>
+					  <tr> 
+                        <? if($AUDIT_PER_ID){ ?>
+						<td  align="right" <?=(($SESS_PER_ID==$AUDIT_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้ตรวจสอบการลา&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_AUDIT_FLAG" type="radio" value="1" <?=(($ABS_AUDIT_FLAG==1)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$AUDIT_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;ตรวจสอบแล้ว&nbsp;&nbsp;<input name="ABS_AUDIT_FLAG" type="radio" value="2" <?=(($ABS_AUDIT_FLAG==2)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$AUDIT_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;ยังไม่ตรวจสอบ<input type="hidden" name="ABS_AUDIT_FLAG_HIDDEN" value="<?=$ABS_AUDIT_FLAG; ?>"><input type="hidden" name="AUDIT_DATE" value="<?=$AUDIT_DATE; ?>"><?=(($AUDIT_DISPLAY_DATE)?"<br>(วันที่ ".$AUDIT_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+						<? if($APPROVE_PER_ID){ ?>
+						<td  align="right" <?=(($SESS_PER_ID==$APPROVE_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้อนุญาตการลา&nbsp;&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_APPROVE_FLAG" type="radio" value="1" <?=(($ABS_APPROVE_FLAG==1)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$APPROVE_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;อนุญาต&nbsp;&nbsp;<input name="ABS_APPROVE_FLAG" type="radio" value="2" <?=(($ABS_APPROVE_FLAG==2)?"checked":"")?> 
+		<?=(($SESS_PER_ID!=$APPROVE_PER_ID || $ABS_CANCEL_FLAG==1)?"disabled":"")?>>&nbsp;ไม่อนุญาต<input type="hidden" name="ABS_APPROVE_FLAG_HIDDEN" value="<?=$ABS_APPROVE_FLAG; ?>"><input type="hidden" name="APPROVE_DATE" value="<?=$APPROVE_DATE; ?>"><?=(($APPROVE_DISPLAY_DATE)?"<br>(วันที่ ".$APPROVE_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+                      </tr>
+				<? } ?>
+			<tr id="DIV_REASON" style="display:<?=in_array(trim($AB_CODE), array("01","02","03"))?"block":"none"?>;">
+			  <td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เนื่องจาก&nbsp;:&nbsp;</td>
+			  <td colspan="3"><input type="text" name="ABS_REASON" value="<?=$ABS_REASON?>"  style="width:50%" class="textbox"  <?=($VIEW || $CAN_EDIT=="N" || $SESS_PER_ID!=$PER_ID || ($ABS_APPROVE_FLAG==1 || $ABS_APPROVE_FLAG==2))?"readonly":""?>><!-- && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"--></td>
+			  </tr>
+        	<tr>
+			<tr>
+			  <td  nowrap="nowrap" align="right">ที่อยู่ที่ติดต่อได้ระหว่างลา&nbsp;:&nbsp;</td>
+			  <td colspan="3"><textarea name="ABS_ADDRESS" rows="3" class="selectbox" style="width:50%" <?=($VIEW || $CAN_EDIT=="N" || $SESS_PER_ID!=$PER_ID || ($ABS_APPROVE_FLAG==1 || $ABS_APPROVE_FLAG==2))?"readonly":""?>><?=$ABS_ADDRESS?></textarea></td>
+			  </tr><!-- && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"-->
+        	<tr>
+<tr>
+  <td  align="right">จำนวนวันลา&nbsp;:&nbsp;</td>
+  <td><input type="text" name="ABS_DAY" value="<?=$ABS_DAY?>" style="text-align:right" class="textbox" readonly>
+    &nbsp;
+    <? if((($SESS_PER_ID==$PER_ID) || $CAN_EDIT=="Y") && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+    <input type="button" class="button" name="butt_calc_absent" value="คำนวณวัน" onClick="calcDaysBetweenDate(0,'')">
+    <? endif; ?>  </td>
+  <td>&nbsp;</td>
+  <td><!--<select name="ABS_LETTER">
+							   <option  value="1" <?=($ABS_LETTER==1 || !$ABS_LETTER)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ยังไม่ได้ส่งใบลา</option>
+								<option  value="2"  <?=($ABS_LETTER==2)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ส่งใบลาถูกต้อง</option>
+								<option  value="3" <?=($ABS_LETTER==3)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ล่งใบลาไม่ถูกต้อง</option>
+						</select>-->
+      <input type="hidden" name="ABS_LETTER" value="<?=$ABS_LETTER; ?>"></td> 
+                      </tr>
+					  <? if($ABS_ID){ ?>
+					  <tr> 
+                        <td  align="right">วันที่ส่งใบลา&nbsp;:&nbsp;</td>
+                        <td><?=(($ABS_CREATE_DATE)?$ABS_CREATE_DATE:"-")?></td><td colspan="2" <?=(($ABS_CANCEL_FLAG==1)?"style='color:#FF0000'":"")?>><!--<?="$TODATE>=$ABS_STARTDATE_CHECK"; ?>--><input type="checkbox" name="ABS_CANCEL_FLAG" value="<?=($ABS_CANCEL_FLAG)?($ABS_CANCEL_FLAG):1; ?>" <?=(($ABS_CANCEL_FLAG==1)?"checked":"")?> <?=(($SESS_PER_ID!=$PER_ID || (($SESS_PER_ID==$PER_ID && $TODATE>=$ABS_STARTDATE_CHECK) || ($SESS_PER_ID==$PER_ID && $ABS_CANCEL_FLAG==1)))?'disabled':'')?>>&nbsp;ยกเลิกการลา<? if($ABS_STARTDATE){ ?><?=$FROM_DATE_TITLE." ".$ABS_STARTDATE." ".$TO_DATE_TITLE." ".$ABS_ENDDATE; ?><? } ?><input type="hidden" name="ABS_CANCEL_FLAG_HIDDEN" value="<?=$ABS_CANCEL_FLAG; ?>"></td>
+                      </tr><? } ?>
+<tr>
+			<td>&nbsp;</td>
+			<td colspan="5">
+			<table width="67%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+						 <tr>
+						  <td height="22" align="right">ปีงบประมาณ&nbsp;:&nbsp;</td>
+						  <td><input type="text" name="AS_YEAR" value="<?=$AS_YEAR?>" size="10" readonly></td>
+					</tr>
+					<tr>						  
+                        <td align="right" height="22">รอบการลา&nbsp;:&nbsp;</td>
+                        <td nowrap="nowrap">
+						  <input type="radio" name="AS_CYCLE" value="1"  disabled <?=($AS_CYCLE==1)?"checked":""?>> ครั้งที่ 1
+                          <input type="text" name="START_DATE_1" value="<?=$START_DATE_1?>" class="textbox" readonly>						  
+                          &nbsp;ถึง&nbsp;
+						  <input type="text" name="END_DATE_1" value="<?=$END_DATE_1?>" class="textbox" readonly>						</td>
+                      </tr>
+					<tr>						  
+                        <td align="right" height="22"></td>
+                        <td nowrap="nowrap"><input type="radio" name="AS_CYCLE" value="2"  disabled <?=($AS_CYCLE==2)?"checked":""?>> ครั้งที่ 2
+						  <input type="text" name="START_DATE_2" value="<?=$START_DATE_2?>" class="textbox" readonly>
+						  &nbsp;ถึง&nbsp;
+						  <input type="text" name="END_DATE_2" value="<?=$END_DATE_2?>" class="textbox" readonly></td>
+                      </tr>
+			</table>			
+			<table width="67%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+					<tr>
+					  <td width="16%" align="right"  nowrap="nowrap">ประเภทการลา&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					  <td width="16%" align="center" nowrap="nowrap">ลามาแล้ว (วัน)</td>
+					  <td width="16%" align="center" nowrap="nowrap">ลามาแล้ว (ครั้ง)</td>
+					  <td width="16%" align="center" nowrap="nowrap">วันที่ลาล่าสุด</td>
+					</tr>
+					<tr>
+					  <td  align="right">ป่วย&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_01" value="<?=$AB_CODE_01?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="AB_COUNT_01" value="<?=$AB_COUNT_01?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="ABS_DATE_01" value="<?=$ABS_DATE_01?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">กิจส่วนตัว&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_03" value="<?=$AB_CODE_03?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="AB_COUNT_03" value="<?=$AB_COUNT_03?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="ABS_DATE_03" value="<?=$ABS_DATE_03?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">คลอดบุตร&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_02" value="<?=$AB_CODE_02?>" style="text-align:right" class="textbox" readonly></td>
+					  <td></td>
+					  <td><input type="text" name="ABS_DATE_02" value="<?=$ABS_DATE_02?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">พักผ่อน&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_04" value="<?=$AB_CODE_04?>" style="text-align:right" class="textbox" readonly></td>
+					  <td></td>
+					  <td><input type="text" name="ABS_DATE_4" value="<?=$ABS_DATE_04?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">จำนวนวันที่ลาพักผ่อนได้<!--ในปีงบประมาณ--></td>
+					  <td><input type="text" name="AB_COUNT_TOTAL_04" value="<?=$AB_COUNT_TOTAL_04?>" style="text-align:right" class="textbox" readonly></td>
+					  <td>จำนวนวันลาพักผ่อนคงเหลือ</td>
+					  <td><input type="text" name="AB_COUNT_04" value="<?=$AB_COUNT_04?>" style="text-align:right" class="textbox" readonly></td>
+					</tr>
+			</table>			</td>
+</tr>            
+</table></td>
+        </tr>
+        <tr>
+          <td height="5" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no"></iframe></td>
+        </tr>
+<? if($PER_ID) : ?>		
+        <tr align="center">
+          <td height="25">
+		  	  <? if(($VIEW || $UPD) || (!$UPD && !$SESS_PER_ID)){ ?><? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';" class="button" ><?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <? } // end if ?>
+		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="button" class="button" onClick="calcDaysBetweenDate(1,'UPDATE');" value="<?=$EDIT_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="calcDaysBetweenDate(1,'UPDATE');"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> <? if ($BUTTON_DISPLAY==1) { ?>
+		  <input type="button" name="Reset2" value="พิมพ์ใบลา" onClick="call_export_rtf(<?=$ABS_ID?>, '<?=$AB_CODE?>');" class="button" > <?  } else { ?>
+                  <img src="images/print02.gif" alt="พิมพ์ใบลา" width="32" height="32" border="0" onClick="call_export_rtf(<?=$ABS_ID?>, '<?=$AB_CODE?>');">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?><? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="button" class="button" onClick="calcDaysBetweenDate(1,'ADD');" value="บันทึก"><?  } else { ?>
+              <input name="image2" type="image" onClick="calcDaysBetweenDate(1,'ADD');" src="images/save.png" alt="บันทึก">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?>
+	  		  <?}?></td>
+        </tr>
+<? endif; ?>	
+		<tr><td height="5"></td></tr>	
+      </table></td>
+    </tr>
+  </table> 
+ <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td  align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+ <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0"> 
+<tr>
+	<td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="7%" height="2"></td>
+      </tr>
+      <tr>
+        <td align="center"></td>
+        <td width="18%"><select name="search_per_type">
+				<?  foreach($PERSON_TYPE as $key=>$value){  
+					 $disinput[$key] = "";		$disinput[0]="";		$chinput[$key] = "";		
+					if($SESS_PER_TYPE==0){	//ทั้งหมด
+					   	if(trim($search_per_type)){
+							$chinput[$SESS_PER_TYPE] = "";		$chinput[$search_per_type] = " selected";
+						}else{
+							$chinput[$SESS_PER_TYPE] = " selected";
+						}
+					}else{	//ประเภทอื่น
+						$chinput[$key]=" selected";		 $chinput[0]="";		$disinput[$key]="";		$styleline[$key]="display:block";
+					}
+				?><option value="<?=$key; ?>" <?=$chinput[$key]." ".$disinput[$key]; ?>><?=$value; ?></option><?  } ?>
+				<? if($SESS_PER_TYPE==0 && $BKK_FLAG!=1){ ?><option value="0" <?=$chinput[0]." ".$disinput[0]; ?>>ทั้งหมด</option><? } ?>
+			</select></td>
+		  <td colspan="2"></td>
+       <!--<td width="8%"  align="right"><?=$FULLNAME_TITLE;?>ผู้ลา&nbsp;:&nbsp;</td>
+        <td width="22%"><input type="text" name="SEARCHABS_PER_NAME" value="<?=$SEARCHABS_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+            <input type="hidden" name="SEARCHABS_PER_ID" value="<?=$SEARCHABS_PER_ID?>">
+            <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+            <input name="btn16" type="button" class="button" onClick="javascript:call_search_person('SEARCHABS_');" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" title="หากมีข้อมูลการลาของคนที่ค้นหาจะแสดงเมื่อผู้ล็อกอินเป็นผู้ลาเอง/ผู้ตรวจสอบ/ผู้บังคับบัญชาชั้นต้น/ผู้บังคับบัญชาเหนือขึ้นไป/ผู้อนุญาตการลา/แอดมินเท่านั้น">
+            <? endif; ?></td>--->
+        <td width="9%"  align="right">&nbsp;อนุญาต&nbsp;:&nbsp;</td>
+        <td width="36%"><select name="search_abs_approve">
+            <option  value="4" <?=($search_abs_approve==4 || !$search_abs_approve)? "selected":"";?>>ทั้งหมด</option>
+            <option  value="3" <?=($search_abs_approve==3)? "selected":"";?>>รออนุญาต/ไม่อนุญาต</option>
+            <option  value="1" <?=($search_abs_approve==1)? "selected":"";?>>อนุญาต</option>
+            <option  value="2" <?=($search_abs_approve==2)? "selected":"";?>>ไม่อนุญาต</option>
+        </select>&nbsp;&nbsp;<input type="checkbox" name="search_cancel_flag" value="<?=($search_cancel_flag)?($search_cancel_flag):1; ?>" <?=(($search_cancel_flag==1)?"checked":"")?>>&nbsp;ยกเลิกการลา</td>
+      </tr>
+      <tr>
+        <td height="2"></td>
+      </tr>
+      <tr>
+        <td  align="right"><?=$FROM_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="search_abs_startdate" id="search_abs_startdate" value="<?=$search_abs_startdate?>"  class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.search_abs_startdate,this.value);" <?=(($SESS_PER_ID!=$PER_ID) && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+          &nbsp;&nbsp;
+            <? if(($SESS_PER_ID==$PER_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+            <input type="reset" name="btn_startdate2" class="button" onClick="return showCalendar('search_abs_startdate', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');"  value="<?=$SELECT_TITLE?>">
+            <? endif; ?></td>
+        <td  align="right"><?=$TO_DATE_TITLE;?>
+          &nbsp;:&nbsp;</td>
+        <td><input type="text" name="search_abs_enddate" id="search_abs_enddate" value="<?=$search_abs_enddate?>"  class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.search_abs_enddate,this.value);" <?=(($SESS_PER_ID!=$PER_ID) && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+          &nbsp;&nbsp;
+          <? if(($SESS_PER_ID==$PER_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+          <input type="reset" name="btn_enddate2" class="button" onClick="return showCalendar('search_abs_enddate', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');"  value="<?=$SELECT_TITLE?>">
+          <? endif; ?></td>
+        <td  align="right">ประเภทการลา&nbsp;:&nbsp;</td>
+		  <td><input type="text" name="search_ab_name" value="<?=$search_ab_name?>"  style="width:75%" class="textbox" readonly><input type="hidden" name="search_ab_code" value="<?=$search_ab_code?>"><? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>&nbsp;<input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทการลา" onClick="call_search_absenttype('search_ab_code', 'search_ab_name');">&nbsp;<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_ab_code.value=''; form1.search_ab_name.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?> </td>
+      </tr>
+	  <tr>
+	  <td colspan="6" align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE?>" title="ค้นหาการลา ของ<?=$PER_NAME?>" onClick="form1.current_page.value=0;">
+            <input name="btn4" type="button" class="button" value="<?=$SHOW_ALL_TITLE?>" title="แสดงการลาทั้งหมด ของ<?=$PER_NAME?>" onClick="show_all_absent();">
+            <? } else { ?>
+            <input name="image22" type="image" onClick="form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+            <input name="image23" type="image" onClick="show_all_absent();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+            <?}?></td>
+	  </tr>
+	  
+      <tr>
+        <td height="2"></td>
+      </tr>
+    </table></td>
+</tr>
+<tr><td height="15"></td></tr>
+	<tr>
+	  <td>
+	  <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?>
+<br><table border="0"><tr><td><input name="AB01" type="textbox" size="1" style="background-color:#FAB569; size:1px;" value="">&nbsp;ลาป่วย</td><!--<td><input name="AB02" type="textbox" size="1" style="background-color:#81C0E2">&nbsp;ลาคลอดบุตร</td>--><td><input name="AB03" type="textbox" size="1" style="background-color:#F898CD">&nbsp;ลากิจส่วนตัว</td><td><input name="AB04" type="textbox" size="1" style="background-color:#81DCB5">&nbsp;ลาพักผ่อน</td></tr></table>
+</td>
+</tr>
+</table>
+	  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td width="15%"><? if($PAGE_AUTH["print"]=="Y" && $PER_ID){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_report" type="button" class="button" value="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+      <?  } else { ?>
+      <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td> 
+	<td align="center">พบ<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y" && $PER_ID){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_export" type="button" class="button" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <?  } else { ?>
+      <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td> 
+     </tr>
+   </table></td>
+	</tr>
+</table>
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and ABS_ID not in (select top $start_record ABS_ID from PER_ABSENT where PER_ID=$PER_ID order by ABS_STARTDATE desc) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+
+	if($DPISDB=="odbc"){	
+		$cmd = "	select			top $data_per_page 
+												ABS_ID, b.PER_TYPE, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+								  from 			PER_ABSENT a, PER_PERSONAL b, PER_ABSENTTYPE c 
+							 where 		a.AB_CODE=c.AB_CODE
+							 					and a.PER_ID=b.PER_ID 
+									  			$search_condition 
+												$limit_data
+							 group by ABS_ID, b.PER_TYPE,b.PER_NAME,b.PER_SURNAME, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+							$having_str
+							order by $order_str 	
+							";
+	}elseif($DPISDB=="oci8"){			//????????	 
+		//$per_id_join = " and (a.PER_ID = b.PER_ID or a.REVIEW1_PER_ID=b.PER_ID or a.REVIEW2_PER_ID=b.PER_ID or a.AUDIT_PER_ID=b.PER_ID or a.APPROVE_PER_ID=b.PER_ID)";
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		ABS_ID, b.PER_TYPE, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+								  from 			PER_ABSENT a, PER_PERSONAL b, PER_ABSENTTYPE c 
+								  where 		a.AB_CODE=c.AB_CODE
+								   					and a.PER_ID=b.PER_ID 
+									  				$search_condition 
+						    group by 		ABS_ID, b.PER_TYPE,b.PER_NAME,b.PER_SURNAME, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+							$having_str
+							order by $order_str 	
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	select			ABS_ID, b.PER_TYPE, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+								  from 			PER_ABSENT a, PER_PERSONAL b, PER_ABSENTTYPE c 
+							 where 		a.AB_CODE=c.AB_CODE
+							 					and a.PER_ID=b.PER_ID 
+									  			$search_condition 
+						    group by ABS_ID, b.PER_TYPE,b.PER_NAME,b.PER_SURNAME, a.PER_ID, a.AB_CODE, AB_NAME, ABS_STARTDATE, ABS_ENDDATE, ABS_DAY, ABS_LETTER,
+													a.APPROVE_FLAG, a.APPROVE_PER_ID,a.AUDIT_FLAG, a.AUDIT_PER_ID, a.CANCEL_FLAG,
+													a.REVIEW1_FLAG, a.REVIEW1_PER_ID,a.REVIEW2_FLAG, a.REVIEW2_PER_ID, a.CREATE_DATE, b.PER_CARDNO
+							$having_str
+							order by $order_str 	
+											$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//echo ">>> ".$cmd."<hr>";
+//$db_dpis->show_error();
+
+	if ($count_page_data) {
+?>
+ <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="3%" height="21"><span class="style1"><?=$SEQ_NO_TITLE;?></span></td>
+	  <td onClick="call_sort(8);"><span class="style1">
+        <? if($order_by==8&&$sort_by==8){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        ประเภทบุคลากร</span></td>
+      <td height="25" onClick="call_sort(1);"><span class="style1">
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$FULLNAME_TITLE;?>
+      </span></td>
+      <td height="15" onClick="call_sort(2);"><span class="style1">
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        ประเภทการลา</span></td>
+  		<td width="4%" onClick="call_sort(9);"><span class="style2"><strong><? if($order_by==9&&$sort_by==9){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>วันที่ส่งใบลา</span></td>
+      <td width="8%" onClick="call_sort(3);"><span class="style1">
+        <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$FROM_DATE_TITLE;?>
+      </span></td>
+      <td width="8%" onClick="call_sort(4);"><span class="style1">
+        <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        <?=$TO_DATE_TITLE;?>
+      </span></td>
+	  <td width="6%" onClick="call_sort(5);"><span class="style2"><strong>
+	    <? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	  </strong>จำนวนวัน</span></td>
+	 <!--<td width="8%" onClick="call_sort(6);"><span class="style2"><strong>
+	   <? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+	 </strong>การส่งใบลา</span></td> -->
+	 <td width="4%" ><span class="style2">ตรวจสอบ</span></td> 
+	 <td width="7%"><span class="style2">ความเห็น<br>
+	   (ขั้นต้น)</span></td>
+	 <td width="7%"><span class="style2">ความเห็น<br>
+	   (เหนือขึ้นไป)</span></td>
+	 <td width="4%" onClick="call_sort(7);"><span class="style2"><strong><? if($order_by==7&&$sort_by==7){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>อนุญาต</strong></span></td>	
+	 <td width="4%"><span class="style2">ยกเลิก</span></td>
+	 <? if($SESS_USERGROUP!=1){ ?><td width="4%"><span class="style2">ผู้ลา<br>ยกเลิก</span></td><? } ?>
+	 <!--ยังไม่ถึงวันลาจริง-->
+	 <td width="4%"><span class="style2">
+	   <?=$INQ_TITLE;?>
+	 </span></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td width="4%"><span class="style2">
+        <?=$EDIT_TITLE;?>
+      </span></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td width="4%"><span class="style2">
+        <?=$DEL_TITLE;?>
+      </span></td>
+      <?}?>
+	<?if($PAGE_AUTH["print"]=="Y"){?>
+    <td width="4%"><span class="style2"><?=$PRINT_TITLE?></span></td>
+   <?}?>
+    <td width="4%"><span class="style2"><?=$LOAD_TITLE?> </span></td>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_ABS_ID = $data[ABS_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_ABS_ID;
+		
+		$TMP_PER_TYPE = $data[PER_TYPE];
+		$TMP_PER_ID = $data[PER_ID];
+		$TMP_PER_CARDNO = $data[PER_CARDNO];
+		$cmd = " select b.PN_CODE, b.PER_NAME, b.PER_SURNAME from PER_PERSONAL b 
+						where  b.PER_ID = $TMP_PER_ID";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_PN_CODE = $data2[PN_CODE];
+		$TMP_PER_NAME = $data2[PER_NAME];
+		$TMP_PER_SURNAME = $data2[PER_SURNAME];
+
+		$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$TMP_PN_CODE' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_PN_NAME = $data2[PN_NAME];
+		
+		$TMP_PER_NAME = $TMP_PN_NAME.$TMP_PER_NAME." ".$TMP_PER_SURNAME;
+		
+		$TMP_CREATE_DATE = $TMP_CREATE_TIME= $TMP_ABS_STARTDATE = $TMP_ABS_ENDDATE ="";
+		$temp_date = explode("-", trim($data[ABS_STARTDATE]));
+		$TMP_ABS_STARTDATE = substr($temp_date[2],0,2) ."/". $temp_date[1] ."/". ($temp_date[0] + 543);
+		$TMP_ABS_STARTDATE_CHECK = ($temp_date[0])."-".$temp_date[1]."-".substr($temp_date[2],0,2) ;
+		$temp_date = explode("-", trim($data[ABS_ENDDATE]));
+		$TMP_ABS_ENDDATE = substr($temp_date[2],0,2) ."/". $temp_date[1] ."/". ($temp_date[0] + 543);	
+		$ABS_CONF_YEAR = $temp_date[0];
+		$ABS_CONF_MONTH = $temp_date[1];
+
+		if($data[CREATE_DATE]!="" && $data[CREATE_DATE]!="NULL"){	
+			$TMP_CREATE_DATE  = substr($data[CREATE_DATE],0,10);
+			if($TMP_CREATE_DATE){
+				if(substr($data[CREATE_DATE],12,strlen($data[CREATE_DATE]))){
+					$TMP_CREATE_TIME  = substr($data[CREATE_DATE],11,strlen($data[CREATE_DATE]));
+				}
+				$temp_date = explode("-", trim($TMP_CREATE_DATE));
+				$TMP_CREATE_DATE = substr($temp_date[2],0,2) ."/". $temp_date[1] ."/". ($temp_date[0] + 543);
+				if($TMP_CREATE_TIME)	$TMP_CREATE_DATE = 	$TMP_CREATE_DATE."<br><center><font size='-1' style='font-style:italic; color: #0000FF'>(".$TMP_CREATE_TIME.")</font></center>";
+			}
+		}
+		
+		$TMP_ABS_DAY = trim($data[ABS_DAY]);
+		$TMP_AB_CODE = trim($data[AB_CODE]);
+		$TMP_AB_NAME = trim($data[AB_NAME]);		
+		$TMP_ABS_LETTER = trim($data[ABS_LETTER]);
+		if ($TMP_ABS_LETTER == 1) 				$ABS_LETTER_STR = "ยังไม่ได้ส่ง";
+		elseif ($TMP_ABS_LETTER == 2) 		$ABS_LETTER_STR = "ถูกต้อง";
+		elseif ($TMP_ABS_LETTER == 3) 		$ABS_LETTER_STR = "ไม่ถูกต้อง";
+		if(trim($TMP_AB_CODE=="10")) $ABS_LETTER_STR = "-";
+
+		$TMP_REVIEW1_FLAG = trim($data[REVIEW1_FLAG]);
+		$TMP_REVIEW1_PER_ID = trim($data[REVIEW1_PER_ID]);
+		
+		$TMP_REVIEW2_FLAG = trim($data[REVIEW2_FLAG]);
+		$TMP_REVIEW2_PER_ID = trim($data[REVIEW2_PER_ID]);
+
+		$TMP_AUDIT_FLAG = trim($data[AUDIT_FLAG]);
+		$TMP_AUDIT_PER_ID = trim($data[AUDIT_PER_ID]);
+
+		$TMP_APPROVE_FLAG = trim($data[APPROVE_FLAG]);
+		$TMP_APPROVE_PER_ID = trim($data[APPROVE_PER_ID]);
+
+		$TMP_CANCEL_FLAG = $data[CANCEL_FLAG];
+
+		$cmd = " select b.PN_NAME, a.PER_NAME, a.PER_SURNAME from PER_PERSONAL a, PER_PRENAME b where a.PER_ID=$TMP_REVIEW1_PER_ID and a.PN_CODE=b.PN_CODE ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_REVIEW1_PER_NAME = $data2[PN_NAME].$data2[PER_NAME]." ".$data2[PER_SURNAME];
+		
+		$cmd = " select b.PN_NAME, a.PER_NAME, a.PER_SURNAME from PER_PERSONAL a, PER_PRENAME b where a.PER_ID=$TMP_REVIEW2_PER_ID and a.PN_CODE=b.PN_CODE ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_REVIEW2_PER_NAME = $data2[PN_NAME].$data2[PER_NAME]." ".$data2[PER_SURNAME];
+
+		$cmd = " select b.PN_NAME, a.PER_NAME, a.PER_SURNAME from PER_PERSONAL a, PER_PRENAME b where a.PER_ID=$TMP_AUDIT_PER_ID and a.PN_CODE=b.PN_CODE ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_AUDIT_PER_NAME = $data2[PN_NAME].$data2[PER_NAME]." ".$data2[PER_SURNAME];
+
+		$cmd = " select b.PN_NAME, a.PER_NAME, a.PER_SURNAME from PER_PERSONAL a, PER_PRENAME b where a.PER_ID=$TMP_APPROVE_PER_ID and a.PN_CODE=b.PN_CODE ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_APPROVE_PER_NAME = $data2[PN_NAME].$data2[PER_NAME]." ".$data2[PER_SURNAME];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($ABS_ID==$TMP_ABS_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if	
+		
+		if($TMP_AB_CODE=='01')				$onbgcolor_event="style='background-color:#FAB569'";
+		else if($TMP_AB_CODE=='02')		$onbgcolor_event="style='background-color:#81C0E2'";
+		else if($TMP_AB_CODE=='03')		$onbgcolor_event="style='background-color:#F898CD'";
+		else if($TMP_AB_CODE=='04')		$onbgcolor_event="style='background-color:#81DCB5'";
+		
+		if($TODATE>$TMP_ABS_STARTDATE_CHECK)		$onbgcolor_late_event="style='background-color:#C9C9C9'";
+		
+		$setstyle_approve="";
+		//if($TMP_APPROVE_FLAG==1 && ($SESS_PER_ID!=$TMP_APPROVE_PER_ID))	$setstyle_approve='bgcolor="#66CC33"';
+		//if($TMP_APPROVE_FLAG==2 && ($SESS_PER_ID!=$TMP_APPROVE_PER_ID))	$setstyle_approve='bgcolor="#FF3333"';
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?> <?=$onbgcolor_late_event; ?>>
+      <td height="25" align="center"><?=$data_num?></td>
+	  <td nowrap="nowrap">&nbsp;<? if($TMP_PER_TYPE ==1) echo "ข้าราชการ";
+	  else  if($TMP_PER_TYPE ==2) echo "ลูกจ้างประจำ";
+	  else  if($TMP_PER_TYPE ==3) echo "พนักงานราชการ";
+	  else  if($TMP_PER_TYPE ==4) echo "ลูกจ้างชั่วคราว"; ?></td>
+      <td nowrap="nowrap">&nbsp;<?=$TMP_PER_NAME?></td>
+      <td nowrap="nowrap" <?=$onbgcolor_event; ?>>&nbsp;<?=$TMP_AB_NAME?></td>  
+	<td>&nbsp;<?=$TMP_CREATE_DATE?></td>
+      <td align="center"><?=$TMP_ABS_STARTDATE?></td>
+      <td align="center"><?=((trim($TMP_AB_CODE) != "10")?$TMP_ABS_ENDDATE:"-")?></td>
+      <td align="center"><?=$TMP_ABS_DAY?></td>
+      <!--<td>&nbsp;<?=$ABS_LETTER_STR?></td>-->
+       <td align="center" <?=(($SESS_USERGROUP!=1 && $SESS_PER_ID==$TMP_AUDIT_PER_ID)?"bgcolor='#FFCC33'":"")?>>
+	  	<? if($TMP_AUDIT_FLAG==1){ ?>
+	  	<img src="images/true.gif" width="16" height="16" border="0" alt="ผู้ตรวจสอบ : <?=$TMP_AUDIT_PER_NAME?>"><!--ตรวจสอบแล้ว-->
+	  	<? }elseif($TMP_AUDIT_FLAG==2){ ?>
+	  	<img src="images/false.gif" width="16" height="16" border="0" alt="ผู้ตรวจสอบ : <?=$TMP_AUDIT_PER_NAME?>"><!--ยังไม่ตรวจสอบ-->
+		<? }else{ echo "&nbsp;"; } ?></td>	   
+	    
+		<td align="center" <?=(($SESS_USERGROUP!=1 && $SESS_PER_ID==$TMP_REVIEW1_PER_ID)?"bgcolor='#FFCC33'":"")?>>
+	  	<? if($TMP_REVIEW1_FLAG==1){ ?>
+	  	<img src="images/true.gif" width="16" height="16" border="0" alt="ผู้บังคับบัญชาชั้นต้น : <?=$TMP_REVIEW1_PER_NAME;?>"><!--ผู้บังคับบัญชาชั้นต้นเห็นควร-->
+	  	<? }elseif($TMP_REVIEW1_FLAG==2){ ?>
+	  	<img src="images/false.gif" width="16" height="16" border="0" alt="ผู้บังคับบัญชาชั้นต้น : <?=$TMP_REVIEW1_PER_NAME;?>"><!--ผู้บังคับบัญชาชั้นต้นไม่เห็นควร-->
+		<? }else{ echo "&nbsp;"; } ?></td>   
+		
+	    <td align="center" <?=(($SESS_USERGROUP!=1 && $SESS_PER_ID==$TMP_REVIEW2_PER_ID)?"bgcolor='#FFCC33'":"")?>>
+	  	<? if($TMP_REVIEW2_FLAG==1){ ?>
+	  	<img src="images/true.gif" width="16" height="16" border="0" alt="ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป : <?=$TMP_REVIEW2_PER_NAME;?>"><!--ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไปเห็นควร-->
+	  	<? }elseif($TMP_REVIEW2_FLAG==2){ ?>
+	  	<img src="images/false.gif" width="16" height="16" border="0" alt="ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป : <?=$TMP_REVIEW2_PER_NAME;?>"><!--ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไปไม่เห็นควร-->
+		<? }else{ echo "&nbsp;"; } ?></td>
+	  <td align="center" <?=$setstyle_approve?>><input type="hidden" name="list_approve_allabs[<?=$TMP_ABS_ID; ?>]" value="<?=$TMP_APPROVE_FLAG; ?>"><!--ทั้งหมด--><? if($SESS_PER_ID==$TMP_APPROVE_PER_ID){ ?>
+	  <? if($TMP_CANCEL_FLAG==1){ ?><input type="hidden" name="list_cancel_abs[<?=$TMP_ABS_ID; ?>]" value="<?=$TMP_APPROVE_FLAG; ?>">
+	  <?	if($TMP_APPROVE_FLAG==1){ ?><img src="images/true.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (อนุญาต)"><? 
+		}else if($TMP_APPROVE_FLAG==2){ ?><img src="images/false.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (ไม่อนุญาต)"><? 
+		}else{ ?><span title='ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (รออนุญาต/ไม่อนุญาต)'>-</span><? } 
+	  }else{ ?>
+	  <?	if($TMP_APPROVE_FLAG==1){ ?><img src="images/true.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (อนุญาต)"><? 
+		}else if($TMP_APPROVE_FLAG==2){ ?><img src="images/false.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (ไม่อนุญาต)"><? 
+		}else{?><input type="checkbox"  id="list_approve_id<?=$data_num; ?>" name="list_approve_id[]" onClick="set_uncheck_all(this.checked,form1.list_approve_all,this.id)"  value="<?=$TMP_ABS_ID; ?>" title="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME; echo' ('; if($TMP_APPROVE_FLAG!=1 && $TMP_APPROVE_FLAG!=2){ echo 'รออนุญาต/ไม่อนุญาต'; }else if($TMP_APPROVE_FLAG==1){ echo 'อนุญาต'; }else if($TMP_APPROVE_FLAG==2){ echo 'ไม่อนุญาต'; } echo')'; ?>" <?=(($TMP_APPROVE_FLAG==1)?"checked":"")?>><? }
+		} 
+}else{  // login เจ้าตัว
+	if($TMP_APPROVE_FLAG==1){ ?><img src="images/true.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (อนุญาต)"><? 
+	}else if($TMP_APPROVE_FLAG==2){ ?><img src="images/false.gif" width="16" height="16" border="0" alt="ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (ไม่อนุญาต)"><? 
+	}else{ ?><span title='ผู้อนุญาต : <?=$TMP_APPROVE_PER_NAME;?> (ยังไม่ลงความเห็น)'>-</span><? } 
+} ?></td>
+		<td align="center">&nbsp;<? if($TMP_CANCEL_FLAG==1){ ?><input type="hidden" name="list_cancel_flag[]" value="<?=$TMP_ABS_ID; ?>"><img src='images/false.gif' width='16' height='16' border='0' alt='ผู้ลา : <?=$TMP_PER_NAME; ?> (ยกเลิกการลา)'><? } ?></td>
+		<? if($SESS_USERGROUP!=1){ ?><!--ยกเว้น ADMIN--><td align="center">&nbsp;<? if($SESS_PER_ID==$TMP_PER_ID){ ?><input type="checkbox" name="list_cancel_id[]" value="<?=$TMP_ABS_ID; ?>" title="ยกเลิกการลาได้ครั้งเดียวก่อนวันที่ <?=$TMP_ABS_STARTDATE; ?>" <?=(($TMP_CANCEL_FLAG==1)?"checked":"")?> <?=((($TODATE>=$TMP_ABS_STARTDATE_CHECK) || ($TMP_CANCEL_FLAG==1))?"disabled":"")?>><!--<?="$TODATE>=$TMP_ABS_STARTDATE_CHECK"; ?><?=(($SESS_PER_ID==$TMP_PER_ID)?"bgcolor='#FFCC33'":"")?>--><? } ?></td><? } ?>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.ABS_ID.value=$TMP_ABS_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลการ ลา/สาย/ขาด" width="16" height="16" border="0"></a></td>
+		<td align="center"><!-- ($SESS_PER_ID==$TMP_REVIEW1_PER_ID || $SESS_PER_ID==$TMP_REVIEW2_PER_ID || $SESS_PER_ID==$TMP_AUDIT_PER_ID || $SESS_PER_ID==$TMP_APPROVE_PER_ID)  $TMP_AB_CODE!='01' // ลาป่วย -->
+		<?if($TMP_CANCEL_FLAG!=1 || $SESS_USERGROUP==1 || ($SESS_PER_ID==$TMP_PER_ID  && $TODATE <= $TMP_ABS_STARTDATE_CHECK) || ($SESS_PER_ID==$TMP_REVIEW1_PER_ID || $SESS_PER_ID==$TMP_REVIEW2_PER_ID || $SESS_PER_ID==$TMP_AUDIT_PER_ID || $SESS_PER_ID==$TMP_APPROVE_PER_ID) && $PAGE_AUTH["edit"]=="Y"){?>&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.ABS_ID.value=$TMP_ABS_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="<? if($SESS_PER_ID==$TMP_AUDIT_PER_ID){ echo "ตรวจสอบ/ไม่ตรวจสอบ"; } if($SESS_PER_ID==$TMP_REVIEW1_PER_ID || $SESS_PER_ID==$TMP_REVIEW2_PER_ID){	echo "เห็นควร/ไม่เห็นควร"; } if($SESS_PER_ID==$TMP_APPROVE_PER_ID){	echo "อนุญาต/ไม่อนุญาต"; } if($SESS_PER_ID==$TMP_PER_ID){ echo "แก้ไขข้อมูล"; }?>การ ลา/สาย/ขาด"></a><? } else { ?><span class='label_alert' title="<? if($TODATE > $TMP_ABS_STARTDATE_CHECK){	echo "ไม่สามารถแก้ไขการลาย้อนหลังได้"; } ?>">-</span><? } ?>		</td>
+	  <td align="center">
+	  <?if($SESS_USERGROUP==1 || ($SESS_PER_ID==$TMP_PER_ID && $TMP_CANCEL_FLAG!=1) && ($SESS_PER_ID==$TMP_PER_ID && $TODATE <= $TMP_ABS_STARTDATE_CHECK) && $PAGE_AUTH["del"]=="Y"){?>
+	  <a href="<?="javascript:confirm_delete($TMP_ABS_ID,'$TMP_AB_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลการ ลา/สาย/ขาด">
+	  <? } else{ ?><span class='label_alert' title="<? if($SESS_PER_ID==$TMP_PER_ID && ($TMP_APPROVE_FLAG==1 || $TMP_APPROVE_FLAG==2)){ echo "ไม่สามารถลบการลาที่อนุญาต/ไม่อนุญาตแล้วได้"; }else if($TODATE > $TMP_ABS_STARTDATE_CHECK){	echo "ไม่สามารถลบการลาย้อนหลังได้"; } ?>">-</span><? } ?>	  </td>
+  <?if($PAGE_AUTH["print"]=="Y"){?>
+    <td align="center">&nbsp;<a href="<?=("javascript:call_export_rtf(".$TMP_ABS_ID.", '".$TMP_AB_CODE."');")?>"><img src="images/detail.gif" border="0" alt="พิมพ์ใบลา" width="24" height="24"></a></td><?}?>
+
+<?if($ATTACH_FILE==1){ $FILE_PATH = ".../attachments/".$TMP_PER_CARDNO."/PER_ATTACHMENT/66"; ?>
+    <td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('PER_ATTACHMENT','66','การลาออนไลน์','$TMP_PER_ID')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+    <?}else{ $FILE_PATH = ".../attachments/".$TMP_PER_CARDNO."/PER_ABSENTS/".$TMP_ABS_ID; ?>
+    <td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('PER_ABSENTS','$TMP_ABS_ID','$TMP_AB_NAME : $TMP_ABS_STARTDATE - $TMP_ABS_ENDDATE','$TMP_PER_ID')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+    <? } ?>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td><span class="style3"></span></td>
+      <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	   <td align="center"><? if($SESS_PER_ID==$TMP_APPROVE_PER_ID){ ?><input type="checkbox" name="list_approve_all" value="1" title="อนุญาตการลาทั้งหมด"  onClick="set_check_all(this.checked,'list_approve_id',<?=$count_data; ?>);" <?=(($list_approve_all==1)?"checked":"")?> <?=(($SESS_PER_ID!=$TMP_APPROVE_PER_ID)?"disabled":"")?>><br>
+	   <? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit41" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG_APPROVE'" class="button" style="width:98%" title="บันทึกผลการอนุญาต">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG_APPROVE'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?><? } ?></td>
+      <td>&nbsp;</td>
+	  <? if($SESS_USERGROUP!=1){ ?><td align="center" valign="bottom"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG_CANCEL'" class="button" style="width:98%" title="บันทึกยกเลิกการลาของตนเอง">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG_CANCEL'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td><? } ?><!--ผู้ลายกเลิก--->
+	  <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+	  <?if($PAGE_AUTH["print"]=="Y"){?><td>&nbsp;</td><?}?>
+	  <td>&nbsp;</td>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? }else{ ?>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+<?=$alert_confirm_absent?>
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<!--<? if($command=="ADD"){ ?>call_export_rtf(<?=$RPT_ABS_ID?>, "<?=$RPT_AB_CODE?>");<? }?>-->
+</script>
+</html>

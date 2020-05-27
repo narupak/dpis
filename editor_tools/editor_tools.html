@@ -1,0 +1,2048 @@
+<? 
+	if(!$LINKFILE_PATH) $LINKFILE_PATH = "../../../editor_tools";	
+	if(!$BUTTON_PATH) $BUTTON_PATH = "../../../editor_tools/writetools_img"; 
+	if(!$SMILEY_PATH) $SMILEY_PATH = "../../../editor_tools/writetools_img/smiley";
+	
+	$frmCompose = trim($frmCompose);
+	$BodyHtml = str_replace("\r", "", str_replace("\n", "", trim($BodyHtml)));
+	// ตัวอย่าง EDITOR_OPTION => Paragraph=no, Font=no, FontSize=no 
+	$EDITOR_OPTION = trim($EDITOR_OPTION);
+
+	$NumRow_FileList += 0;  
+	if(!$IFRAME_H) $IFRAME_H = 300;
+	if(!$IFRAME_W) $IFRAME_W = "100%";
+	$CURFILENAME = basename($PHP_SELF);
+	if ($CURFILENAME == "maximize_editor.html") $IFRAME_H = 480;
+?>
+<link rel="stylesheet" href="<?="$LINKFILE_PATH/"?>editstyle.css" type="text/css">
+<script language="javascript">
+	var HideEditParagraph					= false;
+	var HideEditFont								= false;
+	var HideEditFontSize						= false;
+	var HideEditClearPage					= false;
+	var HideEditInsertTable					= false;
+	var HideEditSpecialChar				= false;
+	var HideEditCut								= false;
+	var HideEditCopy							= false;
+	var HideEditPaste							= false;
+	var HideEditBold								= false;
+	var HideEditItalic								= false;
+	var HideEditUnderline					= false;
+	var HideEditStrikeThrough			= false;
+	var HideEditSuperScript				= false;
+	var HideEditSubScript					= false;
+	var HideEditFGColor						= false;
+	var HideEditBGColor						= false;
+	var HideEditPageBGImage			= false;
+	var HideEditPageBGColor			= false;
+	var HideEditAlignLeft						= false;
+	var HideEditAlignCenter				= false;
+	var HideEditAlignRight					= false;
+	var HideEditNumberList				= false;
+	var HideEditBulletList						= false;
+	var HideEditIncIndent						= false;
+	var HideEditDecIndent					= false;
+	var HideEditHRLine						= false;
+	var HideEditHyperLink					= false;
+	var HideEditTOCLink						= false;
+	var HideEditSmiley							= false;
+	var HideEditUploadImage			= false;
+	var HideEditUploadAttachment	= false;
+	
+<?
+	if(trim($EDITOR_OPTION)){
+		$ARR_OPTIONS = explode(",", $EDITOR_OPTION);
+		foreach($ARR_OPTIONS as $OPTION_TEXT){
+			$arr_temp = explode("=", $OPTION_TEXT);
+			$OPTION_KEY = trim($arr_temp[0]);
+			$OPTION_VALUE = strtolower(trim($arr_temp[1]));
+			if($OPTION_VALUE=="no" || $OPTION_VALUE=="0" || $OPTION_VALUE=="false"){
+				echo "HideEdit".$OPTION_KEY." = true;\n";
+			} // end if
+		} // end foreach
+	} // end if
+?>
+</script>
+
+<script language="JavaScript">
+function Help(daLink) {
+    var helpWnd=window.open(daLink,"help","width=400,height=500,scrollbars=yes,dependent=yes");
+}
+</script>
+
+<script>	
+function MM_openBrWindow(theURL,winName,features) { //v2.0
+  window.open(theURL,winName,features);
+}
+function OpenMaximizeEditor (id) {
+	var pathroot = "<? echo $PATHIMAGEROOT; ?>";
+	var pathattachmentroot = "<? echo $PATHATTACHMENTROOT; ?>";
+	MM_openBrWindow('maximize_editor.html?PATHIMAGEROOT='+pathroot+'&PATHATTACHMENTROOT='+pathattachmentroot,'fulleditor','toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=600,height=500');
+}
+
+function InsertSpecialChar(id) {	
+	var editor = editorMap[id];
+	editor.selectionRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+	var TableTag = showModalDialog("<?="$LINKFILE_PATH/"?>special_characters.html", "", "font-family:Verdana;font-size:12;dialogWidth:38em;dialogHeight:32em;status:no");
+	// ====================
+	if (TableTag) {
+		var bodyRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.createTextRange();
+	    	if (bodyRange.inRange(editor.selectionRange)) {
+			editor.selectionRange.pasteHTML(TableTag);
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+	    	} else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML += TableTag;
+			editor.selectionRange.collapse(false);
+			editor.selectionRange.select();
+	    	}
+	    }
+	// ====================
+}
+
+function ResetClearPage (id) {
+	var html = "";
+	html = '<STYLE TYPE="TEXT/CSS">TD{BORDER: 1PX DASHED #999999;}</STYLE>';
+	html += '<body style="font:10pt arial;" bgcolor="" background="">';
+	html += '</body>';
+	eval(EDITOR_COMPOSITION_PREFIX + id).document.open();
+	eval(EDITOR_COMPOSITION_PREFIX + id).document.write(html);
+	eval(EDITOR_COMPOSITION_PREFIX + id).document.close();
+	eval(EDITOR_COMPOSITION_PREFIX + id).document.designMode = "on";
+	eval(EDITOR_COMPOSITION_PREFIX + id).document.onclick = new Function("EditorOnClick(" + id + ")");
+}
+
+function InsertTable(id) {
+	var editor = editorMap[id];
+	editor.selectionRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+	var TableTag = showModalDialog("<?="$LINKFILE_PATH/"?>InsertTable.html", "", "font-family:Verdana;font-size:12;dialogWidth:50em;dialogHeight:25em;status:no");
+	// ====================
+	if (TableTag) {
+		var bodyRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.createTextRange();
+		if (bodyRange.inRange(editor.selectionRange)) {
+			editor.selectionRange.pasteHTML(TableTag);
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		} else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML += TableTag;
+			editor.selectionRange.collapse(false);
+			editor.selectionRange.select();
+	    	}
+	    }
+		// ====================
+}
+	
+    function UtilBeginScript()
+    {
+	return String.fromCharCode(60, 115, 99, 114, 105, 112, 116, 62);
+    }
+
+    function UtilEndScript()
+    {
+	return String.fromCharCode(60, 47, 115, 99, 114, 105, 112, 116, 62);
+    }
+</script>
+
+
+<script>
+	function IDGenerator(nextID)
+	{
+		this.nextID = nextID;
+		this.GenerateID = IDGeneratorGenerateID;
+	}
+
+	function IDGeneratorGenerateID()
+	{
+		return this.nextID++;
+	}
+</script>
+
+
+
+<script>
+	var BUTTON_IMAGE_PREFIX = "buttonImage";
+	var BUTTON_DIV_PREFIX = "buttonDiv";
+	var BUTTON_PAD1_PREFIX = "buttonPad1";
+	var BUTTON_PAD2_PREFIX = "buttonPad2";
+	var USER_setBGgroundImage = "<?=$USER_setBGgroundImage?>";
+	var USER_setBGgroundColor = "<?=$USER_setBGgroundColor?>";
+	var buttonMap = new Object();
+
+	function Button
+	(
+		idGenerator,
+		caption,
+		action,
+		image
+	)
+	{
+		this.idGenerator = idGenerator;
+		this.caption = caption;
+		this.action = action;
+		this.image = image;
+		this.enabled = true;
+		this.Instantiate = ButtonInstantiate;
+		this.Enable = ButtonEnable;
+	}
+
+	function ButtonInstantiate()
+	{
+		this.id = this.idGenerator.GenerateID();
+		buttonMap[this.id] = this;
+		var html = "";
+		html += '<div id="';
+		html += BUTTON_DIV_PREFIX;
+		html += this.id;
+		html += '" class="ButtonNormal"';
+		html += ' onselectstart="ButtonOnSelectStart()"';
+		html += ' ondragstart="ButtonOnDragStart()"';
+		html += ' onmousedown="ButtonOnMouseDown(this)"';
+		html += ' onmouseup="ButtonOnMouseUp(this)"';
+		html += ' onmouseout="ButtonOnMouseOut(this)"';
+		html += ' onmouseover="ButtonOnMouseOver(this)"';
+		html += ' onclick="ButtonOnClick(this)"';
+		html += ' ondblclick="ButtonOnDblClick(this)"';
+		html += ' style="margin-top:0; margin-left:0; margin-right:0; margin_bottom:0;"';
+		html += '>';
+		html += '<table cellpadding=0 cellspacing=0 border=0><tr><td><img id="';
+		html += BUTTON_PAD1_PREFIX;
+		html += this.id;
+		html += '" width=2 height=2></td><td></td><td></td></tr><tr><td></td><td>';
+		html += '<img id="';
+		html += BUTTON_IMAGE_PREFIX;
+		html += this.id;
+		html += '" src="';
+		html += this.image;
+		html += '" title="';
+		html += this.caption;
+		html += '" class="Image"';
+		html += '>';
+		html += '</td><td></td></tr><tr><td></td><td></td><td><img id="';
+		html += BUTTON_PAD2_PREFIX;
+		html += this.id;
+		html += '" width=2 height=2></td></tr></table>';
+		html += '</div>';
+		document.write(html);
+	}
+
+	function ButtonEnable(enabled)
+	{
+		this.enabled = enabled;
+		if (this.enabled)
+		{
+			document.all[BUTTON_DIV_PREFIX + this.id].className = "ButtonNormal";
+		}
+		else
+		{
+			document.all[BUTTON_DIV_PREFIX + this.id].className = "ButtonDisabled";
+		}
+	}
+
+	function ButtonOnSelectStart()
+	{
+		window.event.returnValue = false;
+	}
+
+	function ButtonOnDragStart()
+	{
+		window.event.returnValue = false;
+	}
+
+	function ButtonOnMouseDown(element)
+	{
+		if (event.button == 1)
+		{
+			var id = element.id.substring(BUTTON_DIV_PREFIX.length, element.id.length);
+			var button = buttonMap[id];
+			if (button.enabled)
+			{
+				ButtonPushButton(id);
+			}
+		}
+	}
+
+	function ButtonOnMouseUp(element)
+	{
+		if (event.button == 1)
+		{
+			var id = element.id.substring(BUTTON_DIV_PREFIX.length, element.id.length);
+			var button = buttonMap[id];
+			if (button.enabled)
+			{
+				ButtonReleaseButton(id);
+			}
+		}
+	}
+
+	function ButtonOnMouseOut(element)
+	{
+		var id = element.id.substring(BUTTON_DIV_PREFIX.length, element.id.length);
+		var button = buttonMap[id];
+		if (button.enabled)
+		{
+			ButtonReleaseButton(id);
+		}
+	}
+
+	function ButtonOnMouseOver(element)
+	{
+		var id = element.id.substring(BUTTON_DIV_PREFIX.length, element.id.length);
+		var button = buttonMap[id];
+		if (button.enabled)
+		{
+			ButtonReleaseButton(id);
+			document.all[BUTTON_DIV_PREFIX + id].className = "ButtonMouseOver";
+		}
+	}
+
+	function ButtonOnClick(element)
+	{
+		var id = element.id.substring(BUTTON_DIV_PREFIX.length, element.id.length);
+		var button = buttonMap[id];
+		if (button.enabled)
+		{
+			eval(button.action);
+		}
+	}
+
+	function ButtonOnDblClick(element)
+	{
+		ButtonOnClick(element);
+	}
+
+	function ButtonPushButton(id)
+	{
+		document.all[BUTTON_PAD1_PREFIX + id].width = 3;
+		document.all[BUTTON_PAD1_PREFIX + id].height = 3;
+		document.all[BUTTON_PAD2_PREFIX + id].width = 1;
+		document.all[BUTTON_PAD2_PREFIX + id].height = 1;
+		document.all[BUTTON_DIV_PREFIX + id].className = "ButtonPressed";
+	}
+
+	function ButtonReleaseButton(id)
+	{
+		document.all[BUTTON_PAD1_PREFIX + id].width = 2;
+		document.all[BUTTON_PAD1_PREFIX + id].height = 2;
+		document.all[BUTTON_PAD2_PREFIX + id].width = 2;
+		document.all[BUTTON_PAD2_PREFIX + id].height = 2;
+		document.all[BUTTON_DIV_PREFIX + id].className = "ButtonNormal";
+	}
+</script>
+
+<script>
+//	Insert Smiley Function
+    var SMILEY_CHOOSER_DIV_PREFIX = "smileyChooserDiv";
+    var SMILEY_CHOOSER_IMG_PREFIX = "smileyChooserImg";
+    var SMILEY_CHOOSER_ICON_PREFIX = "smileyChooserIcon";
+    var smileyChooserMap = new Object();
+
+    function SmileyChooser
+    (
+	    idGenerator,
+	    numRows,
+	    numCols,
+	    images,
+	    callback
+    )
+    {
+	    this.idGenerator = idGenerator;
+	    this.numRows = numRows;
+	    this.numCols = numCols;
+	    this.images = images;
+	    this.callback = callback;
+	    this.Instantiate = SmileyChooserInstantiate;
+	    this.Show = SmileyChooserShow;
+	    this.Hide = SmileyChooserHide;
+	    this.IsShowing = SmileyChooserIsShowing;
+	    this.SetUserData = SmileyChooserSetUserData;
+    }
+
+    function SmileyChooserInstantiate()
+    {
+	    this.id = this.idGenerator.GenerateID();
+	    smileyChooserMap[this.id] = this;
+	    var html = '';
+	    html += '<div id="' + SMILEY_CHOOSER_DIV_PREFIX + this.id + '" style="display:none;position:absolute;background-color:buttonface;border-left:buttonhighlight solid 1px;border-top:buttonhighlight solid 1px;border-right:buttonshadow solid 1px;border-bottom:buttonshadow solid 1px">';
+	    html += '<table>';
+	    for (var i = 0; i < this.numRows; i++) {
+		    html += '<tr>';
+		    for (var j = 0; j < this.numCols; j++) {
+			    html += '<td>';
+			    var k = i * this.numCols + j;
+				if(k < this.images.length){
+					var    imagelabal = this.images[k].split(",");
+					if (!imagelabal[1]) imagelabal[1] = "";
+					html += '<div id="' + SMILEY_CHOOSER_ICON_PREFIX + this.id + '_' + k + '" style="border:buttonface solid 1px" onmouseover="SmileyChooserOnMouseOver()" onmouseout="SmileyChooserOnMouseOut()" class="Tx-Midnightblue">';
+					html += '<IMG SRC="' + imagelabal[0] + '" id="' + SMILEY_CHOOSER_IMG_PREFIX + this.id + '_' + k + '" onmouseover="SmileyChooserOnMouseOver()" onmouseout="SmileyChooserOnMouseOut()" onclick="SmileyChooserOnClick()" align=absmiddle> '+imagelabal[1];
+					html += '</div>';
+				} // end if
+			    html += '</td>';
+		    }
+		    html += '</tr>';
+	    }
+	    html += '</table>';
+	    html += '</div>';
+	    document.write(html);
+    }
+
+    function SmileyChooserShow(x, y)
+    {
+	    eval(SMILEY_CHOOSER_DIV_PREFIX + this.id).style.left = x;
+	    eval(SMILEY_CHOOSER_DIV_PREFIX + this.id).style.top = y;
+	    eval(SMILEY_CHOOSER_DIV_PREFIX + this.id).style.display = "block";
+    }
+
+    function SmileyChooserHide()
+    {
+	    eval(SMILEY_CHOOSER_DIV_PREFIX + this.id).style.display = "none";
+    }
+
+    function SmileyChooserIsShowing()
+    {
+	    return eval(SMILEY_CHOOSER_DIV_PREFIX + this.id).style.display == "block";
+    }
+
+    function SmileyChooserSetUserData(userData)
+    {
+	this.userData = userData;
+    }
+
+    function SmileyChooserOnMouseOver()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(SMILEY_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(SMILEY_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "black";
+		    }
+	    }
+    }
+
+    function SmileyChooserOnMouseOut()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(SMILEY_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(SMILEY_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "buttonface";
+		    }
+	    }
+    }
+
+    function SmileyChooserOnClick()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(SMILEY_CHOOSER_IMG_PREFIX.length, underscore);
+			    var smileyChooser = smileyChooserMap[id];
+			    smileyChooser.Hide();
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    if (smileyChooser.callback) {				    				    
+			    	   var imagelabel =  smileyChooser.images[index].split(",");	
+			    	   var pathroot = '<? echo $PATHIMAGEROOT; ?>';	    	   
+			    	   if (imagelabel[2] != "") pathroot = imagelabel[2];
+			    	   if (imagelabel[1]) {
+			    	   	imagelabel[1] = pathroot+"/"+imagelabel[1];
+				    	smileyChooser.callback(imagelabel[1], smileyChooser.userData);				    
+				    } else {
+				    	smileyChooser.callback(smileyChooser.images[index], smileyChooser.userData);
+				    }
+				    
+			    }
+		    }
+	    }
+    }
+</script>
+
+<script>
+	// About Uploaded Image
+    var IMAGE_CHOOSER_DIV_PREFIX = "imageChooserDiv";
+    var IMAGE_CHOOSER_IMG_PREFIX = "imageChooserImg";
+    var IMAGE_CHOOSER_ICON_PREFIX = "imageChooserIcon";
+    var imageChooserMap = new Object();
+
+    function ImageChooser
+    (
+	    idGenerator,
+	    numRows,
+	    numCols,
+	    images,
+	    callback
+    )
+    {
+	    this.idGenerator = idGenerator;
+	    this.numRows = numRows;
+	    this.numCols = numCols;
+	    this.images = images;
+	    this.callback = callback;
+	    this.Instantiate = ImageChooserInstantiate;
+	    this.Show = ImageChooserShow;
+	    this.Hide = ImageChooserHide;
+	    this.IsShowing = ImageChooserIsShowing;
+	    this.SetUserData = ImageChooserSetUserData;
+    }
+
+    function ImageChooserInstantiate()
+    {
+	    this.id = this.idGenerator.GenerateID();
+	    imageChooserMap[this.id] = this;
+	    var html = '';
+	    html += '<div id="' + IMAGE_CHOOSER_DIV_PREFIX + this.id + '" style="display:none;position:absolute;background-color:buttonface;border-left:buttonhighlight solid 1px;border-top:buttonhighlight solid 1px;border-right:buttonshadow solid 1px;border-bottom:buttonshadow solid 1px">';
+	    html += '<table class=normal>';
+	    for (var i = 0; i < this.numRows; i++) {
+		    html += '<tr>';
+		    for (var j = 0; j < this.numCols; j++) {
+			    html += '<td>';
+			    var k = i * this.numCols + j;
+			    var    imagelabel = this.images[k].split(",");
+			    var arr_desc =  imagelabel[1].split("|");
+			    var img_description = arr_desc[0];
+			    var img_filename_encode = arr_desc[1];
+			    var img_file_ext = arr_desc[2];
+			    var img_width = arr_desc[3];
+			    var img_height = arr_desc[4];			    
+			    
+			    html += '<div id="' + IMAGE_CHOOSER_ICON_PREFIX + this.id + '_' + k + '" style="border:buttonface solid 1px" onmouseover="ImageChooserOnMouseOver()" onmouseout="ImageChooserOnMouseOut()">';
+			    html += '<IMG SRC="' + imagelabel[0] + '" id="' + IMAGE_CHOOSER_IMG_PREFIX + this.id + '_' + k + '" onmouseover="ImageChooserOnMouseOver()" onmouseout="ImageChooserOnMouseOut()" onclick="ImageChooserOnClick()" align=absmiddle> '+img_description ;
+			    html += '</div>';
+			    html += '</td>';
+		    }
+		    html += '</tr>';
+	    }
+	    html += '</table>';
+	    html += '</div>';
+	    document.write(html);
+    }
+
+    function ImageChooserShow(x, y)
+    {
+	    eval(IMAGE_CHOOSER_DIV_PREFIX + this.id).style.left = x;
+	    eval(IMAGE_CHOOSER_DIV_PREFIX + this.id).style.top = y;
+	    eval(IMAGE_CHOOSER_DIV_PREFIX + this.id).style.display = "block";
+    }
+
+    function ImageChooserHide()
+    {
+	    eval(IMAGE_CHOOSER_DIV_PREFIX + this.id).style.display = "none";
+    }
+
+    function ImageChooserIsShowing()
+    {
+	    return eval(IMAGE_CHOOSER_DIV_PREFIX + this.id).style.display == "block";
+    }
+
+    function ImageChooserSetUserData(userData)
+    {
+	this.userData = userData;
+    }
+
+    function ImageChooserOnMouseOver()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(IMAGE_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(IMAGE_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "black";
+		    }
+	    }
+    }
+
+    function ImageChooserOnMouseOut()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(IMAGE_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(IMAGE_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "buttonface";
+		    }
+	    }
+    }
+
+    function ImageChooserOnClick()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(IMAGE_CHOOSER_IMG_PREFIX.length, underscore);
+			    var imageChooser = imageChooserMap[id];
+			    imageChooser.Hide();
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    if (imageChooser.callback) {
+			    	var imagelabel =  imageChooser.images[index].split(",");
+			    	var arr_desc =  imagelabel[1].split("|");
+			    	var img_description = arr_desc[0];
+			    	var img_filename_encode = arr_desc[1];
+			    	var img_file_ext = arr_desc[2];
+			    	var img_width = arr_desc[3];
+			    	var img_height = arr_desc[4];			    
+				imageChooser.callback(img_filename_encode, img_description, img_file_ext, img_width, img_height , imageChooser.userData);
+			    }
+		    }
+	    }
+    }
+</script>
+
+<script>
+	// About uploaded attachment
+    var ATTACHMENT_CHOOSER_DIV_PREFIX = "attachmentChooserDiv";
+    var ATTACHMENT_CHOOSER_IMG_PREFIX = "attachmentChooserImg";
+    var ATTACHMENT_CHOOSER_ICON_PREFIX = "attachmentChooserIcon";
+    var attachmentChooserMap = new Object();
+
+    function AttachmentChooser
+    (
+	    idGenerator,
+	    numRows,
+	    numCols,
+	    attachments,
+	    callback
+    )
+    {
+	    this.idGenerator = idGenerator;
+	    this.numRows = numRows;
+	    this.numCols = numCols;
+	    this.attachments = attachments;
+	    this.callback = callback;
+	    this.Instantiate = AttachmentChooserInstantiate;
+	    this.Show = AttachmentChooserShow;
+	    this.Hide = AttachmentChooserHide;
+	    this.IsShowing = AttachmentChooserIsShowing;
+	    this.SetUserData = AttachmentChooserSetUserData;
+    }
+
+    function AttachmentChooserInstantiate()
+    {
+	    this.id = this.idGenerator.GenerateID();
+	    attachmentChooserMap[this.id] = this;
+	    var html = '';
+	    html += '<div id="' + ATTACHMENT_CHOOSER_DIV_PREFIX + this.id + '" style="display:none;position:absolute;background-color:buttonface;border-left:buttonhighlight solid 1px;border-top:buttonhighlight solid 1px;border-right:buttonshadow solid 1px;border-bottom:buttonshadow solid 1px">';
+	    html += '<table class=normal>';
+	    for (var i = 0; i < this.numRows; i++) {
+		    html += '<tr>';
+		    for (var j = 0; j < this.numCols; j++) {
+			    html += '<td>';
+			    var k = i * this.numCols + j;
+			    var    attachmentlabel = this.attachments[k].split(",");
+			    var arr_desc =  attachmentlabel[1].split("|");
+			    var attm_description = arr_desc[0];
+			    var attm_filename_encode = arr_desc[1];
+			    var attm_file_ext = arr_desc[2];
+			    
+			    html += '<div id="' + ATTACHMENT_CHOOSER_ICON_PREFIX + this.id + '_' + k + '" style="border:buttonface solid 1px" onmouseover="AttachmentChooserOnMouseOver()" onmouseout="AttachmentChooserOnMouseOut()">';
+			    html += '<IMG SRC="' + attachmentlabel[0] + '" id="' + ATTACHMENT_CHOOSER_IMG_PREFIX + this.id + '_' + k + '" onmouseover="AttachmentChooserOnMouseOver()" onmouseout="AttachmentChooserOnMouseOut()" onclick="AttachmentChooserOnClick()" align=absmiddle> '+attm_description ;
+			    html += '</div>';
+			    html += '</td>';
+		    }
+		    html += '</tr>';
+	    }
+	    html += '</table>';
+	    html += '</div>';
+	    document.write(html);
+    }
+
+    function AttachmentChooserShow(x, y)
+    {
+	    eval(ATTACHMENT_CHOOSER_DIV_PREFIX + this.id).style.left = x;
+	    eval(ATTACHMENT_CHOOSER_DIV_PREFIX + this.id).style.top = y;
+	    eval(ATTACHMENT_CHOOSER_DIV_PREFIX + this.id).style.display = "block";
+    }
+
+    function AttachmentChooserHide()
+    {
+	    eval(ATTACHMENT_CHOOSER_DIV_PREFIX + this.id).style.display = "none";
+    }
+
+    function AttachmentChooserIsShowing()
+    {
+	    return eval(ATTACHMENT_CHOOSER_DIV_PREFIX + this.id).style.display == "block";
+    }
+
+    function AttachmentChooserSetUserData(userData)
+    {
+		this.userData = userData;
+    }
+
+    function AttachmentChooserOnMouseOver()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(ATTACHMENT_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(ATTACHMENT_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "black";
+		    }
+	    }
+    }
+
+    function AttachmentChooserOnMouseOut()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(ATTACHMENT_CHOOSER_IMG_PREFIX.length, underscore);
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    eval(ATTACHMENT_CHOOSER_ICON_PREFIX + id + "_" + index).style.borderColor = "buttonface";
+		    }
+	    }
+    }
+
+    function AttachmentChooserOnClick()
+    {
+	    if (event.srcElement.tagName == "IMG") {
+		    var underscore = event.srcElement.id.indexOf("_");
+		    if (underscore != -1) {
+			    var id = event.srcElement.id.substring(ATTACHMENT_CHOOSER_IMG_PREFIX.length, underscore);
+			    var attachmentChooser = attachmentChooserMap[id];
+			    attachmentChooser.Hide();
+			    var index = event.srcElement.id.substring(underscore + 1);
+			    if (attachmentChooser.callback) {
+			    	var attachmentlabel =  attachmentChooser.attachments[index].split(",");
+			    	var arr_desc =  attachmentlabel[1].split("|");
+			    	var attm_description = arr_desc[0];
+			    	var attm_filename_encode = arr_desc[1];
+			    	var attm_file_ext = arr_desc[2];
+//					attachmentChooser.callback(attm_filename_encode, attm_description, attm_file_ext, attm_width, attm_height , attachmentChooser.userData);
+					attachmentChooser.callback(attm_filename_encode, attm_description, attm_file_ext, attachmentChooser.userData);
+			    }
+		    }
+	    }
+    }
+</script>
+
+<script>
+	var EDITOR_COMPOSITION_PREFIX = "editorComposition";
+	var EDITOR_PARAGRAPH_PREFIX = "editorParagraph";
+	var EDITOR_LIST_AND_INDENT_PREFIX = "editorListAndIndent";
+	var EDITOR_TOP_TOOLBAR_PREFIX = "editorTopToolbar";
+	var EDITOR_BOTTOM_TOOLBAR_PREFIX = "editorBottomToolbar";
+	var EDITOR_SMILEY_BUTTON_PREFIX = "editorSmileyButton";
+	var EDITOR_SMILEY_CHOOSER_PREFIX = "editorSmileyChooser";
+	var EDITOR_IMAGE_BUTTON_PREFIX = "editorImageButton";
+	var EDITOR_IMAGE_CHOOSER_PREFIX = "editorImageChooser";
+	var EDITOR_ATTACHMENT_BUTTON_PREFIX = "editorAttachmentButton";
+	var EDITOR_ATTACHMENT_CHOOSER_PREFIX = "editorAttachmentChooser";
+	var editorMap = new Object();
+	var editorIDGenerator = null;
+
+	function Editor(idGenerator)
+	{
+		this.idGenerator = idGenerator;
+		this.textMode = false;
+		this.brief = false;
+		this.instantiated = false;
+		this.Instantiate = EditorInstantiate;
+		this.GetText = EditorGetText;
+		this.SetText = EditorSetText;
+		this.GetHTML = EditorGetHTML;
+		this.SetHTML = EditorSetHTML;
+		this.GetBrief = EditorGetBrief;
+		this.SetBrief = EditorSetBrief;
+	}
+
+	function EditorInstantiate()
+	{
+		if (this.instantiated) {
+			return;
+		}
+		this.id = this.idGenerator.GenerateID();
+		editorMap[this.id] = this;
+		editorIDGenerator = this.idGenerator;
+
+		var html = "";
+		html += "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"<?=$IFRAME_W?>\">";
+
+if(!HideEditParagraph || !HideEditFont || !HideEditFontSize){
+		html += "<tr>";
+		html += "<td id=\"" + EDITOR_TOP_TOOLBAR_PREFIX + this.id + "\" class=\"Toolbar\">";
+		html += "<table cellpaddin=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">";
+
+		html += "<tr>";
+		html += "<td width=\"1\">";
+		html += "<div class=\"Space\"></div>";
+		html += "</td>";
+
+//		Hide Edit Paragraph
+		if(!HideEditParagraph){
+			html += "<td width=\"1\">";
+			html += "<span id=\"" + EDITOR_PARAGRAPH_PREFIX + this.id + "\" style=\"display:" + (this.brief ? "none" : "inline") + "\">";
+			html += "<select class=\"List\" onchange=\"EditorOnParagraph(" + this.id + ", this)\">";
+			html += "<option class=\"Heading\">Paragraph</option>";
+			html += "<option value=\"Normal\">Normal</option>";
+			html += "<option value=\"Heading 1\">Heading 1 &lt;H1&gt;</option>";
+			html += "<option value=\"Heading 2\">Heading 2 &lt;H2&gt;</option>";
+			html += "<option value=\"Heading 3\">Heading 3 &lt;H3&gt;</option>";
+			html += "<option value=\"Heading 4\">Heading 4 &lt;H4&gt;</option>";
+			html += "<option value=\"Heading 5\">Heading 5 &lt;H5&gt;</option>";
+			html += "<option value=\"Heading 6\">Heading 6 &lt;H6&gt;</option>";
+			html += "<option value=\"Address\">Address &lt;ADDR&gt;</option>";
+			html += "<option value=\"Formatted\">Formatted &lt;PRE&gt;</option>";
+			html += "</select>";
+			html += "</span>";
+			html += "</td>";					
+		} // end if
+	
+//		Hide Edit Font
+		if(!HideEditFont){
+			html += "<td width=\"1\">";
+			html += "<select class=\"List\" onchange=\"EditorOnFont(" + this.id + ", this)\">";
+			html += "<option class=\"Heading\">Default Font</option>";
+			html += "<option value=\"Angsana New\">Angsana New</option>";
+			html += "<option value=\"AngsanaUPC\">AngsanaUPC</option>";		
+			html += "<option value=\"Arial\">Arial</option>";
+			html += "<option value=\"Arial Black\">Arial Black</option>";
+			html += "<option value=\"Arial Narrow\">Arial Narrow</option>";
+			html += "<option value=\"Comic Sans MS\">Comic Sans MS</option>";
+			html += "<option value=\"Courier New\">Courier New</option>";
+			html += "<option value=\"Microsoft Sans Serif\">Microsoft Sans Serif</option>";		
+			html += "<option value=\"System\">System</option>";
+			html += "<option value=\"Times New Roman\">Times New Roman</option>";
+			html += "<option value=\"Tahoma\">Tahoma</option>";
+			html += "<option value=\"Verdana\">Verdana</option>";
+			html += "<option value=\"Wingdings\">Wingdings</option>";
+			html += "</select>";
+			html += "</td>";
+		} // end if
+	
+//		Hide Edit Font Size
+		if(!HideEditFontSize){
+			html += "<td width=\"1\">";
+			html += "<select class=\"List\" onchange=\"EditorOnSize(" + this.id + ", this)\">";
+			html += "<option class=\"Heading\">Size</option>";
+			html += "<option value=\"1\">1</option>";
+			html += "<option value=\"2\">2</option>";
+			html += "<option value=\"3\">3</option>";
+			html += "<option value=\"4\">4</option>";
+			html += "<option value=\"5\">5</option>";
+			html += "<option value=\"6\">6</option>";
+			html += "<option value=\"7\">7</option>";
+			html += "</select>";
+			html += "</td>";					
+		} // end if
+
+		html += "<td width=\"100%\">&nbsp;";
+		html += "</td>";		
+		<? if ($CURFILENAME != "maximize_editor.html") { ?>
+//		html += "<td align=\"right\" valign=\"top\">";
+//		html += "<a href=\"javascript:OpenMaximizeEditor()\"><img src=\"../../images/icon_window_full.gif\" alt=\"Maximize\" border=0></a>";
+//		html += "</td>";		
+		<? } ?>		
+		html += "</tr>";
+
+		html += "</table>";
+		html += "</td>";
+		html += "</tr>";
+} // end if
+
+		html += "<tr>";
+		html += "<td id=\"" + EDITOR_BOTTOM_TOOLBAR_PREFIX + this.id + "\" class=\"Toolbar\">";
+
+if(!HideEditClearPage || !HideEditInsertTable || !HideEditSpecialChar || !HideEditCut || !HideEditCopy || !HideEditPaste || !HideEditBold || !HideEditItalic || !HideEditUnderline || !HideEditStrikeThrough || !HideEditSuperScript || !HideEditSubScript || !HideEditFGColor || !HideEditBGColor || !HideEditPageBGImage || !HideEditPageBGColor){
+		html += "<table cellpaddin=\"0\" cellspacing=\"0\" border=\"0\">";
+		html += "<tr>";
+	if(!HideEditClearPage){
+		html += "<td>";
+		html += "<div class=\"Space\"></div>";
+		html += "</td>";
+
+//		Hide Clear Page
+		if(!HideEditClearPage){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var instableButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Clear Page\",";
+			html += "\"ResetClearPage(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/icon_clear.gif\"";
+			html += ");";
+			html += "instableButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+
+	if(!HideEditInsertTable || !HideEditSpecialChar){
+		html += "<td width=\"1\">";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";
+
+//		Hide Insert Table
+		if(!HideEditInsertTable){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var instableButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Insert Table\",";
+			html += "\"InsertTable(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/icon_insert_table.gif\"";
+			html += ");";
+			html += "instableButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Insert Special Character
+		if(!HideEditSpecialChar){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var insalphabetButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Special Characters\",";
+			html += "\"InsertSpecialChar(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/icon_alphabet.gif\"";
+			html += ");";
+			html += "insalphabetButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+	
+	if(!HideEditCut || !HideEditCopy || !HideEditPaste){
+		html += "<td width=\"1\">";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";		
+
+//		Hide Cut Content
+		if(!HideEditCut){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var cutButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Cut\",";
+			html += "\"EditorOnCut(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/cut.gif\"";
+			html += ");";
+			html += "cutButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Copy Content
+		if(!HideEditCopy){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var copyButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Copy\",";
+			html += "\"EditorOnCopy(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/copy.gif\"";
+			html += ");";
+			html += "copyButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Paste Content
+		if(!HideEditPaste){	
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var pasteButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Paste\",";
+			html += "\"EditorOnPaste(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/paste.gif\"";
+			html += ");";
+			html += "pasteButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+	
+	if(!HideEditBold || !HideEditItalic || !HideEditUnderline || !HideEditStrikeThrough || !HideEditSuperScript || !HideEditSubScript){
+		html += "<td>";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";		
+
+//		Hide Bold Font
+		if(!HideEditBold){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var boldButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Bold\",";
+			html += "\"EditorOnBold(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/bold.gif\"";
+			html += ");";
+			html += "boldButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Italic Font
+		if(!HideEditItalic){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var italicButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Italic\",";
+			html += "\"EditorOnItalic(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/italic.gif\"";
+			html += ");";
+			html += "italicButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Underline Font
+		if(!HideEditUnderline){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var underlineButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Underline\",";
+			html += "\"EditorOnUnderline(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/uline.gif\"";
+			html += ");";
+			html += "underlineButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Strike Through Font
+		if(!HideEditStrikeThrough){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var underlineButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Strikethrough\",";
+			html += "\"EditorOnStrikethrough(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/Strikethrough.gif\"";
+			html += ");";
+			html += "underlineButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Super Script Font
+		if(!HideEditSuperScript){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var underlineButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"SupScript\",";
+			html += "\"EditorOnSupScript(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/char_supscript.gif\"";
+			html += ");";
+			html += "underlineButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Sub Script Font
+		if(!HideEditSubScript){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var underlineButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"SubScript\",";
+			html += "\"EditorOnSubScript(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/char_subscript.gif\"";
+			html += ");";
+			html += "underlineButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";						
+		} // end if
+	} // end if
+							
+	if(!HideEditFGColor || !HideEditBGColor){
+		html += "<td>";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";
+
+//		Hide Foreground Color
+		if(!HideEditFGColor){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var foregroundColorButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Foreground Color\",";
+			html += "\"EditorOnForegroundColor(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/tpaint.gif\"";
+			html += ");";
+			html += "foregroundColorButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Background Color
+		if(!HideEditBGColor){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var backgroundColorButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Background Colour\",";
+			html += "\"EditorOnBackgroundColor(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/parea.gif\"";
+			html += ");";
+			html += "backgroundColorButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+	
+	if(!HideEditPageBGImage || !HideEditPageBGColor){
+		html += "<td>";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";
+
+/*		
+//		Hide Insert Background Image
+		if(!HideEditPageBGImage){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var setBackgroundImage = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Set Background Image\",";
+			html += "\"EditorOnSetbackgroundImage(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/bg_image.gif\"";
+			html += ");";
+			html += "setBackgroundImage.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+*/
+//		Hide Insert Page Background Color	
+		if(!HideEditPageBGColor){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var setBackgroundColor = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Set Page Background Color\",";
+			html += "\"EditorOnSetbackgroundColor(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/bg_color.gif\"";
+			html += ");";
+			html += "setBackgroundColor.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+
+		html += "</tr>";
+		html += "</table>";
+} // end if
+
+		html += "</td>";
+		html += "</tr>";		
+
+		html += "<tr>";
+		html += "<td id=\"" + EDITOR_TOP_TOOLBAR_PREFIX + this.id + "\" class=\"Toolbar\">";
+		html += "<table cellpaddin=\"0\" cellspacing=\"0\" border=\"0\">";
+
+if(!HideEditAlignLeft || !HideEditAlignCenter || !HideEditAlignRight || !HideEditNumberList || !HideEditBulletList || !HideEditIncIndent || !HideEditDecIndent || !HideEditHRLine || !HideEditHyperLink || !HideEditTOCLink || !HideEditSmiley || !HideEditUploadImage || !HideEditUploadAttachment){
+		html += "<tr>";
+	
+	if(!HideEditAlignLeft || !HideEditAlignCenter || !HideEditAlignRight){
+		html += "<td width=\"1\">";
+		html += "<div class=\"Space\"></div>";
+		html += "</td>";
+
+//		Hide Align Left
+		if(!HideEditAlignLeft){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var alignLeftButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Align Left\",";
+			html += "\"EditorOnAlignLeft(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/aleft.gif\"";
+			html += ");";
+			html += "alignLeftButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Align Center
+		if(!HideEditAlignCenter){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var centerButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Center\",";
+			html += "\"EditorOnCenter(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/center.gif\"";
+			html += ");";
+			html += "centerButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Align Right
+		if(!HideEditAlignRight){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var alignRightButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Align Right\",";
+			html += "\"EditorOnAlignRight(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/aright.gif\"";
+			html += ");";
+			html += "alignRightButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	} // end if
+
+	if(!HideEditNumberList || !HideEditBulletList || !HideEditIncIndent || !HideEditDecIndent){
+		html += "<td>";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";
+
+		html += "<td id=\"" + EDITOR_LIST_AND_INDENT_PREFIX + this.id + "\" style=\"display:" + (this.brief ? "none" : "inline") + "\">";
+		html += "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\">";
+		html += "<tr>";
+
+//		Hide Insert Numbered List
+		if(!HideEditNumberList){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var numberedListButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Numbered List\",";
+			html += "\"EditorOnNumberedList(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/nlist.gif\"";
+			html += ");";
+			html += "numberedListButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Insert Bulleted List
+		if(!HideEditBulletList){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var bullettedListButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Bulletted List\",";
+			html += "\"EditorOnBullettedList(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/blist.gif\"";
+			html += ");";
+			html += "bullettedListButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+	
+		if(!HideEditIncIndent || !HideEditDecIndent){
+			html += "<td>";
+			html += "<div class=\"Divider\"></div>";
+			html += "</td>";
+	
+//			Hide Increase Indent
+			if(!HideEditIncIndent){
+				html += "<td>";
+				html += UtilBeginScript();
+				html += "var decreaseIndentButton = new Button(";
+				html += "editorIDGenerator,";
+				html += "\"Decrease Indent\",";
+				html += "\"EditorOnDecreaseIndent(" + this.id + ")\",";
+				html += "\"<?="$BUTTON_PATH"?>/ileft.gif\"";
+				html += ");";
+				html += "decreaseIndentButton.Instantiate();";
+				html += UtilEndScript();
+				html += "</td>";
+			} // end if
+	
+//			Hide Decrease Indent
+			if(!HideEditDecIndent){
+				html += "<td>";
+				html += UtilBeginScript();
+				html += "var increaseIndentButton = new Button(";
+				html += "editorIDGenerator,";
+				html += "\"Increase Indent\",";
+				html += "\"EditorOnIncreaseIndent(" + this.id + ")\",";
+				html += "\"<?="$BUTTON_PATH"?>/iright.gif\"";
+				html += ");";
+				html += "increaseIndentButton.Instantiate();";
+				html += UtilEndScript();
+				html += "</td>";
+			} // end if
+		} // end if
+
+		html += "<td>";
+		html += "<div class=\"Divider\"></div>";
+		html += "</td>";
+
+		html += "</tr>";
+		html += "</table>";
+		html += "</td>";
+	} // end if
+	
+//		Hide Insert Horizontal Line
+		if(!HideEditHRLine){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var createHyperlinkButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"InsertHorizontalRule\",";
+			html += "\"EditorOnInsertHorizontalRule(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/hr.gif\"";
+			html += ");";
+			html += "createHyperlinkButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Insert Hyper Link
+		if(!HideEditHyperLink){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var createHyperlinkButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Create Hyperlink\",";
+			html += "\"EditorOnCreateHyperlink(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/wlink.gif\"";
+			html += ");";
+			html += "createHyperlinkButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+/*
+		<? if ($CURFILENAME == "lrn_create_des_content.html" ) { ?>
+		if(!HideEditTOCLink){
+			html += "<td>";
+			html += UtilBeginScript();
+			html += "var createHyperlinkButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Create Hyperlink\",";
+			html += "\"EditorOnCreateTOClink(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/toclink.gif\"";
+			html += ");";
+			html += "createHyperlinkButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+		<?}?>
+*/
+
+//		Hide Insert Smiley
+		if(!HideEditSmiley){
+//			alert("<?=$CURFILENAME?>");
+			html += "<td id=\"" + EDITOR_SMILEY_BUTTON_PREFIX + this.id + "\">";
+			html += UtilBeginScript();
+			html += "var insertSmileyButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Insert Smiley\",";
+			html += "\"EditorOnStartInsertSmiley(" + this.id + ")\",";
+			<? if($CURFILENAME=="index.html"){ ?>
+			html += "\"<?="$BUTTON_PATH"?>/add_icon.gif\"";
+			<? }else{ ?>
+			html += "\"<?="$BUTTON_PATH"?>/smiley.gif\"";
+			<? } // end if ?>
+			html += ");";
+			html += "insertSmileyButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Insert Uploaded Image
+		if(!HideEditUploadImage){
+			html += "<td id=\"" + EDITOR_IMAGE_BUTTON_PREFIX + this.id + "\">";
+			html += UtilBeginScript();
+			html += "var insertImageButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Insert Images\",";
+			html += "\"EditorOnStartInsertImage(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/insert_file.gif\"";
+			html += ");";
+			html += "insertImageButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if
+
+//		Hide Insert Uploaded Attachment
+		if(!HideEditUploadAttachment){
+			html += "<td id=\"" + EDITOR_ATTACHMENT_BUTTON_PREFIX + this.id + "\">";
+			html += UtilBeginScript();
+			html += "var insertAttachmentButton = new Button(";
+			html += "editorIDGenerator,";
+			html += "\"Insert Attachments\",";
+			html += "\"EditorOnStartInsertAttachment(" + this.id + ")\",";
+			html += "\"<?="$BUTTON_PATH"?>/icon_doc2.gif\"";
+			html += ");";
+			html += "insertAttachmentButton.Instantiate();";
+			html += UtilEndScript();
+			html += "</td>";
+		} // end if	
+				
+		html += "</tr>";
+} // end if
+		html += "</table>";
+		html += "</td>";
+		html += "</tr>";				
+		
+		html += "<tr>";
+		html += "<td>";
+		html += "<iframe id=\"" + EDITOR_COMPOSITION_PREFIX + this.id + "\" width=\"<?=$IFRAME_W?>\" height=\"<? echo $IFRAME_H; ?>\" class=\"iframe_box\" frameborder=0>";
+		html += "</iframe>";
+		html += "</td>";
+		html += "</tr>";
+		html += "</table>";
+
+//		List Uploaded Image		
+	if(!HideEditUploadImage){
+		html += UtilBeginScript();
+		html += "var " + EDITOR_IMAGE_CHOOSER_PREFIX + this.id + " = new ImageChooser(";
+		html += "editorIDGenerator,";
+		html += "<? echo "$NumRow_FileList,$NumCol_FileList"; ?>,";
+		html += "[";
+		<?
+		for  ($i = 0 ; $i < $NumRow_FileList ; $i++) {
+			$list = $FileList[$i];
+			$arr_tmp = explode("|",$FileList[$i]);
+			switch(strtoupper($arr_tmp[2])) {
+				case "GIF": $images = "gif.gif"; break;
+				case "JPG": $images = "jpg.gif"; break;
+				case "SWF": $images = "swf.gif"; break;
+				case "RM": $images = "rm.gif"; break;
+				case "WMV":
+				case "AVI":
+				case "MPG": $images = "mpg.gif"; break;
+				default: $images = "merge_file.gif";
+			} // switch
+		?>
+		html += "\"<?="$BUTTON_PATH/$images,$list"; ?>\",";
+		<? } // for ?>
+		html += "],";
+		html += "EditorOnEndInsertImage";
+		html += ");";
+		html += EDITOR_IMAGE_CHOOSER_PREFIX + this.id + ".SetUserData(" + this.id + ");";
+		html += EDITOR_IMAGE_CHOOSER_PREFIX + this.id + ".Instantiate();";
+		html += UtilEndScript();
+	} // end if
+
+//		List Smiley
+	if(!HideEditSmiley){
+		html += UtilBeginScript();
+		html += "var " + EDITOR_SMILEY_CHOOSER_PREFIX + this.id + " = new SmileyChooser(";
+		html += "editorIDGenerator,";
+		html += "8,6,";
+		html += "[";
+		<?
+			$SMILEY_LIST = "";
+			if ($handle = opendir("$SMILEY_PATH")) {			
+				while (false !== ($file = readdir($handle))) { 
+					$path_parts = pathinfo($file);
+					if ($file != "." && $file != ".." && $path_parts["extension"]=="gif") { 
+						$SMILEY_LIST .= (trim($SMILEY_LIST)?",":"") . '\\"' . "$SMILEY_PATH/$file" .'\\"';
+		?>
+//		image format = "../../../writetool_image/smiley/1.gif", "../../../writetool_image/smiley/1.gif", ...
+//		html += "\"<?="$SMILEY_PATH/$file"?>\",";
+		<?
+					}  // end if
+				} // end while
+				closedir($handle); 
+			} // end if
+		?>
+		html += "<?=$SMILEY_LIST?>";
+		html += "],";
+		html += "EditorOnEndInsertSmiley";
+		html += ");";
+		html += EDITOR_SMILEY_CHOOSER_PREFIX + this.id + ".SetUserData(" + this.id + ");";
+		html += EDITOR_SMILEY_CHOOSER_PREFIX + this.id + ".Instantiate();";
+		html += UtilEndScript();
+	} // end if
+
+//		List Uploaded Attachment
+	if(!HideEditUploadAttachment){
+		html += UtilBeginScript();
+		html += "var " + EDITOR_ATTACHMENT_CHOOSER_PREFIX + this.id + " = new AttachmentChooser(";
+		html += "editorIDGenerator,";
+		html += "<? echo "$NumRow_AttachFileList,$NumCol_AttachFileList"; ?>,";
+		html += "[";
+		<?
+		for  ($i = 0 ; $i < $NumRow_AttachFileList ; $i++) {
+			$list = $AttachFileList[$i];
+			$arr_tmp = explode("|",$AttachFileList[$i]);
+			switch(strtoupper($arr_tmp[2])) {
+				case "DOC": $images = "doc.gif"; break;
+				case "PDF": $images = "pdf.gif"; break;
+				case "XLS": $images = "sheet.gif"; break;
+				default: $images = "merge_file.gif";
+			} // switch
+		?>
+		html += "\"<?="$BUTTON_PATH/$images,$list"; ?>\",";
+		<? } // for ?>
+		html += "],";
+		html += "EditorOnEndInsertAttachment";
+		html += ");";
+		html += EDITOR_ATTACHMENT_CHOOSER_PREFIX + this.id + ".SetUserData(" + this.id + ");";
+		html += EDITOR_ATTACHMENT_CHOOSER_PREFIX + this.id + ".Instantiate();";
+		html += UtilEndScript();
+	} // end if
+
+		document.write(html);
+		html = '<STYLE TYPE="TEXT/CSS">TD{BORDER: 1PX DASHED #999999;}</STYLE>';
+		html += '<body style="font:10pt arial;" bgcolor="' +USER_setBGgroundColor+ '" background="' +USER_setBGgroundImage+ '">';
+		html += '</body>';
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.open();
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.write(html);
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.close();
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.designMode = "on";
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.onclick = new Function("EditorOnClick(" + this.id + ")");
+
+		editorIDGenerator = null;
+		this.instantiated = true;
+	}
+
+	function  EditorGetText()
+	{
+		return eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerText;
+	}
+
+	function  EditorSetText(text)
+	{
+		text = text.replace(/\n/g, "<br>");
+		eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerHTML = text;
+	}
+
+	function  EditorGetHTML()
+	{
+		if (this.textMode) {
+			return eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerText;
+		}
+		EditorCleanHTML(this.id);
+		EditorCleanHTML(this.id);
+		return eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerHTML;
+	}
+
+	function  EditorSetHTML(html)
+	{
+		if (this.textMode) {
+			eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerText = html;
+		}
+		else {
+			eval(EDITOR_COMPOSITION_PREFIX + this.id).document.body.innerHTML = html;
+		}
+	}
+
+	function EditorGetBrief()
+	{
+		return this.brief;
+	}
+
+	function EditorSetBrief(brief)
+	{
+		this.brief = brief;
+		var display = this.brief ? "none" : "inline";
+		if (this.instantiated) {
+			eval(EDITOR_PARAGRAPH_PREFIX + this.id).style.display = display;
+			eval(EDITOR_LIST_AND_INDENT_PREFIX + this.id).style.display = display;
+		}
+	}
+
+	function EditorOnCut(id)
+	{
+		EditorFormat(id, "cut");
+	}
+
+	function EditorOnCopy(id)
+	{
+		EditorFormat(id, "copy");
+	}
+
+	function EditorOnPaste(id)
+	{
+		EditorFormat(id, "paste");
+	}
+
+	function EditorOnBold(id)
+	{
+		EditorFormat(id, "bold");
+	}
+
+	function EditorOnItalic(id)
+	{
+		EditorFormat(id, "italic");
+	}
+
+	function EditorOnUnderline(id)
+	{
+		EditorFormat(id, "underline");
+	}
+	function EditorOnForegroundColor(id)
+	{
+		if (!EditorValidateMode(id)) {
+			return;
+		}
+		var color = showModalDialog("<?="$LINKFILE_PATH/"?>ColorSelect.html", "", "font-family:Verdana;font-size:12;dialogWidth:30em;dialogHeight:30em;status:no");
+		if (color) {
+			EditorFormat(id, "forecolor", color);
+		}
+		else {
+
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		}
+	}
+
+	function EditorOnBackgroundColor(id)
+	{
+		if (!EditorValidateMode(id)) {
+			return;
+		}
+		var color = showModalDialog("<?="$LINKFILE_PATH/"?>ColorSelect.html", "", "font-family:Verdana;font-size:12;dialogWidth:30em;dialogHeight:30em;status:no");
+		if (color) {
+			EditorFormat(id, "backcolor", color);
+		}
+		else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		}
+	}
+
+	function EditorOnAlignLeft(id)
+	{
+		EditorFormat(id, "justifyleft");
+	}
+
+	function EditorOnCenter(id)
+	{
+		EditorFormat(id, "justifycenter");
+	}
+
+	function EditorOnAlignRight(id)
+	{
+		EditorFormat(id, "justifyright");
+	}
+
+	function EditorOnNumberedList(id)
+	{
+		EditorFormat(id, "insertOrderedList");
+	}
+
+	function EditorOnBullettedList(id)
+	{
+		EditorFormat(id, "insertUnorderedList");
+	}
+
+	function EditorOnDecreaseIndent(id)
+	{
+		EditorFormat(id, "outdent");
+	}
+
+	function EditorOnIncreaseIndent(id)
+	{
+		EditorFormat(id, "indent");
+	}
+
+	function EditorOnCreateHyperlink(id)
+	{
+		if (!EditorValidateMode(id)) {
+			return;
+		}
+		var anchor = EditorGetElement("A", eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange().parentElement());
+		var link = prompt("enter link location (eg. http://www.wb-technology.com):", anchor ? anchor.href : "http://");
+		if (link && link != "http://") {
+			if (eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.type == "None") {
+				var range = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+				range.pasteHTML('<A HREF="' + link + '"></A>');
+				range.select();
+			}
+			else {
+				EditorFormat(id, "CreateLink", link);
+			}
+		}
+	}
+
+	function EditorOnCreateTOClink(id)
+	{
+		if (!EditorValidateMode(id)) {
+			return;
+		}
+		var anchor = EditorGetElement("A", eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange().parentElement());
+		var link = showModalDialog("<?="$LINKFILE_PATH/"?>lrn_toc_link.html?<?="str_id=$str_id&subject_id=$subject_id&content_id=$content_id&sched_id=$sched_id"?>&targetTOC="+anchor, "", "font-family:Verdana;font-size:12;dialogWidth:40em;dialogHeight:10em;status:no");
+		if (link && link != "") {
+			if (eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.type == "None") {
+				var range = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+				range.pasteHTML('<A HREF="' + link + '"></A>');
+				range.select();
+			}
+			else {
+				EditorFormat(id, "CreateLink", link);
+			}
+		}
+	}	
+	
+	function EditorOnSetbackgroundImage(id) {
+		if (!EditorValidateMode(id)) return;
+		var bodyRef = eval(EDITOR_COMPOSITION_PREFIX + id).document.body ;
+		var image = showModalDialog("<?="$LINKFILE_PATH/"?>lrn_select_bgimage.html", "", "font-family:Verdana;font-size:12;dialogWidth:40em;dialogHeight:30em;status:no");
+		if (image) {
+			bodyRef.background = image;
+			USER_setBGgroundImage = image;
+		} else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		}
+	} // function
+
+	function EditorOnSetbackgroundColor(id) {
+		if (!EditorValidateMode(id)) return;
+		var color = showModalDialog("<?="$LINKFILE_PATH/"?>ColorSelect.html", "", "font-family:Verdana;font-size:12;dialogWidth:30em;dialogHeight:30em;status:no");
+		if (color) {
+			var bodyRef = eval(EDITOR_COMPOSITION_PREFIX + id).document.body ;
+			bodyRef.bgColor = color;
+			USER_setBGgroundColor = color
+		} else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		}
+	} // function
+
+	function EditorOnStrikethrough(id) {
+		EditorFormat(id, "StrikeThrough");		
+	}
+
+	function EditorOnInsertHorizontalRule(id) {
+		EditorFormat(id, "InsertHorizontalRule");		
+	}
+
+	function EditorOnSupScript(id) {
+		EditorFormat(id, "SuperScript");
+/*
+		if (!EditorValidateMode(id)) return;
+		var selecttionRef = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection ;
+		var rangeRef = selecttionRef.createRange();		
+		var supscript = prompt("Enter SupScript", rangeRef ? rangeRef.text : "");
+		if (supscript && supscript != "") {
+			var parentElt = rangeRef.parentElement();
+			if (parentElt && parentElt.tagName == "SUP") {
+				rangeRef.pasteHTML(supscript);
+			} else {
+				rangeRef.pasteHTML('<SUP>' + supscript + '</SUP>&nbsp;');
+			}
+			rangeRef.select();			
+		}
+*/
+	} // function
+
+	function EditorOnSubScript(id) {
+		EditorFormat(id, "SubScript");	
+/*
+		if (!EditorValidateMode(id)) return;
+		var selecttionRef = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection ;
+		var rangeRef = selecttionRef.createRange();		
+		var supscript = prompt("Enter SubScript", rangeRef ? rangeRef.text : "");
+		if (supscript && supscript != "") {
+			var parentElt = rangeRef.parentElement();
+			if (parentElt && parentElt.tagName == "SUB") {
+				rangeRef.pasteHTML(supscript);
+			} else {
+				rangeRef.pasteHTML('<SUB>' + supscript + '</SUB>&nbsp;');
+			}
+			rangeRef.select();
+		}
+*/
+	} // function
+
+//	Insert Uploaded Image
+	function EditorOnStartInsertImage(id)
+	{
+		if (eval(EDITOR_IMAGE_CHOOSER_PREFIX + id).IsShowing()) {
+			eval(EDITOR_IMAGE_CHOOSER_PREFIX + id).Hide();
+		}
+		else {
+			var editor = editorMap[id];
+			editor.selectionRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+			eval(EDITOR_IMAGE_CHOOSER_PREFIX + id).Show(eval(EDITOR_IMAGE_BUTTON_PREFIX + id).offsetLeft  + 30, eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetTop + eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetHeight);
+		}
+	}
+
+	function EditorOnEndInsertImage(image, img_description , img_file_ext, img_width, img_height , id)	{
+	   // imageChooser.callback(img_filename_encode, img_file_ext, img_width, img_height , imageChooser.userData);
+//	   alert(img_file_ext);
+	    if (!EditorValidateMode(id)) { return;  }
+	    var imgTag = "";
+	    var set_img_width = "";
+	    var set_img_height = "";
+	    if (img_width > 0) set_img_width = ' width="' + img_width + '" ';
+	    if (img_height > 0) set_img_height = ' height="' + img_height + '" ';
+	    if (img_file_ext.toUpperCase() == "GIF" || img_file_ext.toUpperCase() == "JPG" || img_file_ext.toUpperCase() == "BMP" || img_file_ext.toUpperCase() == "TIFF" || img_file_ext.toUpperCase() == "PNG") {
+	    	imgTag = '<img src="' + image + '" alt="' + img_description + '"' + set_img_height + set_img_width + '>';
+	    } if (img_file_ext.toUpperCase() == "SWF") {
+	    	imgTag  = '<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=7,0,0,0" id="testflash" align="middle"' + set_img_height + set_img_width + '>';
+			imgTag  += '<param name="movie" value="' + image + '" />';
+			imgTag  += '<param name="quality" value="high" />';
+			imgTag  += '<embed src="' + image + '" quality="high" align="middle" allowScriptAccess="sameDomain" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer"' + set_img_height + set_img_width + ' /></embed>';
+			imgTag  += '</object>';
+	    } if (img_file_ext.toUpperCase() == "MPG" || img_file_ext.toUpperCase() == "WMV" || img_file_ext.toUpperCase() == "AVI") {
+			imgTag   = '<OBJECT ID="MediaPlayer1" ' + set_img_height + set_img_width ;
+    		imgTag += 'CLASSID="CLSID:22D6f312-B0F6-11D0-94AB-0080C74C7E95" ';
+    		imgTag += 'CODEBASE="nsmp2inf.cab#Version=5,1,52,701" ';
+     		imgTag += 'standby="Loading Microsoft Windows Media Player components..." ';
+     		imgTag += 'type="application/x-oleobject">';
+			imgTag += '<Param Name="FileName" Value="' + image + '">';
+			imgTag += '</OBJECT>';
+	    } if (img_file_ext.toUpperCase() == "RM") {
+	    	imgTag = '<object classid="clsid:CFCDAA03-8BE4-11cf-B84B-0020AFBBCCFA" ' +  set_img_height + set_img_width + '>';
+			imgTag += '<param name="nolabels" value="true">';
+			imgTag += '<param name="controls" value="ImageWindow">';
+			imgTag += '<param name="autostart" value="true">';
+			imgTag += '<param name="src" value="' + image + '">';
+			imgTag += '<embed ' + set_img_height + set_img_width + ' src="' + image + '" type="audio/x-pn-realaudio-plugin" controls="ImageWindow" autostart="true" nolabels="true">';
+			imgTag += '</object>';
+	    } // if RM
+//		alert(imgTag);
+	    var editor = editorMap[id];
+	    var bodyRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.createTextRange();
+	    if (bodyRange.inRange(editor.selectionRange)) {
+			editor.selectionRange.pasteHTML(imgTag);
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+	    } else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML += imgTag;
+			editor.selectionRange.collapse(false);
+			editor.selectionRange.select();
+	    } // if
+	} // function
+
+//	Insert Smiley Icon
+	function EditorOnStartInsertSmiley(id)
+	{
+		if (eval(EDITOR_SMILEY_CHOOSER_PREFIX + id).IsShowing()) {
+			eval(EDITOR_SMILEY_CHOOSER_PREFIX + id).Hide();
+		}
+		else {
+			var editor = editorMap[id];
+			editor.selectionRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+			eval(EDITOR_SMILEY_CHOOSER_PREFIX + id).Show(eval(EDITOR_SMILEY_BUTTON_PREFIX + id).offsetLeft + 30, eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetTop + eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetHeight);
+		}
+	}
+
+	function EditorOnEndInsertSmiley(image, id)
+	{
+	    if (!EditorValidateMode(id)) {
+		return;
+	    }
+//		alert(image);
+	    var imgTag = '<img src="' + image + '">';
+	    var editor = editorMap[id];
+	    var bodyRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.createTextRange();
+	    if (bodyRange.inRange(editor.selectionRange)) {
+		editor.selectionRange.pasteHTML(imgTag);
+		eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+	    }
+	    else {
+		eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML += imgTag;
+		editor.selectionRange.collapse(false);
+		editor.selectionRange.select();
+	    }
+	}
+
+//	Insert Uploaded Attachment
+	function EditorOnStartInsertAttachment(id)
+	{
+		if (eval(EDITOR_ATTACHMENT_CHOOSER_PREFIX + id).IsShowing()) {
+			eval(EDITOR_ATTACHMENT_CHOOSER_PREFIX + id).Hide();
+		}
+		else {
+			var editor = editorMap[id];
+			editor.selectionRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.selection.createRange();
+			eval(EDITOR_ATTACHMENT_CHOOSER_PREFIX + id).Show(eval(EDITOR_ATTACHMENT_BUTTON_PREFIX + id).offsetLeft  + 30, eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetTop + eval(EDITOR_BOTTOM_TOOLBAR_PREFIX + id).offsetHeight);
+		}
+	}
+
+	function EditorOnEndInsertAttachment(attachment , attm_description , attm_file_ext , id)	{
+	   // attachmentChooser.callback(attm_filename_encode, attm_file_ext, attachmentChooser.userData);
+//	   alert(attm_file_ext);
+	    if (!EditorValidateMode(id)) { return;  }
+	    var attmTag = "";
+		attmTag = "<a href=\"javascript:;\" onClick=\"window.open('" + attachment + "')\">" + attm_description + "</a>";
+//		alert(attmTag);
+	    var editor = editorMap[id];
+	    var bodyRange = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.createTextRange();
+	    if (bodyRange.inRange(editor.selectionRange)) {
+			editor.selectionRange.pasteHTML(attmTag);
+			eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+	    } else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML += attmTag;
+			editor.selectionRange.collapse(false);
+			editor.selectionRange.select();
+	    } // if
+	} // function
+
+	function EditorOnParagraph(id, select)
+	{
+		EditorFormat(id, "formatBlock", select[select.selectedIndex].value);
+		select.selectedIndex = 0;
+	}
+
+	function EditorOnFont(id, select)
+	{
+		EditorFormat(id, "fontname", select[select.selectedIndex].value);
+		// select.selectedIndex = 0;
+	}
+
+	function EditorOnSize(id, select)
+	{
+		EditorFormat(id, "fontsize", select[select.selectedIndex].value);
+		// select.selectedIndex = 0;
+	}
+
+	function EditorOnViewHTMLSource(id, textMode)
+	{
+		var editor = editorMap[id];
+		editor.textMode = textMode;
+		if (editor.textMode) {
+			EditorCleanHTML(id);
+			EditorCleanHTML(id);
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerText = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML;
+		}
+		else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerHTML = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.innerText;
+		}
+		eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+	}
+
+	function EditorOnClick(id)
+	{
+		if(!HideEditSmiley) eval(EDITOR_SMILEY_CHOOSER_PREFIX + id).Hide();
+		if(!HideEditUploadImage) eval(EDITOR_IMAGE_CHOOSER_PREFIX + id).Hide();
+		if(!HideEditUploadAttachment) eval(EDITOR_ATTACHMENT_CHOOSER_PREFIX + id).Hide();
+	}
+		
+	function EditorValidateMode(id)
+	{
+		var editor = editorMap[id];
+		if (!editor.textMode) {
+			return true;
+		}
+		alert("Please uncheck the \"View HTML Source\" checkbox to use the toolbars.");
+		eval(EDITOR_COMPOSITION_PREFIX + id).focus();
+		return false;
+	}
+
+	function EditorFormat(id, what, opt)
+	{
+		if (!EditorValidateMode(id)) {
+			return;
+		}
+		if (opt == "removeFormat") {
+			what = opt;
+			opt = null;
+		}
+		if (opt == null) {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.execCommand(what);
+		}
+		else {
+			eval(EDITOR_COMPOSITION_PREFIX + id).document.execCommand(what, "", opt);
+		}
+	}
+
+	function EditorCleanHTML(id)
+	{
+		var fonts = eval(EDITOR_COMPOSITION_PREFIX + id).document.body.all.tags("FONT");
+		for (var i = fonts.length - 1; i >= 0; i--) {
+			var font = fonts[i];
+			if (font.style.backgroundColor == "#ffffff") {
+				font.outerHTML = font.innerHTML;
+			}
+		}
+	}
+
+	function EditorGetElement(tagName, start)
+	{
+		while (start && start.tagName != tagName) {
+			start = start.parentElement;
+		}
+		return start;
+	}
+</script>
+
+
+
+<SCRIPT>
+<!-- 
+
+function ToggleVideo()
+{
+    if (document.<?=$frmCompose?>.Video.value == "") {
+	window.open("/ym/KioskVideo?" + (new Date()).getTime(), "Video", "width=750,height=600,scrollbars=yes,resizable=yes,status=0");
+    }
+    else {
+	SetVideo("");
+    }
+}
+
+function SetVideo(video)
+{
+    document.<?=$frmCompose?>.Video.value = video;
+    if (video == "") {
+	document.all.VideoStatus.innerText = "(None)";
+	document.all.VideoAction.innerText = "Add";
+    }
+    else {
+	document.all.VideoStatus.innerText = "(Attached)";
+	document.all.VideoAction.innerText = "Delete";
+    }
+}
+
+function Switch() {
+    if (editor.GetText() != "" && editor.GetText() != editor.GetHTML()) {
+    conf = confirm("This will convert your message into plain text. All formatting will be lost. Continue?");
+    if (!conf) return;
+  }
+  document.<?=$frmCompose?>.Body.value = editor.GetText();
+    document.<?=$frmCompose?>.action = document.<?=$frmCompose?>.action + "&SWITCH=1";
+  document.<?=$frmCompose?>.submit();
+}
+function document.body.onload() {
+  editor.SetHTML(document.all.plainmsg.innerHTML);
+}
+
+function SetVals() {
+    document.<?=$frmCompose?>.Body.value = editor.GetText();
+    document.<?=$frmCompose?>.BodyHtml.value = editor.GetHTML();    
+//    document.<?=$frmCompose?>.action += "?USER_setBGgroundImage=" + USER_setBGgroundImage + "&USER_setBGgroundColor=" + USER_setBGgroundColor ;
+}
+
+function RecordAttachments(files, data) {
+  window.document.<?=$frmCompose?>.elements["AttData"].value = data;
+  window.document.all.Atts.innerText = files;
+  document.<?=$frmCompose?>.FName.value = "";
+}
+
+var remote=null;
+function rs(n,u,w,h,x) {
+  args="width="+w+",height="+h+",resizable=yes,scrollbars=yes,status=0";
+  remote=window.open(u,n,args);
+  if (remote != null) {
+    if (remote.opener == null)
+      remote.opener = self;
+  }
+  if (x == 1) { return remote; }
+}
+
+var awnd=null;
+function ScriptAttach() {
+  attData = escape(document.<?=$frmCompose?>.elements["AttData"].value);
+  fname = escape(document.<?=$frmCompose?>.elements["FName"].value);
+  awnd=rs('att','/ym/Attachments?YY=72656&AttData='+attData+'&FName='+fname,450,600,1);
+  awnd.focus();
+}
+
+var sigAttMap = [false];
+
+function OnFromAddrChange()
+{
+    var i = document.<?=$frmCompose?>.FromAddr.selectedIndex;
+    if (i >= 0 && i < sigAttMap.length) {
+	document.all.SA.checked = sigAttMap[i];
+    }
+}
+
+// -->
+</script>
+
+<div style='position:relative;top=0px;left=0px;height:<?=$IFRAME_H?>; margin-top:0; margin-left:0; margin-right:0; margin-bottom:0;' width=100%>
+<textarea name="Body" style='visibility:hidden;position:absolute;top:0px;left:0px'></textarea>
+<textarea name="BodyHtml" style='visibility:hidden;position:absolute;top:0px;left:0px'></textarea>
+<div id="plainmsg" style='visibility:hidden;position:absolute;top:0px;left:0px; margin-top:0; margin-left:0; margin-right:0; margin-bottom:0;'><? echo $BodyHtml; ?></div>
+<script>
+	var idGenerator = new IDGenerator(0);
+	var editor = new Editor(idGenerator);
+	editor.Instantiate();
+</script>
+</div>
+<script>
+eval("var GetHtml = \"<?=$BodyHtml?>\";");
+<?=$frmCompose?>.BodyHtml.value = GetHtml;
+<?=$frmCompose?>.Body.value = GetHtml
+document.all.plainmsg.innerHTML = <?=$frmCompose?>.BodyHtml.value;
+</script>

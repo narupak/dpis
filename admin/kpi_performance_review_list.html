@@ -1,0 +1,254 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/function_code_param.php");
+	include("php_scripts/load_per_control.php");
+        
+        
+
+        $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	//	$BKK_FLAG==1
+	$where_DEPARTMENT_ID="";
+	if($DEPARTMENT_ID) $where_DEPARTMENT_ID=" DEPARTMENT_ID=".$DEPARTMENT_ID;
+	if($where_DEPARTMENT_ID){	$where_DEPARTMENT_ID .= " or DEPARTMENT_ID=0"; 	}else{	$where_DEPARTMENT_ID .= " DEPARTMENT_ID=0";	}
+	
+	$cmd = " select ORG_NAME from PER_ORG where (ORG_ID=$DEPARTMENT_ID) ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$DEPARTMENT_NAME = $data[ORG_NAME];
+	
+	$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$MINISTRY_NAME = $data[ORG_NAME];
+
+	if($PFR_YEAR){ 
+		$arr_pfr_year[] = $PFR_YEAR;
+		$HAVE_YEAR = 1;
+	}else{
+		$cmd = " select distinct PFR_YEAR from PER_PERFORMANCE_REVIEW where ($where_DEPARTMENT_ID) order by PFR_YEAR desc ";
+		$HAVE_YEAR = $db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()){
+			if(!$START_YEAR) $START_YEAR = $data[PFR_YEAR];
+			$arr_pfr_year[] = $data[PFR_YEAR];
+		} // end while
+	} // end if
+	
+//	echo "<pre>"; print_r($arr_pfr_year); echo "</pre>";
+	
+	if(!$PFR_YEAR || !in_array($PFR_YEAR, $arr_pfr_year)) $PFR_YEAR = $START_YEAR;
+
+	function list_tree_pfr ($pre_image, $pfr_parent, $sel_pfr_id, $tree_depth,$param_send_by) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $LIST_OPENED_PFR, $PFR_YEAR, $DEPARTMENT_ID, $where_DEPARTMENT_ID;
+		
+		$opened_pfr = substr($LIST_OPENED_PFR, 1, -1);
+		$arr_opened_pfr = explode(",", $opened_pfr);
+		
+		$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		
+		$cmd = " select 	PFR_ID , PFR_NAME, PFR_ID_REF 
+				   from 		PER_PERFORMANCE_REVIEW 
+				   where 	".(trim($pfr_parent)?"PFR_ID_REF = $pfr_parent":"(PFR_ID_REF = 0 or PFR_ID_REF is null)")." 
+						 	and PFR_YEAR = '$PFR_YEAR' and ($where_DEPARTMENT_ID)
+				   order by PFR_NAME 
+				";
+		$count_data = $db_dpis->send_cmd($cmd);
+//		echo "=> $cmd";
+//		$db_dpis->show_error();
+		if($count_data){
+			echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";		
+			while($data = $db_dpis->get_array()){
+				$cmd = " select PFR_ID, PFR_ID_REF from PER_PERFORMANCE_REVIEW where PFR_ID_REF=". $data[PFR_ID];
+				$count_sub_tree = $db_dpis2->send_cmd($cmd);
+
+				$class = "table_body";
+				if($data[PFR_ID] == $sel_pfr_id) $class = "table_body_over";
+				$icon_name = "icon_plus.gif";
+				$onClick = "add_opened_pfr(". $data[PFR_ID] .");";
+				if(in_array($data[PFR_ID], $arr_opened_pfr)){ 
+					$icon_name = "icon_minus.gif";
+					$onClick = "remove_closed_pfr(". $data[PFR_ID] .");";
+				} // end if
+				if(!$count_sub_tree) $icon_name = "";
+				$PFR_NAME2 =	strip_tags(nl2br($data[PFR_NAME]));		//strip_tags(nl2br($data[PFR_NAME]));
+				$PFR_ID = $data[PFR_ID];
+				$PFR_ID_REF = $data[PFR_ID_REF];
+				if ($PFR_ID!=$PFR_ID_REF) {
+					$PFR_NAME1 = "";
+					if($PFR_ID_REF){
+						$cmd = " select PFR_ID_REF, PFR_NAME from PER_PERFORMANCE_REVIEW where PFR_ID=$PFR_ID_REF ";
+						$db_dpis2->send_cmd($cmd);
+						$data2 = $db_dpis2->get_array();
+						$PFR_ID_REF = $data2[PFR_ID_REF];
+						$PFR_NAME1 = $data2[PFR_NAME];
+				  	}
+					if ($PFR_ID!=$PFR_ID_REF) {
+						$PFR_NAME = "";
+					  	if($PFR_ID_REF){
+							$cmd = " select PFR_ID_REF, PFR_NAME from PER_PERFORMANCE_REVIEW where PFR_ID=$PFR_ID_REF ";
+							$db_dpis2->send_cmd($cmd);
+							$data2 = $db_dpis2->get_array();
+							$PFR_ID_REF = $data2[PFR_ID_REF];
+							$PFR_NAME = $data2[PFR_NAME];
+					  	}
+					}
+				}
+	
+				$returnValue = trim($data[PFR_ID])."<::>".trim($data[PFR_ID_REF])."<::>".myEncode($PFR_NAME2)."<::>".myEncode($PFR_NAME1)."<::>".myEncode($PFR_NAME)."<::>".$param_send_by;
+//				echo "returnValue=$returnValue<br>";
+				echo "<tr>";
+				echo "<td width=\"15\" align=\"center\" valign=\"top\"><img src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\" vspace=\"5\"></td>";
+				echo "<td class=\"$class\" height=\"22\" onClick=\"parent.refresh_opener('$returnValue');\">&nbsp;<span style=\"cursor:hand\">".strip_tags(nl2br($data[PFR_NAME]))."</span></td>";
+				echo "</tr>";
+				
+				if($count_sub_tree && in_array($data[PFR_ID], $arr_opened_pfr)){
+					echo "<tr>";
+					echo "<td width=\"15\" align=\"center\"></td>";
+					echo "<td>";
+					$display = "none";
+					if(in_array($data[PFR_ID], $arr_opened_pfr)) $display = "block";
+					echo "<div id=\"DIV_". $data[PFR_ID] ."\" style=\"display:$display\">";
+					list_tree_pfr("", $data[PFR_ID], $sel_pfr_id, ($tree_depth + 1),$param_send_by);
+					echo "</div>";
+					echo "</td>";
+					echo "</tr>";
+				} // end if
+			} // end while						
+			echo "</table>";
+		} // end if
+	} // function
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function select_pfr(pfr_id, pfr_id_ref){
+		if(pfr_id){
+			var returnValue = pfr_id + "<::>" + pfr_id_ref;
+			parent.refresh_opener(returnValue);
+		} // end if
+	}
+
+	function add_opened_pfr(opened_pfr_id){
+		opened_pfr = form1.LIST_OPENED_PFR.value;
+		if(opened_pfr==""){
+			opened_pfr = "," + opened_pfr_id + ",";
+		}else{
+			opened_pfr += (opened_pfr_id + ",");
+		}
+		form1.LIST_OPENED_PFR.value = opened_pfr;
+	//	alert(form1.LIST_OPENED_PFR.value);
+	//	form1.PFR_ID.value = opened_pfr_id;
+	//	form1.PFR_ID_REF.value = "";
+		form1.submit();
+	}
+	
+	function remove_closed_pfr(closed_pfr_id){
+		opened_pfr = form1.LIST_OPENED_PFR.value;
+		if(opened_pfr==""){
+			opened_pfr = "";
+		}else{
+			search_str = "," + closed_pfr_id + ",";
+			pos = opened_pfr.indexOf(search_str);
+	//		alert(pos);
+			opened_pfr = opened_pfr.substring(0, pos) + opened_pfr.substring((pos + search_str.length - 1), opened_pfr.length);
+			if(opened_pfr=="," || opened_pfr==",,") opened_pfr = "";
+		}
+		form1.LIST_OPENED_PFR.value = opened_pfr;	
+	//	alert(form1.LIST_OPENED_PFR.value);
+	//	form1.PFR_ID.value = form1.PFR_ID_REF.value;
+	//	form1.PFR_ID_REF.value = "";
+		form1.submit();
+	}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_performance_review_list.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PFR_ID_REF" value="<?=$PFR_ID_REF?>">
+          <input type="hidden" name="PFR_ID" value="<?=$PFR_ID?>">
+          <input type="hidden" name="LIST_OPENED_PFR" value="<?=$LIST_OPENED_PFR?>">
+          <input type="hidden" name="PFR_YEAR" value="<?=$PFR_YEAR?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+
+&nbsp;
+  <table width="95%" border="0" cellpadding="1" cellspacing="1" class="input_table" align="center">
+        <tr>
+          <td width="20%" align="right" height="25"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+          <td width="30%"><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:85%" class="textbox" readonly></td>
+          <td width="20%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:85%" class="textbox" readonly></td>
+        </tr>
+      </table>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+    <tr>
+    	<td colspan="2"></td>
+    </tr>
+    <? if($HAVE_YEAR && $DEPARTMENT_ID || $BKK_FLAG==1){ ?>
+	<tr>
+      <td height="10" colspan="2"></td>
+    </tr>
+    <tr class="table_body">
+	  <td width="25%" height="21" align="center" valign="top"><table width="98%" border="0" cellspacing="0" cellpadding="0" class="table_body_3">
+        <tr>
+          <td height="22" align="center" class="table_head"><?=$YEAR_TITLE?></td>
+        </tr>
+		<? 
+			foreach($arr_pfr_year as $value){ 
+				$class = "table_body_3";
+				if($value==$PFR_YEAR) $class = "table_body_3_over";
+		?>
+        <tr>
+          <td height="22" class="<?=$class?>" align="center"><span onClick="form1.PFR_YEAR.value='<?=$value?>'; form1.submit();" style="cursor:hand;"><?=$value?></span></td>
+        </tr>
+		<? } // end foreach ?>
+      </table></td>
+	  <td align="center" valign="top"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <?
+						$class = "table_head";
+						if(!$PFR_ID) $class = "table_body_over";
+		  ?>
+          <td height="22" class="<?=$class?>">&nbsp;<span onClick="select_pfr(0,0);" style="cursor:hand;">การประเมินผลการปฏิบัติราชการ <?=$YEAR_TITLE?> <?=$PFR_YEAR?></span></td>
+        </tr>
+        <tr>
+          <td height="22"><? list_tree_pfr("", 0, $PFR_ID_REF, 1,$send_by); ?></td>
+        </tr>
+      </table></td>
+	</tr>
+    <tr>
+      <td height="10" colspan="2"></td>
+    </tr>
+	<? }else{ ?>
+    <tr>
+      <td height="25" colspan="2" align="center">ไม่มีข้อมูลการประเมินผลการปฏิบัติราชการ</td>
+    </tr>
+	<? } // end if ?>
+  </table>
+   
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center" class="menu_inactive"><span style="cursor:hand; " onClick="parent.refresh_opener();"><?=$CLOSE_WINDOW_TITLE?></span></td>
+    </tr>
+  </table>
+  &nbsp;
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

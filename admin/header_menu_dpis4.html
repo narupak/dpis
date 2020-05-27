@@ -1,0 +1,659 @@
+<? 
+	$cmd = " select CTRL_TYPE, PV_CODE, ORG_ID from PER_CONTROL ";
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$CTRL_TYPE = $data[CTRL_TYPE];
+	if(!$CTRL_TYPE) $CTRL_TYPE = 4;
+	$TEMP_ORG_ID = $data[ORG_ID];
+//	echo "bf CTRL_TYPE=$CTRL_TYPE, ORG_ID=$TEMP_ORG_ID<br />";
+
+    // เพิ่มเพื่อให้แสดง header จากข้อมูล session สำหรับกรณี logon ฐานข้อมูลตาม user
+	if ($SESS_USERGROUP_LEVEL > $CTRL_TYPE) {
+		$CTRL_TYPE = $SESS_USERGROUP_LEVEL;
+//		if($SESS_ORG_ID) $TEMP_ORG_ID = $SESS_ORG_ID;
+//		elseif($SESS_DEPARTMENT_ID) $TEMP_ORG_ID = $SESS_DEPARTMENT_ID;
+		if($SESS_DEPARTMENT_ID) $TEMP_ORG_ID = $SESS_DEPARTMENT_ID;
+		elseif($SESS_MINISTRY_ID) $TEMP_ORG_ID = $SESS_MINISTRY_ID;
+		elseif($SESS_PROVINCE_CODE) $TEMP_ORG_ID = $SESS_PROVINCE_CODE;
+    }
+//	echo "af USERGROUP_LEVEL=$SESS_USERGROUP_LEVEL, CTRL_TYPE=$CTRL_TYPE, ORG_ID=$TEMP_ORG_ID<br />";
+
+	$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$TEMP_ORG_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$TEMP_ORG_NAME = $data[ORG_NAME];
+//	$TEMP_ORG_NAME = "กรมการปกครอง";
+//	echo "af TEMP_ORG_NAME=$TEMP_ORG_NAME<br />";
+
+	$cssfileselected = "stylesheets/style$RPT_N.css";
+	if ($CTRL_TYPE==1) {
+		$top_left = "images/top_left_ses$RPT_N.jpg";
+		$top_bg = "images/top_bg_ses$RPT_N.jpg";
+		$top_right = "images/top_right_ses$RPT_N.jpg";
+	} elseif ($CTRL_TYPE==2) { 
+		$top_left = "images/top_left_prov$RPT_N.jpg";
+		$top_bg = "images/top_bg_prov$RPT_N.jpg";
+		$top_right = "images/top_right_prov$RPT_N.jpg";
+	} elseif (($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงเกษตรและสหกรณ์") || $TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงเกษตรและสหกรณ์") {
+		$top_left = "images/top_left_moac$RPT_N.jpg";
+		$top_bg = "images/top_bg_moac$RPT_N.jpg";
+		$top_right = "images/top_right_moac$RPT_N.jpg";
+	} elseif (($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงอุตสาหกรรม") || $TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงอุตสาหกรรม") {
+		$top_left = "images/top_left_moi$RPT_N.jpg";
+		$top_bg = "images/top_bg_moi$RPT_N.jpg";
+		$top_right = "images/top_right_moi$RPT_N.jpg";
+	} elseif ($TEMP_ORG_NAME=="กรมการปกครอง") {
+		$top_left = "images/top_left_dopa.swf";
+		$top_bg = "images/top_bg_dopa.jpg";
+		$top_right = "images/top_right_dopa.swf";
+	} elseif ($TEMP_ORG_NAME=="กรมอุตสาหกรรมพื้นฐานและการเหมืองแร่") { 
+		$top_left = "images/top_left_dpim$RPT_N.jpg";
+		$top_bg = "images/top_bg_dpim$RPT_N.jpg";
+		$top_right = "images/top_right_dpim$RPT_N.jpg";
+	} elseif ($TEMP_ORG_NAME=="สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม") {
+		$top_left = "images/top_left_tisi$RPT_N.jpg";
+		$top_bg = "images/top_bg_tisi$RPT_N.jpg";
+		$top_right = "images/top_right_tisi$RPT_N.jpg";
+	} elseif ($TEMP_ORG_NAME=="สถาบันบัณฑิตพัฒนศิลป์") {
+		$top_left = "images/top_left_bpi$RPT_N.jpg";
+		$top_bg = "images/top_bg_bpi$RPT_N.jpg";
+		$top_right = "images/top_right_bpi$RPT_N.jpg";
+	} elseif ($TEMP_ORG_NAME=="สำนักงาน ก.พ.") {
+		$top_left = "images/top_left_51.swf";
+		$top_bg = "images/top_bg_51".$RPT_N.".jpg";
+		$top_right = "images/top_right_51.swf";
+		$cssfileselected = "stylesheets/style".$RPT_N."_51.css";
+	} else {
+		$top_left = "images/top_left$RPT_N.jpg";
+		$top_bg = "images/top_bg$RPT_N.jpg";
+		$top_right = "images/top_right$RPT_N.jpg";
+	}
+    
+    if ($css_selected) $cssfileselected = "stylesheets/$css_selected";
+
+	if($BACKOFFICE_MENU_DEPTH >= 1) :
+
+	$FILENAME = basename($PHP_SELF).(($QUERY_STRING)?"?$QUERY_STRING":"");
+	$LOGON_GROUP = "";
+	if($SESS_ORG_ID) $LOGON_GROUP = "[$SESS_ORG_NAME] - ";
+	elseif($SESS_DEPARTMENT_ID) $LOGON_GROUP = "[$SESS_DEPARTMENT_NAME] - ";
+	elseif($SESS_MINISTRY_ID) $LOGON_GROUP = "[$SESS_MINISTRY_NAME] - ";
+	elseif($SESS_PROVINCE_CODE) $LOGON_GROUP = "[$SESS_PROVINCE_NAME] - ";
+	$LOGON_USER = "$LOGON_GROUP$SESS_FIRSTNAME $SESS_LASTNAME";
+
+	$db2 = new connect_db($db_host, $db_name, $db_user, $db_pwd);	
+	$new_db = new connect_db($db_host, $db_name, $db_user, $db_pwd);	
+	
+	$CATE_FID = 1;
+
+	$cmd = "select menu_id, menu_label, type_linkto, linkto_web from backoffice_menu_bar_lv0 where flag_show='S' and langcode='TH' and fid=$CATE_FID order by menu_order";
+	if($db->send_cmd($cmd)){
+		$data_count = 0;
+		while( $data = $db->get_array() ){
+			$data = array_change_key_case($data, CASE_LOWER);
+			$data_count++;
+			$bar_menu_lv0[$data_count]["id"] = $data[menu_id];
+			$bar_menu_lv0[$data_count]["label"] = trim($data[menu_label]);
+			$bar_menu_lv0[$data_count]["link_type"] = trim($data[type_linkto]);
+			$bar_menu_lv0[$data_count]["link_web"] = trim($data[linkto_web]);
+
+			$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$data[menu_id]." and menu_id_lv1=0 and menu_id_lv2=0 and menu_id_lv3=0 order by can_inq desc ";
+			$new_db->send_cmd($cmd);
+//			$new_db->show_error();
+			$new_data = $new_db->get_array();
+			$new_data = array_change_key_case($new_data, CASE_LOWER);
+			$bar_menu_lv0[$data_count]["can_inq"] = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+		}
+	}
+	$count_bar_menu_lv0 = count($bar_menu_lv0);
+	echo '<script language="JavaScript" type="text/JavaScript">'.
+				'var COUNT_BAR_MENU = '.$count_bar_menu_lv0.';'.
+				'var SELECTED_MENU_LV0 = '.($MENU_ID_LV0 + 0).';'.
+				'var SELECTED_MENU_LV1 = '.($MENU_ID_LV1 + 0).';'.
+				'var SELECTED_MENU_LV2 = '.($MENU_ID_LV2 + 0).';'.
+				'</script>';
+?>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874"> 
+<!-- <link href="stylesheets/style<?=$RPT_N?>.css" rel="stylesheet" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<script src="java_scripts/AC_RunActiveContent.js" language="javascript"></script>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+  	<td height="80">
+	  <table width="100%" height="100%"  border="0" cellpadding="0" cellspacing="0" id="HeaderBar" background="<?=$top_bg?>">
+      	<tr>
+		<? if ($TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงเกษตรและสหกรณ์" || 
+				$TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงอุตสาหกรรม" || $TEMP_ORG_NAME=="สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม" || 
+				$TEMP_ORG_NAME=="สถาบันบัณฑิตพัฒนศิลป์" || ($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงเกษตรและสหกรณ์") || 
+				($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงอุตสาหกรรม")) { ?>
+		   <td width="80" background="<?=$top_left?>" align="left" class="page_title"></td>
+		<? } elseif ($TEMP_ORG_NAME=="กรมการปกครอง") { ?>
+<!--		   <td width="80" background="<?=$top_left?>" align="left" class="page_title"></td>-->
+           <td width="96" align="left">
+				<script language="javascript">
+					if (AC_FL_RunContent == 0) {
+						alert("This page requires AC_RunActiveContent.js.");
+					} else {
+						AC_FL_RunContent(
+							'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+							'width', '96',
+							'height', '96',
+							'src', 'images/top_left_dopa',
+							'quality', 'high',
+							'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+							'align', 'middle',
+							'play', 'true',
+							'loop', 'true',
+							'scale', 'showall',
+							'wmode', 'window',
+							'devicefont', 'false',
+							'id', 'top_left_dopa',
+							'bgcolor', '#ffffff',
+							'name', 'top_left_dopa',
+							'menu', 'true',
+							'allowFullScreen', 'false',
+							'allowScriptAccess','sameDomain',
+							'movie', 'images/top_left_dopa',
+							'salign', ''
+							); //end AC code
+					}
+				</script>
+				<noscript>
+					<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="96" height="96" id="top_left_dopa" align="middle">
+					<param name="allowScriptAccess" value="sameDomain" />
+					<param name="allowFullScreen" value="false" />
+					<param name="movie" value="top_left_dopa.swf" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="images/top_left_dopa.swf" quality="high" bgcolor="#ffffff" width="96" height="96" name="top_left_dopa" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+					</object>
+				</noscript>
+            </td>
+		<? } elseif ($TEMP_ORG_NAME=="กรมอุตสาหกรรมพื้นฐานและการเหมืองแร่") { ?>
+		   <td width="65" background="<?=$top_left?>" align="left" class="page_title"></td>
+		<? } elseif ($TEMP_ORG_NAME=="สำนักงาน ก.พ."){ 
+        		$c = strpos($top_left,".swf");
+        		if ($c !== false)  {
+                	$startname=strpos($top_left,"/");
+                	$justname=substr($top_left,$startname+1,$c-$startname-1);
+		?>
+          <td width="240" align="left" class="page_title">
+				<script language="javascript">
+					if (AC_FL_RunContent == 0) {
+						alert("This page requires AC_RunActiveContent.js.");
+					} else {
+						AC_FL_RunContent(
+							'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+							'width', '240',
+							'height', '80',
+							'src', '<?=$justname?>',
+							'quality', 'high',
+							'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+							'align', 'middle',
+							'play', 'true',
+							'loop', 'true',
+							'scale', 'showall',
+							'wmode', 'window',
+							'devicefont', 'false',
+							'id', '<?=$justname?>',
+							'bgcolor', '#ffffff',
+							'name', '<?=$justname?>',
+							'menu', 'true',
+							'allowFullScreen', 'false',
+							'allowScriptAccess','sameDomain',
+							'movie', 'images/<?=$justname?>',
+							'salign', ''
+							); //end AC code
+					}
+				</script>
+				<noscript>
+					<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="240" height="80" id="<?=$justname?>" align="middle">
+					<param name="allowScriptAccess" value="sameDomain" />
+					<param name="allowFullScreen" value="false" />
+					<param name="movie" value="<?=$justname?>.swf" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="<?=$top_left?>" quality="high" bgcolor="#ffffff" width="240" height="80" name="<?=$justname?>" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+					</object>
+				</noscript>
+               </td>
+		<? 	} else {  ?>
+	        		<td width="526" background="<?=$top_left?>" align="left" class="page_title"></td>
+        <?	}
+        	} else { ?>
+        		<td width="526" background="<?=$top_left?>" align="left" class="page_title"></td>
+    	<?} ?>
+        <? $user_text_class = "logon_user"; ?>
+		<? if ($TEMP_ORG_NAME=="กรมอุตสาหกรรมพื้นฐานและการเหมืองแร่" || $TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงเกษตรและสหกรณ์" || 
+				$TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงอุตสาหกรรม" || $TEMP_ORG_NAME=="สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม" || 
+				$TEMP_ORG_NAME=="สถาบันบัณฑิตพัฒนศิลป์" || ($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงเกษตรและสหกรณ์") || 
+				($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงอุตสาหกรรม")) { ?>
+			  <td background="<?=$top_bg?>"><span class="txt-white-header">&nbsp;&nbsp;โปรแกรมระบบฐานข้อมูลสารสนเทศการบริหารทรัพยากรบุคคล</span>
+		<? } elseif ($TEMP_ORG_NAME=="กรมการปกครอง") { ?>
+			  <td background="<?=$top_bg?>">
+              <span class="txt-dayin01head">&nbsp;&nbsp;ระบบฐานข้อมูลสารสนเทศการบริหารงานทรัพยากรบุคคล</span>
+              <? $user_text_class = "txt-dayin01-white-small"; ?>
+		<? } elseif ($TEMP_ORG_NAME=="สำนักงาน ก.พ.")  { 
+        		if ($CTRL_TYPE == 1 || $CTRL_TYPE == 2) { ?>
+				  <td background="<?=$top_bg?>">&nbsp;
+           <? } else {
+	                	$headtext_t = "ระบบสารสนเทศทรัพยากรบุคคลระดับกรม";
+    	            	$headtext_e = "Department Personal Information System";
+			?>
+		  		<td background="<?=$top_bg?>">&nbsp;
+          		<span class="txt-systemname-header"><?=$headtext_t?></span>
+              	<? $user_text_class = "txt-username-header"; ?>
+		<? 	} 
+        	} else { ?>
+			  <td background="<?=$top_bg?>">&nbsp;
+        <?} ?>
+		  	<table width="96%" border="0" cellpadding="0" cellspacing="0" align="center">
+			  <tr><td height="20" class="<?=$user_text_class?>"><?=$LOGON_USER?></td></tr>
+			  <tr><td height="5"></td></tr>
+			</table>
+		  </td>
+		<? if ($TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงเกษตรและสหกรณ์" || 
+				$TEMP_ORG_NAME=="สำนักงานปลัดกระทรวงอุตสาหกรรม" || $TEMP_ORG_NAME=="สำนักงานมาตรฐานผลิตภัณฑ์อุตสาหกรรม" || 
+				$TEMP_ORG_NAME=="สถาบันบัณฑิตพัฒนศิลป์" || ($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงเกษตรและสหกรณ์") || 
+				($CTRL_TYPE==3 && $TEMP_ORG_NAME=="กระทรวงอุตสาหกรรม")) { ?>
+          <td width="460" background="<?=$top_right?>" align="right" class="logon_user">&nbsp;</td>
+		<? } elseif ($TEMP_ORG_NAME=="กรมการปกครอง") { ?>
+          <td width="500" align="right">
+				<script language="javascript">
+					if (AC_FL_RunContent == 0) {
+						alert("This page requires AC_RunActiveContent.js.");
+					} else {
+						AC_FL_RunContent(
+							'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+							'width', '500',
+							'height', '96',
+							'src', 'images/top_right_dopa',
+							'quality', 'high',
+							'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+							'align', 'middle',
+							'play', 'true',
+							'loop', 'true',
+							'scale', 'showall',
+							'wmode', 'window',
+							'devicefont', 'false',
+							'id', 'top_right_dopa',
+							'bgcolor', '#ffffff',
+							'name', 'top_right_dopa',
+							'menu', 'true',
+							'allowFullScreen', 'false',
+							'allowScriptAccess','sameDomain',
+							'movie', 'images/top_right_dopa',
+							'salign', ''
+							); //end AC code
+					}
+				</script>
+				<noscript>
+					<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="500" height="96" id="top_left_dopa" align="middle">
+					<param name="allowScriptAccess" value="sameDomain" />
+					<param name="allowFullScreen" value="false" />
+					<param name="movie" value="top_right_dopa.swf" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="images/top_right_dopa.swf" quality="high" bgcolor="#ffffff" width="500" height="96" name="top_right_dopa" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+					</object>
+				</noscript>
+           </td>
+		<? } elseif ($TEMP_ORG_NAME=="กรมอุตสาหกรรมพื้นฐานและการเหมืองแร่") { ?>
+          <td width="475" background="<?=$top_right?>" align="right" class="logon_user">&nbsp;</td>
+		<? } elseif ($TEMP_ORG_NAME=="สำนักงาน ก.พ.") { 
+        		$c = strpos($top_right,".swf");
+        		if ($c !== false)  {
+                	$startname=strpos($top_right,"/");
+                	$justname=substr($top_right,$startname+1,$c-$startname-1);
+		?>
+          <td width="340" align="right" class="logon_user">
+				<script language="javascript">
+					if (AC_FL_RunContent == 0) {
+						alert("This page requires AC_RunActiveContent.js.");
+					} else {
+						AC_FL_RunContent(
+							'codebase', 'http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0',
+							'width', '340',
+							'height', '80',
+							'src', '<?=$justname?>',
+							'quality', 'high',
+							'pluginspage', 'http://www.macromedia.com/go/getflashplayer',
+							'align', 'middle',
+							'play', 'true',
+							'loop', 'true',
+							'scale', 'showall',
+							'wmode', 'window',
+							'devicefont', 'false',
+							'id', '<?=$justname?>',
+							'bgcolor', '#ffffff',
+							'name', '<?=$justname?>',
+							'menu', 'true',
+							'allowFullScreen', 'false',
+							'allowScriptAccess','sameDomain',
+							'movie', 'images/<?=$justname?>',
+							'salign', ''
+							); //end AC code
+					}
+				</script>
+				<noscript>
+					<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0" width="340" height="80" id="<?=$justname?>" align="middle">
+					<param name="allowScriptAccess" value="sameDomain" />
+					<param name="allowFullScreen" value="false" />
+					<param name="movie" value="<?=$justname?>.swf" /><param name="quality" value="high" /><param name="bgcolor" value="#ffffff" />	<embed src="<?=$top_left?>" quality="high" bgcolor="#ffffff" width="340" height="80" name="<?=$justname?>" align="middle" allowScriptAccess="sameDomain" allowFullScreen="false" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
+					</object>
+				</noscript>
+			</td>
+		<? 	} else { ?>
+				<td width="245" background="<?=$top_right?>" align="right" class="logon_user">&nbsp;</td>
+		<? 	}
+        	} else { ?>
+			<td width="245" background="<?=$top_right?>" align="right" class="logon_user">&nbsp;</td>
+        <?} ?>
+      	</tr>
+      </table>
+	</td>
+  </tr>
+  <tr>
+    <td height="22" align="right" class="menu_background" id="menu_space"> 
+      <table width="100%" height="100%"  border="0" cellpadding="0" cellspacing="0" bordercolor="#FFFFFF" id="tablebarmenu">
+        <tr align=center>
+          <td width="10"></td>
+		<? 
+			$class = "menu_inactive";
+//			if( !$MENU_ID_LV0 ) $class = "menu_active"; 
+			$classonover = "this.className='menu_active';";
+			$classonout = "this.className='menu_inactive';";
+			if($FILENAME=="main.html"){ 
+				$class = "menu_active";
+				$classonout = "";
+			}
+		?>
+          <td nowrap id="menu0" width="5%" class="<?=$class?>" onclick="location.href='main.html'" onmouseover="<?=$classonover?>call_menu_lv1_show(0)" onmouseout="<?=$classonout?>call_menu_lv1_hide(0)" style="cursor:hand">หน้าแรก</td>
+          <td width="10"></td>
+		<?
+			for($i=1; $i<=$count_bar_menu_lv0; $i++){
+				$class = "menu_inactive";
+				$classonover = "this.className='menu_active';";
+				$classonout = "this.className='menu_inactive';";
+				if( $MENU_ID_LV0==$bar_menu_lv0[$i]["id"] ){ 
+					$class = "menu_active";
+					$classonout = "";
+				}
+				if($bar_menu_lv0[$i]["can_inq"]=="Y"){
+
+					$outer_link = 0;
+					if($bar_menu_lv0[$i]["link_web"]){ 
+						if(substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 7)!="http://" && substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 8)!="https://"){
+							$extract_parameter = explode("?", $bar_menu_lv0[$i]["link_web"]);
+							if(count($extract_parameter) > 1) $bar_menu_lv0[$i]["link_web"] .= "&MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+							else $bar_menu_lv0[$i]["link_web"] .= "?MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+						}else{
+							$outer_link = 1;
+						} // end if
+					} // end if
+		?>
+          <td nowrap id="menu<?=$i?>" class="<?=$class?>" onmouseover="<?=$classonover?><?=($bar_menu_lv0[$i]["link_type"]=='W')?"":"call_menu_lv1_show($i)"?>" onmouseout="<?=$classonout?><?=($bar_menu_lv0[$i]["link_type"]=='W')?"":"call_menu_lv1_hide($i)"?>" style="cursor:hand" <?if($bar_menu_lv0[$i]["link_type"]=='W'){ echo "onClick=\"".(($outer_link)?"window.open('".$bar_menu_lv0[$i]["link_web"]."');":"location.href='".$bar_menu_lv0[$i]["link_web"]."';")."\""; }?>><?=$bar_menu_lv0[$i]["label"]?></td>
+          <td width="10"></td>
+		<?
+				} // if
+			} // for
+
+			$class = "menu_inactive";
+			$classonover = "this.className='menu_active';";
+			$classonout = "this.className='menu_inactive';";
+			if($FILENAME=="logout.html"){ 
+				$class = "menu_active";
+				$classonout = "";
+			}
+		?>
+          <td nowrap id="menu999" width="7%" class="<?=$class?>" onClick="location.href='logout.html'" onmouseover="<?=$classonover?>call_menu_lv1_show(999)" onmouseout="<?=$classonout?>call_menu_lv1_hide(999)" style="cursor:hand">ออกจากระบบ</td>
+          <td width="10"></td>
+        </tr>
+      </table>	
+
+	</td>
+  </tr>
+</table>
+<iframe id="DivShimLV1" src="javascript:true;" scrolling="no" frameborder="0" style="position:absolute; top:0px; left:0px; display:none;"></iframe>
+<?
+endif;
+
+if($BACKOFFICE_MENU_DEPTH >= 2) :
+
+	$data_count = 0;
+	for($i=1; $i<=$count_bar_menu_lv0; $i++){
+		$layer_id = $i;
+		$ref_id_lv0 = $bar_menu_lv0[$i]["id"];
+
+		$cmd = " 	select		distinct a.menu_id
+							from		backoffice_menu_bar_lv1 a, backoffice_menu_bar_lv2 b
+							where		a.menu_id=b.parent_id_lv1
+											and a.flag_show='S' and a.langcode='TH' and a.fid=$CATE_FID and a.parent_id_lv0=$ref_id_lv0
+											and b.flag_show='S' and b.langcode='TH' and b.fid=$CATE_FID and b.parent_id_lv0=$ref_id_lv0 ";
+		$count_bar_menu_lv2_all = $db->send_cmd($cmd);
+//		$db->show_error();
+		
+		$cmd = "	select 		menu_id, menu_label, type_linkto, linkto_web 
+							from 		backoffice_menu_bar_lv1
+							where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0
+							order by menu_order";
+		$count_bar_menu_lv1 = $db->send_cmd($cmd);
+//		$db->show_error();
+?>
+<div id="Layer1Menu<?=$layer_id?>" style="position:absolute; width:150px; height:476px; z-index:100; left: 23px; top: 1000px; display:none;" onmouseover="call_menu_lv1_show(<?=$layer_id?>)" onmouseout="call_menu_lv1_hide(<?=$layer_id?>)"> 
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" id="Table1Menu<?=$layer_id?>" style="cursor:hand" class="menu_div">
+	<?
+		if($count_bar_menu_lv1){
+			$data_order = 0;
+			while($data = $db->get_array()){
+				$data = array_change_key_case($data, CASE_LOWER);
+//				$data_order++;
+				$menu_lv1_label = trim($data[menu_label]);
+				$link_type = trim($data[type_linkto]);
+				$link_web = trim($data[linkto_web]);
+				if($link_web){ 
+					$extract_parameter = explode("?", $link_web);
+					if(count($extract_parameter) > 1) $link_web .= "&MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$data[menu_id];
+					else $link_web .= "?MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$data[menu_id];
+				}
+
+				$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$ref_id_lv0." and menu_id_lv1=".$data[menu_id]." and menu_id_lv2=0 and menu_id_lv3=0 order by can_inq desc ";
+				$new_db->send_cmd($cmd);
+//				$new_db->show_error();
+				$new_data = $new_db->get_array();
+				$new_data = array_change_key_case($new_data, CASE_LOWER);
+				$can_inq = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+
+				if( $can_inq=="Y" ){					
+					$data_order++;
+					$cmd = "	select 		menu_id 
+										from 		backoffice_menu_bar_lv2
+										where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 and parent_id_lv1=$data[menu_id]
+										order by menu_order";
+					$count_bar_menu_lv2 = $new_db->send_cmd($cmd);
+					
+					$onmouseover = "this.className='menu_lv1_active';";
+					$onmouseout = "this.className='menu_lv1_inactive';";
+					if($MENU_ID_LV1==$data[menu_id]){
+						$onmouseover = "";
+						$onmouseout = "";
+					} // end if 
+					
+					if($count_bar_menu_lv2 && $BACKOFFICE_MENU_DEPTH >= 3){
+						$data_count++;
+						$bar_menu_lv1[$data_count]["parent_lv0"] = $ref_id_lv0;
+						$bar_menu_lv1[$data_count]["layer_id"] = $layer_id;
+						$bar_menu_lv1[$data_count]["order"] = $data_order;
+						$bar_menu_lv1[$data_count]["id"] = $data[menu_id];
+						$bar_menu_lv1[$data_count]["label"] = trim($data[menu_label]);
+						$bar_menu_lv1[$data_count]["link_type"] = trim($data[type_linkto]);
+						$bar_menu_lv1[$data_count]["link_web"] = trim($data[linkto_web]);
+						$bar_menu_lv1[$data_count]["can_inq"] = $can_inq;
+
+						$onmouseover .= " call_menu_lv1_show($layer_id); call_menu_lv2_show($data_count, $data_order, $data[menu_id]);";
+						$onmouseout .= " call_menu_lv1_hide($layer_id); call_menu_lv2_hide($data_count, $data[menu_id]);";
+					} // end if
+	?>  
+    <tr id="menu_lv1_<?=$layer_id?>_<?=$data[menu_id]?>" onmouseover="<?=$onmouseover?>" onmouseout="<?=$onmouseout?>" class="<?=($MENU_ID_LV1==$data[menu_id])?"menu_lv1_active":"menu_lv1_inactive"?>"> 
+      <td height="25" nowrap class="menu_td">
+	  <? if(trim($link_web)){ ?>
+	  &nbsp;<a href="<?=trim($link_web)?$link_web:"#"?>"><?=$menu_lv1_label?></a>&nbsp;
+	  <? }else{ ?>
+	  &nbsp;<?=$menu_lv1_label?>&nbsp;
+	  <? } // end if ?>
+	  </td>
+	  <?// if($count_bar_menu_lv2_all){ ?>
+	  <!--td align="center" class="menu_td">
+	  <?// if($count_bar_menu_lv2){ ?>&nbsp;[]&nbsp;<?// }else{ echo "&nbsp;"; } // end if ?>
+	  </td-->
+	  <?// } // end if ?>
+    </tr>
+	<?
+				} // if
+			} // while
+		} // if
+	?>
+  </table>
+</div>
+<?
+	} // for
+
+endif;
+?>
+<iframe id="DivShimLV2" src="javascript:true;" scrolling="no" frameborder="0" style="position:absolute; top:0px; left:0px; display:none;"></iframe>
+<?	
+if($BACKOFFICE_MENU_DEPTH >= 3) :
+
+	$count_bar_menu_lv1 = count($bar_menu_lv1);	
+	for($i=1; $i<=$count_bar_menu_lv1; $i++){
+		$layer_id = $i;
+		$parent_layer = $bar_menu_lv1[$i]["layer_id"];
+		$ref_id_lv0 = $bar_menu_lv1[$i]["parent_lv0"];
+		$ref_id_lv1 = $bar_menu_lv1[$i]["id"];
+		$ref_id_lv1_order = $bar_menu_lv1[$i]["order"];
+
+		$cmd = " 	select		distinct a.menu_id
+							from		backoffice_menu_bar_lv3 a, backoffice_menu_bar_lv3 b
+							where		a.menu_id=b.parent_id_lv2
+											and a.flag_show='S' and a.langcode='TH' and a.fid=$CATE_FID and a.parent_id_lv0=$ref_id_lv0 and a.parent_id_lv1=$ref_id_lv1
+											and b.flag_show='S' and b.langcode='TH' and b.fid=$CATE_FID and b.parent_id_lv0=$ref_id_lv0 and b.parent_id_lv1=$ref_id_lv1 ";
+		$count_bar_menu_lv3_all = $db->send_cmd($cmd);
+//		$db->show_error();
+
+		$cmd = "	select 		menu_id, menu_label, type_linkto, linkto_web 
+							from 		backoffice_menu_bar_lv2
+							where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 and parent_id_lv1=$ref_id_lv1
+							order by menu_order ";
+		$count_bar_menu_lv2 = $db->send_cmd($cmd);
+//		$db->show_error();
+?>
+<div id="Layer2Menu<?=$layer_id?>" style="position:absolute; width:250px; height:450px; z-index:110; left: 23px; top: 1000px; display:none;" onmouseover="call_menu_lv1_show(<?=$parent_layer?>); call_menu_lv2_show(<?=$layer_id?>, <?=$ref_id_lv1_order?>, <?=$ref_id_lv1?>);" onmouseout="call_menu_lv1_hide(<?=$parent_layer?>);  call_menu_lv2_hide(<?=$layer_id?>, <?=$ref_id_lv1?>);"> 
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" id="Table2Menu<?=$layer_id?>" style="cursor:hand; table-layout:fixed;" class="menu_div">
+	<?
+		if($count_bar_menu_lv2){
+			$data_count = 0;
+			while($data = $db->get_array()){
+				$data = array_change_key_case($data, CASE_LOWER);
+				$menu_lv2_label = trim($data[menu_label]);
+				$link_type = trim($data[type_linkto]);
+				$link_web = trim($data[linkto_web]);
+				if($link_web){ 
+					$extract_parameter = explode("?", $link_web);
+					if(count($extract_parameter) > 1) $link_web .= "&MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$ref_id_lv1."&MENU_ID_LV2=".$data[menu_id];
+					else $link_web .= "?MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$ref_id_lv1."&MENU_ID_LV2=".$data[menu_id];
+				}
+
+				$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$ref_id_lv0." and menu_id_lv1=".$ref_id_lv1." and menu_id_lv2=".$data[menu_id]." and menu_id_lv3=0 order by can_inq desc ";
+				$new_db->send_cmd($cmd);
+//				$new_db->show_error();
+				$new_data = $new_db->get_array();
+				$new_data = array_change_key_case($new_data, CASE_LOWER);
+				$can_inq = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+
+				$onmouseover = "this.className='menu_lv2_active';";
+				$onmouseout = "this.className='menu_lv2_inactive';";
+				if($MENU_ID_LV2==$data[menu_id]){
+					$onmouseover = "";
+					$onmouseout = "";
+				} // end if
+				
+				if( $can_inq=="Y" ){
+					$data_count++;
+					$bar_menu_lv2[$data_count]["id"] = $data[menu_id];
+					$bar_menu_lv2[$data_count]["label"] = trim($data[menu_label]);
+					$bar_menu_lv2[$data_count]["link_type"] = trim($data[type_linkto]);
+					$bar_menu_lv2[$data_count]["link_web"] = trim($data[linkto_web]);
+					$bar_menu_lv2[$data_count]["can_inq"] = $can_inq;
+					
+					$cmd = "	select 		menu_id 
+										from 		backoffice_menu_bar_lv3
+										where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 and parent_id_lv1=$ref_id_lv1 and parent_id_lv2=$data[menu_id]
+										order by menu_order";
+					$count_bar_menu_lv3 = $new_db->send_cmd($cmd);
+	?>  
+    <tr id="menu_lv2_<?=$layer_id?>_<?=$data[0]?>" onmouseover="<?=$onmouseover?>" onmouseout="<?=$onmouseout?>" class="<?=($MENU_ID_LV2==$data[0])?"menu_lv2_active":"menu_lv2_inactive"?>"> 
+      <td height="25" nowrap class="menu_td" title="<?=$menu_lv2_label?>" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+	  <? if(trim($link_web)){ ?>
+	  &nbsp;<a href="<?=trim($link_web)?$link_web:"#"?>"><?=$menu_lv2_label?></a>&nbsp;
+	  <? }else{ ?>
+	  &nbsp;<?=$menu_lv2_label?>&nbsp;
+	  <? } // end if ?>
+	  </td>
+	  <?// if($count_bar_menu_lv3_all){ ?>
+	  <!--td align="center" class="menu_td">
+	  <?// if($count_bar_menu_lv3){ ?>&nbsp;[]&nbsp;<?// }else{ echo "&nbsp;"; } // end if ?>
+	  </td-->
+	  <?// } // end if ?>
+    </tr>
+	<? 			
+					$cmd = "	select 		menu_id, menu_label, type_linkto, linkto_web
+										from 		backoffice_menu_bar_lv3
+										where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 and parent_id_lv1=$ref_id_lv1 and parent_id_lv2=$data[0]
+										order by menu_order";
+					$count_bar_menu_lv3 = $db2->send_cmd($cmd);
+//					$db2->show_error();
+					if($count_bar_menu_lv3){ 
+						while($data2 = $db2->get_array()){
+							$data = array_change_key_case($data, CASE_LOWER);
+							$menu_lv3_label = trim($data2[menu_label]);
+							$link_type = trim($data2[type_linkto]);
+							$link_web = trim($data2[linkto_web]);
+							if($link_web){ 
+								$extract_parameter = explode("?", $link_web);
+								if(count($extract_parameter) > 1) $link_web .= "&MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$ref_id_lv1."&MENU_ID_LV2=".$data[menu_id]."&MENU_ID_LV3=".$data2[menu_id];
+								else $link_web .= "?MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$ref_id_lv1."&MENU_ID_LV2=".$data[menu_id]."&MENU_ID_LV3=".$data2[menu_id];
+							}
+
+							$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$ref_id_lv0." and menu_id_lv1=".$ref_id_lv1." and menu_id_lv2=".$data[menu_id]." and menu_id_lv3=".$data2[menu_id]." order by can_inq desc ";
+							$new_db->send_cmd($cmd);
+//							$new_db->show_error();
+							$new_data = $new_db->get_array();
+							$new_data = array_change_key_case($new_data, CASE_LOWER);
+							$can_inq = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+			
+							$onmouseover = "this.className='menu_lv3_active';";
+							$onmouseout = "this.className='menu_lv3_inactive';";
+							if($MENU_ID_LV3==$data2[menu_id]){
+								$onmouseover = "";
+								$onmouseout = "";
+							} // end if
+
+							if( $can_inq=="Y" ){
+	?>
+    <tr id="menu_lv3_<?=$layer_id?>_<?=$data[menu_id]?>_<?=$data2[menu_id]?>" onmouseover="<?=$onmouseover?>" onmouseout="<?=$onmouseout?>" class="<?=($MENU_ID_LV3==$data2[menu_id])?"menu_lv3_active":"menu_lv3_inactive"?>"> 
+      <td height="25" nowrap class="menu_td" title="<?=$menu_lv3_label?>" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+	  <? if(trim($link_web)){ ?>
+	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="<?=trim($link_web)?$link_web:"#"?>"><?=$menu_lv3_label?></a>&nbsp;
+	  <? }else{ ?>
+	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?=$menu_lv3_label?>&nbsp;
+	  <? } // end if ?>
+	  </td>
+	</tr>
+	<?
+							} // end if
+						} // end while
+					} // end if
+				} // if
+			} // while
+		} // if
+	?>
+  </table>
+</div>
+<?
+	} // end for
+
+endif;
+?>

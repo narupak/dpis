@@ -1,0 +1,1110 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/data_compensation_test.php");
+	$search_per_type = (isset($search_per_type))?  $search_per_type : 1;
+?>
+<html>
+<head>
+<title><?=$webpage_title?>-<?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?>-<?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<style type="text/css">
+<!--
+.style1 {color: #009900}
+-->
+</style>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script>
+<script language="JavaScript" src="java_scripts/function_utility.js"></script>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script>
+<script language="JavaScript">
+	function call_search_org () {	
+		var search_department_id = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$search_department_id":"form1.search_department_id.value")?>;
+		if(search_department_id != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + search_department_id;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+	
+	function call_search_org2 () {	
+		var search_department_id = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$search_department_id":"form1.search_department_id.value")?>;
+		if(search_department_id != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + search_department_id;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id2.value = arrValue[0];
+				form1.search_org_name2.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+	
+	function call_search_org_1 () {	
+		if(form1.search_org_id.value != ""){
+			parameter = "&OL_CODE=04&ORG_ID_REF=" + form1.search_org_id.value;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id_1.value = arrValue[0];
+				form1.search_org_name_1.value = arrValue[1];
+				form1.search_org_id_2.value = "";
+				form1.search_org_name_2.value = "";
+			} // end if
+		}else{
+			alert("กรุณาเลือกสำนัก/กอง");
+			form1.btn_org.focus();
+		} // end if
+	}
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function confirm_test() {
+		if (confirm("ต้องการยืนยันแบบทดสอบการบริหารค่าตอบแทน ใช่หรือไม่?")) {
+			form1.command.value = "CONFIRM";
+			form1.current_page.value = 1;				
+		} else {
+			return false;
+		}
+	}	
+	
+	function confirm_delete(data_id , data_label){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ ข้อมูลรายละเอียดต่าง ๆ จะถูกลบไปด้วย?")){
+			form1.command.value = "DELETE";
+			form1.CP_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+
+	function call_select_ministry () {
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_ministry_id.value = arrValue[0];
+			form1.search_ministry_name.value = arrValue[1];
+			form1.search_department_id.value = "";
+			form1.search_department_name.value = "";
+		} // end if
+	}
+
+	function call_select_department () {
+		var search_ministry_id = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(search_ministry_id != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + search_ministry_id + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_department_id.value = arrValue[0];
+				form1.search_department_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_ministry () {
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.search_ministry_id.value = arrValue[0];
+			form1.search_ministry_name.value = arrValue[1];
+			form1.search_department_id.value = "";
+			form1.search_department_name.value = "";
+		} // end if
+	}
+
+	function call_search_department () {
+		var search_ministry_id = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(search_ministry_id != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + search_ministry_id + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_department_id.value = arrValue[0];
+				form1.search_department_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function checkadd(f) {
+		form1.command.value='ADD';
+		return true;
+	}
+		function checkupdate(f) {
+			form1.command.value='UPDATE';
+			return true;
+		}
+	
+	function open_compare() {
+		/// XXXXX
+		var chks = document.getElementsByName('compare_id[]');//here rr[] is the name of the textbox
+		var set_id = '';			
+		for (var i = 0; i < chks.length; i++) {		
+			if (chks[i].checked)	{
+				//alert(chks[i].value);
+				set_id += chks[i].value +",";
+			}
+		}
+		//
+		set_id = "compare_compensation.html?set_id='" + set_id + "'";
+		MM_openBrWindow(set_id,'comparewindow','width=800,height=600,scrollbars=yes');
+	}
+
+	function open_detail(CP_ID, ORG_ID) {
+		/// XXXXX
+		var set_id = '';			
+		//
+		set_id = "search_compensation_person.html?search_org_id=" + ORG_ID + "&CP_ID=" + CP_ID + "";
+		MM_openBrWindow(set_id,'comparewindow','width=1200,height=700,scrollbars=yes');
+	}
+
+	function print_form(CP_ID) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var OLD_CP_ID = document.form1.CP_ID.value;
+		document.form1.CP_ID.value = CP_ID;
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_compensation_test_xls.php?CP_ID=" + CP_ID + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.CP_ID.value = OLD_CP_ID;
+		document.form1.target = "_self";
+		document.form1.action = "data_compensation_test.html";
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+  <tr>
+    <td height="10"><?include("header_menu.html")?></td>
+  </tr>
+  <tr>
+    <td align="left" valign="top">
+	<?
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+    </td>
+  </tr>
+  <tr>
+    <td align="left" valign="top"><form name="form1" method="post" action="data_compensation_test.html" enctype="multipart/form-data">
+        <input type="hidden" name="current_page" value="<?=$current_page?>">
+        <input type="hidden" name="total_page" value="<?=$total_page?>">
+        <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+        <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+        <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+        <input type="hidden" name="command" value="">
+        <input type="hidden" name="CP_ID" value="<?=$CP_ID?>">
+        &nbsp;
+        <table width="90%" align="center" cellpadding="0" cellspacing="0">
+          <tr>
+            <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+                <tr>
+                  <td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>
+                    ข้อมูล</td>
+                </tr>
+              </table></td>
+          </tr>
+        </table>
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+                <tr>
+                  <td width="20%" align="right" height="22"><span class="text_alert">*</span>&nbsp;แบบทดสอบการบริหารค่าตอบแทน &nbsp;:&nbsp;</td>
+                  <td width="38%"><input type="text" name="CP_NAME" value="<?=$CP_NAME?>" style="width:85%" class="textbox" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>>
+                    <span class="text_alert">&nbsp;&nbsp;
+                    <?=$err_text?>
+                    </span></td>
+                  <td width="10%" height="22" align="right"><span class="text_alert">*</span>&nbsp;จำนวนเงิน&nbsp;:&nbsp;</td>
+                  <td width="35%"><input type="text" name="CP_BUDGET" value="<?=$CP_BUDGET?>" style="text-align:right" size="20" maxlength="20" class="textbox" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22"><span class="text_alert">*</span>&nbsp;กระทรวง&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:85%" class="textbox" readonly>
+                    <input type="hidden" name="MINISTRY_ID" value="<?=$search_ministry_id?>">
+                    <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+                    <input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกระทรวง" onClick="call_select_ministry();">
+					<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; return false;" align="center" alt="ล้างค่า">
+                    <? } // end if ?>                  </td>
+                  <td align="right"><span class="text_alert">*</span>&nbsp;กรม&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:85%" class="textbox" readonly>
+                    <input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+                    <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+                    <input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกรม" onClick="call_select_department();">
+                    <input name="image" type="image" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                    <? } // end if ?>                  </td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">สำนัก/กอง&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:85%" class="textbox">
+                    <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                    <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                    <input type="button" name="btn_org" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org()" >
+                    <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name.value=''; form1.search_org_id.value=''; form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; return false;" align="center" alt="ล้างค่า">
+                    <? } // end if ?></td>
+          <td align="right">ต่ำกว่าสำนัก/กอง 1 ระดับ&nbsp;:&nbsp;</td>
+          <td>
+		  	<input type="text" name="search_org_name_1" value="<?=$search_org_name_1?>" style="width:83%" class="textbox" readonly>&nbsp;
+            <input type="button" name="btn_org_1" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org_1()">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.search_org_name_1.value=''; form1.search_org_id_1.value=''; return false;" align="center" alt="ล้างค่า">
+            <input type="hidden" name="search_org_id_1" value="<?=trim($search_org_id_1)?>">          </td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><span class="text_alert"> *</span>&nbsp;ปีงบประมาณ&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="CP_YEAR" value="<?=$CP_YEAR?>" size="10" maxlength="4" class="textbox" onKeyPress="DigitOnly();" onBlur="form1.CP_START_DATE_1.value='01/10/' + (this.value - 1); form1.CP_END_DATE_1.value='31/03/' + this.value; form1.CP_START_DATE_2.value='01/04/' + this.value; form1.CP_END_DATE_2.value='30/09/' + this.value;" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW)?"":"readonly"?>>
+                    <span class="text_alert">&nbsp;&nbsp;
+                      <?=$err_text?>
+                    </span></td>
+                  <td align="right">&nbsp;</td>
+              <td>
+			  	<? 
+				foreach($PERSON_TYPE as $key=>$value){ ?>
+						<input name="search_per_type" type="radio" value="<?=$key; ?>" <?=($search_per_type==$key)?"checked":""?>>&nbsp;<?=$value; ?>
+				<? } ?>				</td>
+                </tr>
+                <tr>
+                  <td align="right" height="22"><span class="text_alert">*</span>&nbsp;รอบการประเมิน&nbsp;:&nbsp;</td>
+                  <td colspan="3"><input type="radio" name="CP_CYCLE" value="1" onClick="form1.CP_START_DATE_1.disabled=false; form1.CP_END_DATE_1.disabled=false; form1.CP_START_DATE_2.disabled=true; form1.CP_END_DATE_2.disabled=true;" <?=($CP_CYCLE==1 || !$CP_CYCLE)?"checked":""?>>
+                    ครั้งที่ 1
+                    <input name="CP_START_DATE_1" type="text" class="textbox" id="CP_START_DATE_1" value="<?=$CP_START_DATE_1?>" readonly <?=($CP_CYCLE==1 || !$CP_CYCLE)?"":"disabled"?>>
+                    &nbsp;ถึง&nbsp;
+                  <input name="CP_END_DATE_1" type="text" class="textbox" id="CP_END_DATE_1" value="<?=$CP_END_DATE_1?>" readonly <?=($CP_CYCLE==1 || !$CP_CYCLE)?"":"disabled"?>></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22">&nbsp;</td>
+                  <td colspan="3"><input type="radio" name="CP_CYCLE" value="2" onClick="form1.CP_START_DATE_1.disabled=true; form1.CP_END_DATE_1.disabled=true; form1.CP_START_DATE_2.disabled=false; form1.CP_END_DATE_2.disabled=false;" <?=($CP_CYCLE==2)?"checked":""?>>
+                    ครั้งที่ 2
+                    <input name="CP_START_DATE_2" type="text" class="textbox" id="CP_START_DATE_2" value="<?=$CP_START_DATE_2?>" readonly <?=($CP_CYCLE==2)?"":"disabled"?>>
+                    &nbsp;ถึง&nbsp;
+                  <input name="CP_END_DATE_2" type="text" class="textbox" id="CP_END_DATE_2" value="<?=$CP_END_DATE_2?>" readonly <?=($CP_CYCLE==2)?"":"disabled"?>></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22">
+                  <?
+				  		// prepare data
+                        $cmd = " select 	AL_CODE, AL_NAME , AL_POINT_MIN , AL_POINT_MAX, AL_PERCENT
+                                         from 		PER_ASSESS_LEVEL where AM_CODE <> '1' $where_org order by AL_CODE DESC ";
+                        $db_dpis->send_cmd($cmd);
+                        while ($data = $db_dpis->get_array()) {
+                            $AL_CODE = $data[AL_CODE];
+                            $AL_CODE_JOIN .= $AL_CODE . ":";
+                            $AL_NAME[$AL_CODE] = $data[AL_NAME];
+                            $AL_MAX[$AL_CODE] = $data[AL_POINT_MAX];
+                            $AL_MIN[$AL_CODE] = $data[AL_POINT_MIN];
+                            $AL_PERCENT[$AL_CODE] = $data[AL_PERCENT];
+                        }
+                        $TMP_START_DATE = $CP_START_DATE;
+                        $TMP_END_DATE  = $CP_END_DATE;
+					?>                  &nbsp;</td>
+                  <td colspan="3">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td align="right" height="22">&nbsp;</td>
+                  <td colspan="3"><table width="95%" border="1" class="black_normal">
+                    <tr align="center">
+                      <td class="table_body">ระดับผลการประเมิน</td>
+                      <td class="table_body">ประเภททั่วไป</td>
+                      <td class="table_body">ประเภทวิชาการ</td>
+                      <td class="table_body">ประเภทอำนวยการ</td>
+                      <td class="table_body">ประเภทบริหาร</td>
+                    </tr>
+                    <tr>
+                      <td>
+                      <table width="100%" class="black_normal">
+                      <?php 
+                      	foreach($AL_NAME as $key => $value) {
+                        	echo "<tr><td height=22>$value</td></tr>\n";
+                        }
+                      ?>
+                  </table>
+                      </td>
+                      <td>
+                      <table width="100%" class="black_normal">
+                      	<?php 
+                        	foreach($div_sf_code_o as $value) {
+	                        	echo "<tr><td height=22>$value</td></tr>\n";
+                  			}  
+                  		?>
+                        </table>
+                  		</td>
+                      	<td>
+                      <table width="100%" class="black_normal">
+                      	<?php 
+                        	foreach($div_sf_code_k as $value) {
+	                        	echo "<tr><td height=22>$value</td></tr>\n";
+                  			}  
+                  		?>
+                        </table>
+                  		</td>
+                      	<td>
+                      <table width="100%" class="black_normal">
+                      	<?php 
+                        	foreach($div_sf_code_d as $value) {
+	                        	echo "<tr><td height=22>$value</td></tr>\n";
+                  			} 
+						?>
+                        </table>
+						</td>
+                      	<td>
+                      <table width="100%" class="black_normal">
+                      	<?php
+                      		foreach($div_sf_code_m as $value) {
+	                        	echo "<tr><td height=22>$value</td></tr>\n";
+                  			} 
+						?>
+                        </table>
+						</td>
+                    </tr>
+                    <tr>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22">กำหนดระดับที่นำมาคำนวณ </td>
+                  <td colspan="3"><table width="100%"  class="black_normal">
+                    <tr>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="O1" <? if(in_array('O1',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับปฏิบัติงาน</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="O2" <? if(in_array('O2',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับชำนาญงาน</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="O3" <? if(in_array('O3',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับอาวุโส</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="O4" <? if(in_array('O4',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับทักษะพิเศษ</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                    <tr>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="K1" <? if(in_array('K1',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับปฏิบัติการ</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="K2" <? if(in_array('K2',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับชำนาญการ</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="K3" <? if(in_array('K3',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับชำนาญการพิเศษ</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="K4" <? if(in_array('K4',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับเชี่ยวชาญ</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="K5" <? if(in_array('K5',$_select_level_no)) {?>checked<? } ?>>
+                        ระดับทรงคุณวุฒิ</td>
+                    </tr>
+                    <tr>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="D1" <? if(in_array('D1',$_select_level_no)) {?>checked<? } ?>>
+                        อำนวยการระดับต้น</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="D2" <? if(in_array('D2',$_select_level_no)) {?>checked<? } ?>>
+                        อำนวยการระดับสูง</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                    <tr>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="M1" <? if(in_array('M1',$_select_level_no)) {?>checked<? } ?>>
+                        บริหารระดับต้น</td>
+                      <td><input type="checkbox" name="_select_level_no[]" id="checkbox" value="M2" <? if(in_array('M2',$_select_level_no)) {?>checked<? } ?>>
+                        บริหารระดับสูง</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="7" colspan="4" align="center"><input name="Testing" type="button" class="button" value="ทดสอบ" onClick="<?=("form1.action+='?Testing=1'; form1.submit();")?>"></td>
+                </tr>
+                <tr>
+                  <td height="7" colspan="4">
+                  <script language="JavaScript">
+	function set_innerdiv(iddiv,idoption,divcon) {		
+		var salary_formula_o= new Array()
+		var salary_formula_k= new Array()
+		var salary_formula_d= new Array()
+		var salary_formula_m= new Array()
+		<? foreach($div_sf_code_o as $code => $value) echo 'salary_formula_o["'.$code.'"]="'.$value.'";'; ?>
+		<? foreach($div_sf_code_k as $code => $value) echo 'salary_formula_k["'.$code.'"]="'.$value.'";'; ?>
+		<? foreach($div_sf_code_d as $code => $value) echo 'salary_formula_d["'.$code.'"]="'.$value.'";'; ?>
+		<? foreach($div_sf_code_m as $code => $value) echo 'salary_formula_m["'.$code.'"]="'.$value.'";'; ?>
+		
+		var setdiv = document.getElementById(iddiv);
+		if(divcon == 'o') {
+			setdiv.innerHTML = salary_formula_o[idoption];
+		} else if(divcon == 'k') {
+			setdiv.innerHTML = salary_formula_k[idoption];
+		} else if(divcon == 'd') {
+			setdiv.innerHTML = salary_formula_d[idoption];
+		} else if(divcon == 'm') {
+			setdiv.innerHTML = salary_formula_m[idoption];
+		} 
+	}
+	
+	function init_innerdiv(iddiv) {		
+		var salary_formula_o= "<?=$init_div_o?>";
+		var salary_formula_k= "<?=$init_div_k?>";
+		var salary_formula_d= "<?=$init_div_d?>";
+		var salary_formula_m= "<?=$init_div_m?>";
+		
+		var setdiv = document.getElementById(iddiv);
+		if(iddiv == 'SF_CODE_O_DIV') {
+			setdiv.innerHTML = salary_formula_o;
+		} else if(iddiv == 'SF_CODE_K_DIV') {
+			setdiv.innerHTML = salary_formula_k;
+		} else if(iddiv == 'SF_CODE_D_DIV') {
+			setdiv.innerHTML = salary_formula_d;
+		} else if(iddiv == 'SF_CODE_M_DIV') {
+			setdiv.innerHTML = salary_formula_m;
+		} 
+	}
+	<? if($INIT_O) echo "init_innerdiv('SF_CODE_O_DIV');"; ?>
+	<? if($INIT_K) echo "init_innerdiv('SF_CODE_K_DIV');"; ?>
+	<? if($INIT_D) echo "init_innerdiv('SF_CODE_D_DIV');"; ?>
+	<? if($INIT_M) echo "init_innerdiv('SF_CODE_M_DIV');"; ?>
+	</script>
+    <?
+    if($command != 'DELETE' && $command != 'CANCEL' && $command != "ADD" && $command != "UPDATE" && $command != "SEARCH") {
+        // calculate comensation 
+        unset($QTY_ARR);
+        unset($QTY_SUM);
+        unset($SALARY_SUM);
+        unset($QTY_KEY_SUM);
+        unset($SALARY_KEY_SUM);
+        foreach($AL_NAME as $key => $value) {
+            if($UPD || $VIEW) {
+                $cmd = "select sum(CD_SALARY+CD_EXTRA_SALARY) AS SUM_CD_SALARY,count(PER_ID) AS COUNT_PER_ID,LEVEL_NO from PER_COMPENSATION_TEST_DTL
+                            where CP_ID = '$CP_ID' and AL_CODE like '$key' group by LEVEL_NO";
+
+                $db_dpis->send_cmd($cmd);
+                while($data = $db_dpis->get_array()) {
+                    $tmp_level_no = $data[LEVEL_NO];
+                    $SALARY_ARR[$key][$tmp_level_no] =  $data[SUM_CD_SALARY] ;
+                    $QTY_ARR[$key][$tmp_level_no] =  $data[COUNT_PER_ID];
+                    $QTY_SUM[$tmp_level_no] += $data[COUNT_PER_ID];
+                    $SALARY_SUM[$tmp_level_no] += $data[SUM_CD_SALARY];
+                    $QTY_KEY_SUM[$value] += $data[COUNT_PER_ID];
+                    $SALARY_KEY_SUM[$value] += $data[SUM_CD_SALARY];
+                }
+            } else {
+            	$cmd = "select  PER_SALARY,a.PER_ID, LEVEL_NO,SALARY_FLAG, POS_ID, a.PER_NAME, a.PER_SURNAME
+							from PER_PERSONAL a, PER_KPI_FORM b
+                            where a.PER_ID = b.PER_ID and KF_START_DATE = '$CP_START_DATE' and KF_END_DATE =  '$CP_END_DATE'
+                            and (TOTAL_SCORE >= $AL_MIN[$key]) and  (TOTAL_SCORE <= $AL_MAX[$key]) and LEVEL_NO in ('".$_select_level_no_str."') $where
+							order by a.PER_ID";
+				//echo $cmd . "<br>";
+                $db_dpis->send_cmd($cmd);
+                while($data = $db_dpis->get_array()) {
+                    $tmp_level_no = $data[LEVEL_NO];
+					$POS_ID = $data[POS_ID];
+					$PER_SALARY = $data[PER_SALARY];
+					$LEVEL_NO = $data[LEVEL_NO];
+					$tmp_PER_SALARY = $PER_SALARY;
+					$PER_NAME = $data[PER_NAME];
+					$PER_SURNAME = $data[PER_SURNAME];
+                   
+                    if($tmp_level_no[0] == 'O') $SF_PERCENT = $sf_code[O][$key];
+                    else if($tmp_level_no[0] == 'K') $SF_PERCENT = $sf_code[K][$key];
+                    else if($tmp_level_no[0] == 'M') $SF_PERCENT = $sf_code[M][$key];
+                    else if($tmp_level_no[0] == 'D') $SF_PERCENT = $sf_code[D][$key];
+                    
+                    $cmd = " select LAYER_TYPE, a.PL_CODE from PER_POSITION a, PER_LINE b where POS_ID = $POS_ID and a.PL_CODE = b.PL_CODE ";
+                    $db_dpis1->send_cmd($cmd);
+                    $data1 = $db_dpis1->get_array();
+                    $LAYER_TYPE = $data1[LAYER_TYPE] + 0;
+                    $PL_CODE = $data1[PL_CODE];
+
+                    if ($LAYER_TYPE==1 && ($tmp_level_no == "O3" || $tmp_level_no == "K5") && $PER_SALARY <= $SALARY_POINT[$tmp_level_no][full]) {
+                        $LAYER_SALARY_MAX = $SALARY_POINT[$tmp_level_no][full];
+                        $SALARY_POINT_MID = $SALARY_POINT[$tmp_level_no][extra];
+                        $SALARY_POINT_MID1 = $SALARY_POINT[$tmp_level_no][extra1];
+                        $SALARY_POINT_MID2 = $SALARY_POINT[$tmp_level_no][extra2];
+                    } else {
+                        $LAYER_SALARY_MAX = $SALARY_POINT[$tmp_level_no][max];
+                        $SALARY_POINT_MID = $SALARY_POINT[$tmp_level_no][mid];
+                        $SALARY_POINT_MID1 = $SALARY_POINT[$tmp_level_no][mid1];
+                        $SALARY_POINT_MID2 = $SALARY_POINT[$tmp_level_no][mid2];
+                    }
+
+                    if($SALARY_POINT_MID > $PER_SALARY) {
+                        $PER_SALARY = $SALARY_POINT_MID1;
+                    } else {
+                        $PER_SALARY = $SALARY_POINT_MID2;
+                    }
+
+                    $CD_SALARY = round($PER_SALARY * (($SF_PERCENT/100)),2) ;
+                    $CD_SALARY_CEIL = (ceil($PER_SALARY * (($SF_PERCENT/100))  /10))*10 ;
+                    $CD_EXTRA_SALARY = 0;
+                    if ($tmp_PER_SALARY + $CD_SALARY_CEIL > $LAYER_SALARY_MAX) {
+                        $CD_EXTRA_SALARY = $tmp_PER_SALARY + $CD_SALARY - $LAYER_SALARY_MAX;
+                        if ($tmp_PER_SALARY == $LAYER_SALARY_MAX) $CD_SALARY = 0;
+                        else $CD_SALARY -= $CD_EXTRA_SALARY;
+                    } else $CD_SALARY = $CD_SALARY_CEIL;
+                    if ($CD_SALARY < 0) echo "เกิดข้อผิดพลาด เงินเดือนไม่ถูกต้อง $PER_NAME $PER_SURNAME $PL_CODE = $tmp_PER_SALARY + $CD_SALARY_CEIL > $LAYER_SALARY_MAX = $CD_SALARY - $CD_EXTRA_SALARY<br>";
+
+                    if($data[SALARY_FLAG] == 'H') $HOLD_SALARY += $CD_SALARY + $CD_EXTRA_SALARY ;
+                    if($data[SALARY_FLAG] != 'Y') $CD_SALARY = $CD_EXTRA_SALARY = 0;
+                    
+                    $SALARY_ARR[$key][$tmp_level_no] +=  $CD_SALARY + $CD_EXTRA_SALARY ;
+                    $SALARY_SUM[$tmp_level_no] += $CD_SALARY + $CD_EXTRA_SALARY ;
+                    
+                    $QTY_ARR[$key][$tmp_level_no]++;
+                    $QTY_SUM[$tmp_level_no]++;
+
+                    $QTY_KEY_SUM[$value]++;
+                    $SALARY_KEY_SUM[$value] += $CD_SALARY + $CD_EXTRA_SALARY ;
+                    
+                } // while
+            } // 
+        } // foreach
+        //Cal total
+        $O_QTY_TOTAL = $QTY_SUM['O1']+$QTY_SUM['O2']+$QTY_SUM['O3']+$QTY_SUM['O4'];
+        $K_QTY_TOTAL = $QTY_SUM['K1']+$QTY_SUM['K2']+$QTY_SUM['K3']+$QTY_SUM['K4']+$QTY_SUM['K5'];
+        $D_QTY_TOTAL = $QTY_SUM['D1']+$QTY_SUM['D2'];
+        $M_QTY_TOTAL = $QTY_SUM['M1']+$QTY_SUM['M2'];
+        
+        $O_SALARY_TOTAL = $SALARY_SUM['O1']+$SALARY_SUM['O2']+$SALARY_SUM['O3']+$SALARY_SUM['O4'];
+        $K_SALARY_TOTAL = $SALARY_SUM['K1']+$SALARY_SUM['K2']+$SALARY_SUM['K3']+$SALARY_SUM['K4']+$SALARY_SUM['K5'];
+        $D_SALARY_TOTAL = $SALARY_SUM['D1']+$SALARY_SUM['D2'];
+        $M_SALARY_TOTAL = $SALARY_SUM['M1']+$SALARY_SUM['M2'];
+        
+        $QTY_GRANDTOTAL = $O_QTY_TOTAL +$K_QTY_TOTAL +$D_QTY_TOTAL +$M_QTY_TOTAL;
+        $SALARY_GRANDTOTAL = $O_SALARY_TOTAL + $K_SALARY_TOTAL + $D_SALARY_TOTAL + $M_SALARY_TOTAL;
+    
+        $CP_RESULT = $CP_BUDGET - $SALARY_GRANDTOTAL;
+    } 
+    ?>
+    <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="50%"><table width="100%" border="1" class="black_normal">
+          <tr align="center">
+            <td class="table_body">ประเภท</td>
+            <td class="table_body">จำนวนคน</td>
+            <td class="table_body">จำนวนเงิน</td>
+          </tr>
+          <tr>
+            <td>ประเภททั่วไป</td>
+            <td align="right"><input name="O_QTY_TOTAL" type="text" class="textbox" id="O_QTY_TOTAL" style="text-align:right" value="<?=$O_QTY_TOTAL?>" size="5" readonly></td>
+            <td align="right"><input name="O_SALARY_TOTAL" type="text" class="textbox" id="O_SALARY_TOTAL" style="text-align:right" value="<?=number_format($O_SALARY_TOTAL,2)?>" size="8" readonly></td>
+          </tr>
+          <tr>
+            <td>ประเภทวิชาการ</td>
+            <td align="right"><input name="K_QTY_TOTAL" type="text" class="textbox" id="K_QTY_TOTAL" style="text-align:right" value="<?=$K_QTY_TOTAL?>" size="5" readonly></td>
+            <td align="right"><input name="K_SALARY_TOTAL" type="text" class="textbox" id="K_SALARY_TOTAL" style="text-align:right" value="<?=number_format($K_SALARY_TOTAL,2)?>" size="8" readonly></td>
+          </tr>
+          <tr>
+            <td>ประเภทอำนวยการ</td>
+            <td align="right"><input name="D_QTY_TOTAL" type="text" class="textbox" id="D_QTY_TOTAL" style="text-align:right" value="<?=$D_QTY_TOTAL?>" size="5" readonly></td>
+            <td align="right"><input name="D_SALARY_TOTAL" type="text" class="textbox" id="D_SALARY_TOTAL" style="text-align:right" value="<?=number_format($D_SALARY_TOTAL,2)?>" size="8" readonly></td>
+          </tr>
+          <tr>
+            <td>ประเภทบริหาร</td>
+            <td align="right"><input name="M_QTY_TOTAL" type="text" class="textbox" id="M_QTY_TOTAL" style="text-align:right" value="<?=$M_QTY_TOTAL?>" size="5" readonly></td>
+            <td align="right"><input name="M_SALARY_TOTAL" type="text" class="textbox" id="M_SALARY_TOTAL" style="text-align:right" value="<?=number_format($M_SALARY_TOTAL,2)?>" size="8" readonly></td>
+          </tr>
+          <tr>
+            <td>รวม</td>
+            <td align="right"><input name="QTY_GRANDTOTAL" type="text" class="textbox" id="QTY_GRANDTOTAL" style="text-align:right" value="<?=$QTY_GRANDTOTAL?>" size="7" readonly></td>
+            <td align="right"><input name="SALARY_GRANDTOTAL" type="text" class="textbox" id="SALARY_GRANDTOTAL" style="text-align:right" value="<?=number_format($SALARY_GRANDTOTAL,2)?>" size="10" readonly></td>
+          </tr>
+          <tr>
+            <td>เงินประมาณ</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><input name="S_CP_BUDGET" type="text" class="textbox" id="S_CP_BUDGET" style="text-align:right" value="<?=number_format($CP_BUDGET,2)?>" size="12" readonly></td>
+          </tr>
+          <!--tr>
+            <td>เงินส่วนกันเลื่อน</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><input name="HOLD_SALARY" type="text" class="textbox" id="HOLD_SALARY" style="text-align:right" value="<?=number_format($HOLD_SALARY,2)?>" size="12" readonly></td>
+          </tr-->
+          <tr>
+            <td>ผลต่าง</td>
+            <td align="right">&nbsp;</td>
+            <td align="right"><input name="CP_SHOW" type="text" class="textbox" id="CP_SHOW" style="text-align:right" value="<?=number_format($CP_RESULT,2)?>" size="12" readonly>
+              <input type="hidden" name="CP_RESULT" value="<?=$CP_RESULT?>"></td>
+          </tr>
+        </table></td>
+        <td valign="top"><table width="100%" border="1" class="black_normal">
+          <tr align="center">
+            <td class="table_body">ระดับ</td>
+            <td class="table_body">จำนวนคน</td>
+            <td class="table_body">จำนวนเงิน</td>
+          </tr>
+          <?
+          foreach($AL_NAME as $key => $value) {
+          ?>
+          <tr>
+            <td><?=$value?></td>
+            <td align="right"><input name="QTY_KEY_SUM[<?=$key?>]" type="text" class="textbox" id="QTY_KEY_SUM[]" style="text-align:right" value="<?=$QTY_KEY_SUM[$value]?>" size="5" readonly></td>
+            <td align="right"><input name="SALARY_KEY_SUM[<?=$key?>]" type="text" class="textbox" id="SALARY_KEY_SUM[]" style="text-align:right" value="<?=number_format($SALARY_KEY_SUM[$value],2)?>" size="8" readonly></td>
+          </tr>
+          <? } ?>
+          <tr>
+            <td>รวม</td>
+            <td align="right"><input name="QTY_GRANDTOTAL2" type="text" class="textbox" id="QTY_GRANDTOTAL2" style="text-align:right" value="<?=$QTY_GRANDTOTAL?>" size="7" readonly></td>
+            <td align="right"><input name="SALARY_GRANDTOTAL2" type="text" class="textbox" id="SALARY_GRANDTOTAL2" style="text-align:right" value="<?=number_format($SALARY_GRANDTOTAL,2)?>" size="10" readonly></td>
+          </tr>
+        </table></td>
+        </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        </tr>
+    </table>
+                  <table width="95%" border="1" align="center" class="black_normal">
+                      <tr>
+                        <td colspan="9"><b>ประเภททั่วไป</b></td>
+                      </tr>
+                      <tr align="center">
+                        <td width="8%" class="table_body">ระดับ</td>
+                        <td colspan="2" class="table_body">ระดับปฏิบัติงาน</td>
+                        <td colspan="2" class="table_body">ระดับชำนาญงาน</td>
+                        <td colspan="2" class="table_body">ระดับอาวุโส</td>
+                        <td colspan="2" class="table_body">ระดับทักษะพิเศษ</td>
+                      </tr>
+                      <tr align="center">
+                        <td width="8%">&nbsp;</td>
+                        <td width="10%">จำนวนคน</td>
+                        <td width="13%">จำนวนเงิน</td>
+                        <td width="10%">จำนวนคน</td>
+                        <td width="13%">จำนวนเงิน</td>
+                        <td width="10%">จำนวนคน</td>
+                        <td width="13%">จำนวนเงิน</td>
+                        <td width="10%">จำนวนคน</td>
+                        <td width="13%">จำนวนเงิน</td>
+                      </tr>
+					  <?
+					  	foreach($AL_NAME as $key => $value) {
+							$QTY = $QTY_ARR[$key];
+                            $SALARY = $SALARY_ARR[$key];
+					  ?>
+                      <tr>
+                        <td><?=$value?></td>
+                        <td align="right"><input name="O1_QTY[<?=$key?>]" type="text" class="textbox" id="O1_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['O1']?>" size="5" readonly></td>
+                        <td align="right"><input name="O1_SARALY[<?=$key?>]" type="text" class="textbox" id="O1_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['O1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O2_QTY[<?=$key?>]" type="text" class="textbox" id="O2_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['O2']?>" size="5" readonly></td>
+                        <td align="right"><input name="O2_SARALY[<?=$key?>]" type="text" class="textbox" id="O2_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['O2'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O3_QTY[<?=$key?>]" type="text" class="textbox" id="O3_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['O3']?>" size="5" readonly></td>
+                        <td align="right"><input name="O3_SARALY[<?=$key?>]" type="text" class="textbox" id="O3_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['O3'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O4_QTY[<?=$key?>]" type="text" class="textbox" id="O4_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['O4']?>" size="5" readonly></td>
+                        <td align="right"><input name="O4_SARALY[<?=$key?>]" type="text" class="textbox" id="O4_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['O4'],2)?>" size="8" readonly></td>
+                      </tr>
+					  <?
+					  	}
+					  ?>
+                      <tr>
+                        <td align="right">รวม</td>
+                        <td align="right"><input name="O1_QTY_SUM" type="text" class="textbox" id="O1_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['O1']?>" size="5" readonly></td>
+                        <td align="right"><input name="O1_SALARY_SUM" type="text" class="textbox" id="O1_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['O1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O2_QTY_SUM" type="text" class="textbox" id="O2_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['O2']?>" size="5" readonly></td>
+                        <td align="right"><input name="O2_SALARY_SUM" type="text" class="textbox" id="O2_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['O2'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O3_QTY_SUM" type="text" class="textbox" id="O3_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['O3']?>" size="5" readonly></td>
+                        <td align="right"><input name="O3_SALARY_SUM" type="text" class="textbox" id="O3_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['O3'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="O4_QTY_SUM" type="text" class="textbox" id="O4_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['O4']?>" size="5" readonly></td>
+                        <td align="right"><input name="O4_SALARY_SUM" type="text" class="textbox" id="O4_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['O4'],2)?>" size="8" readonly></td>
+                      </tr>
+                    </table>
+                    <br>
+                    <table width="95%" border="1" align="center" class="black_normal">
+                      <tr>
+                        <td colspan="11"><b>ประเภทวิชาการ</b></td>
+                      </tr>
+                      <tr align="center">
+                        <td width="8%" class="table_body">ระดับ</td>
+                        <td colspan="2" class="table_body">ระดับปฏิบัติการ</td>
+                        <td colspan="2" class="table_body">ระดับชำนาญการ</td>
+                        <td colspan="2" class="table_body">ระดับชำนาญการพิเศษ</td>
+                        <td colspan="2" class="table_body">ระดับเชี่ยวชาญ</td>
+                        <td colspan="2" class="table_body">ระดับทรงคุณวุฒิ</td>
+                      </tr>
+                      <tr>
+                        <td>&nbsp;</td>
+                        <td width="9%" align="center">จำนวนคน</td>
+                        <td width="9%" align="center">จำนวนเงิน</td>
+                        <td width="9%" align="center">จำนวนคน</td>
+                        <td width="9%" align="center">จำนวนเงิน</td>
+                        <td width="9%" align="center">จำนวนคน</td>
+                        <td width="9%" align="center">จำนวนเงิน</td>
+                        <td width="9%" align="center">จำนวนคน</td>
+                        <td width="9%" align="center">จำนวนเงิน</td>
+                        <td width="9%" align="center">จำนวนคน</td>
+                        <td width="9%" align="center">จำนวนเงิน</td>
+                      </tr>
+					  <?
+						foreach($AL_NAME as $key => $value) {
+							$QTY = $QTY_ARR[$key];
+                            $SALARY = $SALARY_ARR[$key];
+					  ?>
+                      <tr>
+                        <td><?=$value?></td>
+                        <td align="right"><input name="K1_QTY[<?=$key?>]" type="text" class="textbox" id="K1_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['K1']?>" size="5" readonly></td>
+                        <td align="right"><input name="K1_SARALY[<?=$key?>]" type="text" class="textbox" id="K1_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['K1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K2_QTY[<?=$key?>]" type="text" class="textbox" id="K2_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['K2']?>" size="5" readonly></td>
+                        <td align="right"><input name="K2_SARALY[<?=$key?>]" type="text" class="textbox" id="K2_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['K2'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K3_QTY[<?=$key?>]" type="text" class="textbox" id="K3_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['K3']?>" size="5" readonly></td>
+                        <td align="right"><input name="K3_SARALY[<?=$key?>]" type="text" class="textbox" id="K3_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['K3'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K4_QTY[<?=$key?>]" type="text" class="textbox" id="K4_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['K4']?>" size="5" readonly></td>
+                        <td align="right"><input name="K4_SARALY[<?=$key?>]" type="text" class="textbox" id="K4_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['K4'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K5_QTY[<?=$key?>]" type="text" class="textbox" id="K5_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['K5']?>" size="5" readonly></td>
+                        <td align="right"><input name="K5_SARALY[<?=$key?>]" type="text" class="textbox" id="K5_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['K5'],2)?>" size="8" readonly></td>
+                      </tr>
+					  <? } ?>
+                      <tr>
+                        <td>รวม</td>
+                        <td align="right"><input name="K1_QTY_SUM" type="text" class="textbox" id="K1_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['K1']?>" size="5" readonly></td>
+                        <td align="right"><input name="K1_SALARY_SUM" type="text" class="textbox" id="K1_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['K1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K2_QTY_SUM" type="text" class="textbox" id="K2_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['K2']?>" size="5" readonly></td>
+                        <td align="right"><input name="K2_SALARY_SUM" type="text" class="textbox" id="K2_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['K2'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K3_QTY_SUM" type="text" class="textbox" id="K3_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['K3']?>" size="5" readonly></td>
+                        <td align="right"><input name="K3_SALARY_SUM" type="text" class="textbox" id="K3_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['K3'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K4_QTY_SUM" type="text" class="textbox" id="K4_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['K4']?>" size="5" readonly></td>
+                        <td align="right"><input name="K4_SALARY_SUM" type="text" class="textbox" id="K4_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['K4'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="K5_QTY_SUM" type="text" class="textbox" id="K4_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['K5']?>" size="5" readonly></td>
+                        <td align="right"><input name="K5_SALARY_SUM" type="text" class="textbox" id="K5_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['K5'],2)?>" size="8" readonly></td>
+                      </tr>
+                    </table>
+                    <br>
+                    <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td><table width="100%" border="1" align="center" class="black_normal">
+                      <tr>
+                        <td colspan="5"><b>ประเภทอำนวยการ</b></td>
+                      </tr>
+                      <tr align="center">
+                        <td width="16%" class="table_body">ระดับ</td>
+                        <td colspan="2" class="table_body">ระดับต้น</td>
+                        <td colspan="2" class="table_body">ระดับสูง</td>
+                      </tr>
+                      <tr>
+                        <td>&nbsp;</td>
+                        <td width="21%" align="center">จำนวนคน</td>
+                        <td width="21%" align="center">จำนวนเงิน</td>
+                        <td width="21%" align="center">จำนวนคน</td>
+                        <td width="21%" align="center">จำนวนเงิน</td>
+                        </tr>
+					  <?
+						foreach($AL_NAME as $key => $value) {
+							$QTY = $QTY_ARR[$key];
+                            $SALARY = $SALARY_ARR[$key];
+					  ?>
+                      <tr>
+                        <td><?=$value?></td>
+                        <td align="right"><input name="D1_QTY[<?=$key?>]" type="text" class="textbox" id="D1_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['D1']?>" size="5" readonly></td>
+                        <td align="right"><input name="D1_SARALY[<?=$key?>]" type="text" class="textbox" id="D1_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['D1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="D2_QTY[<?=$key?>]" type="text" class="textbox" id="D2_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['D2']?>" size="5" readonly></td>
+                        <td align="right"><input name="D2_SARALY[<?=$key?>]" type="text" class="textbox" id="D2_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['D2'],2)?>" size="8" readonly></td>
+                      </tr>
+					  <? } ?>
+                      <tr>
+                        <td>รวม</td>
+                        <td align="right"><input name="D1_QTY_SUM" type="text" class="textbox" id="D1_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['D1']?>" size="5" readonly></td>
+                        <td align="right"><input name="D1_SALARY_SUM" type="text" class="textbox" id="D1_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['D1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="D2_QTY_SUM" type="text" class="textbox" id="D2_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['D2']?>" size="5" readonly></td>
+                        <td align="right"><input name="D2_SALARY_SUM" type="text" class="textbox" id="D2_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['D2'],2)?>" size="8" readonly></td>
+                      </tr>
+                    </table></td>
+                        <td><table width="100%" border="1" align="center" class="black_normal">
+                      <tr>
+                        <td colspan="5"><b>ประเภทบริหาร</b></td>
+                      </tr>
+                      <tr align="center">
+                        <td width="16%" class="table_body">ระดับ</td>
+                        <td colspan="2" class="table_body">ระดับต้น</td>
+                        <td colspan="2" class="table_body">ระดับสูง</td>
+                      </tr>
+                      <tr>
+                        <td>&nbsp;</td>
+                        <td width="21%" align="center">จำนวนคน</td>
+                        <td width="21%" align="center">จำนวนเงิน</td>
+                        <td width="21%" align="center">จำนวนคน</td>
+                        <td width="21%" align="center">จำนวนเงิน</td>
+                        </tr>
+					  <?
+						foreach($AL_NAME as $key => $value) {
+							$QTY = $QTY_ARR[$key];
+                            $SALARY = $SALARY_ARR[$key];
+					  ?>
+                      <tr>
+                        <td><?=$value?></td>
+                        <td align="right"><input name="M1_QTY[<?=$key?>]" type="text" class="textbox" id="M1_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['M1']?>" size="5" readonly></td>
+                        <td align="right"><input name="M1_SARALY[<?=$key?>]" type="text" class="textbox" id="M1_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['M1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="M2_QTY[<?=$key?>]" type="text" class="textbox" id="M2_QTY[<?=$key?>]" style="text-align:right" value="<?=$QTY['M2']?>" size="5" readonly></td>
+                        <td align="right"><input name="M2_SARALY[<?=$key?>]" type="text" class="textbox" id="M2_SARALY[<?=$key?>]" style="text-align:right" value="<?=number_format($SALARY['M2'],2)?>" size="8" readonly></td>
+                      </tr>
+					  <? } ?>
+                      <tr>
+                        <td>รวม</td>
+                        <td align="right"><input name="M1_QTY_SUM" type="text" class="textbox" id="M1_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['M1']?>" size="5" readonly></td>
+                        <td align="right"><input name="M1_SALARY_SUM" type="text" class="textbox" id="M1_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['M1'],2)?>" size="8" readonly></td>
+                        <td align="right"><input name="M2_QTY_SUM" type="text" class="textbox" id="M2_QTY_SUM" style="text-align:right" value="<?=$QTY_SUM['M2']?>" size="5" readonly></td>
+                        <td align="right"><input name="M2_SALARY_SUM" type="text" class="textbox" id="M2_SALARY_SUM" style="text-align:right" value="<?=number_format($SALARY_SUM['M2'],2)?>" size="8" readonly></td>
+                      </tr>
+                    </table></td>
+                      </tr>
+                    </table>
+                  <br>                  </td>
+                </tr>
+                <tr align="center">
+                  <td height="30" colspan="4"><? if ($CP_ID || $UPD || $VIEW) { ?>
+                    <input type="submit" name="Reset2" value="ยกเลิก" onClick="form1.command.value='CANCEL';" class="button" >
+                    <?if($PAGE_AUTH["edit"]=="Y" && !$VIEW){?>
+                    <input name="Submit22" type="submit" class="button" onClick="return checkupdate(form1);" value="แก้ไข">
+					<input name="Submit8" style="width:100" type="submit" class="button" onClick="return confirm_test();" value="ยืนยันแบบทดสอบ" alt="ยืนยันแบบทดสอบ" title="ยืนยันแบบทดสอบ">	
+                    <?}?>
+                    <?if($PAGE_AUTH["del"]=="Y" && !$VIEW){?>
+                    <input name="Submit22" type="button" class="button" onClick="confirm_delete(<?=$CP_ID?>);" value="ลบ">
+                    <?}?>
+                    <? } else { ?>
+                    <input type="submit" name="Reset3" value="เคลียร์" onClick="form1.command.value='CANCEL';" class="button" >
+                    <?if($PAGE_AUTH["add"]=="Y"){?>
+                    <input name="Submit2" type="submit" class="button" onClick="return checkadd(form1);" value="เพิ่ม">
+                    <?}?>
+                    <? } ?>                  </td>
+                </tr>
+              </table></td>
+          </tr>
+        </table>
+         
+<table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">ค้นหาข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+                      <tr>
+                        <td height="22" align="right">ปีงบประมาณ&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="search_cp_year" value="<?=$search_cp_year?>" size="15" class="textbox" onKeyPress="DigitOnly();"></td>
+                        <td align="right">รอบการประเมิน&nbsp;:&nbsp;</td>
+                        <td><input type="checkbox" name="search_cp_cycle[]" value="1" <?=(in_array(1, $search_cp_cycle) || !isset($search_cp_cycle))?"checked":""?>>
+ครั้งที่ 1
+  <input type="checkbox" name="search_cp_cycle[]" value="2" <?=(in_array(2, $search_cp_cycle) || !isset($search_cp_cycle))?"checked":""?>>
+ครั้งที่ 2 </td>
+                      </tr><? if($SESS_USERGROUP_LEVEL < 5){ 
+							   if(!$SESS_ORG_ID) {  ?>
+                      <tr> 
+                        <td width="15%" height="22" align="right">สำนัก / กอง :&nbsp; </td>
+                        <td width="35%"><input type="text" name="search_org_name2" value="<?=$search_org_name2?>" style="width:75%" class="textbox"  readonly="true">
+                          <input type="hidden" name="search_org_id2" value="<?=$search_org_id2?>">
+                          <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                          <input type="button" name="btn_org2" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_org2()" >
+                          <input name="image2" type="image" onClick="form1.search_org_name2.value=''; form1.search_org_id2.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                          <? } // end if ?></td>
+                        <td width="15%" align="right">&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>					<? } }else{ echo "&nbsp;"; } // end if ?>  
+                      <tr> 
+                        <td height="22" colspan="4" align="center"><input name="Submit3" type="submit" class="button" onClick="form1.command.value='SEARCH';" value="ค้นหา">
+						<input name="Submit4" type="submit" class="button" onClick="  form1.search_org_name2.value=''; form1.search_org_id2.value=''; form1.command.value='SEARCH';form1.PER_ID.value=''; form1.search_kf_year.value='';form1.search_per_name.value=''; form1.search_per_surname.value='';" value="แสดงทั้งหมด"></td>
+                      </tr>
+                    </table></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+&nbsp;
+        <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+          <tr align="center" class="table_head">
+            <td width="3%"><input name="button" type="button" id="button" onClick="open_compare();" value="<?=$SELECT_TITLE?>"></td>
+            <td height="21"><strong>แบบทดสอบการบริหารค่าตอบแทน</strong></td>
+            <td width="8%"><strong>ปีงบประมาณ</strong></td>
+            <td width="5%"><strong>รอบที่</strong></td>
+			<? if($CTRL_TYPE!=4){ ?>
+      		<td width="15%" nowrap="nowrap" align="center"><strong><?=$DEPARTMENT_TITLE?></strong></td>
+			<? } ?>
+            <td width="15%"><strong>สำนัก/กอง</strong></td>
+            <td width="8%"><strong>งบประมาณ</strong></td>
+            <td width="8%">ขาด/เกิน</td>
+            <td width="4%">เรียกดู</td>
+            <td width="4%">รายละเอียด</td>
+            <?if($PAGE_AUTH["edit"]=="Y"){?>
+            <td width="4%">แก้ไข</td>
+            <?}?>
+            <?if($PAGE_AUTH["del"]=="Y"){?>
+            <td width="4%">ลบ</td>
+            <?}?>
+      <?if($PAGE_AUTH["print"]=="Y"){?>
+      <td width="4%">พิมพ์</td>
+      <?}?>	  
+          </tr>
+          <?
+	if ($SESS_USERGROUP_LEVEL!=1 && $search_department_id) $arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+  	if(trim($search_cp_year)){ 
+		if($DPISDB=="odbc"){ 
+			$arr_search_condition[] = "(LEFT(a.CP_START_DATE, 10) >= '". ($search_cp_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(LEFT(a.CP_END_DATE, 10) < '". ($search_cp_year - 543)."-10-01')";
+		}elseif($DPISDB=="oci8"){
+			$arr_search_condition[] = "(SUBSTR(a.CP_START_DATE, 1, 10) >= '". ($search_cp_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(SUBSTR(a.CP_END_DATE, 1, 10) < '". ($search_cp_year - 543)."-10-01')";
+		}elseif($DPISDB=="mysql"){
+			$arr_search_condition[] = "(LEFT(a.CP_START_DATE, 10) >= '". ($search_cp_year - 543 - 1)."-10-01')";
+			$arr_search_condition[] = "(LEFT(a.CP_END_DATE, 10) < '". ($search_cp_year - 543)."-10-01')";
+		} // end if
+	} // end if
+	if($search_org_id && $search_org_id != 'NULL') $arr_search_condition[] = "(org_id = $search_org_id)";
+	if($search_org_id2 && $search_org_id2 != 'NULL') $arr_search_condition[] = "(org_id = $search_org_id2)";
+	$arr_search_condition[] = "(a.CP_CYCLE in (". implode(",", $search_cp_cycle) ."))";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	$current_list = "";
+	$data_count = 0;
+	$cmd = "select CP_ID, CP_NAME, CP_CYCLE, CP_END_DATE, SF_CODE_O, SF_CODE_K, SF_CODE_D, SF_CODE_M, 
+					CP_BUDGET, CP_RESULT, CP_CONFIRM, ORG_ID
+						from per_compensation_test a
+						$search_condition ";
+	$db_dpis->send_cmd($cmd);
+ //echo $cmd;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_CP_ID = $data[CP_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_CP_ID;
+		$CP_CONFIRM = $data[CP_CONFIRM];
+		$TMP_ORG_ID = $data[ORG_ID];
+		if (!$TMP_ORG_ID) $TMP_ORG_ID = $search_department_id;
+
+		$cmd = " select ORG_NAME, ORG_ID_REF from PER_ORG where ORG_ID = $TMP_ORG_ID ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$ORG_ID_REF = $data1[ORG_ID_REF];
+	
+		$cmd = " select ORG_NAME from PER_ORG where OL_CODE='02' and ORG_ID=$ORG_ID_REF ";
+		$db_dpis1->send_cmd($cmd);
+		$data_dpis1 = $db_dpis1->get_array();
+		$ORG_REF_NAME = $data_dpis1[ORG_NAME];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($CP_ID==$TMP_CP_ID){
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if
+
+		$setstyle="";
+		if($CP_CONFIRM==1) $setstyle='bgcolor="#66CC33"';
+?>	     
+		  <tr class="<?=$class?>" <?=$onmouse_event?>>
+            <td align="center" <?=$setstyle?>><input type="checkbox" name="compare_id[]" id="compare_id[]" value="<?=$TMP_CP_ID?>"></td>
+            <td height="25">&nbsp;&nbsp;<?=$data[CP_NAME]?></td>
+            <td>&nbsp;&nbsp;<?=substr($data[CP_END_DATE],0,4)+543?></td>
+            <td align="center"><?=$data[CP_CYCLE]?></td>
+			<? if($CTRL_TYPE!=4){ ?>
+		      <td align="left">&nbsp;&nbsp;<?=$ORG_REF_NAME?></td>
+			<? } ?>
+            <td align="left">&nbsp;&nbsp;<?=$data1[ORG_NAME]?></td>
+            <td align="right"><?=number_format($data[CP_BUDGET],2)?>
+            &nbsp;</td>
+            <td align="right"><?=number_format($data[CP_RESULT],2) ?>&nbsp;</td>
+            <td align="center"><a href="<?=("javascript:form1.action+='?VIEW=1'; form1.CP_ID.value=$TMP_CP_ID; form1.submit();")?>"><img src="images/icon_eye.gif" alt="ดูข้อมูลคะแนนการประเมินในแต่ละรอบ" width="16" height="16" border="0"></a></td>
+            <td align="center"><a href="<?=("javascript:open_detail($TMP_CP_ID, $TMP_ORG_ID)")?>"><img src="images/desc.gif" alt="ดูข้อมูลคะแนนการประเมินในแต่ละรอบ" border="0"></a></td>
+            <?if($PAGE_AUTH["edit"]=="Y"){?>
+            <td align="center">&nbsp;
+              <? if($SESS_AL_CODE == $data[AL_CODE]){ ?>
+              <a href="<?=("javascript:form1.action+='?UPD=1'; form1.CP_ID.value=$TMP_CP_ID; form1.submit();")?>"><img src="images/b_edit.png" border="0" alt="แก้ไขคะแนนการประเมินในแต่ละรอบ"></a>
+              <? } ?>            </td>
+            <?}?>
+            <?if($PAGE_AUTH["del"]=="Y"){?>
+            <td align="center">&nbsp;<a href="<?=("javascript:confirm_delete($TMP_CP_ID);")?>"><img src="images/b_drop.png" border="0" alt="ลบคะแนนการประเมินในแต่ละรอบ"></a> </td>
+            <?}?>
+	  <?if($PAGE_AUTH["print"]=="Y"){?>
+      <td align="center">
+	  &nbsp;<?if($SESS_AL_CODE == $data[AL_CODE]){?><a href="<?=("javascript:print_form(".$TMP_CP_ID.")")?>"><img src="images/detail.gif" border="0" alt="พิมพ์รายงานแบบทดสอบการบริหารค่าตอบแทน" width="24" height="24"></a><?}?>	  </td>
+            <?}?>
+          </tr>
+	  
+          <? } ?>
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <tr class="table_footer" height="21">
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+			<? if($CTRL_TYPE!=4){ ?>
+		      <td>&nbsp;</td>
+			<? } ?>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <?if($PAGE_AUTH["edit"]=="Y"){?>
+            <td>&nbsp;</td>
+            <?}?>
+            <?if($PAGE_AUTH["del"]=="Y"){?>
+            <td>&nbsp;</td>
+            <?}?>
+            <?if($PAGE_AUTH["print"]=="Y"){?>
+            <td>&nbsp;</td>
+            <?}?>
+          </tr>
+          <?}?>
+        </table>
+         
+         <input type="hidden" name="current_list" value="<?=$current_list?>">
+      </form></td>
+  </tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

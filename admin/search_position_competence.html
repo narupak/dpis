@@ -1,0 +1,326 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	switch($CTRL_TYPE){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$PV_CODE = $PROVINCE_CODE;
+			$PV_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+
+	if($isLock){
+		$search_ministry_id = $MINISTRY_ID;
+		$search_ministry_name = $MINISTRY_NAME;
+		$search_department_id = $DEPARTMENT_ID;
+		$search_department_name = $DEPARTMENT_NAME;
+	} // end if
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	if(!$SEARCH_PER_TYPE) $SEARCH_PER_TYPE = 1;
+
+	if(trim($search_department_id)){
+		$arr_search_condition[] = "(a.DEPARTMENT_ID = $search_department_id)";
+	}elseif(trim($search_ministry_id)){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(a.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+  	if(trim($search_cp_code)) $arr_search_condition[] = "(a.CP_CODE like '$search_cp_code%')";
+  	if(trim($search_cp_name)) $arr_search_condition[] = "(b.CP_NAME like '%$search_cp_name%')";
+	$arr_search_condition[] = "(a.PER_TYPE=$SEARCH_PER_TYPE)";	
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(a.CP_CODE) as count_data 
+					 from 		PER_POSITION_COMPETENCE a, PER_COMPETENCE b
+					 where 	a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and a.PC_TARGET_LEVEL > 0
+					 				$search_condition
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>มาตรฐานสมรรถนะของผู้ดำรงตำแหน่ง</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function clear_form() {
+		form1.search_cp_code.value=''; 
+		form1.search_cp_name.value=''; 
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+		form1.search_ministry_id.value="";
+		form1.search_ministry_name.value="";
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+		form1.search_department_id.value="";
+		form1.search_department_name.value="";
+		<? } // end if ?>
+
+		form1.current_page.value=0;	
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<body>
+<form action="search_position_competence.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="totcp_page" value="<?=$totcp_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="POS_ID" value="<?=$POS_ID?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+              <tr>
+                <td width="15%" height="22" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                <td width="35%"><input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:85%" class="textbox" readonly>
+                  &nbsp;
+                  <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && !($isLock && $LOCK_MINISTRY_ID)){ ?>
+                  <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()">
+                  <? } // end if ?>
+                  <input type="hidden" name="search_ministry_id" value="<?=trim($search_ministry_id)?>">                </td>
+                <td width="15%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:85%" class="textbox" readonly>
+                  &nbsp;
+                  <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && !($isLock && $LOCK_DEPARTMENT_ID)){ ?>
+                  <input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()">
+                  <? } // end if ?>
+                  <input type="hidden" name="search_department_id" value="<?=trim($search_department_id)?>">                </td>
+              </tr>
+
+              <tr>
+                <td height="22" align="right">รหัส&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_cp_code" value="<?=$search_cp_code?>" style="width:90%" class="textbox" onKeyPress="return DigitOnly();"></td>
+                <td align="right">ชื่อสมรรถนะ&nbsp;:&nbsp;</td>
+                <td><input type="text" name="search_cp_name" value="<?=$search_cp_name?>" style="width:90%" class="textbox"></td>
+              </tr>
+              <tr>
+                <td height="7" colspan="4" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no">HIDDEN</iframe></td>
+              </tr>
+              <tr align="center">
+                <td height="25" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                  <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+                  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="clear_form();">
+                  <? } else { ?>
+                  <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                  <input name="image2" type="image" onClick="clear_form();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                  <?}?></td>
+              </tr>
+          </table></td>
+        </tr>
+      </table>
+      </td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลมาตรฐานสมรรถนะของผู้ดำรงตำแหน่ง ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$totcp_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($totcp_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record a.CP_CODE from PER_POSITION_COMPETENCE a, PER_COMPETENCE b 
+								where a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and 
+								a.PC_TARGET_LEVEL > 0 $search_condition order by a.CP_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[CP_CODE]'";
+				$limit_data = " and a.CP_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and a.CP_CODE not in ( select * from (select a.CP_CODE from PER_POSITION_COMPETENCE a, PER_COMPETENCE b 
+				where a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and 
+				a.PC_TARGET_LEVEL > 0 $search_condition order by a.CP_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page  a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL
+							 from 		PER_POSITION_COMPETENCE a, PER_COMPETENCE b
+							 where 	a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and a.PC_TARGET_LEVEL > 0
+											$search_condition
+											$limit_data
+							order by	a.CP_CODE ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+								 select 	a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL
+								 from 		PER_POSITION_COMPETENCE a, PER_COMPETENCE b
+								 where 	a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and a.PC_TARGET_LEVEL > 0
+												$search_condition
+												$limit_data
+								order by	a.CP_CODE
+							) where rownum <= $data_per_page ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL
+							 from 		PER_POSITION_COMPETENCE a, PER_COMPETENCE b
+							 where 	a.CP_CODE=b.CP_CODE and a.DEPARTMENT_ID=b.DEPARTMENT_ID and a.POS_ID=$POS_ID and a.PC_TARGET_LEVEL > 0
+											$search_condition
+							order by	a.CP_CODE
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//echo "<pre>". $cmd;
+//$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">สมรรถนะ</td>
+	<td width="20%" align="center">โมเดล</td>
+	<td width="10%" align="center">ระดับที่</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_CP_CODE = $data[CP_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_CP_CODE'";
+				$TMP_CP_NAME = trim($data[CP_NAME]);
+				$TMP_CP_MODEL = $data[CP_MODEL];
+				$TMP_PC_TARGET_LEVEL = $data[PC_TARGET_LEVEL];
+				
+				if($TMP_CP_MODEL==1) $TMP_CP_MODEL = "สมรรถนะหลัก";
+				elseif($TMP_CP_MODEL==2) $TMP_CP_MODEL = "สมรรถนะผู้บริหาร";
+				elseif($TMP_CP_MODEL==3) $TMP_CP_MODEL = "สมรรถนะประจำสายงาน";
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_CP_CODE<::>$TMP_CP_NAME<::>$TMP_PC_TARGET_LEVEL<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_CP_CODE?></td>
+    <td>&nbsp;<?=$TMP_CP_NAME?></td>
+	<td>&nbsp;<?=$TMP_CP_MODEL?></td>
+	<td align="center"><?=$TMP_PC_TARGET_LEVEL?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($totcp_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

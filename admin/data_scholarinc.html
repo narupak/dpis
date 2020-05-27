@@ -1,0 +1,465 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_scholarinc.php");
+	
+	if($_POST[SCH_NAME])	$SCH_NAME=$_POST[SCH_NAME];
+	if($_POST[SC_STARTDATE])	$SC_STARTDATE=$_POST[SC_STARTDATE];
+	if($_POST[SC_ENDDATE_OLD])	$SC_ENDDATE_OLD=$_POST[SC_ENDDATE_OLD];
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(sc_id , sc_date){
+		if(confirm("ต้องการลบข้อมูลการขยายระยะเวลาศึกษานี้ ใช่หรือไม่ [ " + sc_date + " ]?")){
+			form1.command.value = "DELETE";
+			arrValue = sc_id.split("<::>");			
+			form1.SC_ID.value = arrValue[0];
+			form1.SCI_BEGINDATE.value = arrValue[1];
+			form1.submit();
+		} // end if
+	}
+	
+	function confirm_save(command){
+		if (form1.SCI_BEGINDATE.value == "" || form1.SC_ENDDATE.value == "") { 
+			alert ("กรุณากรอกข้อมูลวันที่เริ่มขยายเวลา และวันที่สิ้นสุดขยายเวลาให้ครบถ้วน");
+		} else { 
+			form1.command.value = command;
+			//form1.submit();
+		} // end if
+	}
+
+	function call_search_person () {	
+		parameter = "";
+	    call_openDialog("search_person_scholar.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายชื่อผู้ได้รับทุน");		
+	}
+	
+	function checkadd(f) {
+		if(f.SCI_BEGINDATE.value=="") {
+			alert("กรุณาระบุ วันที่เริ่มขยายเวลา");
+			f.SCI_BEGINDATE.focus();
+			return false;
+		} else if(f.SC_ENDDATE.value=="") {
+			alert("กรุณาระบุ วันที่สิ้นสุดขยายเวลา");
+			f.SC_ENDDATE.focus();
+			return false;
+		} else  if(f.SCI_BEGINDATE.value && f.SC_ENDDATE.value) {
+			intMinDate = Date.parse(f.SCI_BEGINDATE.value);
+			intMaxDate = Date.parse(f.SC_ENDDATE.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ ไม่ถูกต้อง");
+				f.SC_ENDDATE.focus();
+				 return false;
+			}
+		} 
+		form1.command.value='ADD';
+		return true;
+	}
+		
+	function checkupdate(f) {
+		if(f.SCI_BEGINDATE.value=="") {
+			alert("กรุณาระบุ วันที่เริ่มขยายเวลา");
+			f.SCI_BEGINDATE.focus();
+			return false;
+		} else if(f.SC_ENDDATE.value=="") {
+			alert("กรุณาระบุ วันที่สิ้นสุดขยายเวลา");
+			f.SC_ENDDATE.focus();
+			return false;
+		} else  if(f.SCI_BEGINDATE.value && f.SC_ENDDATE.value) {
+			intMinDate = Date.parse(f.SCI_BEGINDATE.value);
+			intMaxDate = Date.parse(f.SC_ENDDATE.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วง วันที่ ไม่ถูกต้อง");
+				f.SC_ENDDATE.focus();
+				 return false;
+			}
+		}   
+		form1.command.value='UPDATE';
+		return true;
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_person_scholar") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.SC_ID.value = arrValue[0];
+				form1.PER_NAME.value = arrValue[1];
+				form1.SCH_NAME.value = arrValue[2];
+				form1.SC_STARTDATE.value = arrValue[3];
+				form1.SC_ENDDATE_OLD.value = arrValue[4];
+				form1.submit();
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+<?
+	if ($SC_ID) {
+		$cmd =" select 		count(SC_ID) as count_data 			
+						from 		PER_SCHOLARINC
+						where		SC_ID=$SC_ID	 ";
+		$db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+		$count_data = $data[count_data];	
+	}
+?>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top"><? $OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลการขยายระยะเวลาศึกษา":"") ; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_scholarinc.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="SC_ID" value="<?=$SC_ID?>">
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="25%" height="22" align="right"><?=$FULLNAME_TITLE?></td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?><? if ($BUTTON_DISPLAY==1) { ?>
+		<input name="btn2" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="call_search_person();"><?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="call_search_person();">
+              <? } echo "&nbsp; &nbsp;"; ?>
+		<? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+  onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td align="right">ชื่อทุน&nbsp;:&nbsp;</td>
+              <td><input type="text" name="SCH_NAME" value="<?=$SCH_NAME?>" style="width:93%" class="textbox" readonly></td>
+              <td align="right">&nbsp;</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td width="17%" align="right">วันที่เริ่มศึกษา&nbsp;:&nbsp;</td>
+              <td width="33%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" >
+				  	<input type="text" name="SC_STARTDATE" value="<?=$SC_STARTDATE?>" style="width:100%" class="textbox" readonly>				  </td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+              <td width="17%" height="22" align="right">วันที่สิ้นสุดระยะเวลาศึกษา&nbsp;:&nbsp;</td>
+              <td width="33%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" height="22">
+				  	<input type="text" name="SC_ENDDATE_OLD" value="<?=$SC_ENDDATE_OLD?>" style="width:100%" class="textbox" readonly>				  </td>
+                  <td>&nbsp;</td>
+                </tr>
+              </table></td>
+            </tr>	     
+	     <tr><td height="3"></td></tr>
+            <tr>
+              <td width="17%"  align="right"><span class="label_alert">*&nbsp;</span>วันที่เริ่มขยายเวลา&nbsp;:&nbsp;</td>
+              <td width="33%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%">
+				  	<input type="text" name="SCI_BEGINDATE" id="SCI_BEGINDATE" value="<?=$SCI_BEGINDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SCI_BEGINDATE,this.value)">				  </td>
+                  <td>&nbsp;&nbsp;<? if($SC_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="reset" class="button" onClick="return showCalendar('SCI_BEGINDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>" <?=($UPD)? "disabled" : ""; ?>>
+                    <? endif; ?></td>
+                </tr>
+              </table></td>
+              <td width="17%" align="right"><span class="label_alert">*&nbsp;</span>วันที่สิ้นสุดขยายเวลา&nbsp;:&nbsp;</td>
+              <td width="33%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="50%" >
+				  	<input type="text" name="SC_ENDDATE" id="SC_ENDDATE" value="<?=$SC_ENDDATE?>" style="width:100%" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.SC_ENDDATE,this.value)">				  </td>
+                  <td>&nbsp;&nbsp;<? if($SC_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                    <input type="reset" class="button" onClick="return showCalendar('SC_ENDDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+                    <? endif; ?></td>
+                </tr>
+              </table></td>
+            </tr>	     	     
+          </table></td>
+        </tr>
+		<? if($SC_ID) : ?>
+        <tr align="center">
+          <td height="30">
+		  		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+      		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <?}?> 
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';" class="button" >
+                <?  } else { ?>
+                <input name="image2" type="image" onClick="form1.command.value='CANCEL';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+                <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?>
+              <?if($PAGE_AUTH["add"]=="Y"){?>
+              <? if ($BUTTON_DISPLAY==1) { ?>
+              <input name="Submit_add" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+      		  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+              <?  } else { ?>
+              <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+              <? } echo "&nbsp; &nbsp;";?>
+              <?}?>
+          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+      </table></td>
+    </tr>
+  </table>
+&nbsp;
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+<tr>
+	<td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+	<tr height="22">
+	<? if ($count_data) { ?>
+<!--		<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+              <td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--			  
+              <td width="15%" align="right">
+			  <? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();">
+               <? }else{ echo "&nbsp;"; } ?>
+			   </td> -->
+	<? } ?>			  
+	</tr>
+	</table></td>
+</tr>
+</table>   
+<?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//วันที่เริ่ม
+		$order_str = "ORDER BY SCI_BEGINDATE  ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//วันที่สิ้นสุด
+		$order_str = "ORDER BY SC_ENDDATE   ".$SortType[$order_by];
+  	}
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(SC_ID) as concat_pk from PER_SCHOLARINC where SC_ID=$SC_ID $search_condition order by SCI_BEGINDATE desc ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = " and trim(SC_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="oci8"){		
+			$limit_data = " and trim(SC_ID) not in ( select SC_ID from (select trim(SC_ID) as concat_pk from PER_SCHOLARINC where SC_ID=$SC_ID $search_condition order by SCI_BEGINDATE desc) where rownum <= $start_record ) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+	
+	if ($SC_ID) {
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											SC_ID, SCI_BEGINDATE, SC_ENDDATE  
+							 from 		PER_SCHOLARINC
+							where 	SC_ID = $SC_ID 
+											$search_condition
+											$limit_data
+							$order_str ";
+		}elseif($DPISDB=="oci8"){	
+			$cmd = " select * 
+							 from (
+								SELECT 		SC_ID, SCI_BEGINDATE, SC_ENDDATE  
+								FROM			PER_SCHOLARINC
+								WHERE			SC_ID = $SC_ID 
+														$limit_data
+								$order_str 
+							 ) where rownum <= $data_per_page ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	SC_ID, SCI_BEGINDATE, SC_ENDDATE  
+							 from 		PER_SCHOLARINC
+							where 	SC_ID = $SC_ID 
+											$search_condition
+							$order_str 
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+	}
+	if ($count_page_data) {
+?>
+
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+      <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+
+      <td width="41%" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        วันที่เริ่มต้นขยายเวลา</strong></td>
+      <td width="40%" onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+      </strong>วันที่สิ้นสุดการขยายเวลา</td>
+      <td width="4%"><?=$INQ_TITLE;?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td width="4%"><?=$EDIT_TITLE;?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+		  <td width="4%"><?=$DEL_TITLE;?></td>
+      <?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	$num_order = ($current_page - 1) * $data_per_page;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$num_order++;
+		if($data_count > $data_per_page) break;
+		$TMP_SC_ID = $data[SC_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_SC_ID;
+		$TMP_SCI_BEGINDATE = show_date_format($data[SCI_BEGINDATE], 1);
+		$TMP_SC_ENDDATE = show_date_format($data[SC_ENDDATE], 1);		
+	
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if( ($SC_ID==$TMP_SC_ID) && ($SCI_BEGINDATE == $TMP_SCI_BEGINDATE) ){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$num_order?></td>
+      <td align="center"><?=$TMP_SCI_BEGINDATE?></td>
+      <td align="center">&nbsp;<?=$TMP_SC_ENDDATE?></td>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.SC_ID.value=$TMP_SC_ID;form1.SCI_BEGINDATE.value='$data[SCI_BEGINDATE]';form1.submit();"?>""><img src="images/icon_eye.gif" alt="เรียกดู" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.SC_ID.value=$TMP_SC_ID;form1.SCI_BEGINDATE.value='$data[SCI_BEGINDATE]';form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:confirm_delete($TMP_SC_ID + '<::>$TMP_SCI_BEGINDATE','$TMP_SCI_BEGINDATE - $TMP_SC_ENDDATE')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+  		  <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

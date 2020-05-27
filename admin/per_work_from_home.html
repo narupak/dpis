@@ -1,0 +1,878 @@
+<?php
+    include("../php_scripts/connect_database.php");
+    include("../php_scripts/calendar_data.php");
+    include("php_scripts/per_work_from_home.php");
+    
+    if(($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3 && trim($SESS_PER_ID)){
+        $arr_search_condition[] = "( a.PER_ID = $SESS_PER_ID or a.PER_ASSID_1 = $SESS_PER_ID or a.PER_ASSID_2 = $SESS_PER_ID )";
+    }
+    
+    if($search_org_id){
+        $arr_search_condition[] = "(b.ORG_ID = $search_org_id)";
+    }
+    
+    
+    if(trim($search_per_name)){
+        $arr_search_condition[] = "(a.PER_NAME like '%$search_per_name%')";
+    }   
+    if(trim($search_per_surname)){
+        $arr_search_condition[] = "(a.PER_NAME like '%$search_per_surname%')";
+    }
+    
+    if ($SESS_PER_ID){
+        if($search_onlyme_flag==1){
+            $arr_search_condition[] = "(a.PER_ID = $SESS_PER_ID)";
+        }
+    }
+    
+    if ($search_per_type){
+        $arr_search_condition[] = "(trim(b.PER_TYPE) = $search_per_type)";
+    }else if ($search_per_type==0)	{	//ทั้งหมด
+        $arr_search_condition[] = "(trim(b.PER_TYPE) in('1','2','3','4')) ";
+    }
+    
+    if ($search_work_desc){
+        $arr_search_condition[] = "(a.WORK_DESC like '%$search_work_desc%')";
+    }
+    
+    // SORT -----------------------
+    if(!$sort_by) $sort_by=1;
+    $sort_type = (isset($sort_type))?  $sort_type : "1:desc";
+    $arrSort=explode(":",$sort_type);
+    $SortType[$arrSort[0]]=$arrSort[1];
+
+    if(!$order_by) $order_by=1;
+
+    if($order_by==1){
+        $order_str = "a.PER_NAME ".$SortType[$order_by];
+    }elseif($order_by==2){
+        $order_str = "a.WORK_DESC ".$SortType[$order_by];
+    } elseif($order_by==3) {
+        $order_str = "a.GOAL_DESC ".$SortType[$order_by]; 	
+    } elseif($order_by==4) {
+        $order_str =  "a.END_DATE  ".$SortType[$order_by].", a.CREATE_DATE ".$SortType[$order_by];
+    }
+    //--------------------------------
+    
+    $search_condition = "";
+    if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+    $strSQL = " SELECT a.* FROM  
+                    PER_WORKHOME a , PER_PERSONAL b 
+                WHERE a.PER_ID=b.PER_ID $search_condition
+                ORDER BY $order_str";
+    $db_dpis->send_cmd($strSQL);
+    $data_counts = $db_dpis->num_rows(); 
+    $db_dpis1x->send_cmd($strSQL);
+    //echo "$strSQL";
+?>
+<html>
+    <head>
+        <title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+        <meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+        <link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+        <link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+    </head>
+    <script type="text/javascript" src="java_scripts/chk_date.js"></script>
+    <script type="text/javascript" src="java_scripts/calendar.js"></script>
+    <script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+    <script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+    <script language="JavaScript">
+        function call_edit_desc (wh_id, per_id) {
+            parameter = "";
+            if(wh_id > 0) parameter = "&WH_ID=" + wh_id +"&PER_ID_DESC=" + per_id;
+            call_openDialog("per_work_from_home_desc.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1200,800,"รายละเอียด");
+	}
+        
+        function set_check_all(ischecked,name,count_data){
+            for(var i=1; i <= count_data; i++){	
+                if(ischecked==true){
+                    if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+                }else{
+                    if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+                }
+            }
+        }
+        function set_all(classxs,checked){
+            $("."+classxs).prop('checked', checked);
+        }
+        
+        function call_sort(flag,valOrderBY) {
+            form1.order_by.value=flag;
+            form1.sort_by.value=flag;
+            if(form1.sort_type.value!=(flag+":"+valOrderBY)){
+                if(valOrderBY=='asc'){valOrderBY='desc';}
+                form1.sort_type.value=flag+":"+valOrderBY;
+            }else{
+                if(valOrderBY=='asc'){valOrderBY='desc';}else{valOrderBY='asc';}
+                form1.sort_type.value=flag+":"+valOrderBY;
+            }
+            form1.command.value='SEARCH';
+            form1.submit();
+        } // end function call_sort
+        
+        function call_search_org () {	
+            var DEPARTMENT_ID = "<?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"")?>";
+            if(DEPARTMENT_ID =="" && form1.search_department_id.value)	DEPARTMENT_ID = form1.search_department_id.value;
+            if(DEPARTMENT_ID != ""){
+                org_search_file ="search_org"
+                parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID+"&send_by=call_search_org";
+                call_openDialog(org_search_file+".html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");
+            }else{
+                <?php if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+                    alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+                <?php }else{ ?>
+                    alert('<?=$DEPARTMENT_ALERT?>');
+                    form1.btn_search_department.focus();
+                <?php } ?>
+            }
+	}
+        
+        function set_check_all(ischecked,name,count_data){
+            for(var i=1; i <= count_data; i++){	
+                var checkAct = document.getElementById(name+i);
+                if (checkAct) checkAct.checked=ischecked;
+            } 
+	}
+        
+        function checkadd(f) {
+            if(f.PER_ID.value=="") {
+                alert("กรุณาระบุ <?=$FULLNAME_TITLE;?>");
+                f.PER_NAME.focus();
+                return false;
+            } else if(f.TXT_WORKDESC.value=="") {
+                alert("กรุณาระบุ งานที่ได้รับมอบหมาย");
+                f.TXT_WORKDESC.focus();
+                return false;
+            } else if(f.TXT_GOALDESC.value=="") {
+                alert("กรุณาระบุ เป้าหมาย/ผลผลิตที่คาดหวัง");
+                f.TXT_GOALDESC.focus();
+                return false;
+            } else if(f.PER_ASSID_2.value=="") {
+                alert("กรุณาระบุ ผู้บังคับบัญชา (ผอ.)");
+                f.PERASS_NAME_2.focus();
+                return false;
+            }else if(f.WORKHOME_END_DATE.value==""){
+                alert("กรุณาระบุ วันที่กำหนดแล้วเสร็จ");
+                f.PERASS_NAME_2.focus();
+                return false;
+            }else{
+                document.getElementById("Submit_add").disabled = true;
+                form1.command.value='ADD';
+                form1.submit();
+                return true;
+            }
+        }
+		
+        function checkupdate(f) {
+            if(f.PER_ID.value=="") {
+                alert("กรุณาระบุ <?=$FULLNAME_TITLE;?>");
+                f.PER_NAME.focus();
+                return false;
+            } else if(f.TXT_WORKDESC.value=="") {
+                alert("กรุณาระบุ งานที่ได้รับมอบหมาย");
+                f.TXT_WORKDESC.focus();
+                return false;
+            } else if(f.TXT_GOALDESC.value=="") {
+                alert("กรุณาระบุ เป้าหมาย/ผลผลิตที่คาดหวัง");
+                f.TXT_GOALDESC.focus();
+                return false;
+            } else if(f.PER_ASSID_2.value=="") {
+                alert("กรุณาระบุ ผู้บังคับบัญชา (ผอ.)");
+                f.PERASS_NAME_2.focus();
+                return false;
+            }else if(f.WORKHOME_END_DATE.value==""){
+                alert("กรุณาระบุ วันที่กำหนดแล้วเสร็จ");
+                f.PERASS_NAME_2.focus();
+                return false;
+            }else{				
+                f.command.value='UPDATE';
+                return true;
+            }
+        }
+        
+        function confirm_delete(data_id, per_id, data_label){
+            if(confirm("ต้องการลบข้อมูลวันที่ [ " + data_label + " ] ใช่หรือไม่?")){
+                form1.command.value = "DELETE";
+                form1.WH_ID.value = data_id;
+                form1.PER_ID.value = per_id;
+                form1.submit();
+            }
+	}
+        
+        function call_search_person(type) {
+            if(form1.DEPARTMENT_ID.value.trim()==""){
+                alert('<?=$DEPARTMENT_ALERT?>');
+                form1.btn_department.focus();
+                return false;
+            }
+            var send_bys;
+            var param_org = "";
+            if(form1.ORG_ID.value && form1.ORG_NAME.value){
+                param_org = "&search_org_id="+form1.ORG_ID.value+"&search_org_name="+form1.ORG_NAME.value;
+            }
+            
+            if(type==1){
+                send_bys = "PERSON1";
+            }else if(type==2){
+                send_bys = "PERSON2";
+            }else{
+                send_bys = "PERSON3";
+            }
+            parameter = "&HAVEPOS_ONLY=0&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value+"&send_by="+send_bys + param_org;
+            call_openDialog("es_search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");
+	}
+        
+        function show_all_absent () {
+            form1.search_org_name.value = ''; 
+            form1.search_org_id.value = ''; 
+            form1.search_per_name.value = '';
+            form1.search_per_surname.value = ''; 
+            form1.search_work_desc.value = ''; 
+            form1.search_per_type[0].selected = true;
+            form1.search_onlyme_flag.checked = false;
+            form1.current_page.value=0;	
+            form1.submit();
+        }
+        
+        function returnFrom(src, returnValue){
+            if  (src.indexOf("es_search_person") > -1) {
+                if(returnValue){
+                    arrValue = returnValue.split("<::>");  
+                    if (arrValue[20]=="PERSON1") {
+                        form1.PER_ID.value = arrValue[0];
+                        form1.PER_NAME.value = arrValue[19];
+                        form1.PER_CARDNO.value = arrValue[2];
+                        form1.ORG_NAME.value = arrValue[4];
+                        form1.ORG_ID.value = arrValue[9];
+                        form1.PER_LINE.value = arrValue[21]+" "+arrValue[7];
+                        form1.PER_MG.value = arrValue[22];
+                    } else if (arrValue[20]=="PERSON2") {
+                        form1.PER_ASSID_1.value = arrValue[0];
+                        form1.PERASS_NAME_1.value = arrValue[19];
+                        form1.PERASS_LINE_1.value = arrValue[21]+" "+arrValue[7];
+                        form1.PERASS_MG_1.value = arrValue[4];
+                    } else {
+                        form1.PER_ASSID_2.value = arrValue[0];
+                        form1.PERASS_NAME_2.value = arrValue[19];
+                        form1.PERASS_LINE_2.value = arrValue[21]+" "+arrValue[7];
+                        form1.PERASS_MG_2.value = arrValue[22];
+                    }
+                } // end if
+            }else if  (src.indexOf("search_org") > -1) {
+                if(returnValue){
+                    arrValue = returnValue.split("<::>");
+                    if (arrValue[7]=="call_search_org") {
+                            form1.search_org_id.value = arrValue[0];
+                            form1.search_org_name.value = arrValue[1];
+                    }else if (arrValue[7]=="call_select_ministry") {
+                            form1.MINISTRY_ID.value = arrValue[0];
+                            form1.MINISTRY_NAME.value = arrValue[1];
+                            form1.DEPARTMENT_ID.value = "";
+                            form1.DEPARTMENT_NAME.value = "";
+                    }else if (arrValue[7]=="call_select_department") {
+                            form1.DEPARTMENT_ID.value = arrValue[0];
+                            form1.DEPARTMENT_NAME.value = arrValue[1];
+                    }else if (arrValue[7]=="call_search_ministry") {
+                            form1.search_ministry_id.value = arrValue[0];
+                            form1.search_ministry_name.value = arrValue[1];
+                            form1.search_department_id.value = "";
+                            form1.search_department_name.value = "";
+                    }else if (arrValue[7]=="call_search_department") {
+                            form1.search_department_id.value = arrValue[0];
+                            form1.search_department_name.value = arrValue[1];
+                    }else if (arrValue[7]=="call_search_orgname_view") {
+                        form1.hidden_org_id.value = arrValue[0];
+                        form1.ORG_NAME.value = arrValue[1];
+                    }
+                } // end if
+            }
+	}
+        
+    </script>
+    <?php
+        if ($UPD || $VIEW){
+            $Submit = "Submit_edit";
+        }else{
+            $Submit = "Submit_add";
+        }    
+    ?>
+    <span id="defaultTheme"></span>
+    <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+            <?  if(!$HIDE_HEADER){ ?>
+            <tr>
+                <td height="10"><?include("header_menu.html")?></td>
+            </tr>
+            <? } ?>
+            <tr> 
+                <td align="left" valign="top">
+                <?	
+                    $OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลkpi รายบุคคล":"") ;
+                    if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+                    include("current_location.html");
+                ?>	  
+                </td>
+            </tr>
+            <tr>
+                <td align="left" valign="top">
+                    <form name="form1" method="post" action="per_work_from_home.html?<?=$current_url?>" enctype="multipart/form-data">
+                        <input type="hidden" name="current_page" value="<?=$current_page?>">
+                        <input type="hidden" name="total_page" value="<?=$total_page?>">
+                        <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+                        <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+                        <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+                        <input type="hidden" name="command" value="">
+                        <input type="hidden" name="CF_TYPE" value="<?=$CF_TYPE?>">
+                        <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">&nbsp; 
+                        <input type="hidden" name="WH_ID" value="<?=$WH_ID?>">
+                        <input type="hidden" name="PER_ID_EDIT" value="<?=$PER_ID_EDIT?>">
+                        <input type="hidden" name="current_url" value="<?=$current_url?>">
+                        <table width="95%" align="center" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td>
+                                    <table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+                                        <tr>
+                                            <td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+                                        </tr>		
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+                            <tr>
+                                <td>
+                                    <table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                                        <tr><td height="5"></td></tr>
+                                        <tr>
+                                            <td width="20%" align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE;?>&nbsp;:&nbsp;</td>
+                                            <td width="30%">
+                                                <input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:75%" class="readonly" readonly="">
+                                                <? if($PAGE_AUTH["add"]=="Y" &&  !$UPD &&  (!$SESS_PER_ID)) : ?>
+                                                    <input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="javascript:call_search_person(1);">
+                                                <? endif; ?>
+                                                <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+                                                <input type="hidden" name="PER_CARDNO" value="<?=$PER_CARDNO?>">
+                                                <input type="hidden" name="PER_LINE" value="<?=$PER_LINE?>">
+                                                <input type="hidden" name="PER_MG" value="<?=$PER_MG?>">
+                                            </td>
+                                            <td width="18%" height="22" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                                            <td width="32%">
+                                                <input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:75%" class="textbox" readonly>
+                                                <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+                                                <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+                                                    <input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_select_ministry(form1);">
+                                                    <input name="image" type="image" onClick="form1.MINISTRY_ID.value=''; form1.MINISTRY_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                                                <? } // end if ?>			   
+                                            </td>
+                                            
+                                        </tr>
+                                        <tr>
+                                            <td height="22" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+                                            <td>
+                                                <input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>" style="width:75%" class="textbox" readonly>
+                                                <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+                                            </td>
+                                            <td width="18%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                                            <td width="32%">
+                                                <input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:75%" class="textbox" readonly>
+                                                <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+                                                <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4 && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW){ ?>
+                                                    <input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_select_department(form1);">
+                                                    <input name="image" type="image" onClick="form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                                                <? } // end if ?>
+                                            </td>
+                                        </tr>
+                                        <tr><td colspan="4"><td height="3"><!--<hr style="width: 98%">---></td></tr>
+                                        
+                                        <!-- =============================================== div เจ้าของงาน =============================================== -->
+                                        <tr>
+                                            <td nowrap="nowrap" valign="top" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;งานที่ได้รับมอบหมาย &nbsp;<br> (ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+                                            <td colspan="2" >
+                                                <textarea name="TXT_WORKDESC" maxlength="2000" rows="6" class="selectbox" style="width:98%"  <?=((($SESS_PER_ID==$PER_ID && ($ASSIGN_FLAG_1!=1 && $ASSIGN_FLAG_2!=1)) || $SESS_USERGROUP == 1)?"":"readonly")?> spellcheck="false"><?=$TXT_WORKDESC?></textarea>
+                                            </td>
+                                        </tr>
+                                        <tr><td height="5"></td></tr>
+                                        <tr> 
+                                            <td nowrap="nowrap" valign="top" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย/ผลผลิตที่คาดหวัง &nbsp;<br> (ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td> 
+                                            <td colspan="2" ><textarea maxlength="2000" name="TXT_GOALDESC" rows="6" class="selectbox" style="width:98%" <?=((($SESS_PER_ID==$PER_ID && ($ASSIGN_FLAG_1!=1 && $ASSIGN_FLAG_2!=1)) || $SESS_USERGROUP == 1)?"":"readonly")?> spellcheck="false"><?=$TXT_GOALDESC?></textarea></td>
+                                        </tr>
+                                        <tr><td height="5"></td></tr>
+                                        <tr>
+                                            <td align="right" valign="top">&nbsp;<span class="label_alert">*</span>&nbsp;วันที่กำหนดแล้วเสร็จ&nbsp;:&nbsp;</td>
+                                            <td valign="top">
+                                                <input type="text" name="WORKHOME_END_DATE" <?=((($SESS_PER_ID==$PER_ID && ($ASSIGN_FLAG_1!=1 && $ASSIGN_FLAG_2!=1)) || $SESS_USERGROUP == 1)?"":"readonly")?>  id="WORKHOME_END_DATE" value="<?=$WORKHOME_END_DATE?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat_zero(form1.WORKHOME_END_DATE,this.value)"> &nbsp;&nbsp;
+                                                <?php if((($SESS_PER_ID==$PER_ID && ($ASSIGN_FLAG_1!=1 && $ASSIGN_FLAG_2!=1)) || $SESS_USERGROUP == 1)){ ?>
+                                                    <input type="reset" name="btn_enddate" onClick="return showCalendar('WORKHOME_END_DATE', 'dd/mm/y');" value="เลือก"> &nbsp; 
+                                                <?php } ?>
+                                            </td>
+                                        </tr>
+                                        <tr><td colspan="4"><hr style="width: 98%"></td></tr>
+                                        
+                                        <!-- =============================================== div ผู้มอบหมายงาน =============================================== -->
+                                        <tr>
+                                            <td width="20%" align="right" height="22" style="color:#0000FF">&nbsp;ผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+                                            <td width="30%">
+                                                <input type="text" name="PERASS_NAME_1" value="<?=$PERASS_NAME_1?>" style="width:75%" class="readonly" readonly=""> 
+                                                <?php if(($SESS_PER_ID==$PER_ID && $ASSIGN_FLAG_1!=1) || $SESS_USERGROUP == 1){ ?>
+                                                    <input name="btn2" type="button" class="button" value="เลือก" onclick="call_search_person(2);">
+                                                    <input type="image" src="images/icon_clear.gif" width="22" height="22" onclick="form1.PERASS_NAME_1.value='';form1.PER_ASSID_1.value='';form1.PERASS_LINE_1.value='';form1.PERASS_MG_1.value=''; return false;" align="center" alt="ล้างค่า">
+                                                <?php } ?>
+                                                <input type="hidden" name="PER_ASSID_1" value="<?=$PER_ASSID_1?>">
+                                                <input type="hidden" name="PERASS_LINE_1" value="<?=$PERASS_LINE_1?>">
+                                                <input type="hidden" name="PERASS_MG_1" value="<?=$PERASS_MG_1?>">
+                                            </td>
+                                            <td width="20%" align="right" height="22" style="color:#0000FF"><span class="label_alert">*</span>&nbsp;ผู้บังคับบัญชา (ผอ.)&nbsp;:&nbsp;</td>
+                                            <td width="30%">
+                                                <input type="text" name="PERASS_NAME_2" value="<?=$PERASS_NAME_2?>" style="width:75%" class="readonly" readonly="">
+                                                <?php if(($SESS_PER_ID==$PER_ID && $ASSIGN_FLAG_2!=1) || $SESS_USERGROUP == 1){ ?>
+                                                    <input name="btn2" type="button" class="button" value="เลือก" onclick="call_search_person(3);">
+                                                    <input type="image" src="images/icon_clear.gif" width="22" height="22" onclick="form1.PERASS_NAME_2.value='';form1.PER_ASSID_2.value='';form1.PERASS_LINE_2.value='';form1.PERASS_MG_2.value=''; return false;" align="center" alt="ล้างค่า">
+                                                <?php } ?>
+                                                <input type="hidden" name="PER_ASSID_2" value="<?=$PER_ASSID_2?>">
+                                                <input type="hidden" name="PERASS_LINE_2" value="<?=$PERASS_LINE_2?>">
+                                                <input type="hidden" name="PERASS_MG_2" value="<?=$PERASS_MG_2?>">
+                                            </td>
+                                        </tr>
+                                        <tr><td height="5"></td></tr>
+                                        <tr> 
+                                            <input type="hidden" name="ASSIGN_FLAG_1_HIDDEN" value="<?=$ASSIGN_FLAG_1;?>">
+                                            <input type="hidden" name="ASSIGN_DATE_1" value="<?=$ASSIGN_DATE_1;?>">
+                                            <? if( ($UPD || $VIEW) ){ ?>
+                                                <td  nowrap="nowrap" align="right" <?=(($SESS_PER_ID==$PER_ASSID_1)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+                                                <td><input name="ASSIGN_FLAG_1" type="radio" value="1" onclick="form1.ASSIGN_FLAG_1_HIDDEN.value='1';" <?=(($ASSIGN_FLAG_1==1)?"checked":"")?> 
+                                                    <?=(($SESS_PER_ID==$PER_ASSID_1  || $SESS_USERGROUP==1)?"":"disabled")?> >&nbsp;เห็นชอบ&nbsp;&nbsp;
+                                                    <input name="ASSIGN_FLAG_1" type="radio" value="0" onclick="form1.ASSIGN_FLAG_1_HIDDEN.value='';"
+                                                    <?=(($SESS_PER_ID==$PER_ASSID_1  || $SESS_USERGROUP==1)?"":"disabled")?> >&nbsp;ยังไม่เห็นชอบ
+                                                </td>
+                                            <? }else{ ?>
+                                                <td></td>
+                                                <td></td>
+                                            <? } ?>
+                                            <input type="hidden" name="ASSIGN_FLAG_2_HIDDEN" value="<?=$ASSIGN_FLAG_2;?>">
+                                            <input type="hidden" name="ASSIGN_DATE_2" value="<?=$ASSIGN_DATE_2;?>">
+                                             <? if( ($UPD || $VIEW) ){ ?>
+                                                <td  nowrap="nowrap" align="right" <?=(($SESS_PER_ID==$PER_ASSID_2)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชา (ผอ.)&nbsp;:&nbsp;</td>
+                                                <td><input name="ASSIGN_FLAG_2" type="radio" value="1" onclick="form1.ASSIGN_FLAG_2_HIDDEN.value='1';" <?=(($ASSIGN_FLAG_2==1)?"checked":"")?> 
+                                                    <?=(($SESS_PER_ID==$PER_ASSID_2  || $SESS_USERGROUP==1)?"":"disabled")?> >&nbsp;เห็นชอบ&nbsp;&nbsp;
+                                                    <input name="ASSIGN_FLAG_2" type="radio" value="0" onclick="form1.ASSIGN_FLAG_2_HIDDEN.value='';" 
+                                                    <?=(($SESS_PER_ID==$PER_ASSID_2  || $SESS_USERGROUP==1)?"":"disabled")?>  >&nbsp;ยังไม่เห็นชอบ
+                                                </td>
+                                            <? }else{ ?>
+                                                <td></td>
+                                                <td></td>
+                                            <? } ?>
+                                        </tr>
+                                        <tr><td height="5"></td></tr>
+                                        <!-- =============================================== div Action =============================================== -->
+                                        <tr align="center">
+                                            <td height="30" colspan="4">
+                                                <? if ($UPD || $VIEW) { ?>
+                                                    <? if($PAGE_AUTH["edit"]=="Y" && !$VIEW && ($SESS_USERGROUP==1 || ($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3 || $SESS_USERGROUP_LEVEL==5)){?>
+                                                        <? if ($BUTTON_DISPLAY==1) { ?>
+                                                            <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$BNT_EDIT_TITLE?>">
+                                                        <? } else { ?>
+                                                            <input name="image" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$BNT_EDIT_TITLE?>" border="0">
+                                                            &nbsp;&nbsp;&nbsp;
+                                                        <? } ?>
+                                                    <? } ?>
+                                                    <?	if ($BUTTON_DISPLAY==1) { ?>
+                                                        <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';" class="button" >
+                                                    <? } else { ?>
+                                                        <input name="image" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+                                                        &nbsp;&nbsp;&nbsp;
+                                                    <?}?>
+                                                <? } else { ?>
+                                                    <?if($PAGE_AUTH["add"]=="Y" && ($SESS_USERGROUP==1 || ($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3 || $SESS_USERGROUP_LEVEL==5)){?>
+                                                        <? if ($BUTTON_DISPLAY==1) { ?>
+                                                            <input name="Submit_add" id="Submit_add" type="submit" class="button" onClick="return checkadd(form1);"  value="<?=$ADD_TITLE?>">
+                                                        <? } else { ?>
+                                                            <input name="Submit_add" id="Submit_add" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">&nbsp;&nbsp;&nbsp;
+                                                        <? } ?>
+                                                    <?}?> 
+                                                    <? 	if ($BUTTON_DISPLAY==1) { ?>
+                                                        <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+                                                    <? } else { ?>
+                                                        <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+                                                    <?}?>
+                                                <? } ?>
+                                            </td>
+                                        </tr>
+                                        <tr><td height="2"></td></tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table> <br>
+                        <!--- ===============================================  Search Section  =============================================== --->
+                        <table width="95%" align="center" cellpadding="0" cellspacing="0">
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+                                            <tbody>
+                                                <tr>
+                                                    <td height="22" align="center" class="table_body">ค้นหาข้อมูล</td>
+                                                </tr>		
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal" onkeypress="return keyEnter(event,document.form1.Submit3);">
+                                            <tbody>
+                                                <tr>
+                                                    <td height="22" align="center">
+                                                        <table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                                                            <tbody>
+                                                                <tr><td height="5"></td></tr>
+                                                                <tr>
+                                                                    <td width="18%" height="22" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                                                                    <td width="32%">
+                                                                        <input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:75%" class="textbox" readonly>
+                                                                        <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+                                                                        <? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+                                                                            <input type="button" name="btn_search_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry(form1);">
+                                                                            <input name="image" type="image" onClick="form1.search_ministry_id.value=''; form1.search_ministry_name.value=''; form1.search_department_id.value=''; form1.search_department_name.value=''; form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                                                                        <? } // end if ?>			   
+                                                                    </td>
+                                                                    <td width="18%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                                                                    <td width="32%">
+                                                                        <input type="text" name="search_department_name" value="<?=$search_department_name?>" style="width:75%" class="textbox" readonly>
+                                                                        <input type="hidden" name="search_department_id" value="<?=$search_department_id?>">
+                                                                        <? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+                                                                            <input type="button" name="btn_search_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();">
+                                                                            <input name="image" type="image" onClick="form1.search_department_id.value=''; form1.search_department_name.value=''; form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                  
+                                                                        <? } // end if ?>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td height="22" align="right"><?=$ORG_TITLE?>&nbsp;:&nbsp;</td>
+                                                                    <td>
+                                                                        <input type="text" name="search_org_name" value="<?=$search_org_name?>" style="width:75%" class="textbox" readonly>
+                                                                        <input type="hidden" name="search_org_id" value="<?=$search_org_id?>">
+                                                                        <? if($SESS_USERGROUP_LEVEL < 5){ ?>
+                                                                            <input type="button" name="btn_org2" class="button" value="<?=$SELECT_TITLE?>" onClick="call_search_org();">
+                                                                            <input name="image" type="image" onClick="form1.search_org_id.value=''; form1.search_org_name.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">                        </td>
+                                                                        <? }  ?>
+                                                                    </td>
+                                                                </tr>			  
+                                                                <tr> 
+                                                                    <td height="22" width="20%" align="right">ชื่อ&nbsp;:&nbsp;</td>
+                                                                    <td><input name="search_per_name" type="text" class="textbox" style="width:75%" value="<?=$search_per_name?>"></td>
+                                                                    <td align="right" >นามสกุล&nbsp;:&nbsp;</td>
+                                                                    <td><input name="search_per_surname" type="text" class="textbox" style="width:75%" value="<?=$search_per_surname?>"></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td align="right">ประเภทบุคลากร&nbsp;:&nbsp;</td>
+                                                                    <td width="18%">
+                                                                        <select name="search_per_type" onKeyPress="return keyEnter(event,document.form1.Submit3);">
+                                                                            <?  foreach($PERSON_TYPE as $key=>$value){  
+                                                                                    $disinput[$key] = ""; $disinput[0]=""; $chinput[$key] = "";		
+                                                                                    if($SESS_PER_TYPE==0){	//ทั้งหมด
+                                                                                        if(trim($search_per_type)){
+                                                                                            $chinput[$SESS_PER_TYPE] = ""; $chinput[$search_per_type] = " selected";
+                                                                                        }else{
+                                                                                            $chinput[$SESS_PER_TYPE] = " selected";
+                                                                                        }
+                                                                                    }else{
+                                                                                        $chinput[$key]=" selected"; $chinput[0]=""; $disinput[$key]=""; $styleline[$key]="display:block";
+                                                                                    } ?>
+                                                                                        <option value="<?=$key; ?>" <?=$chinput[$key]." ".$disinput[$key]; ?>><?=$value; ?></option>
+                                                                            <?  } ?>
+                                                                            <? if($SESS_PER_TYPE==0 && $BKK_FLAG!=1){ ?><option value="0" <?=$chinput[0]." ".$disinput[0]; ?>>ทั้งหมด</option><? } ?>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td align="right"></td>
+                                                                    <td >
+                                                                        <label>
+                                                                            <input type="checkbox" name="search_onlyme_flag" value="<?=($search_onlyme_flag)?($search_onlyme_flag):1; ?>" 
+                                                                                <?=(($search_onlyme_flag==1)?"checked":"")?>>
+                                                                            &nbsp;เฉพาะงานตนเอง
+                                                                        </label>
+                                                                    </td>
+                                                                </tr>
+                                                                <!--<tr>
+                                                                    <td align="right">&nbsp;สถานะ&nbsp;:&nbsp;</td>
+                                                                    <td >
+                                                                        <select name="search_abs_approve" id="search_abs_approve" onkeypress="return keyEnter(event,document.form1.Submit3);">
+                                                                            <option value="4" selected="">ทั้งหมด</option>
+                                                                            <option value="3" >กำลังดำเนินการ</option>
+                                                                            <option value="1">แล้วเสร็จ</option>
+                                                                        </select>
+                                                                    </td>
+                                                                </tr>--->
+                                                                <tr> 
+                                                                    <td height="22" align="right">งานที่มอบหมาย&nbsp;:&nbsp;</td>
+                                                                    <td ><input name="search_work_desc" type="text" class="textbox" style="width:75%" value="<?=$search_work_desc?>"></td>
+                                                                </tr>
+                                                                <tr align="center">
+                                                                    <td height="30" colspan="4">
+                                                                        <? if ($BUTTON_DISPLAY==1) { ?>
+                                                                            <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE?>" title="ค้นหาข้อมูล" onClick="form1.current_page.value=0;">
+                                                                            <input name="btn4" type="button" class="button" value="<?=$SHOW_ALL_TITLE?>" title="แสดงทั้งหมด" onClick="show_all_absent();">
+                                                                        <? } else { ?>
+                                                                            <input name="image22" type="image" onClick="form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                                                                            <input name="image23" type="image" onClick="show_all_absent();" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                                                                        <?}?>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <!-- =============================================== Div DESC =============================================== -->
+                        <table width="95%" align="center" border="0" cellspacing="0" cellpadding="0">
+                            <tbody>
+                                <tr>    
+                                    <td>
+                                        <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+                                            <tbody>
+                                                <tr>
+                                                    <td>
+                                                        <input type="hidden" name="order_by" value="<?=$order_by?>">
+                                                        <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+                                                        <input type="hidden" name="sort_type" value="<?=$sort_type?>">&nbsp;&nbsp;
+                                                        <font color="#FF0000">
+                                                            <b>*</b>
+                                                        </font> 
+                                                        <font color="#000000">สามารถเรียงลำดับได้</font>, &nbsp;
+                                                        <img src="images/b_arrow_down.png" border="0">&nbsp;เรียงจากมากไปน้อย , &nbsp;
+                                                        <img src="images/b_arrow_up.png" border="0">&nbsp;เรียงจากน้อยไปมาก
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        <table border="0">
+                                            <tbody><tr>
+                                                <td>
+                                                    <img src="images/ball_orange.gif" width="11" height="11" hspace="4">&nbsp;กำลังดำเนินการ
+                                                </td>
+                                                <td>
+                                                    <img src="images/ball_green.gif" width="11" height="11" hspace="4">&nbsp;แล้วเสร็จ
+                                                </td>
+                                            </tr>
+                                        </tbody></table>
+                                        <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+                                            <tbody>
+                                                <tr>
+                                                    <td align="center" height="22">พบข้อมูลทั้งสิ้น <?=$data_counts?> รายการ</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>  
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        
+                        <!-- =============================================== Div Show Data =============================================== -->
+                        <?php if($data_counts > 0){ ?>
+                           
+                            <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+                                <tbody>
+                                    <tr align="center" class="table_head">
+                                        <td width="4%" height="25"><span class="style1">ลำดับที่</span></td>
+                                        <td width="10%" onclick="call_sort(1,'<?php echo $SortType[$order_by];?>');">
+                                            <span class="style1">
+                                                <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+                                                    ผู้ปฏิบัติงาน
+                                            </span>
+                                        </td>
+                                        <td width="5%" >
+                                            <!--<font size="3" color="#FF0000"><b>*</b></font>-->ผู้บังคับบัญชา <br> ระดับต้น
+                                        </td>
+                                        <td width="5%"  >
+                                            <!--<font size="3" color="#FF0000"><b>*</b></font>-->ผู้บังคับบัญชา
+                                        </td>
+                                        <td width="8%" >
+                                            <!--<font size="3" color="#FF0000"><b>*</b></font>-->ชื่อผู้บังคับบัญชา
+                                        </td>
+                                        <td width="20%" onclick="call_sort(2,'<?php echo $SortType[$order_by];?>');">
+                                            <span class="style1">
+                                                <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+                                                    งานที่มอบหมาย
+                                            </span>
+                                        </td>
+                                        <td width="20%" onclick="call_sort(3,'<?php echo $SortType[$order_by];?>');">
+                                            <span class="style1">
+                                                <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+                                                    เป้าหมาย/ <br> ผลผลิตที่คาดหวัง
+                                            </span>
+                                        </td>
+                                        <td width="8%" onclick="call_sort(4,'<?php echo $SortType[$order_by];?>');" >
+                                            <span class="style1">
+                                                <? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+                                                    วันที่กำหนดแล้วเสร็จ
+                                            </span>
+                                        </td> 
+                                        <td width="3%" >สถานะ</td>
+                                        <td width="5%">ผลงานจริง</td>
+                                        <td width="4%"><span class="style2"><?=$INQ_TITLE;?></span></td>
+                                        <td width="3%">แก้ไข</td>
+                                        <td width="3%">ลบ</td>
+                                        <!--<td width="3%"> พิมพ์<br>(แบบ1)</td>
+                                        <td width="3%">พิมพ์<br>(แบบ2)</td>-->
+                                        <!--ชุดไฟล์แนบ-->
+                                        <!--<td width="3%">จำนวนไฟล์</td>
+                                        <td width="3%"><span class="style2">แนบไฟล์ </span></td>-->
+                                        <!--END ชุดไฟล์แนบ-->
+                                    </tr>
+                                    <?php $idx=0;
+										$IS_ASSID = 0;
+                                        while($datax = $db_dpis1x->get_array()){ 
+                                            $idx++;
+                                            $TMP_WH_ID = $datax[WH_ID];
+                                            
+                                            $TMP_PER_ID = $datax[PER_ID];
+                                            $TMP_PER_CARDNO = $datax[PER_CARDNO];
+                                            $TMP_PER_ASSID_1 = $datax[PER_ASSID_1];
+                                            $TMP_PER_ASSID_2 = $datax[PER_ASSID_2];
+                                            if(($SESS_PER_ID==$TMP_PER_ASSID_1 || $SESS_PER_ID==$TMP_PER_ASSID_2) && $IS_ASSID==0){
+                                                $IS_ASSID = 1;
+                                            }
+                                            $TMP_WORK_DESC = (strlen($datax[WORK_DESC])>45)?substr($datax[WORK_DESC],0,45)."...":$datax[WORK_DESC];
+                                            $TMP_GOAL_DESC = (strlen($datax[GOAL_DESC])>45)?substr($datax[GOAL_DESC],0,45)."...":$datax[GOAL_DESC];
+                                            $TMP_END_DATE = substr($datax[END_DATE],6,2).'/'.substr($datax[END_DATE],4,2).'/'.substr($datax[END_DATE],0,4);
+                                            $TMP_ASSIGN_FLAG_1 = $datax[ASSIGN_FLAG_1];
+                                            $TMP_ASSIGN_FLAG_2 = $datax[ASSIGN_FLAG_2];
+                                            $TMP_PER_NAME = $datax[PER_NAME];
+                                            $TMP_PER_LINE = $datax[PER_LINE];
+                                            $TMP_PER_MG = $datax[PER_MG];
+                                            $TMP_PERASS_NAME_1 = $datax[PERASS_NAME_1];
+                                            $TMP_PERASS_LINE_1 = $datax[PERASS_LINE_1];
+                                            $TMP_PERASS_MG_1 = $datax[PERASS_MG_1];
+                                            $TMP_PERASS_NAME_2 = $datax[PERASS_NAME_2];
+                                            $TMP_PERASS_NAME2_ARR = explode(" ",$datax[PERASS_NAME_2]);
+                                            $TMP_PERASS_LINE_2 = $datax[PERASS_LINE_2];
+                                            $TMP_PERASS_MG_2 = $datax[PERASS_MG_2];
+                                            $TMP_WORK_FLAG = ($datax[WORK_FLAG])?"":"";
+                                            $TMP_COLORS = ($datax[WORK_FLAG])?'<img src="images/ball_green.gif" width="11" title="แล้วเสร็จ" height="11" hspace="4">':'<img src="images/ball_orange.gif" title="กำลังดำเนินการ" width="11" height="11" hspace="4">';
+                                            
+                                            $GET_DATE_NOW_A = explode("-",$DATENOWS);
+                                            $DATE_EX = explode(" ",$GET_DATE_NOW_A[2]);
+                                            $DATE_NOWWS =  ($GET_DATE_NOW_A[0]+543).$GET_DATE_NOW_A[1].$DATE_EX[0];
+                                            if(!$datax[WORK_FLAG] && $DATE_NOWWS > $datax[END_DATE]){
+                                                $TMP_WORK_FLAG = "";
+                                                $TMP_COLORS = '';
+                                            }
+                                            
+                                            $class = "table_body_5";
+                                            $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body_5';\" ";
+                                            if($WH_ID==$TMP_WH_ID){ 
+                                              $class = "table_body_over";
+                                              $onmouse_event = "";
+                                            } // end if	
+                                            
+                                            
+                                    ?>
+                                        <tr class="<?=$class?>" <?=$onmouse_event?> style="">
+                                            <td height="25" align="center"><?=$idx?></td>
+                                            <td>&nbsp;<?=$TMP_PER_NAME?></td>
+                                            <td align="center">
+                                                <?php if($TMP_ASSIGN_FLAG_1==1){ ?>
+                                                    <img src="images/true.gif" width="16" height="16" border="0" accesskey="" alt="ผู้บังคับบัญชาชั้นต้น : <?=$TMP_PERASS_NAME_1?>(ตรวจสอบงาน)">
+                                                <?php }else{ ?>
+                                                    <?php if(($SESS_PER_ID==$TMP_PER_ASSID_1 || $SESS_USERGROUP == 1) && $TMP_PER_ASSID_1){ ?>
+                                                        <input type="checkbox" class="chk1" title="<?=$TMP_PERASS_NAME_1?>" name="list_chk_assid_1[]" value="<?=$TMP_WH_ID?>"  >
+                                                    <?php }else{ echo "-"; } ?>
+                                                <?php } ?>
+                                            </td>
+                                            <td align="center">
+                                                <?php if($TMP_ASSIGN_FLAG_2==1){ ?>
+                                                    <img src="images/true.gif" width="16" height="16" border="0" accesskey="" alt="ผู้บังคับบัญชา (ผอ.) : <?=$TMP_PERASS_NAME_2?>(ยืนยันงาน)">
+                                                <?php }else{ ?>
+                                                    <?php if(($SESS_PER_ID==$TMP_PER_ASSID_2 || $SESS_USERGROUP == 1) && $TMP_PER_ASSID_2){ ?>
+                                                        <input type="checkbox" class="chk2" title="<?=$TMP_PERASS_NAME_2?>" name="list_chk_assid_2[]" value="<?=$TMP_WH_ID?>"  >
+                                                    <?php }else{ echo "-"; } ?>
+                                                <?php } ?>
+                                            </td>
+                                            <td>&nbsp;<?=$TMP_PERASS_NAME2_ARR[0]?></td>
+                                            <td >&nbsp; <?=$TMP_WORK_DESC?></td>
+                                            <td >&nbsp; <?=$TMP_GOAL_DESC?></td>
+                                            <td align="center">&nbsp;<?=$TMP_END_DATE?></td>
+                                            <td align="center">&nbsp;<?=$TMP_COLORS?>&nbsp;<?=$TMP_WORK_FLAG?></td>
+                                            <td align="center"><a href="<?=("javascript:call_edit_desc($TMP_WH_ID, $TMP_PER_ID);")?>"><img src="images/desc.gif" alt="ดูรายละเอียด" width="24" height="24" border="0"></a>&nbsp;</td>
+                                            <td align="center">&nbsp;<a href="<?="javascript:form1.action+='&VIEW=1';form1.WH_ID.value=$TMP_WH_ID; form1.PER_ID_EDIT.value=$TMP_PER_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลการลา" width="16" height="16" border="0"></a></td>
+                                            <td align="center">
+                                                <?php if(($SESS_PER_ID==$TMP_PER_ID && ($TMP_ASSIGN_FLAG_2!=1 || $TMP_ASSIGN_FLAG_1!=1)) || $SESS_USERGROUP == 1 || $SESS_PER_ID==$TMP_PER_ASSID_1 || $SESS_PER_ID==$TMP_PER_ASSID_2){ ?>
+                                                    <a href="<?=("javascript:form1.action+='&UPD=1'; form1.WH_ID.value=$TMP_WH_ID; form1.PER_ID_EDIT.value=$TMP_PER_ID; form1.submit();")?>"><img src="images/b_edit.png" border="0" title="แก้ไข"></a>
+                                                <?php }else{ echo "-"; } ?>
+                                            </td>
+                                            <td align="center">
+                                                <?php if(($SESS_PER_ID==$TMP_PER_ID && ($TMP_ASSIGN_FLAG_2!=1 && $TMP_ASSIGN_FLAG_1!=1) ) || $SESS_USERGROUP == 1){ ?>
+                                                    <a href="<?=("javascript:confirm_delete(".$TMP_WH_ID.", ".$TMP_PER_ID.", '$TMP_END_DATE')")?>"><img src="images/b_drop.png" border="0" title="ลบข้อมูล"></a>
+                                                <?php }else{ echo "-"; } ?>
+                                            </td>
+                                            <!--ชุดไฟล์แนบ-->
+                                            <!--เพิ่มเติมนับจำนวน-->
+                                            <!--<td align="center">  -  </td>-->
+                                            <!-- End เพิ่มเติมนับจำนวน-->
+                                            <!--<td align="center"><a href="javascript:call_menu_desc('TA_REQUESTTIME','5621','บันทึกคำร้องไม่ได้ลงเวลา','14433')"><img src="images/file.jpg" border="0" alt="แนบไฟล์ข้อมูล"></a></td>-->
+                                            <!--END ชุดไฟล์แนบ -->
+                                        </tr>
+                                    <?php } ?>
+                                    <tr class="table_footer" height="21">
+                                        <td><span class="style3"></span></td>
+                                        <td>&nbsp;</td>
+                                        <td align="center">
+                                            <?php if($IS_ASSID==1 || $SESS_USERGROUP == 1){?>
+                                                <input type="checkbox" name="list_score_all1" id="list_score_all1" value="1" onclick="set_all('chk1',this.checked)" title="อนุญาตทั้งหมด" >
+                                                <? if ($BUTTON_DISPLAY==1) { ?>
+                                                    <input type="submit" name="Submit44" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG1'" class="button" style="width:98%" title="บันทึก">
+                                                <?  } else { ?>
+                                                    <input name="image34" type="image" onClick="form1.command.value='SETFLAG1'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0"  title="บันทึก">
+                                                <? } ?>
+                                            <? } ?>
+                                        </td>
+                                        <td align="center">
+                                            <?php if($IS_ASSID==1 || $SESS_USERGROUP == 1){?>
+                                                <input type="checkbox" name="list_score_all2" id="list_score_all2" onclick="set_all('chk2',this.checked)" value="1" title="อนุญาตทั้งหมด" >
+                                                <? if ($BUTTON_DISPLAY==1) { ?>
+                                                    <input type="submit" name="Submit44" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG2'" class="button" style="width:98%" title="บันทึก">
+                                                <?  } else { ?>
+                                                    <input name="image34" type="image" onClick="form1.command.value='SETFLAG2'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0"  title="บันทึก">
+                                                <? } ?>
+                                            <? } ?>
+                                        </td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <!--<td>&nbsp;</td>-->
+                                        <td align="center">&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        <!--ชุดไฟล์แนบ-->
+                                        <!--<td>&nbsp;</td>
+                                        <td>&nbsp;</td>-->
+                                        <!--END ชุดไฟล์แนบ-->
+                                    </tr>
+                                </tbody>
+                            </table>
+                        <?php } ?>
+                    </form>
+                </td>
+            </tr>
+        </table>  
+        <?
+            include("jqModalDialog.html");
+        ?>
+    </body>
+    <script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+    <script type="text/javascript">
+        setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+    </script>
+</html>

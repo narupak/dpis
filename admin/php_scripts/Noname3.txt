@@ -1,0 +1,62 @@
+	if ($command=='CHILD'){
+		$cmd = " delete from PER_FAMILY where FML_TYPE = 4 ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+
+// บุตรข้าราชการ 8714 
+		$cmd = " select max(FML_ID) as MAX_ID from PER_FAMILY ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$MAX_ID = $data1[MAX_ID] + 1;
+
+		$cmd = " SELECT a.ID, GOVCHILD_ORDER, GOVCHILD_NAME, GOVCHILD_DATE
+						  FROM GOV_CHILD a, COMMON_HISTORY b
+						  WHERE a.ID=b.ID
+						  ORDER BY a.ID ";
+		$db_dpis35->send_cmd($cmd);
+//		$db_dpis35->show_error();
+//		echo "<br>";
+		$PER_FAMILY = 0;
+		while($data = $db_dpis35->get_array()){
+			$PER_ID = trim($data[ID]);
+			$FML_TYPE = 4;
+			$GOVCHILD_NAME = trim($data[GOVCHILD_NAME]); 
+			$GOVCHILD_DATE = trim($data[GOVCHILD_DATE]);
+			$FML_BIRTHDATE = ($GOVCHILD_DATE)? ((substr($GOVCHILD_DATE, 4, 4) - 543) ."-". substr($GOVCHILD_DATE, 2, 2) ."-". substr($GOVCHILD_DATE, 0, 2)) : "";
+			$FML_NAME = trim($data[GOVCHILD_NAME]);
+			$FML_SURNAME = trim($data[CHILD_LNAME]);
+			if ($FML_NAME || $FML_SURNAME) {
+				$FML_GENDER = trim($data[CHILD_SEX]);
+				if (!$FML_GENDER) $FML_GENDER = 0;
+				if (!$FML_ALIVE) $FML_ALIVE = 1;
+
+				$cmd = " insert into PER_FAMILY (FML_ID, PER_ID, FML_TYPE, PN_CODE, FML_NAME, FML_SURNAME, FML_CARDNO, 
+								FML_GENDER, FML_BIRTHDATE,	FML_ALIVE, RE_CODE, MR_CODE, UPDATE_USER, UPDATE_DATE)
+								values ($MAX_ID, $PER_ID, $FML_TYPE, '$PN_CODE', '$FML_NAME', '$FML_SURNAME',  '$FML_CARDNO', 
+								$FML_GENDER, '$FML_BIRTHDATE', $FML_ALIVE, '$RE_CODE', '$MR_CODE', $SESS_USERID, '$UPDATE_DATE') ";
+				$db_dpis->send_cmd($cmd);
+
+				$cmd1 = " SELECT FML_ID FROM PER_FAMILY WHERE FML_ID = $MAX_ID "; 
+				$count_data = $db_dpis1->send_cmd($cmd1);
+				if (!$count_data) {
+					echo "$cmd<br>==================<br>";
+					$db_dpis->show_error();
+					echo "<br>end ". ++$i  ."=======================<br>";
+				}
+				$MAX_ID++; 
+				$PER_FAMILY++; 
+			}
+		} // end while						
+
+		$cmd = " select count(FML_ID) as COUNT_NEW from PER_FAMILY where FML_TYPE = 4 ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$COUNT_NEW = $data2[COUNT_NEW] + 0;
+		echo "PER_FAMILY - $PER_FAMILY - $COUNT_NEW<br>";
+
+		$db_dpis->free_result();
+		$db_dpis1->free_result();
+		$db_dpis2->free_result();
+		$db_dpis35->free_result();
+		$db_dpis351->free_result(); 
+	} // end if

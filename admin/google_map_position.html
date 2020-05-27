@@ -1,0 +1,114 @@
+<?
+	//include("php_scripts/load_per_control.php");
+?>
+<html>
+<head>
+<title> ? Google</title>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+<script type="text/javascript">
+  var geocoder;
+  var map;
+  var infowindow = new google.maps.InfoWindow();
+  var marker;
+  function initialize(lat,lng) {
+	var mylat;
+	var mylng;
+	if (lat==0) {
+		mylat=13.7525;
+	} else {
+		mylat=lat;
+	}
+	if (lng==0) {
+		mylng=100.4945;
+	} else {
+		mylng=lng;
+	}
+    geocoder = new google.maps.Geocoder();
+    var myLatlng = new google.maps.LatLng(mylat, mylng);
+    var myOptions = {
+      zoom: 15,
+      center: myLatlng,
+      mapTypeId: google.maps.MapTypeId.ROADMAP
+    }
+	codeLatLng();
+    map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+    google.maps.event.addListener(map, 'click', function(event) {    form1.POS_LAT.value=event.latLng.lat(); form1.POS_LONG.value=event.latLng.lng(); codeLatLng(); });
+  }
+  function codeLatLng() {
+    var lat = document.getElementById("POS_LAT").value;
+    var lng = document.getElementById("POS_LONG").value;
+	if ((lat != 0) || (lng != 0)) {
+		var latlng = new google.maps.LatLng(lat, lng);
+    	if (geocoder) {
+      		geocoder.geocode({'latLng': latlng}, function(results, status) {
+        		if (status == google.maps.GeocoderStatus.OK) {
+          			if (results[1]) {
+            			marker = new google.maps.Marker({
+                			position: latlng, 
+                			map: map
+            			}); 
+            			infowindow.setContent(results[1].formatted_address);
+            			infowindow.open(map, marker);
+          		 	} else {
+            			alert("????");
+          			}
+        		} else {
+          			alert("??????? Status: " + status);
+        		}
+      	  	});
+	    }
+	} else { // lat==0 and lng==0
+	    var org = document.getElementById("ORG_NAME").value;
+    	var ap = document.getElementById("AP_NAME").value;
+    	var pv = document.getElementById("PV_NAME").value;
+    	var ct = document.getElementById("CT_NAME").value;
+  		var address = org+(ap > '' ? ","+ap : "")+(pv > '' ? ","+pv : "")+(ct > '' ? ","+ct : "");
+		if (geocoder) {      
+			geocoder.geocode( { 'address': address}, function(results, status) {        
+				if (status == google.maps.GeocoderStatus.OK) {          
+					map.setCenter(results[0].geometry.location);          
+					var marker = new google.maps.Marker({              
+						map: map,               
+						position: results[0].geometry.location    
+					}); 
+           			infowindow.setContent(results[0].formatted_address);
+           			infowindow.open(map, marker);
+					form1.POS_LAT.value=results[0].geometry.location.lat(); 
+					form1.POS_LONG.value=results[0].geometry.location.lng();
+				} else { 
+					alert("?? Status: " + status);        
+				}
+			});
+		}
+    } // end if latlng
+  }
+</script>
+<script type="text/javascript">
+function do_submit() {
+    var returnValue = document.form1.POS_LAT.value+"<::>"+document.form1.POS_LONG.value;
+	parent.refresh_opener(returnValue);
+	form1.submit();
+}
+</script>
+</head>
+<body style="margin:0px; padding:0px;" onLoad="initialize(<?=($POS_LAT==NULL? 0 : $POS_LAT)?>,<?=($POS_LONG==NULL? 0 : $POS_LONG)?>)" scroll=no>
+<div style="position:absolute"><? echo "?? $ORG_NAME $AP_NAME $PV_NAME $CT_NAME"; ?></div>
+  <div id="map_canvas" style="left:10; top:20; width:770; height:450"></div>
+  <div style="position:absolute">
+  <form name="form1" method="post" enctype="multipart/form-data" onSubmit="do_submit()">
+  <input type="hidden" name="ORG_NAME" value="<?=$ORG_NAME?>" readonly="">
+  <input type="hidden" name="AP_NAME" value="<?=$AP_NAME?>" readonly="">
+  <input type="hidden" name="PV_NAME" value="<?=$PV_NAME?>" readonly="">
+  <input type="hidden" name="CT_NAME" value="<?=$CT_NAME?>" readonly="">
+  <input type="text" name="POS_LAT" value="<?=($POS_LAT==NULL? 0 : $POS_LAT)?>">
+  <input type="text" name="POS_LONG" value="<?=($POS_LONG==NULL? 0 : $POS_LONG)?>">
+<!--   <input name="btn" type="submit" class="button" value="submit" onClick=";"> -->
+  <input name="btn2" type="submit" class="button" value="submit">
+  </form>
+  </div>
+</body>
+</html>

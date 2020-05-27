@@ -1,0 +1,324 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+//	include("php_scripts/function_share.php");
+	$table = "PER_TIME"; //ตั้งค่าเพื่อส่งข้อมูลในการ เพิ่มข้อมูล
+	$menu_detail = "เวลาทวีคูณ >";  //ส่งค่าให้ insert log
+	include("php_scripts/master_table_time.php"); 
+	include("php_scripts/load_per_control.php");
+	include("../php_scripts/calendar_data.php");
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_time_code)) $arr_search_condition[] = "(TIME_CODE like '$search_time_code%')";
+  	if(trim($search_time_name)) $arr_search_condition[] = "(TIME_NAME like '%$search_time_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(TIME_CODE) as count_data 
+					 from 		PER_TIME
+					 where 	TIME_ACTIVE=1
+					 				$search_condition
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>เวลาทวีคูณ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function checkadd_filed(chk_btn){   //ไว้เปิดฟิลด์ให้เพิ่มข้อมูลได้
+		var chk_btn;
+		if(chk_btn == 1)
+  		form1.command.value='ADD_FILED';
+		else 
+		form1.command.value='';
+		return true;
+} // end function 	
+function checkadd(f) {
+	if(f.<?=$arr_fields[0]?>.value=="") {
+		alert("กรุณาระบุ รหัส");
+		f.<?=$arr_fields[0]?>.focus();
+		return false;
+		} 
+		else if(f.<?=$arr_fields[1]?>.value=="") {
+		alert("กรุณาระบุ ชื่อ");
+		f.<?=$arr_fields[1]?>.focus();
+		return false;
+		}
+		else if(f.<?=$arr_fields[2]?>.value=="") {
+		alert("กรุณาระบุ วันเริ่มต้น");
+		f.<?=$arr_fields[2]?>.focus();
+		return false;
+		}
+		else if(f.<?=$arr_fields[3]?>.value=="") {
+		alert("กรุณาระบุ วันสิ้นสุด");
+		f.<?=$arr_fields[3]?>.focus();
+		return false;
+		}
+		else if(f.<?=$arr_fields[4]?>.value=="") {
+		alert("กรุณาระบุ วันรวม");
+		f.<?=$arr_fields[4]?>.focus();
+		return false;
+		}
+		else  	
+		form1.command.value='ADD';
+		return true;
+		} // end function
+function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+function calcDaysBetweenDate(){
+		var str_start_date = form1.<?=$arr_fields[2]?>.value;
+		var str_end_date = form1.<?=$arr_fields[3]?>.value;
+		if(str_start_date){
+			var arrTmp = str_start_date.split("/");
+			var start_year = parseInt(arrTmp[2]) - 543;
+			var start_month = arrTmp[1];
+			var start_date = arrTmp[0];
+			str_start_date = start_month + "/" + start_date + "/" + start_year;
+		}else{
+			alert("ใส่วันที่เริ่มต้น");
+			form1.<?=$arr_fields[4]?>.value = "";
+			form1.<?=$arr_fields[2]?>.focus();
+			return false;
+		} // end if
+		if(str_end_date){
+			var arrTmp = str_end_date.split("/");
+			var end_year = parseInt(arrTmp[2]) - 543;
+			var end_month = arrTmp[1];
+			var end_date = arrTmp[0];
+			str_end_date = end_month + "/" + end_date + "/" + end_year;
+		}else{
+			alert("ใส่วันที่สิ้นสุด");
+			form1.<?=$arr_fields[4]?>.value = "";
+			form1.<?=$arr_fields[3]?>.focus();
+			return false;
+		} // end if
+//		alert(str_start_date + " vs " + str_end_date);
+		var dayNum = calcDBD(str_start_date, str_end_date);
+//		var dayNum = myDBD(str_start_date, str_end_date);
+		if(dayNum == false || dayNum == "false"){ 
+			return false;
+		}else{ 
+			form1.<?=$arr_fields[4]?>.value = dayNum;
+			return true;
+		} // end if
+	}
+</script>
+<body>
+<form action="search_time.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+<?if($command != "ADD_FILED") {?>
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr><?=$err_text.$success_sql?>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_time_code" value="<?=$search_time_code?>" style="width:98%" class="textbox"></td>
+              <td width="20%" align="right">ชื่อเวลาทวีคูณ&nbsp;:&nbsp;</td>
+              <td><input type="text" name="search_time_name" value="<?=$search_time_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+                <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_time_code.value=''; form1.search_time_name.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_time_code.value=''; form1.search_time_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+						<? if ($ADD_NEW_FLAG == 1){ ?> 
+				<input name="image" type="image" onClick="return checkadd_filed(1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+						<?}?>
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลเวลาทวีคูณทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+  <?}else{?>
+   <table width="85%" align="center" border="1" cellpadding="1" cellspacing="1" > <!--เริ่ม-->
+			<tr> 
+			<td colspan="4" align="center" class="table_body">เพิ่มข้อมูล</td>
+			</tr>
+			<tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;รหัส&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="text" name="<?=$arr_fields[0]?>" value="" style="width:30%" size="30" class="textbox" ></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;<?=$NAME_TITLE?>&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="text" name="<?=$arr_fields[1]?>" value="" style="width:70%" class="textbox" ></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><?=$OTHERNAME_TITLE?>&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><textarea name="<?=$arr_fields[9]?>" rows="3" class="selectbox" style="width:70%"></textarea></td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;วันที่เริ่มต้น&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left">
+			<input name="<?=$arr_fields[2]?>" type="text" class="textbox" id="<?=$arr_fields[2]?>" value="<?=$$arr_fields[2]?>" size="30" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIME_START,this.value)">
+		  	<input type="reset" class="button" onClick="return showCalendar('<?=$arr_fields[2]?>', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">&nbsp;&nbsp;	   	     	  
+			</td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;วันที่สิ้นสุด&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left">
+			<input name="<?=$arr_fields[3]?>" type="text" class="textbox" id="<?=$arr_fields[3]?>" value="<?=$$arr_fields[3]?>" size="30" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIME_END,this.value)">
+			<input type="reset" class="button" onClick="return showCalendar('<?=$arr_fields[3]?>', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">&nbsp;&nbsp;	    
+			</td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><span class="label_alert">*</span>&nbsp;รวมระยะเวลา&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="text" name="<?=$arr_fields[4]?>" value="<?=$$arr_fields[4]?>" size="30" class="textbox" onKeyPress="return NumOnly();" readonly>
+			<input type="button" class="button" onClick="calcDaysBetweenDate()" value="คำนวณวัน">&nbsp;&nbsp; 
+			</td>
+			</tr>
+			 <tr> 
+			<td colspan="1" align="right"><?=$ACTIVE_TITLE?>&nbsp;:&nbsp;</td>
+			 <td colspan="3" align="left"><input type="radio" name="<?=$arr_fields[5]?>" value="1" checked>ใช้งาน&nbsp;&nbsp;&nbsp;
+			 <input type="radio" name="<?=$arr_fields[5]?>" value="0" >ยกเลิก</td>
+			</tr>
+			 <tr> 
+			 <? if ($BUTTON_DISPLAY==1) { ?>
+			<td colspan="2" align="right"><input name="Submit_add_filed" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>"></td>
+			 <td colspan="2" align="left"><input name="Submit_cancel_filed" type="submit" class="button" onClick="return checkadd_filed(0);" value="<?=$CANCEL_TITLE?>"></td>
+			 <?}else {?>
+			 <td colspan="2" align="right"><input name="image" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0"></td>
+			 <td colspan="2" align="left"><input name="image" type="image" onClick="return checkadd_filed(0);" src="images/cancel.png" alt="<?=$CANCEL_TITLE?>" border="0"></td>
+			 <?}?>
+			</tr>
+	</table> <!--เริ่มสิ้นสุด-->
+<?}?>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+	
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($current_page > 1){
+			if($DPISDB=="odbc"){
+				$cmd = " select top $start_record TIME_CODE from PER_TIME where TIME_ACTIVE=1 $search_condition order by TIME_SEQ_NO, TIME_CODE ";
+				$db_dpis->send_cmd($cmd);
+				while($data = $db_dpis->get_array()) $arr_exclude[] = "'$data[TIME_CODE]'";
+				$limit_data = " and TIME_CODE not in (". implode(", ", $arr_exclude) .")";
+			}elseif($DPISDB=="oci8"){
+				$limit_data = " and TIME_CODE not in ( select * from (select TIME_CODE from PER_TIME where TIME_ACTIVE=1 $search_condition order by TIME_SEQ_NO, TIME_CODE) where rownum <= $start_record ) ";
+			}elseif($DPISDB=="mysql"){
+				$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			} // end if
+		} // end if 
+	
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $data_per_page
+											TIME_CODE, TIME_NAME, TIME_START, TIME_END 
+							 from 		PER_TIME
+							 where 	TIME_ACTIVE=1
+											$search_condition
+											$limit_data
+							order by	TIME_SEQ_NO, TIME_CODE ";
+		}elseif($DPISDB=="oci8"){
+			$cmd = " select		*
+							 from (
+								 select 	TIME_CODE, TIME_NAME, TIME_START, TIME_END 
+								 from 		PER_TIME
+								 where 	TIME_ACTIVE=1
+												$search_condition
+												$limit_data
+								order by	TIME_SEQ_NO, TIME_CODE
+							) where rownum <= $data_per_page ";
+		}elseif($DPISDB=="mysql"){
+			$cmd = " select 	TIME_CODE, TIME_NAME, TIME_START, TIME_END 
+							 from 		PER_TIME
+							 where 	TIME_ACTIVE=1
+											$search_condition
+							order by	TIME_SEQ_NO, TIME_CODE
+											$limit_data ";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="14%" height="25" align="center">รหัส</td>
+    <td align="center">เวลาทวีคูณ</td>
+    <td width="14%" align="center">วันที่เริ่มต้น</td>
+    <td width="14%" align="center">วันที่สิ้นสุด</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_TIME_CODE = $data[TIME_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_TIME_CODE'";
+				$TMP_TIME_NAME = trim($data[TIME_NAME]);
+				$TMP_TIME_END = show_date_format(trim($data[TIME_END]),1);
+				$TMP_TIME_START = show_date_format(trim($data[TIME_START]),1);
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_TIME_CODE<::>$TMP_TIME_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_TIME_CODE?></td>
+    <td>&nbsp;<?=$TMP_TIME_NAME?></td>
+    <td align="center"><?=$TMP_TIME_START?></td>
+    <td align="center"><?=$TMP_TIME_END?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

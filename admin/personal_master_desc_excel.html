@@ -1,0 +1,225 @@
+<? 
+	require_once("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php"); 
+	
+	//ถ้าเป็น db จังหวัดจะไม่มี DEPARTMENT_ID มาหา DEPARTMENT_NAME
+	//กำหนดค่าเริ่มต้นไม่ให้มันเป็น page not found
+	$MAIN_VIEW = "personal_master_form_2excel.html";
+	//___echo $CTRL_TYPE."-".$DEPARTMENT_NAME." : <<".$MAIN_VIEW;
+
+    function get_menu_lv($progname) {
+    	global $MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3, $CATE_FID;
+        global $db;
+
+//		echo "$progname-->$MENU_ID_LV0, $MENU_ID_LV1, $MENU_ID_LV2, $MENU_ID_LV3<br>";
+        
+       $cmd = " select menu_id from backoffice_menu_bar_lv3 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+		$db->send_cmd($cmd);
+       	$data = $db->get_array();
+		$data = array_change_key_case($data, CASE_LOWER);
+        if (trim($data[menu_id])) {
+            $menu_lv3 = trim($data[menu_id]);
+            $menu_lv2 = $MENU_ID_LV2;
+            $menu_lv1 = $MENU_ID_LV1;
+            $menu_lv0 = $MENU_ID_LV0;
+		} else {
+	       $cmd = " select menu_id from backoffice_menu_bar_lv2 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+			$db->send_cmd($cmd);
+    	   	$data = $db->get_array();
+			$data = array_change_key_case($data, CASE_LOWER);
+	        if (trim($data[menu_id])) {
+	            $menu_lv2 = trim($data[menu_id]);
+	            $menu_lv3 = 0;
+	            $menu_lv1 = $MENU_ID_LV1;
+    	        $menu_lv0 = $MENU_ID_LV0;
+			} else {
+		       $cmd = " select menu_id from backoffice_menu_bar_lv1 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+				$db->send_cmd($cmd);
+		       	$data = $db->get_array();
+				$data = array_change_key_case($data, CASE_LOWER);
+		        if (trim($data[menu_id])) {
+	            	$menu_lv1 = trim($data[menu_id]);
+		            $menu_lv3 = 0;
+		            $menu_lv2 = 0;
+    		        $menu_lv0 = $MENU_ID_LV0;
+				} else {
+			       $cmd = " select menu_id from backoffice_menu_bar_lv0 where flag_show='S' and langcode='TH' and fid=$CATE_FID and linkto_web like '%$progname%' ";
+					$db->send_cmd($cmd);
+			       	$data = $db->get_array();
+					$data = array_change_key_case($data, CASE_LOWER);
+			        if (trim($data[menu_id])) {
+	        	    	$menu_lv0 = trim($data[menu_id]);
+		        	    $menu_lv3 = 0;
+		            	$menu_lv2 = 0;
+	    		        $menu_lv1 = 0;
+					} else {
+			            $menu_lv3 = $MENU_ID_LV3;
+			            $menu_lv2 = $MENU_ID_LV2;
+			            $menu_lv1 = $MENU_ID_LV1;
+			            $menu_lv0 = $MENU_ID_LV0;
+					} // end if lv1
+				} // end if lv1
+			} // end if lv2
+		} // end if lv3
+
+		$lv = "$menu_lv0,$menu_lv1,$menu_lv2,$menu_lv3";
+        
+    	return $lv;
+    } // end function get_menu_lv
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+function MM_openBrWindow(theURL,winName,features) { //v2.0
+  window.open(theURL,winName,features);
+}
+
+<? if($command=="ADD" || $command=="UPDATE" || $command=="DELETE"){ ?>parent.refresh_opener(true);<? } ?>
+
+	function confirm_delete(per_id , per_name){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + per_name + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.PER_ID.value = per_id;
+			form1.submit();
+		} // end if
+	}
+
+	function call_menu_desc (file, menulv) {	
+		if (menulv) {
+			var arr_menu_lv = menulv.split(",");
+			menu_lv0 = arr_menu_lv[0];
+			menu_lv1 = arr_menu_lv[1];
+			menu_lv2 = arr_menu_lv[2];
+			menu_lv3 = arr_menu_lv[3];
+			document.all.PER_DESC_IFRAME.src = file + "?&MENU_ID_LV0=" + menu_lv0 + "&MENU_ID_LV1=" + menu_lv1+ "&MENU_ID_LV2=" + menu_lv2 + "&MENU_ID_LV3=" + menu_lv3 + "&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>";
+		} else {
+		document.all.PER_DESC_IFRAME.src = file + "?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>";
+		}
+		//parent.PER_DESC_IFRAME.location.href = "";
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_master_desc_excel.html" target="frame_personal_master_desc_excel" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+  <? if(!$MAIN_VIEW){ echo"&nbsp;"; }?>
+  &nbsp;
+  <table width="95%" height="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" height="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="25" class="layout_inactive">&nbsp;&nbsp;รายละเอียดข้าราชการ/ลูกจ้างประจำ</td>
+        </tr>
+        <!--tr>
+          <td height="5" colspan="4"></td>
+        </tr-->
+        <tr>
+          <td><table width="100%" height="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="100" valign="top"><table width="100%" border="0" cellpadding="<?=$MAIN_VIEW?0:1?>" cellspacing="<?=$MAIN_VIEW?0:1?>">
+			<? $lv=get_menu_lv("personal_master_form"); ?>
+			<tr><td><input type="button" name="" value="ข้อมูลทั่วไป" style="width:140" onClick="call_menu_desc('personal_master_form_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_positionhis"); ?>
+			<tr><td><input type="button" name="" value="การดำรงตำแหน่ง" style="width:140" onClick="call_menu_desc('personal_positionhis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_salaryhis"); ?>
+			<tr><td><input type="button" name="" value="เงินเดือน" style="width:140" onClick="call_menu_desc('personal_salaryhis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_extrahis"); ?>
+			<tr><td><input type="button" name="" value="เงินเพิ่มพิเศษ" style="width:140" onClick="call_menu_desc('personal_extrahis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_educate"); ?>
+			<tr><td><input type="button" name="" value="การศึกษา" style="width:140" onClick="call_menu_desc('personal_educate_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_training"); ?>
+			<tr><td><input type="button" name="" value="การอบรม/ดูงาน/สัมมนา" style="width:140" onClick="call_menu_desc('personal_training_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_ability"); ?>
+			<tr><td><input type="button" name="" value="ความสามารถพิเศษ" style="width:140" onClick="call_menu_desc('personal_ability_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_special_skill"); ?>
+			<tr><td><input type="button" name="" value="ความเชี่ยวชาญพิเศษ" style="width:140" onClick="call_menu_desc('personal_special_skill_2excel.html', '<?=$lv?>')"></td></tr>			
+			<? $lv=get_menu_lv("personal_heir"); ?>
+			<tr><td><input type="button" name="" value="ทายาทผู้รับผลประโยชน์" style="width:140" onClick="call_menu_desc('personal_heir_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_scholar"); ?>
+			<tr><td><input type="button" name="" value="การลาศึกษาต่อ" style="width:140" onClick="call_menu_desc('personal_scholar_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_absenthis"); ?>
+			<tr><td><input type="button" name="" value="การลา" style="width:140" onClick="call_menu_desc('personal_absenthis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_punishment"); ?>
+			<tr><td><input type="button" name="" value="วินัย" style="width:140" onClick="call_menu_desc('personal_punishment_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_servicehis"); ?>
+			<tr><td><input type="button" name="" value="ราชการพิเศษ" style="width:140" onClick="call_menu_desc('personal_servicehis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_rewardhis"); ?>
+			<tr><td><input type="button" name="" value="ความดีความชอบ" style="width:140" onClick="call_menu_desc('personal_rewardhis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_marrhis"); ?>
+			<tr><td><input type="button" name="" value="การสมรส" style="width:140" onClick="call_menu_desc('personal_marrhis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_namehis"); ?>
+			<tr>
+			  <td><input type="button" name="Input" value="การเปลี่ยนแปลงชื่อ-สกุล" style="width:140" onClick="call_menu_desc('personal_namehis_2excel.html', '<?=$lv?>')"></td>
+			</tr>
+			<? $lv=get_menu_lv("personal_decoratehis"); ?>
+			<tr><td><input type="button" name="" value="เครื่องราชฯ" style="width:140" onClick="call_menu_desc('personal_decoratehis_2excel.html', '<?=$lv?>')"></td></tr>	
+			<? $lv=get_menu_lv("personal_timehis"); ?>
+			<tr><td><input type="button" name="" value="เวลาทวีคูณ" style="width:140" onClick="call_menu_desc('personal_timehis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_work_cyclehis"); ?>
+			<tr><td><input type="button" name="" value="รอบการมาปฏิบัติราชการ" style="width:140" onClick="call_menu_desc('personal_work_cyclehis_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_work_time"); ?>
+			<tr><td><input type="button" name="" value="เวลาการมาปฏิบัติราชการ" style="width:140" onClick="call_menu_desc('personal_work_time_2excel.html', '<?=$lv?>')"></td></tr>
+<!--			<? $lv=get_menu_lv("kpi_kpi_form_2excel"); ?>
+			<!--tr><td><input type="button" name="" value="KPI รายบุคคล" style="width:140" onClick="call_menu_desc('kpi_kpi_form_2excel.html', '<?=$lv?>')"></td></tr-->
+			<? $lv=get_menu_lv("direct_pay_tax"); ?>
+			<tr><td><input type="button" name="" value="ภาษี/ลดหย่อน" style="width:140" onClick="call_menu_desc('personal_pay_tax_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_address"); ?>
+			<tr><td><input type="button" name="" value="ที่อยู่" style="width:140" onClick="call_menu_desc('personal_address_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_family"); ?>
+			<tr><td><input type="button" name="" value="ครอบครัว" style="width:140" onClick="call_menu_desc('personal_family_2excel.html', '<?=$lv?>')"></td></tr>
+			<? $lv=get_menu_lv("personal_actinghis"); ?>
+			<tr><td><input type="button" name="" value="รักษาราชการ/มอบหมายงาน" style="width:140" onClick="call_menu_desc('personal_actinghis_2excel.html', '<?=$lv?>')"></td></tr>
+		</table></td>
+		<td align="center" height="100%">
+			<iframe width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_DESC_IFRAME" name="frame_personal_master_desc_excel" src="<?=($MAIN_VIEW)?"$MAIN_VIEW?MAIN_VIEW=1&PER_ID=$PER_ID&HIDE_HEADER=1":""?>">รายละเอียดข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td>
+	     </tr>
+          </table></td>
+        </tr>
+        <? if(!$MAIN_VIEW){ ?>
+		<!--tr>
+          <td height="10">&nbsp;</td>
+        </tr-->
+        <tr>
+          <td height="5" align="center"></td>
+        </tr>
+        <tr align="center">
+          <td height="30">
+		  	  <? if ($PER_ID) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="window.parent.close(); self.close();" class="button" >
+              <?}?>          </td>
+        </tr>
+		<? } // end if ?>
+      </table></td>
+    </tr>
+  </table> 
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

@@ -1,0 +1,1299 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/kpi_kpi_form_detail_1.php");
+	//echo $SESS_PER_ID ."==" .$PER_ID;
+        //echo $SESS_USERID.','.$SESS_USERGROUP;
+        //หาไอดีผู้ประเมิน
+        $cmd ="SELECT b.PER_NAME,b.PER_SURNAME,b.PER_CARDNO,a.PER_ID_REVIEW,b.PER_ID 
+                FROM PER_KPI_FORM a, PER_PERSONAL b where 
+                a.PER_ID_REVIEW = b.PER_ID and a.PER_ID_REVIEW = $SESS_PER_ID";
+                $db_dpis->send_cmd($cmd);
+				$data = $db_dpis->get_array();
+                $PER_ID_REVIEW_CHk =  $data[PER_ID_REVIEW]; 
+			   
+        $cmd = " select PG_EVALUATE from PER_PERFORMANCE_GOALS where KF_ID=$KF_ID and PG_EVALUATE is not null ";
+        $db_dpis->send_cmd($cmd);
+        $data_eva = $db_dpis->get_array();
+        $pg_evaluate_chk = $data_eva[PG_EVALUATE]; //ค่าของผู้ประเมินเริ่มให้คะเเนน
+
+          $EDIT_TITLE  = "แก้ไข";
+          $VIEW_TITLE  = "เรียกดู";   
+	// กรณีจังหวัด หา login ว่าอยู่ใน ORG_ID ไหน เอาแค่ ORG_ID นั้นมาแสดง
+	$search_pv_cond = "";
+	if($CTRL_TYPE==2 && $PROVINCE_CODE){
+		$cmd = " select 	PER_TYPE, POS_ID , POEM_ID , POEMS_ID , POT_ID
+				   from 		PER_PERSONAL
+				   where 	PER_ID = $PER_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$PER_TYPE =  trim($data[PER_TYPE]);
+		$POS_ID =  trim($data[POS_ID]);
+		$POEM_ID =  trim($data[POEM_ID]);
+		$POEMS_ID =  trim($data[POEMS_ID]);
+	
+		if($PER_TYPE == 1){
+			$cmd = " select 	ORG_ID
+					   from 		PER_POSITION
+					   where 	POS_ID=$POS_ID ";
+		}elseif($PER_TYPE == 2){
+			$cmd = " select 	ORG_ID
+							 from 		PER_POS_EMP
+							 where	POEM_ID=$POEM_ID ";
+		}elseif($PER_TYPE==3){
+			$cmd = " select 	ORG_ID
+							 from 		PER_POS_EMPSER
+							 where	POEMS_ID=$POEMS_ID ";
+		} // end if
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$ORG_ID =  trim($data[ORG_ID]);
+		if($ORG_ID)	$search_pv_cond = " and ORG_ID = $ORG_ID";
+	}
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function confirm_delete(data_id , data_label){
+		if(confirm("ต้องการลบข้อมูลนี้ ใช่หรือไม่ [ " + data_label + " ]?")){
+			form1.command.value = "DELETE";
+			if(form1.SUBPAGE.value == 1) form1.PG_ID.value = data_id;
+			else form1.KC_ID.value = data_id;
+			form1.submit();
+		} // end if
+	}
+
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590');
+	}
+
+	function call_search_kpi () {	
+		parameter = "&KPI_YEAR=<?=$KF_YEAR?>&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>&PER_ID=<?=$PER_ID?>";
+	    call_openDialog("kpi_kpi_list.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$KPI_TITLE?>");		
+	}
+
+	function call_search_position_competence () {	
+		parameter = "&POS_ID=<?=$POS_ID?>&SEARCH_PER_TYPE=<?=$PER_TYPE?>";
+	    call_openDialog("search_position_competence.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"มาตรฐานสมรรถนะของผู้ดำรงตำแหน่ง");		
+	}
+
+	function call_search_person (type) {	
+		parameter = "";
+		if(form1.MINISTRY_ID.value)	parameter += "&isLock=1&LOCK_MINISTRY_ID=<?=$MINISTRY_ID?>";
+		if(form1.DEPARTMENT_ID.value)	parameter += "&LOCK_DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		if(form1.ORG_ID.value)	parameter += "&LOCK_ORG_ID=<?=$ORG_ID?>";
+		if(type)	parameter += "&SEARCH_FOR="+type;
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter+'&send_by=99',800,600,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}
+
+	function  confirm_add() {
+<? if ($BKK_FLAG!=1 && $KF_TYPE==1) {?>	
+		if(form1.KPI_ORG_NAME.value=="") {
+			alert("กรุณาระบุ ตัวชี้วัดอ้างอิง (KPI)");
+			form1.KPI_ORG_NAME.focus();
+			return false;
+		}
+<? } ?>		 
+		if(form1.KPI_NAME.value=="") {
+			alert("กรุณาระบุ ตัวชี้วัด");
+			form1.KPI_NAME.focus();
+			return false;
+		} else if(form1.KPI_WEIGHT.value=="") {
+			alert("กรุณาระบุ น้ำหนัก");
+			form1.KPI_WEIGHT.focus();
+			return false;
+		} else if(form1.KPI_PER_NAME.value=="") {
+			alert("กรุณาระบุ ผู้กำกับดูแลตัวชี้วัด");
+			form1.KPI_PER_NAME.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL1_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 1");
+			form1.KPI_TARGET_LEVEL1_DESC.focus();
+			return false;
+		}  
+		if(form1.KPI_TARGET_LEVEL2_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 2");
+			form1.KPI_TARGET_LEVEL2_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL3_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 3");
+			form1.KPI_TARGET_LEVEL3_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL4_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 4");
+			form1.KPI_TARGET_LEVEL4_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL5_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 5");
+			form1.KPI_TARGET_LEVEL5_DESC.focus();
+			return false;
+ 		} 		
+		form1.command.value = "ADD";
+		//return true;
+	}
+
+	function confirm_update() { 
+<? //if ($BKK_FLAG!=1 && $KF_TYPE==1) {?>	
+		/*if(form1.KPI_ORG_NAME.value=="") {
+			alert("กรุณาระบุ ตัวชี้วัดอ้างอิง (KPI)");
+			form1.KPI_ORG_NAME.focus();
+			return false;
+		} */
+<? // เดืม} ?>		 
+
+                if(form1.KPI_ORG_NAME.value=="") {
+			alert("กรุณาระบุ ตัวชี้วัดอ้างอิง (KPI)");
+			form1.KPI_ORG_NAME.focus();
+			return false;
+		} 
+		if(form1.KPI_NAME.value=="") {
+			alert("กรุณาระบุ ตัวชี้วัด");
+			form1.KPI_NAME.focus();
+			return false;
+		} else if(form1.KPI_WEIGHT.value=="") {
+			alert("กรุณาระบุ น้ำหนัก");
+			form1.KPI_WEIGHT.focus();
+			return false;
+		} else if(form1.KPI_PER_NAME.value=="") {
+			alert("กรุณาระบุ ผู้กำกับดูแลตัวชี้วัด");
+			form1.KPI_PER_NAME.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL1_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 1");
+			form1.KPI_TARGET_LEVEL1_DESC.focus();
+			return false;
+		}  
+		if(form1.KPI_TARGET_LEVEL2_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 2");
+			form1.KPI_TARGET_LEVEL2_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL3_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 3");
+			form1.KPI_TARGET_LEVEL3_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL4_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 4");
+			form1.KPI_TARGET_LEVEL4_DESC.focus();
+			return false;
+		} else if(form1.KPI_TARGET_LEVEL5_DESC.value=="") {
+			alert("กรุณาระบุ เป้าหมาย 5");
+			form1.KPI_TARGET_LEVEL5_DESC.focus();
+			return false;
+		} 		
+		form1.command.value = "UPDATE";
+		return true;
+	}
+	
+	function chg_KF_TYPE(KF_TYPE){
+		form1.KF_TYPE_RETURN.value = 1;
+		form1.submit();
+		form1.command.value = "";
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("kpi_kpi_list") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.KPI_ID.value = arrValue[0];
+				form1.KPI_ORG_NAME.value = arrValue[2];
+				<?  if($BKK_FLAG == 1){ ?>
+				form1.PFR_NAME.value = arrValue[3];
+				<? } else { ?>
+				form1.PFR_NAME2.value = arrValue[3];
+				<? } ?>
+			} // end if
+		} else if  (src.indexOf("search_position_competence") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.CP_CODE.value = arrValue[0];
+				form1.CP_NAME.value = arrValue[1];
+				form1.PC_TARGET_LEVEL.value = arrValue[2];
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.KPI_PER_ID.value = arrValue[0];
+				form1.KPI_PER_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top"><? $OPTIONAL_TITLE="".(($HIDE_HEADER)?"ส่วนที่ 1. เป้าหมายการปฏิบัติงาน":"") ; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_kpi_form_detail_1.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+	  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+	  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+	  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="KF_ID" value="<?=$KF_ID?>">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+		   <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">
+          <input type="hidden" name="PG_ID" value="<?=$PG_ID?>">
+          <input type="hidden" name="KC_ID" value="<?=$KC_ID?>">
+	  <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+	  <input type="hidden" name="SUBPAGE" value="<?=$SUBPAGE?>">
+	  <input type="hidden" name="KF_TYPE_RETURN" value="<?=$KF_TYPE_RETURN?>">
+	  <?php
+		$cmd = "select ACCEPT_FLAG from PER_KPI_FORM where KF_ID = $KF_ID	 ";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$ACCEPT_FLAG = $data[ACCEPT_FLAG];
+
+	  ?>
+	  
+	  
+	  
+	  <? if($UPD){ $UPD_RETURN = 1;	?><input type="hidden" name="UPD_RETURN" value="<?=$UPD_RETURN?>"><? } ?>
+&nbsp;
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0" class="table_body_3">
+	<tr>
+	  <td width="50%" height="25" align="center" <?=$SUBPAGE==1?"class=\"table_body\"":""?>>
+	  <span style="cursor:hand;" onClick="form1.SUBPAGE.value=1;form1.submit();">1.1 ผลสำเร็จของงานที่คาดหวัง</span><?php /*ผลสำเร็จของงานที่คาดหวัง*/?>
+	  </td>
+	  <td align="center" <?=$SUBPAGE==2?"class=\"table_body\"":""?>>
+	  <span style="cursor:hand;" onClick="form1.SUBPAGE.value=2;form1.submit();">1.2 สมรรถนะที่คาดหวัง</span>
+	  </td>
+	</tr>
+</table>
+<div style="display:<?=$SUBPAGE==1?"block":"none"?>">
+<?if($PER_ID_REVIEW_CHk == $SESS_PER_ID){ $USER_AUTH = TRUE;}  ?>
+
+&nbsp;
+<? 
+if( $VIEW ||  $USER_AUTH ){
+?>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td>
+          <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5" colspan="2"></td>
+          </tr>
+        <tr>
+		  <td width="28%" height="22" align="right"><?=$SEQ_NO_TITLE?>&nbsp;:&nbsp;</td>
+		  <td>
+	
+		  	<input type="text" name="PG_SEQ" value="<?=$PG_SEQ?>" size="10" class="textbox" onKeyPress="return DigitOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>>
+			<span class="label_alert">&nbsp;&nbsp;<?=$err_text?></span>		  </td>
+		</tr>
+<?  if($BKK_FLAG == 1 || $USE_KPI_TYPE == 1){ ?>
+            <tr>
+              <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$KPI_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+              <td>
+				<select name="KF_TYPE" onChange="javascript:chg_KF_TYPE(this.value);" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && $USER_AUTH)?"":"disabled"?>>
+					<?   foreach($ARR_KPI_FORM_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($KF_TYPE==$key)?"selected":""?> ><?=$value; ?></option><?  } ?>
+				</select></td>
+				</tr>
+<?  } else $KF_TYPE = 1; ?>
+<?  if($BKK_FLAG == 1){ ?>
+<?  if($KF_TYPE == 1){ ?>
+        <tr>
+		  <td height="22" align="right">ยุทธศาสตร์&nbsp;:&nbsp;</td>
+		  <td><input type="text" name="PFR_NAME" value="<?=$PFR_NAME?>" style="width:80%" class="textbox" readonly></td>
+		</tr>
+        <tr>
+		  <td height="22" align="right">ประเด็นยุทธศาสตร์&nbsp;:&nbsp;</td>
+		  <td><input type="text" name="PFR_NAME1" value="<?=$PFR_NAME1?>" style="width:80%" class="textbox" readonly></td>
+		</tr>
+<?  } ?>
+<?  } ?>
+<?  if($KF_TYPE == 1){ ?>
+        <tr>
+		  <td height="22" align="right"><?=$PFR_NAME_TITLE?>&nbsp;:&nbsp;</td>
+		  <td><input type="text" name="PFR_NAME2" value="<?=$PFR_NAME2?>" style="width:80%" class="textbox" readonly></td>
+		</tr>
+        <tr>
+		  <td height="22" align="right"><?=$BKK_FLAG==1?"":"&nbsp;<span class=\"label_alert\">*</span>&nbsp;"?>ตัวชี้วัดอ้างอิง (KPI)&nbsp;:&nbsp;</td>
+		  <td>
+		  	<input type="text" name="KPI_ORG_NAME" value="<?=$KPI_ORG_NAME?>" style="width:80%" class="textbox" readonly>
+			<input type="hidden" name="KPI_ID" value="<?=$KPI_ID?>">
+    		<?  if($KF_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH && !$VIEW) : ?>
+		  	<input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกตัวชี้วัด (KPI)" onClick="call_search_kpi();">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.KPI_ORG_NAME.value=''; form1.KPI_ID.value=''; form1.PFR_NAME.value=''; form1.PFR_NAME1.value=''; form1.PFR_NAME2.value=''; return false;" align="center" alt="ล้างค่า">
+		  	<? endif; ?>	</td>
+</td>
+
+		</tr>
+<?  } ?>
+<? if($KF_TYPE == 2 || $KF_TYPE == 3){ ?>
+        <tr>
+		  <td height="22" align="right"><?=$BKK_FLAG==1?"":"&nbsp;<span class=\"label_alert\">*</span>&nbsp;"?><?=($KF_TYPE==2)?"หน้าที่ความรับผิดชอบหลัก":"งานที่ได้รับมอบหมายพิเศษ"?>&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_OTHER" rows="3" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$KPI_OTHER?></textarea></td>
+		</tr>
+<?  } ?>
+        <tr>
+          <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ตัวชี้วัด (KPI)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_NAME" rows="3" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$KPI_NAME?></textarea></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;น้ำหนัก (ร้อยละ)&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_WEIGHT" value="<?=$KPI_WEIGHT?>" style="width:80%" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">หน่วยวัด&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_MEASURE" value="<?=$KPI_MEASURE?>" size="10" class="textbox" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right"><span class="label_alert">*</span>&nbsp;ผู้กำกับดูแลตัวชี้วัด&nbsp;:&nbsp;</td>
+          <td>
+		  	<input type="text" name="KPI_PER_NAME" value="<?=$KPI_PER_NAME?>" style="width:80%" class="textbox" readonly>
+			<input type="hidden" name="KPI_PER_ID" value="<?=$KPI_PER_ID?>">
+			<? if($KF_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH) : ?>
+			<input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกผู้กำกับดูแลตัวชี้วัด" onClick="call_search_person('_KPI_PER');">
+			<? endif; ?>		  </td>
+        </tr>
+				<tr>
+                        <td width="35%" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ใช้ในการประเมินผล&nbsp;:&nbsp;</td>
+                        <td>
+						  <input type="radio" name="KF_SCORE_FLAG" value="1" <?=($KF_SCORE_FLAG==1 || !$KPI_SCORE_FLAG)?"checked":""?>> ใช้
+                          <input type="radio" name="KF_SCORE_FLAG" value="2" <?=($KF_SCORE_FLAG==2)?"checked":""?>> ไม่ใช้						</td>
+                </tr>					  
+	    <tr>
+          <!--td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย <?  if($BKK_FLAG != 1){ ?>1<? } ?>&nbsp;:&nbsp;</td-->
+          <td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย 1&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_TARGET_LEVEL1" value="<?=$KPI_TARGET_LEVEL1?>" size="10" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">รายละเอียดเป้าหมาย 1&nbsp;&nbsp;&nbsp;<br>(ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_TARGET_LEVEL1_DESC" rows="3" maxlength="2000" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>><?=$KPI_TARGET_LEVEL1_DESC?></textarea></td>
+        </tr>
+<?  if($BKK_FLAG == 2){ ?>
+
+          <input type="hidden" name="KPI_TARGET_LEVEL2" value="<?=$KPI_TARGET_LEVEL2?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL2_DESC" value="<?=$KPI_TARGET_LEVEL2_DESC?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL3" value="<?=$KPI_TARGET_LEVEL3?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL3_DESC" value="<?=$KPI_TARGET_LEVEL3_DESC?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL4" value="<?=$KPI_TARGET_LEVEL4?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL4_DESC" value="<?=$KPI_TARGET_LEVEL4_DESC?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL5" value="<?=$KPI_TARGET_LEVEL5?>">
+          <input type="hidden" name="KPI_TARGET_LEVEL5_DESC" value="<?=$KPI_TARGET_LEVEL5_DESC?>">
+<? }else{ ?>
+
+        <tr>
+          <td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย 2&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_TARGET_LEVEL2" value="<?=$KPI_TARGET_LEVEL2?>" size="10" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">รายละเอียดเป้าหมาย 2&nbsp;&nbsp;&nbsp;<br>(ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_TARGET_LEVEL2_DESC" rows="3" maxlength="2000" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>><?=$KPI_TARGET_LEVEL2_DESC?></textarea></td>
+        </tr>
+        <tr>
+          <td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย 3&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_TARGET_LEVEL3" value="<?=$KPI_TARGET_LEVEL3?>" size="10" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">รายละเอียดเป้าหมาย 3&nbsp;&nbsp;&nbsp;<br>(ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_TARGET_LEVEL3_DESC" rows="3" maxlength="2000" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>><?=$KPI_TARGET_LEVEL3_DESC?></textarea></td>
+        </tr>
+        <tr>
+          <td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย 4&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_TARGET_LEVEL4" value="<?=$KPI_TARGET_LEVEL4?>" size="10" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">รายละเอียดเป้าหมาย 4&nbsp;&nbsp;&nbsp;<br>(ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_TARGET_LEVEL4_DESC" rows="3" maxlength="2000" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>><?=$KPI_TARGET_LEVEL4_DESC?></textarea></td>
+        </tr>
+        <tr>
+          <td height="20" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เป้าหมาย 5&nbsp;:&nbsp;</td>
+          <td><input type="text" name="KPI_TARGET_LEVEL5" value="<?=$KPI_TARGET_LEVEL5?>" size="10" class="textbox" onKeyPress="return NumOnly();" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH )?"":"readonly"?>></td>
+        </tr>
+        <tr>
+          <td height="22" align="right">รายละเอียดเป้าหมาย 5&nbsp;&nbsp;&nbsp;<br>(ไม่เกิน 2,000 ตัวอักษร)&nbsp;:&nbsp;</td>
+          <td><textarea name="KPI_TARGET_LEVEL5_DESC" rows="3" maxlength="2000" class="selectbox" style="width:80%" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH  )?"":"readonly"?>><?=$KPI_TARGET_LEVEL5_DESC?></textarea></td>
+        </tr>
+<? } //end else ?> 
+		<? if($KF_ID) : ?>
+		
+        <tr align="center">
+          <td height="25" colspan="2">
+		  		<?  if ($UPD || $VIEW) { ?>
+      		  <?if( $isLockYear=='UNLOCK' && ($PAGE_AUTH["edit"]=="Y" && ($UPD && !$VIEW) && $USER_AUTH  || ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && $pg_evaluate_chk == "")&& $KF_SCORE_STATUS==0)){?>
+			  <?	if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="submit" class="button" onClick="return confirm_update();" value="<?=$EDIT_TITLE?>">
+			  <? } else { ?>
+            <input name="image" type="image" onClick="return confirm_update();" src="images/save.png" alt="<?=$EDIT_TITLE?>" border="0">
+            &nbsp;&nbsp;&nbsp;
+                            <?}?>
+			  <?}?> 
+				<?	if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.PG_ID.value='';form1.PFR_NAME2.value='';" class="button" >
+			  <? } else { ?>
+            <input name="image" type="image" onClick="form1.command.value='CANCEL'; form1.PG_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+            &nbsp;&nbsp;&nbsp;
+                            <?}?>
+      		  <? } else { ?> 
+	  		  <? //if( $PAGE_AUTH["add"]=="Y" && $USER_AUTH ){ /*เดิม*/
+			  
+                         if($SESS_PER_ID != $PER_ID ||  ($SESS_PER_ID == $PER_ID && $pg_evaluate_chk !="" ) || $KF_SCORE_STATUS==1){ 
+						 
+						 if($SESS_USERGROUP == 1){
+						 $USER_AUTH=true ;
+						 }else{
+						 $USER_AUTH=false ;
+						 }
+						 
+						 }// ให้เห็นเฉพาะผู้รับการประเมิน และเพิ่มกดเให้เห็นคะเเนน	 
+                          if( $PAGE_AUTH["add"]=="Y" && $USER_AUTH && !$KF_SCORE_STATUS && $isLockYear=='UNLOCK'){ /*<<< Release 5.2.1.5 กรณีที่ผู้ประเมินให้คะแนนแล้ว ถือว่าสิ้นสุดจะไม่ให้แก้ไขส่วนอื่นๆ*/
+                          ?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="submit" class="button" onClick="return confirm_add();" value="<?=$ADD_TITLE?>">
+			  <? } else { ?>
+            <input name="image" type="image" onClick="return confirm_add();"src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+            <?}?>
+			  <?}?> 
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset1" type="reset" class="button" value="<?=$CLEAR_TITLE?>">  
+			  <? } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+			<?}?>
+              <?}?>          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5" colspan="2"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table>
+  &nbsp;
+  <? } // end if($VIEW || $USER_AUTH) ?>
+<?
+	$cmd =" select 		count(PG_ID) as count_data 
+					from 		PER_PERFORMANCE_GOALS
+					where		KF_ID=$KF_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<!--
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td>
+	<td align="center">พบ ผลสำเร็จของงานที่คาดหวัง ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+-->
+<?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+	$where = "";
+	if ($BKK_FLAG==1) $where = " and a.KF_TYPE=1";
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record a.PG_ID 
+							from 		(
+												PER_PERFORMANCE_GOALS a
+												left join PER_KPI b on (a.KPI_ID=b.KPI_ID)
+											) left join PER_PERFORMANCE_REVIEW c on (b.PFR_ID=c.PFR_ID)
+							where		a.KF_ID=$KF_ID $where
+							order by 	a.PG_SEQ ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[PG_ID]."'";
+			$limit_data = " and a.PG_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  	
+													a.PG_ID, a.PG_SEQ, a.KPI_NAME, b.KPI_NAME as KPI_KPI_NAME, c.PFR_NAME, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM			(
+													PER_PERFORMANCE_GOALS a
+													left join PER_KPI b on (a.KPI_ID=b.KPI_ID)
+												) left join PER_PERFORMANCE_REVIEW c on (b.PFR_ID=c.PFR_ID)
+							WHERE			a.KF_ID=$KF_ID $where
+													$search_condition
+													$limit_data
+							ORDER BY		c.PFR_TYPE, a.PG_SEQ ";
+	}elseif($DPISDB=="oci8"){			 
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select 		temp2.*
+						from (
+						   select 		rownum as rnum, temp1.*
+						   from ( 
+								  select 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, b.KPI_NAME as KPI_KPI_NAME, c.PFR_NAME, a.KPI_WEIGHT, a.PG_EVALUATE, 
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+								  from 			PER_PERFORMANCE_GOALS a, PER_KPI b, PER_PERFORMANCE_REVIEW c
+								  where 		a.KF_ID=$KF_ID and a.KPI_ID=b.KPI_ID(+) and b.PFR_ID=c.PFR_ID(+) $where
+													$search_condition
+								  order by 	c.PFR_TYPE, a.PG_SEQ
+						   )  temp1
+						   where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, b.KPI_NAME as KPI_KPI_NAME, c.PFR_NAME, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM		(
+												PER_PERFORMANCE_GOALS a
+												left join PER_KPI b on (a.KPI_ID=b.KPI_ID)
+											) left join PER_PERFORMANCE_REVIEW c on (b.PFR_ID=c.PFR_ID)
+							WHERE			a.KF_ID=$KF_ID $where
+													$search_condition
+							ORDER BY		c.PFR_TYPE, a.PG_SEQ
+					 								$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo '<pre>'.$cmd;
+//	$db_dpis->show_error();
+	
+?>
+<? if ($BKK_FLAG==1) { ?>&nbsp;&nbsp;<b>ตัวชี้วัดตามแผนปฏิบัติราชการประจำปี</b><? } ?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" rowspan="2"><strong>ลำดับ</strong></td>
+       <td width="40%" rowspan="2"><?=($BKK_FLAG==1)?ตัวชี้วัดตามแผนปฏิบัติราชการประจำปี:ตัวชี้วัดอ้างอิง?></td>
+       <td rowspan="2"><?=($BKK_FLAG==1)?"ตัวชี้วัดตามระยะการประเมิน":"ตัวชี้วัด (KPI)"?></td>
+       <td width="7%" rowspan="2">น้ำหนัก</td>
+		<?  if($BKK_FLAG == 2){ ?>
+       <td height="21">เป้าหมาย</td>
+	  <?}else{?>
+       <td height="21" colspan="5">เป้าหมาย</td>
+	  <?}?>
+      <td width="3%" rowspan="2">
+	  <?if(($isLockYear=='UNLOCK' && $PAGE_AUTH["edit"]=="Y") && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1) ||  ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == ''&& $pg_evaluate_chk=="")&& $KF_SCORE_STATUS==0){?>
+		  <?=$EDIT_TITLE?>
+	  <?}else{?>
+            <?=$VIEW_TITLE?>
+                  
+	  <?}?>
+	  </td>
+      <?if(($isLockYear=='UNLOCK' && $PAGE_AUTH["del"]=="Y") && $USER_AUTH){?><td width="3%" rowspan="2"><?=$DEL_TITLE?></td><?}?>
+    </tr>
+	<tr align="center" class="table_head">
+	  <!--td width="3%" height="21"><?  if($BKK_FLAG != 1){ ?>1<? }else{ ?>&nbsp;<? } ?></td-->
+	  <td width="3%" height="21">1</td>
+<!--?  if($BKK_FLAG != 1){ ?-->
+		<td width="3%">2</td>
+		<td width="3%">3</td>
+		<td width="3%">4</td>
+		<td width="3%">5</td>
+	<!--? } ?-->
+	</tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_PG_ID = $data[PG_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PG_ID;
+		$PG_SEQ = $data[PG_SEQ];
+		$TMP_PFR_NAME = $data[PFR_NAME];
+		$KPI_NAME = $data[KPI_NAME];
+		$KPI_KPI_NAME = $data[KPI_KPI_NAME];
+		if ($BKK_FLAG==1) $TMP_PFR_NAME = $KPI_KPI_NAME;
+		$KPI_WEIGHT = $data[KPI_WEIGHT];
+		$KPI_TARGET_LEVEL1 = $data[KPI_TARGET_LEVEL1];
+		$KPI_TARGET_LEVEL2 = $data[KPI_TARGET_LEVEL2];
+		$KPI_TARGET_LEVEL3 = $data[KPI_TARGET_LEVEL3];
+		$KPI_TARGET_LEVEL4 = $data[KPI_TARGET_LEVEL4];
+		$KPI_TARGET_LEVEL5 = $data[KPI_TARGET_LEVEL5];
+		$PG_EVALUATE = $data[PG_EVALUATE];			//$PG_EVALUATE="";	
+		$TOTAL_WEIGHT += $KPI_WEIGHT;
+		$TMP_KF_SCORE_FLAG = $data[KF_SCORE_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PG_ID==$TMP_PG_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+	<? if ($TMP_KF_SCORE_FLAG==2) $sub_class = "label_alert";
+		else $sub_class = $class; 
+	?>
+      <td height="25" align="center"><?=$PG_SEQ?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$TMP_PFR_NAME?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$KPI_NAME?></td>
+      <td class="<?=$sub_class?>" align="right"><?=$KPI_WEIGHT?>&nbsp;</td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL1?></td>
+	<!--?  if($BKK_FLAG != 1){ ?-->
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL2?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL3?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL4?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL5?></td>
+      <!--?  } ?-->
+	  <td class="<?=$sub_class?>" align="center">
+	  <? 
+                //echo 'TMP_PG_ID'.$TMP_PG_ID.'='.$PG_ID.','.$USER_AUTH;
+                $modeEdit='';
+                if($TMP_PG_ID==$PG_ID && !$PG_EVALUATE  ){
+                    $modeEdit='EDIT';
+                }
+          if( $isLockYear=='UNLOCK' && ($modeEdit=='EDIT' && ($PAGE_AUTH["edit"]=="Y" && $USER_AUTH) || (!$PG_EVALUATE &&  $PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && ($pg_evaluate_chk == "" || !$PG_EVALUATE ) )&& ($KF_SCORE_STATUS == 0 || empty($KF_SCORE_STATUS)) || $SESS_USERGROUP==1 )){
+          ?>
+		  <a href="<?="javascript:form1.action+='?UPD=1';form1.PG_ID.value=$TMP_PG_ID;form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="xxxแก้ไขข้อมูลผลสำเร็จของงานที่คาดหวัง"></a>
+	  <?}else{?>        
+		  <a href="<?="javascript:form1.action+='?VIEW=1';form1.PG_ID.value=$TMP_PG_ID; form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลผลสำเร็จของงานที่คาดหวัง" width="16" height="16" border="0"></a>
+	  <?}?>
+	  </td>
+
+	  <?if($isLockYear=='UNLOCK' && $PAGE_AUTH["del"]=="Y" && $USER_AUTH){?>
+      <td align="center">&nbsp;<?if(!$PG_EVALUATE &&  ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && $pg_evaluate_chk == "")&& $KF_SCORE_STATUS==0 || $SESS_USERGROUP == 1){?><a href="<?="javascript:confirm_delete($TMP_PG_ID,'$TMP_PFR_NAME - $KPI_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลผลสำเร็จของงานที่คาดหวัง"></a><?}?></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+    <tr class="table_footer" height="25">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td class="table_body" align="right"><?=$TOTAL_WEIGHT?>&nbsp;</td>
+      <!--td <?  if($BKK_FLAG != 1){ ?>colspan="5"<? } ?>>&nbsp;</td-->
+      <td colspan="5">&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?><td>&nbsp;</td><?}?>
+    </tr>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <?  // if  count show ?>
+<? if ($BKK_FLAG==1) { ?>
+<?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record a.PG_ID 
+							from 		PER_PERFORMANCE_GOALS a
+							where		a.KF_ID=$KF_ID and a.KF_TYPE=2
+							order by 	a.PG_SEQ ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[PG_ID]."'";
+			$limit_data = " and a.PG_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  	
+													a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM			PER_PERFORMANCE_GOALS a
+							WHERE			a.KF_ID=$KF_ID and a.KF_TYPE=2
+													$search_condition
+													$limit_data
+							ORDER BY		a.PG_SEQ ";
+	}elseif($DPISDB=="oci8"){			 
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select 		temp2.*
+						from (
+						   select 		rownum as rnum, temp1.*
+						   from ( 
+								  select 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE, 
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+								  from 			PER_PERFORMANCE_GOALS a
+								  where 		a.KF_ID=$KF_ID and a.KF_TYPE=2
+													$search_condition
+								  order by 	a.PG_SEQ
+						   )  temp1
+						   where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM			PER_PERFORMANCE_GOALS a
+							WHERE			a.KF_ID=$KF_ID and a.KF_TYPE=2
+													$search_condition
+							ORDER BY		a.PG_SEQ
+					 								$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo '<pre>'.$cmd;
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+&nbsp;&nbsp;&nbsp;&nbsp;<b>ตัวชี้วัดตามหน้าที่ความรับผิดชอบหลัก</b>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" rowspan="2"><strong>ลำดับ</strong></td>
+       <td width="40%" rowspan="2">หน้าที่ความรับผิดชอบหลัก</td>
+       <td rowspan="2">ตัวชี้วัด<?=($BKK_FLAG!=1)?" (KPI)":""?></td>
+       <td width="7%" rowspan="2">น้ำหนัก</td>
+		<?  if($BKK_FLAG == 2){ ?>
+       <td height="21">เป้าหมาย</td>
+	  <?}else{?>
+       <td height="21" colspan="5">เป้าหมาย</td>
+	  <?}?>
+      <td width="3%" rowspan="2">
+	  <?if( ($isLockYear=='UNLOCK' && $PAGE_AUTH["edit"]=="Y") && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1) ){?>
+
+		  <?=$EDIT_TITLE?>
+	  <?}else{?>
+		  <?=$VIEW_TITLE?>
+	  <?}?>
+	  </td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?><td width="3%" rowspan="2"><?=$DEL_TITLE?></td><?}?>
+    </tr>
+	<tr align="center" class="table_head">
+	  <!--td width="3%" height="21"><?  if($BKK_FLAG != 1){ ?>1<? }else{ ?>&nbsp;<? } ?></td-->
+	  <td width="3%" height="21">1</td>
+<!--?  if($BKK_FLAG != 1){ ?-->
+		<td width="3%">2</td>
+		<td width="3%">3</td>
+		<td width="3%">4</td>
+		<td width="3%">5</td>
+	<!--? } ?-->
+	</tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_PG_ID = $data[PG_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PG_ID;
+		$PG_SEQ = $data[PG_SEQ];
+		$TMP_PFR_NAME = $data[PFR_NAME];
+		$KPI_NAME = $data[KPI_NAME];
+		$KPI_OTHER = $data[KPI_OTHER];
+		if ($BKK_FLAG==1) $TMP_PFR_NAME = $KPI_OTHER;
+		$KPI_WEIGHT = $data[KPI_WEIGHT];
+		$KPI_TARGET_LEVEL1 = $data[KPI_TARGET_LEVEL1];
+		$KPI_TARGET_LEVEL2 = $data[KPI_TARGET_LEVEL2];
+		$KPI_TARGET_LEVEL3 = $data[KPI_TARGET_LEVEL3];
+		$KPI_TARGET_LEVEL4 = $data[KPI_TARGET_LEVEL4];
+		$KPI_TARGET_LEVEL5 = $data[KPI_TARGET_LEVEL5];
+		$PG_EVALUATE = $data[PG_EVALUATE];			//$PG_EVALUATE="";	
+		$TOTAL_WEIGHT += $KPI_WEIGHT;
+		$TMP_KF_SCORE_FLAG = $data[KF_SCORE_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PG_ID==$TMP_PG_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+	<? if ($TMP_KF_SCORE_FLAG==2) $sub_class = "label_alert";
+		else $sub_class = $class; 
+	?>
+      <td height="25" align="center"><?=$data_count?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$TMP_PFR_NAME?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$KPI_NAME?></td>
+      <td class="<?=$sub_class?>" align="right"><?=$KPI_WEIGHT?>&nbsp;</td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL1?></td>
+	<!--?  if($BKK_FLAG != 1){ ?-->
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL2?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL3?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL4?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL5?></td>
+      <!--?  } ?-->
+	  <td class="<?=$sub_class?>" align="center">
+	  <?if($PAGE_AUTH["edit"]=="Y" && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1)){?>
+		  <a href="<?="javascript:form1.action+='?UPD=1';form1.PG_ID.value=$TMP_PG_ID; form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลผลสำเร็จของงานที่คาดหวัง"></a>
+	  <?}else{?>
+		  <a href="<?="javascript:form1.action+='?VIEW=1';form1.PG_ID.value=$TMP_PG_ID; form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลผลสำเร็จของงานที่คาดหวัง" width="16" height="16" border="0"></a>
+	  <?}?>
+	  </td>
+	  <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?>
+      <td align="center">&nbsp;<?if(!$PG_EVALUATE){?><a href="<?="javascript:confirm_delete($TMP_PG_ID,'$TMP_PFR_NAME - $KPI_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลผลสำเร็จของงานที่คาดหวัง"></a><?}?></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+    <tr class="table_footer" height="25">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td class="table_body" align="right"><?=$TOTAL_WEIGHT?>&nbsp;</td>
+      <!--td <?  if($BKK_FLAG != 1){ ?>colspan="5"<? } ?>>&nbsp;</td-->
+      <td colspan="5">&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?><td>&nbsp;</td><?}?>
+    </tr>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+<?
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record a.PG_ID 
+							from 		PER_PERFORMANCE_GOALS a
+							where		a.KF_ID=$KF_ID and a.KF_TYPE=3
+							order by 	a.PG_SEQ ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[PG_ID]."'";
+			$limit_data = " and a.PG_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  	
+													a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM			PER_PERFORMANCE_GOALS a
+							WHERE			a.KF_ID=$KF_ID and a.KF_TYPE=3
+													$search_condition
+													$limit_data
+							ORDER BY		a.PG_SEQ ";
+	}elseif($DPISDB=="oci8"){			 
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select 		temp2.*
+						from (
+						   select 		rownum as rnum, temp1.*
+						   from ( 
+								  select 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE, 
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+								  from 			PER_PERFORMANCE_GOALS a
+								  where 		a.KF_ID=$KF_ID and a.KF_TYPE=3
+													$search_condition
+								  order by 	a.PG_SEQ
+						   )  temp1
+						   where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 		a.PG_ID, a.PG_SEQ, a.KPI_NAME, a.KPI_OTHER, a.KPI_WEIGHT, a.PG_EVALUATE,
+								  					a.KPI_TARGET_LEVEL1, a.KPI_TARGET_LEVEL2, a.KPI_TARGET_LEVEL3, a.KPI_TARGET_LEVEL4, a.KPI_TARGET_LEVEL5, a.KF_SCORE_FLAG
+							FROM			PER_PERFORMANCE_GOALS a
+							WHERE			a.KF_ID=$KF_ID and a.KF_TYPE=3
+													$search_condition
+							ORDER BY		a.PG_SEQ
+					 								$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo '<pre>'.$cmd;
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+&nbsp;&nbsp;&nbsp;&nbsp;<b>ตัวชี้วัดตามงานที่ได้รับมอบหมายพิเศษ</b>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" rowspan="2"><strong>ลำดับ</strong></td>
+       <td width="40%" rowspan="2">งานที่ได้รับมอบหมายพิเศษ</td>
+       <td rowspan="2">ตัวชี้วัด<?=($BKK_FLAG!=1)?" (KPI)":""?></td>
+       <td width="7%" rowspan="2">น้ำหนัก</td>
+		<?  if($BKK_FLAG == 2){ ?>
+       <td height="21">เป้าหมาย</td>
+	  <?}else{?>
+       <td height="21" colspan="5">เป้าหมาย</td>
+	  <?}?>
+      <td width="3%" rowspan="2">
+	  <?if($PAGE_AUTH["edit"]=="Y" && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1)){?>
+		  <?=$EDIT_TITLE?>
+		  
+	  <?}else{?>
+		  <?=$VIEW_TITLE?>
+	  <?}?>
+	  </td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?><td width="3%" rowspan="2"><?=$DEL_TITLE?></td><?}?>
+    </tr>
+	<tr align="center" class="table_head">
+	  <!--td width="3%" height="21"><?  if($BKK_FLAG != 1){ ?>1<? }else{ ?>&nbsp;<? } ?></td-->
+	  <td width="3%" height="21">1</td>
+<!--?  if($BKK_FLAG != 1){ ?-->
+		<td width="3%">2</td>
+		<td width="3%">3</td>
+		<td width="3%">4</td>
+		<td width="3%">5</td>
+	<!--? } ?-->
+	</tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_PG_ID = $data[PG_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PG_ID;
+		$PG_SEQ = $data[PG_SEQ];
+		$TMP_PFR_NAME = $data[PFR_NAME];
+		$KPI_NAME = $data[KPI_NAME];
+		$KPI_OTHER = $data[KPI_OTHER];
+		if ($BKK_FLAG==1) $TMP_PFR_NAME = $KPI_OTHER;
+		$KPI_WEIGHT = $data[KPI_WEIGHT];
+		$KPI_TARGET_LEVEL1 = $data[KPI_TARGET_LEVEL1];
+		$KPI_TARGET_LEVEL2 = $data[KPI_TARGET_LEVEL2];
+		$KPI_TARGET_LEVEL3 = $data[KPI_TARGET_LEVEL3];
+		$KPI_TARGET_LEVEL4 = $data[KPI_TARGET_LEVEL4];
+		$KPI_TARGET_LEVEL5 = $data[KPI_TARGET_LEVEL5];
+		$PG_EVALUATE = $data[PG_EVALUATE];			//$PG_EVALUATE="";	
+		$TOTAL_WEIGHT += $KPI_WEIGHT;
+		$TMP_KF_SCORE_FLAG = $data[KF_SCORE_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PG_ID==$TMP_PG_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+	<? if ($TMP_KF_SCORE_FLAG==2) $sub_class = "label_alert";
+		else $sub_class = $class; 
+	?>
+      <td height="25" align="center"><?=$data_count?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$TMP_PFR_NAME?></td>
+      <td class="<?=$sub_class?>">&nbsp;<?=$KPI_NAME?></td>
+      <td class="<?=$sub_class?>" align="right"><?=$KPI_WEIGHT?>&nbsp;</td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL1?></td>
+	<!--?  if($BKK_FLAG != 1){ ?-->
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL2?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL3?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL4?></td>
+	  <td class="<?=$sub_class?>" align="center"><?=$KPI_TARGET_LEVEL5?></td>
+      <!--?  } ?-->
+	  <td class="<?=$sub_class?>" align="center">
+	  <?if($PAGE_AUTH["edit"]=="Y" && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1)){?>
+		  <a href="<?="javascript:form1.action+='?UPD=1';form1.PG_ID.value=$TMP_PG_ID; form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลผลสำเร็จของงานที่คาดหวัง"></a>
+	  <?}else{?>
+		  <a href="<?="javascript:form1.action+='?VIEW=1';form1.PG_ID.value=$TMP_PG_ID; form1.KF_TYPE_RETURN.value='';form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลผลสำเร็จของงานที่คาดหวัง" width="16" height="16" border="0"></a>
+	  <?}?>
+	  </td>
+	  <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?>
+      <td align="center">&nbsp;<?if(!$PG_EVALUATE){?><a href="<?="javascript:confirm_delete($TMP_PG_ID,'$TMP_PFR_NAME - $KPI_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลผลสำเร็จของงานที่คาดหวัง"></a><?}?></td>
+	  <?}?>
+    </tr>
+    <? } ?>
+    <tr class="table_footer" height="25">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td class="table_body" align="right"><?=$TOTAL_WEIGHT?>&nbsp;</td>
+      <!--td <?  if($BKK_FLAG != 1){ ?>colspan="5"<? } ?>>&nbsp;</td-->
+      <td colspan="5">&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH){?><td>&nbsp;</td><?}?>
+    </tr>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+<? } // if $BKK_FLAG?>
+</div>
+<div style="display:<?=$SUBPAGE==2?"block":"none"?>">
+&nbsp;
+  <?   if($VIEW || $USER_AUTH || $UPD){ ?>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5" colspan="2"></td>
+          </tr>
+		<? if($err_text){ ?>
+        <tr>
+          <td height="22" colspan="2" align="center" class="label_alert"><?=$err_text?></td>
+          </tr>
+		<? } // end if ?>
+		<tr>
+		  <td width="28%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;สมรรถนะ&nbsp;:&nbsp;</td>
+		  <td>
+		  	<input type="text" name="CP_NAME" value="<?=$CP_NAME?>" style="width:80%" class="textbox" readonly>
+			<input type="hidden" name="CP_CODE" value="<?=$CP_CODE?>">
+    		<? if($KF_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH && !$VIEW || ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && $pg_evaluate_chk=="")&& $KF_SCORE_STATUS==0) : ?>
+		  	<input type="button" name="btn4" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกคุณลักษณะ/สมรรถนะ" onClick="call_search_position_competence();">
+		  	<? endif; ?>
+                      
+		  </td>
+		</tr>
+		<tr>
+		  <td height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ระดับสมรรถนะที่คาดหวัง&nbsp;:&nbsp;</td>
+		  <td><input type="text" name="PC_TARGET_LEVEL" value="<?=$PC_TARGET_LEVEL?>" size="10" maxlength="1" class="textbox" <?=(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && $USER_AUTH)?"":"readonly"?>></td>
+		  </tr>
+		<? if($KF_ID) : ?>
+        <tr align="center">
+          <td height="25" colspan="2">
+		  		<?  if ($UPD || $VIEW) { ?><?	if ($BUTTON_DISPLAY==1) { ?>
+				
+           <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL2';form1.KC_ID.value=''; " class="submit" > <? } else { ?>
+            <input name="image" type="image" onClick="alert(form1.command.value='CANCEL');form1.command.value='CANCEL'; form1.KC_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" border="0">
+            &nbsp;&nbsp;&nbsp;
+            <?}?>
+      		  <?if($isLockYear=='UNLOCK' && ($PAGE_AUTH["edit"]=="Y" && $USER_AUTH && $UPD ||  ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == ''&& $pg_evaluate_chk=="")&& $KF_SCORE_STATUS==0)){?>
+                       <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit22" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$BNT_EDIT_TITLE?>">
+                            <? } else { ?>
+                              <input name="image" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$BNT_EDIT_TITLE?>" border="0">
+                                &nbsp;&nbsp;&nbsp;
+                            <?}?>
+			<?}?> 
+      		  <? } else { ?><? 	if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> <? } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;&nbsp;&nbsp;
+<?}?>
+	  		  <? 
+                          if($isLockYear=='UNLOCK' && $PAGE_AUTH["add"]=="Y" && $USER_AUTH){ /*เดิม*/
+                         // if($PAGE_AUTH["add"]=="Y" && $USER_AUTH && !$KF_SCORE_STATUS) {/*<<< Release 5.2.1.5 กรณีที่ผู้ประเมินให้คะแนนแล้ว ถือว่าสิ้นสุดจะไม่ให้แก้ไขส่วนอื่นๆ*/
+                          ?>
+                          <?	if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE?>"><? } else { ?>
+            <input name="image" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>" border="0">
+            <?}?>
+			  <?}?> 
+              <?}?>          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5" colspan="2"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table>
+  &nbsp;
+  <? } // end if($VIEW || $USER_AUTH) ?>
+
+<?
+	$cmd =" select 		count(KC_ID) as count_data 
+					from 		PER_KPI_COMPETENCE
+					where		KF_ID=$KF_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<!--
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td>
+	<td align="center">พบ คุณลักษณะ/สมรรถนะ ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td>
+     </tr>
+   </table></td>
+	</tr>
+</table> 
+-->
+<?
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+
+	if($current_page > 1){
+		if($DPISDB=="odbc" ){
+			$cmd = " select 	top $start_record a.KC_ID 
+							from 		PER_KPI_COMPETENCE a, PER_COMPETENCE b
+							where		a.KF_ID=$KF_ID and a.CP_CODE=b.CP_CODE and b.DEPARTMENT_ID=$DEPARTMENT_ID 
+							order by 	a.CP_CODE ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[KC_ID]."'";
+			$limit_data = " and a.KC_ID not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  	
+													a.KC_ID, a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL, a.KC_EVALUATE
+							FROM			PER_KPI_COMPETENCE a, PER_COMPETENCE b
+							WHERE			a.KF_ID=$KF_ID and a.CP_CODE=b.CP_CODE and b.DEPARTMENT_ID=$DEPARTMENT_ID 
+													$search_condition
+													$limit_data
+							ORDER BY	a.CP_CODE ";
+	}elseif($DPISDB=="oci8"){			 
+		$min_rownum = (($current_page - 1) * $data_per_page) + 1;
+		$max_rownum = $current_page * $data_per_page;
+
+		$cmd = "select 		temp2.*
+						from (
+						   select 		rownum as rnum, temp1.*
+						   from ( 
+								  select 		a.KC_ID, a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL, a.KC_EVALUATE
+								  from 			PER_KPI_COMPETENCE a, PER_COMPETENCE b
+								  where 		a.KF_ID=$KF_ID and a.CP_CODE=b.CP_CODE(+) and b.DEPARTMENT_ID=$DEPARTMENT_ID 
+													$search_condition
+								  order by 	a.CP_CODE
+						   )  temp1
+						   where rownum <= $max_rownum
+						) temp2
+						where rnum between $min_rownum and $max_rownum ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 		a.KC_ID, a.CP_CODE, b.CP_NAME, b.CP_MODEL, a.PC_TARGET_LEVEL, a.KC_EVALUATE
+							FROM			PER_KPI_COMPETENCE a, PER_COMPETENCE b
+							WHERE			a.KF_ID=$KF_ID and a.CP_CODE=b.CP_CODE and b.DEPARTMENT_ID=$DEPARTMENT_ID 
+													$search_condition
+							ORDER BY	a.CP_CODE
+													$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//echo '<pre>'.$cmd;
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" height="22"><strong>&nbsp;</strong></td>
+       <td>สมรรถนะ</td>
+       <td width="30%">ระดับสมรรถนะที่คาดหวัง</td>
+      <td width="3%">
+	  <?if($PAGE_AUTH["edit"]=="Y" && (($USER_AUTH && !$PG_EVALUATE) || $SESS_USERGROUP==1) ||  ($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && $pg_evaluate_chk=="")&& $KF_SCORE_STATUS==0){?>
+		  <?=$EDIT_TITLE?>
+	  <?}else{?>
+                     
+           <?=$VIEW_TITLE?>
+                   
+	  <?}?>
+	  </td>
+      <?if(($isLockYear=='UNLOCK' && $PAGE_AUTH["del"]=="Y") && $USER_AUTH && trim($KC_EVALUATE)==""){?><td width="3%"><?=$DEL_TITLE?></td><?}?>
+    </tr>
+
+    <? 
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_KC_ID = $data[KC_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_KC_ID;
+		$CP_CODE = trim($data[CP_CODE]);
+		$CP_NAME = $data[CP_NAME];
+		$CP_MODEL = $data[CP_MODEL];
+		$PC_TARGET_LEVEL = $data[PC_TARGET_LEVEL];
+		$KC_EVALUATE = $data[KC_EVALUATE];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($KC_ID==$TMP_KC_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_count?></td>
+      <td>&nbsp;<?=$CP_NAME?><? if($CP_MODEL==2){ ?><span class="label_alert">&nbsp;*</span><? } ?></td>
+      <td align="center"><?=$PC_TARGET_LEVEL?></td>
+      <td align="center">
+	  <?if( $isLockYear=='UNLOCK' && ($PAGE_AUTH["edit"]=="Y" && (($USER_AUTH && trim($KC_EVALUATE)=="") || $SESS_USERGROUP==1) || ($PER_ID == $SESS_PER_ID &&$ACCEPT_FLAG == '' && $pg_evaluate_chk=="")&& $KF_SCORE_STATUS==0) ){?>
+		<a href="<?="javascript:form1.action+='?UPD=1';form1.KC_ID.value=$TMP_KC_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลคุณลักษณะ/สมรรถนะที่คาดหวัง"></a>
+	  <?}else{?>
+                   
+			<a href="<?="javascript:form1.action+='?VIEW=1';form1.KC_ID.value=$TMP_KC_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลคุณลักษณะ/สมรรถนะที่คาดหวัง" width="16" height="16" border="0"></a>
+                   
+       <?}?>
+	  </td>
+	  <?php if($isLockYear=='UNLOCK' && $PAGE_AUTH["del"]=="Y" && $USER_AUTH && trim($KC_EVALUATE)=="" ){?>
+      <td align="center">&nbsp;<?if($SESS_USERGROUP==1||($PER_ID == $SESS_PER_ID && $ACCEPT_FLAG == '' && $pg_evaluate_chk=="" && $KF_SCORE_STATUS==0)){?><a href="<?="javascript:confirm_delete($TMP_KC_ID,'$CP_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูลคุณลักษณะ/สมรรถนะที่คาดหวัง"></a><?}?></td>
+	  <?}?>
+    </tr>
+
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="22">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if(($isLockYear=='UNLOCK'&&$PAGE_AUTH["del"]=="Y") && $USER_AUTH && trim($KC_EVALUATE)==""){?><td>&nbsp;</td><?}?>
+    </tr>
+    <tr class="label_alert" height="22">
+      <td colspan="3">* ประเมินเฉพาะข้าราชการระดับผู้บังคับบัญชา</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["del"]=="Y" && $USER_AUTH && trim($KC_EVALUATE)==""){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+</div>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

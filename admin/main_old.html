@@ -1,0 +1,598 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("../php_scripts/calendar_data.php");
+	include("php_scripts/function_share.php");
+
+	/*echo $PAGE_AUTH["add"]."+".$PAGE_AUTH["edit"]; 
+	print_r($PAGE_AUTH);
+	>> สำหรับเมนูหลักหน้าแรกมันไม่มีตัว AUTH ไม่สามารถกำหนดสิทธิ์ได้
+	>> group1 --> MENU_ID_LV0=0&MENU_ID_LV1=0&MENU_ID_LV2=0&MENU_ID_LV3=0
+	if($db_type=="mysql"){
+	}else if(db_type=="oci8"){			
+	}	*/
+
+	$cmd = " select code, name_th, group_level, pv_code, org_id from user_group where id=$SESS_USERGROUP ";
+	$db->send_cmd($cmd);
+//	$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$SESS_GROUPCODE = $data[code];
+	
+//	echo "test--".$SESS_MINISTRY_ID."=".md5("PKG1".$SESS_MINISTRY_ID)." [ $SPKG1 ] ~ ".$SESS_DEPARTMENT_ID."+".$SESS_USERGROUP."($SESS_GROUPCODE) == $LOGON_GROUP - $CTRL_TYPE - $SESS_USERGROUP_LEVEL ";
+	if (!$filter_1) $filter_1 = "current";
+	if (!$filter_2) $filter_2 = "current";
+	if (!$filter_3) $filter_3 = "current";
+?>
+<html>
+<head>
+<title>
+<?=$webpage_title?>
+</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script language="JavaScript" type="text/JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function call_edit_message (command,mes_id) {
+		parameter = "";
+		if(command!='')	parameter = "&COMMAND='"+command+"'";
+		if(mes_id!=''){ //ดู/แก้ไข
+			parameter += "&VIEW=1&UPD=1";
+			parameter += "&MSG_ID=" + mes_id;
+		}else{ //เพิ่ม
+			//__parameter += "&";
+		}
+		childReturn = window.showModalDialog("personal_message_form_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+		//alert(childReturn);
+		document.form1.submit();
+	}
+
+	function call_msg_file(MSG_ID, MSG_POSTUSER_ID) {
+		parameter = "&MSG_ID=" +MSG_ID+"&MSG_POSTUSER_ID="+MSG_POSTUSER_ID;
+		childReturn = window.showModalDialog("personal_msgfile_frame.html?VIEW=1&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 700px; dialogWidth: 1200px; status: No; resizable: No; help: No; statusbar: No;");
+		 document.form1.submit();	
+	}
+</script>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<span id="defaultTheme"></span>
+<body>
+<form name="form1" method="post" action="">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr>
+      <td><? include("header_menu.html")?></td>
+    </tr>
+    <tr>
+      <td align="left" valign="top"><table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal" height="100%">
+          <tr>
+            <td align="left" valign="top"><table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td height="28"><table  border="0" cellspacing="0" cellpadding="0" class="header_current_location_table">
+                      <tr>
+                        <td width="4%" height="28">&nbsp;</td>
+                        <td class="header_current_location">&reg;&nbsp;Welcome .... </td>
+                        <td width="40" class="header_current_location_right">&nbsp;</td>
+                      </tr>
+                    </table></td>
+                </tr>
+              </table>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+                <tr>
+                  <td height="5"></td>
+                </tr>
+                <tr>
+                  <td align="center" valign="top"><? if(($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3){ $MAIN_VIEW = 1; $PER_ID = $SESS_PER_ID; include("personal_master_desc.html"); } ?></td>
+                </tr>
+                <!---เพิ่มเติม--->
+                <tr>
+                  <td align="center" valign="top"><table width="90%" border="1" align="center" cellpadding="0" cellspacing="0"  class="input_table">
+                      <tr>
+                        <td><table width="100%" border="0" cellspacing="2" cellpadding="0">
+                            <tr class="table_head">
+                              <td width="75%" colspan="3" class="text_disabled">&nbsp;&nbsp;<a href="<? if($SESS_USERGROUP == '1' ) { ?>javascript:call_edit_message ('0','')<? } else { echo "#"; } ?>" class="table_head">วิธีการใช้งานระบบ</a></td>
+                              <td width="25%" colspan="2"><input type="radio" name="filter_1" id="filter_1" value="new" onClick="form1.submit()" <?php if($filter_1 == 'new') { ?>checked<?php } ?>>
+                                รอการแสดงผล
+                                  <input type="radio" name="filter_1" id="filter_1" value="current" onClick="form1.submit()" <?php if($filter_1 == 'current') { ?>checked<?php } ?>> 
+                                  ปัจจุบัน
+                                  <input type="radio" name="filter_1" id="filter_1" value="old" onClick="form1.submit()" <?php if($filter_1 == 'old') { ?>checked<?php } ?>>
+                                เก่า</td>
+                            </tr>
+                   <?
+					if( !$current_page ) $current_page = 1;
+					if(!$data_per_page) $data_per_page = 30;
+					$start_record = ($current_page - 1) * $data_per_page;
+					
+					//connect to database
+					$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);	
+
+					//___$today = "2008-01-01";
+					$today = date("Y-m-d");
+                    
+                    if($filter_1 == 'old') {
+                    	$filter_1_str = "SUBSTR(trim(MSG_FINISH_DATE),1,10) < '".$today."'";                    
+                    } elseif($filter_1 == 'current') {
+                    	$filter_1_str = "SUBSTR(trim(MSG_START_DATE),1,10) <= '".$today."' AND  SUBSTR(trim(MSG_FINISH_DATE),1,10) >= '".$today."'";
+                    } elseif($filter_1 == 'new') {
+                    	$filter_1_str = "SUBSTR(trim(MSG_START_DATE),1,10) >= '".$today."'";
+                    }
+						if($DPISDB=="odbc"){
+							$filter_1_str = str_replace("SUBSTR", "MID", $filter_1_str);
+							$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+											from PER_MESSAGE M
+											left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+											where  $filter_1_str AND MSG_TYPE=0 and U.USER_ID=$SESS_USERID 
+											order by MSG_POST_DATE desc";	
+						}elseif($DPISDB=="oci8"){
+							$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+											from PER_MESSAGE M ,PER_MESSAGE_USER U
+											where  $filter_1_str AND MSG_TYPE=0 and M.MSG_ID = U.MSG_ID(+) and U.USER_ID=$SESS_USERID 
+											order by MSG_POST_DATE desc";	
+						}elseif($DPISDB=="mysql"){
+							$filter_1_str = str_replace("SUBSTR", "MID", $filter_1_str);
+							$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+											from PER_MESSAGE M
+											left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+											where  $filter_1_str AND MSG_TYPE=0 and U.USER_ID=$SESS_USERID 
+											order by MSG_POST_DATE desc";	
+						}
+                    
+					$countdata = $db_dpis->send_cmd($cmd);
+					//$db_dpis->show_error();
+					//echo "$cmd<br>";
+					
+				if($countdata){
+						while($data = $db_dpis->get_array()){
+							${"temp_".MSG_ID} = trim($data[MSG_ID]);
+if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว
+							$EXIST_MSG_ID[] = ${"temp_".MSG_ID};
+							
+							$POSTUSRNAME=""; $MSG_POST_DATE="";
+							if($data[MSG_POST_DATE]){
+								$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+								//print_r($arr_temp);
+								$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+							}
+							
+							//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+							$cmd1 ="select fullname from user_detail where id=$data[POST_USER_ID]";	
+							$db->send_cmd($cmd1);
+							$datausr = $db->get_array();
+							$datausr = array_change_key_case($datausr, CASE_LOWER);
+							$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID;	
+						
+							$class = "table_body";
+							$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+							if($MSG_ID==${"temp_".MSG_ID} ){ 
+								$class = "table_body_over";
+								$onmouse_event = "";
+							} // end if
+							
+							$total_page = ceil( $count_data / $data_per_page );
+							$page_link = create_link_page($total_page, $current_page);
+?>
+                            <tr>
+                              <td width="2%" align="center">
+							  	<? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new-icon.gif" width="20" height="15" onClick="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } else { ?>
+                                <img src="images/open-icon.gif" width="21" height="15"  onClick="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } ?>                              </td>
+                              <td><a href="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($MSG_POST_DATE); ?></b></a>&nbsp;&nbsp;<a href="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($data[MSG_HEADER]); ?></b></a>
+                                <? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new21.gif" width="30" height="10">
+                                <? } ?>								</td>
+                              <td width="15%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$POSTUSRNAME; ?></b></a></td>
+                              <td width="20%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('0','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$data[MSG_SOURCE]; ?></b></a></td>
+                              <td width="5%" align="center" class="label_normal"><!--ถ้ามีไฟล์แนบ-->
+                                <? //if(trim($data[MSG_DOCUMENT])) { ?>
+                                <?
+						//####################################
+						//หาจำนวนไฟล์ที่พบในโฟลเดอร์นี้
+						//####################################
+						$count_data=0;
+						$FILE_PATH = "../attachments/PER_MESSAGE/${"temp_".MSG_ID}";
+						if (is_dir($FILE_PATH)) {
+							if ($dh = opendir($FILE_PATH)) {
+								while (($file = readdir($dh)) !== false) {
+									if ($file != "." && $file != "..") {
+										$count_data++;
+									}
+								}
+								closedir($dh);
+							}
+						}
+						//####################################
+						if($count_data > 0){
+						?>
+                                <img src="images/attach.gif" width="13" height="19" alt="ดูไฟล์เอกสาร" onClick="javascript:call_msg_file(<?=${"temp_".MSG_ID}; ?>,<?=$data[POST_USER_ID]; ?>);">
+                                <? } ?></td>
+                            </tr>
+                            <?	
+}	//END   if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว
+					} //end while
+					//print_r($EXIST_MSG_ID);
+			
+/***************************************
+						if($SESS_USERID != '1'){
+								$POST_USER_ID = $data[POST_USER_ID];
+								$SHOW_USER_ID[] = $data[USER_ID];
+								
+								$FROM[$data[POST_USER_ID]]="MESSAGE";
+								$FROM[$data[USER_ID]]="USER";
+							}else{
+								include("main_msg.html");
+							}
+						} //end while
+				if($SESS_USERID != '1'){	//----ที่ไม่ใช่ ADMIN
+				if(trim($POST_USER_ID)){	$SHOW_USER_ID[] = $POST_USER_ID;	}	
+				if(is_array($SHOW_USER_ID)){
+					//แสดงเฉพาะแถวเดียวสำหรับคนที่ล็อกอินมาเท่านั้น ไม่ว่าจะเป็นผู้โพสต์หรือผู้รับ
+					if(in_array($SESS_USERID,$SHOW_USER_ID)){  //ให้มันแสดงจาก PER_MESSAGE เพียงแค่ครั้งเดียว
+						if($FROM[$SESS_USERID]=="MESSAGE"){
+							$cmdshow= str_replace("(M.USER_ID=$SESS_USERID or U.USER_ID=$SESS_USERID)","M.USER_ID=$SESS_USERID",$cmdshow);
+							$cmdshow= str_replace("U.MSG_STATUS","M.MSG_SHOW",$cmdshow);
+							$cmdshow= str_replace(",PER_MESSAGE_USER U","",$cmdshow);
+							$cmdshow= str_replace("and M.MSG_ID = U.MSG_ID","",$cmdshow);
+							$cmdshow= str_replace("U.","M.",$cmdshow);
+						}else{	//---USER
+							$cmdshow= str_replace("(M.USER_ID=$SESS_USERID or U.USER_ID=$SESS_USERID)","U.USER_ID=$SESS_USERID",$cmdshow);
+						}
+//						echo ">>".$SESS_USERID."--".$cmdshow;
+				
+				$db_dpis->send_cmd($cmdshow);
+				//$db_dpis->show_error();
+				while($data = $db_dpis->get_array()){
+							${"temp_".MSG_ID} = trim($data[MSG_ID]);
+							$POSTUSRNAME=""; $MSG_POST_DATE="";
+							if($data[MSG_POST_DATE]){
+								$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+								//print_r($arr_temp);
+								$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+							}
+							
+							//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+							$cmd1 ="select fullname from user_detail where id=$data[POST_USER_ID]";	
+							$db->send_cmd($cmd1);
+							$datausr = $db->get_array();
+							$datausr = array_change_key_case($datausr, CASE_LOWER);
+							$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID;				
+						
+							$class = "table_body";
+							$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+							if($MSG_ID==${"temp_".MSG_ID} ){ 
+								$class = "table_body_over";
+								$onmouse_event = "";
+							} // end if
+							
+							$total_page = ceil( $count_data / $data_per_page );
+							$page_link = create_link_page($total_page, $current_page);
+					
+							include("main_msg.html");
+					
+					} //end while
+					} //end in_array
+				} //end is_array
+			} //end if($SESS_USERID != '1')
+***************************************/
+
+}else{  //end countdata
+?>
+                            <tr>
+                              <td width="75%" class="label_normal" align="center" colspan="3">ยังไม่มีข้อมูล</td>
+							  <td width="25%" colspan="2">&nbsp;</td>
+                            </tr>
+                            <?
+}
+?>
+                          </table>
+                          <?//=$countdata." -- ".$cmd;  print_r($SHOW_USER_ID);?></td>
+                      </tr>
+                    </table>
+                    <? if($total_page > 1) : ?>
+                    <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+                      <tr>
+                        <td><?=$page_link?></td>
+                      </tr>
+                    </table>
+                    <? endif; ?>
+                    &nbsp; </td>
+                </tr>
+                <tr>
+                  <td align="center" valign="top"><table width="90%" border="1" cellspacing="0" cellpadding="0" class="input_table">
+                      <tr>
+                        <td><table width="100%"  border="0" cellspacing="2" cellpadding="0">
+                            <tr class="table_head">
+                              <td width="75%" colspan="3" class="text_disabled">&nbsp;&nbsp;<a href="javascript:call_edit_message ('1','')" class="table_head">ข่าวสารและประชาสัมพันธ์</a></td>
+                              <td width="25%" colspan="2"><input type="radio" name="filter_2" id="filter_2" value="new" onClick="form1.submit()" <?php if($filter_2 == 'new') { ?>checked<?php } ?>>
+							รอการแสดงผล
+							  <input type="radio" name="filter_2" id="filter_2" value="current" onClick="form1.submit()" <?php if($filter_2 == 'current') { ?>checked<?php } ?>>
+							ปัจจุบัน
+							 <input type="radio" name="filter_2" id="filter_2" value="old" onClick="form1.submit()" <?php if($filter_2 == 'old') { ?>checked<?php } ?>>
+							เก่า</td>
+                            </tr>
+                            <?
+                            if($filter_2 == 'old') {
+                                $filter_2_str = "SUBSTR(trim(MSG_FINISH_DATE),1,10) < '".$today."'";                    
+                            } elseif($filter_2 == 'current') {
+                                $filter_2_str = "SUBSTR(trim(MSG_START_DATE),1,10) <= '".$today."' AND  SUBSTR(trim(MSG_FINISH_DATE),1,10) >= '".$today."'";
+                            } elseif($filter_2 == 'new') {
+                                $filter_2_str = "SUBSTR(trim(MSG_START_DATE),1,10) >= '".$today."'";
+                            }
+								if($DPISDB=="odbc"){
+									$filter_2_str = str_replace("SUBSTR", "MID", $filter_2_str);
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M
+													left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+													where $filter_2_str AND MSG_TYPE=1 and U.USER_ID=$SESS_USERID 
+													order by MSG_POST_DATE desc";
+								}elseif($DPISDB=="oci8"){
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M ,PER_MESSAGE_USER U
+													where $filter_2_str AND MSG_TYPE=1 and M.MSG_ID = U.MSG_ID(+)	and U.USER_ID=$SESS_USERID 
+													order by MSG_POST_DATE desc";
+								}elseif($DPISDB=="mysql"){
+									$filter_2_str = str_replace("SUBSTR", "MID", $filter_2_str);
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M
+													left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+													where $filter_2_str AND MSG_TYPE=1 and U.USER_ID=$SESS_USERID 
+													order by MSG_POST_DATE desc";
+								}
+							$countdata = $db_dpis->send_cmd($cmd);
+//							$db_dpis->show_error();
+//							echo "$countdata :: $cmd<br>";
+							if($countdata > 0){
+							while($data = $db_dpis->get_array()){
+								${"temp_".MSG_ID} = trim($data[MSG_ID]);
+if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว
+								$EXIST_MSG_ID[] = ${"temp_".MSG_ID};
+							
+								$POSTUSRNAME=""; $MSG_POST_DATE="";
+								if(trim($data[MSG_POST_DATE])){
+									$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+									//print_r($arr_temp);
+									$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+								}
+								
+								//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+								$cmd1 ="select fullname from user_detail where id=$data[POST_USER_ID]";
+								$db->send_cmd($cmd1);
+								//	$db->show_error();
+								$datausr = $db->get_array();
+								$datausr = array_change_key_case($datausr, CASE_LOWER);
+								$POSTUSRNAME = $datausr[fullname];		//$SESS_USERID
+						?>
+                            <tr>
+                              <td width="2%" align="center"><!--ปักหมุด-->
+                                <? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new-icon.gif" width="20" height="15" onClick="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } else { ?>
+                                <img src="images/open-icon.gif" width="21" height="15"  onClick="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } ?></td>
+                              <td><a href="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($MSG_POST_DATE); ?></b></a>&nbsp;&nbsp;<a href="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($data[MSG_HEADER]); ?></b></a>
+                                <? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new21.gif" width="30" height="10">
+                                <? } ?>								</td>
+                              <td width="15%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$POSTUSRNAME; ?></b></a></td>
+                              <td width="20%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('1','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$data[MSG_SOURCE]; ?></b></a></td>
+                              <td width="5%" align="center" class="label_normal"><? //if(trim($data[MSG_DOCUMENT])) { ?>
+                                <?
+								//####################################
+								//หาจำนวนไฟล์ที่พบในโฟลเดอร์นี้
+								//####################################
+								$count_data=0;
+								$FILE_PATH = "../attachments/PER_MESSAGE/${"temp_".MSG_ID}";
+								if (is_dir($FILE_PATH)) {
+									if ($dh = opendir($FILE_PATH)) {
+										while (($file = readdir($dh)) !== false) {
+											if ($file != "." && $file != "..") {
+												$count_data++;
+											}
+										}
+										closedir($dh);
+									}
+								}
+								//####################################
+								if($count_data > 0){
+								?>
+                                <img src="images/attach.gif" width="13" height="19" alt="ดูไฟล์เอกสาร" onClick="javascript:call_msg_file(<?=${"temp_".MSG_ID}; ?>,<?=$data[POST_USER_ID]; ?>);">
+                                <? } ?></td>
+                            </tr>
+                            <?
+} //END if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว		
+							} //end while
+							}else{
+						?>
+                            <tr>
+                              <td width="75%" class="label_normal" align="center" colspan="3">ยังไม่มีข้อมูล</td>
+							  <td width="25%" colspan="2">&nbsp;</td>
+                            </tr>
+                            <?
+						}
+						?>
+                          </table></td>
+                      </tr>
+                    </table>
+                    <br>
+                    <table width="90%" border="1" cellspacing="0" cellpadding="0" class="input_table" align="center">
+                      <tr>
+                        <td><table width="100%"  border="0" cellspacing="2" cellpadding="0">
+                         <tr  class="table_head">
+                              <td width="75%" colspan="3" class="text_disabled">&nbsp;&nbsp;<a href="javascript:call_edit_message ('2','')" class="table_head">หนังสือเวียนอิเล็กทรอนิกส์-หนังสือคำสั่งอิเล็กทรอนิกส์</a></td>
+                              <td width="25%"colspan="2"><input type="radio" name="filter_3" id="filter_3" value="new" onClick="form1.submit()" <?php if($filter_3 == 'new') { ?>checked<?php } ?>>
+							รอการแสดงผล
+							  <input type="radio" name="filter_3" id="filter_3" value="current" onClick="form1.submit()" <?php if($filter_3 == 'current') { ?>checked<?php } ?>>
+							ปัจจุบัน
+							 <input type="radio" name="filter_3" id="filter_3" value="old" onClick="form1.submit()" <?php if($filter_3 == 'old') { ?>checked<?php } ?>>
+							เก่า</td>
+                            </tr>
+                            <?
+                            if($filter_3 == 'old') {
+                                $filter_3_str = "SUBSTR(trim(MSG_FINISH_DATE),1,10) < '".$today."'";                    
+                            } elseif($filter_3 == 'current') {
+                                $filter_3_str = "SUBSTR(trim(MSG_START_DATE),1,10) <= '".$today."' AND  SUBSTR(trim(MSG_FINISH_DATE),1,10) >= '".$today."'";
+                            } elseif($filter_3 == 'new') {
+                                $filter_3_str = "SUBSTR(trim(MSG_START_DATE),1,10) >= '".$today."'";
+                            }
+								if($DPISDB=="odbc"){
+									$filter_3_str = str_replace("SUBSTR", "MID", $filter_3_str);
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M 
+													left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+													where $filter_3_str AND MSG_TYPE=2 and U.USER_ID=$SESS_USERID
+													order by MSG_POST_DATE desc";
+								}elseif($DPISDB=="oci8"){
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M ,PER_MESSAGE_USER U
+													where $filter_3_str AND MSG_TYPE=2 and M.MSG_ID = U.MSG_ID(+) and U.USER_ID=$SESS_USERID
+													order by MSG_POST_DATE desc";
+								}elseif($DPISDB=="mysql"){
+									$filter_3_str = str_replace("SUBSTR", "MID", $filter_3_str);
+									$cmd = "select M.MSG_ID,MSG_POST_DATE,M.USER_ID as POST_USER_ID,U.USER_ID as USER_ID,M.MSG_SHOW,U.MSG_STATUS,MSG_HEADER,MSG_SOURCE,MSG_DOCUMENT  
+													from PER_MESSAGE M
+													left join PER_MESSAGE_USER U on (M.MSG_ID = U.MSG_ID)
+													where  $filter_3_str AND MSG_TYPE=2 and U.USER_ID=$SESS_USERID
+													order by MSG_POST_DATE desc";
+								}
+							$countdata = $db_dpis->send_cmd($cmd);
+							//$db_dpis->show_error();
+							//echo "$cmd<br>";
+							if($countdata > 0){
+							while($data = $db_dpis->get_array()){
+								${"temp_".MSG_ID} = trim($data[MSG_ID]);
+if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว
+								$EXIST_MSG_ID[] = ${"temp_".MSG_ID};
+								
+								$POSTUSRNAME=""; $MSG_POST_DATE="";
+								if(trim($data[MSG_POST_DATE])!=""){
+									$arr_temp=explode("-",substr($data[MSG_POST_DATE],0,10));
+									//print_r($arr_temp);
+									$MSG_POST_DATE = $arr_temp[2] ."/". $arr_temp[1] ."/". ($arr_temp[0] + 543);
+								}
+								
+								//ดึงชื่อผู้โพสต์จาก ตาราง user_detail ของ mysql
+								$cmd1 ="select fullname from user_detail where id=$data[POST_USER_ID]";
+								$db->send_cmd($cmd1);
+								//	$db->show_error();
+								$datausr = $db->get_array();
+								$datausr = array_change_key_case($datausr, CASE_LOWER);
+								$POSTUSRNAME = $datausr[fullname];			//$SESS_USERID;	
+						?>
+                           
+                            <tr>
+                              <td width="2%" align="center"><!--ปักหมุด-->
+                                <? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new-icon.gif" width="20" height="15" onClick="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } else { ?>
+                                <img src="images/open-icon.gif" width="21" height="15"  onClick="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');">
+                                <? } ?></td>
+                              <td><a href="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($MSG_POST_DATE); ?></b></a>&nbsp;&nbsp;<a href="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=trim($data[MSG_HEADER]); ?></b></a>
+                                <? if($data[MSG_STATUS] == 0) { ?>
+                                <img src="images/new21.gif" width="30" height="10">
+                                <? } ?>
+								</td>
+                              <td width="15%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$POSTUSRNAME; ?></b></a></td>
+                              <td width="20%"  nowrap="nowrap">&nbsp;<a href="javascript:call_edit_message ('2','<?=${"temp_".MSG_ID}; ?>');" class="label_normal"><b><?=$data[MSG_SOURCE]; ?></b></a></td>
+                              <td width="5%" align="center" class="label_normal"><? //if(trim($data[MSG_DOCUMENT])) { ?>
+                                <?
+								//####################################
+								//หาจำนวนไฟล์ที่พบในโฟลเดอร์นี้
+								//####################################
+								$count_data=0;
+								$FILE_PATH = "../attachments/PER_MESSAGE/${"temp_".MSG_ID}";
+								if (is_dir($FILE_PATH)) {
+									if ($dh = opendir($FILE_PATH)) {
+										while (($file = readdir($dh)) !== false) {
+											if ($file != "." && $file != "..") {
+												$count_data++;
+											}
+										}
+										closedir($dh);
+									}
+								}
+								//####################################
+								if($count_data > 0){
+								?>
+                                <img src="images/attach.gif" width="13" height="19" alt="ดูไฟล์เอกสาร" onClick="javascript:call_msg_file(<?=${"temp_".MSG_ID}; ?>,<?=$data[POST_USER_ID]; ?>);">
+                                <? } ?></td>
+                            </tr>
+                            <?
+} //END if(in_array(${"temp_".MSG_ID},$EXIST_MSG_ID)==false){   //ไม่แสดง MSG_ID ซ้ำกันหลายแถว
+							} //end while
+							}else{
+						?>
+                            <tr>
+                              
+							  <td width="75%" class="label_normal" align="center" colspan="3">ยังไม่มีข้อมูล</td>
+							  <td width="25%" colspan="2">&nbsp;</td>
+                            </tr>
+                            <?
+					   }
+					   ?>
+                          </table></td>
+                      </tr>
+                    </table></td>
+                </tr>
+              </table></td>
+          </tr>
+          <?
+                	$cmd = "select * from PER_MESSAGE where MSG_ID=".$MSG_ID." order by MSG_POST_DATE";
+					$db_dpis->send_cmd($cmd);
+					$data = $db_dpis->get_array();
+                     if($SESS_USERID != '1' && $SESS_USERID != $data[USER_ID]) {
+				?>
+          <tr>
+            <td align="center" valign="top">&nbsp;</td>
+          </tr>
+          <tr>
+            <td align="center" valign="top">&nbsp;</td>
+          </tr>
+          <?	
+				}
+				?>
+        </table>
+        <?
+					//--------------query เพิ่มลงตาราง PER_MESSAGE_USER ##############################
+					$cmd = "select MSG_ID,USER_ID,MSG_TYPE,UPDATE_USER,MSG_SHOW from PER_MESSAGE order by MSG_ID asc";
+					$count = $db_dpis->send_cmd($cmd);
+				//	$db_dpis->show_error();
+					//echo " - - ".$count.":".$cmd."<br>";
+					if($count>0){
+						$UPDATE_DATE = date("Y-m-d H:i:s");
+						while($data = $db_dpis->get_array()){
+							//echo "<br>".$data[MSG_ID]."--".$data[USER_ID];
+								//---Insert
+								$cmd1 = " insert into PER_MESSAGE_USER(MSG_ID,USER_ID,MSG_STATUS,UPDATE_USER,UPDATE_DATE) 
+													VALUES      
+													($data[MSG_ID],$data[USER_ID],0,$data[UPDATE_USER],'$UPDATE_DATE') ";
+								//$count1 = $db_dpis->send_cmd($cmd1);
+								//$db_dpis->show_error();
+								//echo "<br>--> ".$cmd1."<br>";
+						$count1++;
+						}
+						//echo " - - ".$count1."<br>";
+					}
+					//-------------- ##############################
+?></td>
+    </tr>
+  </table>
+</form>
+</td>
+</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script language="JavaScript"  type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<?=$alert_adding_command; ?>
+</script>
+</html>

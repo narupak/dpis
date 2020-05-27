@@ -1,0 +1,161 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);	
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+  	if(trim($search_wc_code)) $arr_search_condition[] = "(WC_CODE like '$search_wc_code%')";
+  	if(trim($search_wc_name)) $arr_search_condition[] = "(WC_NAME like '%$search_wc_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(WC_CODE) as count_data 
+					 from 		PER_WORK_CYCLE 
+					 where 	WC_ACTIVE=1
+					 				$search_condition
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>รอบการมาปฏิบัติราชการ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+</script>
+<body>
+<form action="search_work_cycle.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page;?>">
+  <input type="hidden" name="total_page" value="<?=$total_page;?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="send_by" value="<?=$send_by;?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center"><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="1" cellspacing="1" class="label_normal">
+            <tr>
+              <td width="21%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="17%"><input type="text" name="search_wc_code" value="<?=$search_wc_code;?>" style="width:90%" class="textbox"></td>
+              <td width="20%" align="right">รอบการมาปฏิบัติราชการ&nbsp;:&nbsp;</td>
+              <td width="42%"><input type="text" name="search_wc_name" value="<?=$search_wc_name;?>" style="width:65%" class="textbox"></td>
+			  </tr>
+			  <tr>
+              <td width="20%" align="center" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE;?>" onClick="form1.current_page.value=0;">
+                <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE;?>" onClick="form1.search_wc_code.value=''; form1.search_wc_name.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE;?>">
+                <input name="image2" type="image" onClick="form1.search_wc_code.value=''; form1.search_wc_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE;?>">
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล รอบการมาปฏิบัติราชการ ทั้งสิ้น <?=($count_data + 0);?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+	
+		if($DPISDB=="odbc"){
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select		top ". ($data_per_page * $current_page) ."
+																		WC_CODE, WC_NAME 
+														from 			PER_WORK_CYCLE
+														where		WC_ACTIVE=1
+																		$search_condition 
+														order by 	WC_SEQ_NO, WC_CODE 
+													";							   
+						   
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( 
+									select 		WC_CODE, WC_NAME 
+									from 			PER_WORK_CYCLE
+									where 		WC_ACTIVE=1
+													$search_condition	
+									order by	WC_SEQ_NO, WC_CODE 
+							   )  q1
+						) where rnum between $rec_start and $rec_end  ";				   
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	select		WC_CODE, WC_NAME 
+														from 			PER_WORK_CYCLE
+														where		WC_ACTIVE=1
+																		$search_condition 
+														order by 	WC_SEQ_NO, WC_CODE ";							   
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">รหัส</td>
+    <td align="center">รอบการมาปฏิบัติราชการ</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_WC_CODE = $data[WC_CODE];
+				$current_list .= ((trim($current_list))?",":"") . "'$TMP_WC_CODE'";
+				$TMP_WC_NAME = trim($data[WC_NAME]);
+
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_WC_CODE<::>$TMP_WC_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class;?>" onClick="parent.refresh_opener('<?=$returnValue;?>');" style="cursor:hand;" <?=$onmouse_event;?>>
+    <td height="22" align="center"><?=$TMP_WC_CODE;?></td>
+    <td>&nbsp;<?=$TMP_WC_NAME;?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link;?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list;?>">
+</form>
+</body>
+</html>

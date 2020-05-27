@@ -1,0 +1,550 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/personal_timehis.php");
+	include("php_scripts/load_per_control.php");
+	
+	$cmd =" select 		count(TIMEH_ID) as count_data 
+					from 		PER_TIMEHIS
+					where		PER_ID=$PER_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_delete(timeh_id , time_name){
+		if(confirm("ต้องการลบประวัติเวลาทวีคูณนี้ ใช่หรือไม่ [ " + time_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.TIMEH_ID.value = timeh_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_time () {	
+		parameter = "";
+	    call_openDialog("search_time.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"เวลาทวีคูณ");		
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+
+	function checkadd(f) {
+		if(f.TIME_NAME.value=="") {
+			alert("กรุณาระบุ เวลาทวีคูณ");
+			f.TIME_NAME.focus();
+			return false;
+		} else if(f.TIMEH_MINUS.value=="") {
+			alert("กรุณาระบุ จำนวนวันที่ไม่นับเวลาทวีคูณ");
+			f.TIMEH_MINUS.focus();
+			return false;
+		} else { 
+			form1.command.value='ADD';
+//			form1.submit();
+			return true;
+		}
+	}
+	
+	function checkupdate(f) {
+		if(f.TIME_NAME.value=="") {
+			alert("กรุณาระบุ เวลาทวีคูณ");
+			f.TIME_NAME.focus();
+			return false;
+		} else if(f.TIMEH_MINUS.value=="") {
+			alert("กรุณาระบุ จำนวนวันที่ไม่นับเวลาทวีคูณ");
+			f.TIMEH_MINUS.focus();
+			return false;
+		} else { 
+			form1.command.value='UPDATE';
+//			form1.submit();
+			return true;
+		}
+	}
+	
+	function setLayer(layerID){
+		if(document.getElementById(layerID)){
+			if(document.getElementById(layerID).style.display=='none'){
+				document.getElementById(layerID).style.display='block';	
+			}else{
+				document.getElementById(layerID).style.display='none';
+			}
+			if(document.getElementById(layerID).style.visibility=='hidden'){
+				document.getElementById(layerID).style.visibility='visible';
+			}else{
+				document.getElementById(layerID).style.visibility='hidden';
+			}
+		}
+	}
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_time") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.TIME_CODE.value = arrValue[0];
+				form1.TIME_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลเวลาทวีคูณ":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		$setPerStyle="display:none; visibility:hidden";
+		if($UPD||$VIEW||($BKK_FLAG==1&&$ADD_NEXT==1)){ $setPerStyle="display:block; visibility:visible"; }
+		include("current_location.html");
+?>
+	  </td>	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_timehis.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="TIMEH_ID" value="<?=$TIMEH_ID?>">
+	   <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:98%" class="textbox" readonly></td>
+        <td width="25%"><? if (!$HIDE_HEADER) { ?>
+&nbsp;
+<? if ($BUTTON_DISPLAY==1) { ?>
+<input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE ?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_timehis'">
+<!--history.back(); -->
+<?  } else {  echo "&nbsp; &nbsp;"; ?>
+<img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE ?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_timehis'">
+<? } echo "&nbsp; &nbsp;"; ?>
+<? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td>
+              <?php
+              if($show_btn_add){
+              ?>
+              <table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body" onClick="javascript:setLayer('id_timehis');"><?=($UPD)?"แก้ไข":$ADDTAB_TITLE?>ข้อมูล</td>
+		  </tr>		
+	  </table>
+               <?php }?>
+          </td>
+	</tr>
+  </table>
+  <table id="id_timehis" width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" style="<?=$setPerStyle; ?>" 
+  onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="13%" height="22" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เวลาทวีคูณ&nbsp;:&nbsp;</td>
+              <td width="35%"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td width="75%" height="22">
+				  	<input type="text" name="TIME_NAME" value="<?=$TIME_NAME?>" style="width:100%" class="textbox" readonly>
+				  	<input type="hidden" name="TIME_CODE" value="<?=$TIME_CODE?>">				  </td>
+                  <td>&nbsp;
+		    			<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+				  	<input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกเวลาทวีคูณ" onClick="call_search_time();">
+				<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.TIME_NAME.value=''; form1.TIME_CODE.value=''; return false;" align="center" alt="ล้างค่า">
+				  	<? endif; ?>				  </td>
+                </tr>
+              </table></td>
+              <td width="19%" align="right">&nbsp;<span class="label_alert">*</span>&nbsp;จำนวนวันที่ไม่นับเวลาทวีคูณ&nbsp;:&nbsp;</td>
+              <td>
+                    <input type="text" name="TIMEH_MINUS" value="<?=$TIMEH_MINUS?>" style="width:82%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$BOOK_NO_TITLE;?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="TIMEH_BOOK_NO" value="<?=$TIMEH_BOOK_NO?>" style="width:75%" class="textbox" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>></td>
+              <td align="right"><?=$DOCDATE_TITLE;?>&nbsp;:&nbsp;</td>
+                  <td>
+				  	<input type="text" name="TIMEH_BOOK_DATE" id="TIMEH_BOOK_DATE" value="<?=$TIMEH_BOOK_DATE?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIMEH_BOOK_DATE,this.value)" <?=($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"))?"":"readonly"?>>
+				  &nbsp;&nbsp;
+				  	<? if($PER_ID && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+					<input type="reset" class="button" onClick="return showCalendar('TIMEH_BOOK_DATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>">
+				  	<? endif; ?>				  </td>
+            </tr>
+            <tr>
+              <td height="22" align="right"><?=$REMARK_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input type="text" name="TIMEH_REMARK" value="<?=$TIMEH_REMARK?>" style="width:75%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+
+              <td align="right">&nbsp;</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:75%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25"><? if ($UPD || $VIEW) { ?>
+            <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit_edit" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>">
+            <?  } else { ?>
+            <input name="image2" type="image" onClick="return checkupdate(form1);"  src="images/save.png" alt="<?=$EDIT_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+            <?}?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.TIMEH_ID.value='';" class="button" >
+            <?  } else { ?>
+            <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.TIMEH_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+            <? } else { ?>
+            <?if($PAGE_AUTH["add"]=="Y"){?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit_add" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+            <?  } else { ?>
+            <input name="image2" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+            <?}?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+            <?  } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+            <? } echo "&nbsp; &nbsp;";?>
+            <?}?></td>
+        </tr>
+		<? endif; ?>
+		<tr><td height="5"></td></tr>
+      </table></td>
+    </tr>
+  </table>
+  &nbsp;
+  <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลเวลาทวีคูณทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>        
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	if($order_by==1){	//(ค่าเริ่มต้น) เวลาทวีคูณ
+	if($DPISDB=="odbc") {
+			$order_str = "order by pt.TIME_NAME ".$SortType[$order_by];
+		}elseif($DPISDB=="oci8" || $DPISDB=="mysql"){ 
+			$order_str = "order by pt.TIME_NAME ".$SortType[$order_by];
+		} 
+  	}elseif($order_by==2) {	//จำนวนวันที่ไม่นับเวลาทวีคูณ
+		if($DPISDB=="odbc") {
+			$order_str = "order by TIMEH_MINUS  ".$SortType[$order_by];
+		}elseif($DPISDB=="oci8" || $DPISDB=="mysql"){ 
+			$order_str = "order by TIMEH_MINUS  ".$SortType[$order_by];
+		}
+  	} elseif($order_by==3) {	//หมายเหตุ
+		if($DPISDB=="odbc") {
+			$order_str = "order by TIMEH_REMARK ".$SortType[$order_by];
+		}elseif($DPISDB=="oci8" || $DPISDB=="mysql"){ 
+			$order_str = "order by TIMEH_REMARK ".$SortType[$order_by];
+		} 
+	} 
+
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(TIMEH_ID) as concat_pk from PER_TIMEHIS pth, PER_TIME pt 
+							where pth.PER_ID=$PER_ID and pth.TIME_CODE = pt.TIME_CODE $search_condition order by TIMEH_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(TIMEH_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = " select 			TIMEH_ID, pth.TIME_CODE, pt.TIME_NAME, pt.TIME_START, pt.TIME_END, pt.TIME_DAY, TIMEH_MINUS, TIMEH_REMARK, AUDIT_FLAG  
+				 from			PER_TIMEHIS pth,  PER_TIME pt  
+				 where			pth.PER_ID=$PER_ID and pth.TIME_CODE = pt.TIME_CODE	
+									$limit_data
+						$order_str ";
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 	TIMEH_ID, pth.TIME_CODE, pt.TIME_NAME, pt.TIME_START, pt.TIME_END, pt.TIME_DAY, TIMEH_MINUS, TIMEH_REMARK, AUDIT_FLAG  
+								  from 		PER_TIMEHIS pth, PER_TIME pt
+								  where 		pth.PER_ID=$PER_ID and pth.TIME_CODE=pt.TIME_CODE 
+												$search_condition
+								   	$order_str 
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";	
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select 	TIMEH_ID, pth.TIME_CODE, pt.TIME_NAME, pt.TIME_START, pt.TIME_END, pt.TIME_DAY, TIMEH_MINUS, TIMEH_REMARK, AUDIT_FLAG  
+				 		from			PER_TIMEHIS pth,  PER_TIME pt  
+				 		where		pth.PER_ID=$PER_ID and pth.TIME_CODE = pt.TIME_CODE	
+								$order_str
+							$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      <td height="25" width="24%" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong>เวลาทวีคูณ</td>
+	  <td width="7%">วันที่เริ่มต้น</td>
+	  <td width="7%">วันที่สิ้นสุด</td>
+	  <td width="5%">ระยะเวลา (วัน)</td>
+      <td width="8%" onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>จำนวนวันที่ไม่นับเวลาทวีคูณ</strong></td>
+	  <td width="8%">รวมจำนวนวันที่ได้ทวีคูณ</td>
+      <td onClick="call_sort(3);"><strong><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?></strong><?=$REMARK_TITLE; ?></td>
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+	  <td width="4%">จำนวนไฟล์</td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td width="4%"><?=$AUDIT_TITLE?><br><input type="checkbox" name="list_audit_all" value="1" onClick="set_check_all(this.checked,'list_audit_id',<?=$count_data; ?>);" <?=(($list_audit_all==1)?"checked":"")?>></td><?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_TIMEH_ID = $data[TIMEH_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_TIMEH_ID;
+		$TMP_TIME_START = show_date_format($data[TIME_START], $DATE_DISPLAY);
+		$TMP_TIME_END = show_date_format($data[TIME_END], $DATE_DISPLAY);
+		$TMP_TIME_DAY = $data[TIME_DAY];
+		$TMP_TIMEH_MINUS = $data[TIMEH_MINUS];
+		$TMP_TIMEH_TOTAL = $TMP_TIME_DAY - $TMP_TIMEH_MINUS;
+		$TMP_TIMEH_REMARK = (trim($data[TIMEH_REMARK]))? $data[TIMEH_REMARK] : "-" ;
+		$TMP_TIME_NAME = $data[TIME_NAME];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($TIMEH_ID==$TMP_TIMEH_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$num_order?></td>
+      <td>&nbsp;<?=$TMP_TIME_NAME?></td>
+      <td align="center"><?=$TMP_TIME_START?></td>
+      <td align="center"><?=$TMP_TIME_END?></td>
+      <td align="center"><?=$TMP_TIME_DAY?></td>
+      <td align="center"><?=$TMP_TIMEH_MINUS?></td>
+      <td align="center"><?=$TMP_TIMEH_TOTAL?></td>
+      <td>&nbsp;<?=$TMP_TIMEH_REMARK?></td>
+      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.TIMEH_ID.value=$TMP_TIMEH_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติเวลาทวีคูณ" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td><?=$AUDITED_TITLE?></td>
+	  	<? } else { ?>
+		      <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.TIMEH_ID.value=$TMP_TIMEH_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติเวลาทวีคูณ"></a></td>
+	  	<?}?>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+	  	<?if($TMP_AUDIT_FLAG=="Y"){?>
+			  <td>&nbsp;</td>
+	  	<? } else { ?>
+		      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_TIMEH_ID,'$TMP_TIME_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติเวลาทวีคูณ"></a></td>
+	  	<?}?>
+	  <?}?>
+	  <? $parameter1=$parameter2=$parameter3=$parameter4="";	?>
+	 <? if($ATTACH_FILE==1){
+				$parameter1="PER_ATTACHMENT";	$parameter2="61";	$parameter3="เวลาทวีคูณ";	$parameter4=$PER_ID;
+			}else{
+				$parameter1="PER_TIMEHIS";	$parameter2=$TMP_TIMEH_ID;	$parameter3=$TMP_TIME_NAME;	$parameter4=$PER_ID;
+			}
+	  ?>
+	  <td align="center">&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td align="center">&nbsp; <a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?><td align="center"><input type="checkbox" id="list_audit_id<?=$data_count; ?>" name="list_audit_id[]" onClick="set_uncheck_all(this.checked,form1.list_audit_all,this.id)" value="<?=$TMP_TIMEH_ID?>" <?=(($TMP_AUDIT_FLAG=="Y")?"checked":"")?>></td><? } ?>
+	</tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+      <td>&nbsp;</td>
+	   <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><? } ?>
+      <?if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["del"]=="Y") && $PAGE_AUTH["audit"]=="Y"){?>
+      <td align="center"><? if ($BUTTON_DISPLAY==1) { ?>
+        <input type="submit" name="Submit4" value="<?=$SETFLAG_TITLE?>" onClick="form1.command.value='SETFLAG'" class="button" style="width:98%">
+        <?  } else { ?>
+        <input name="image3" type="image" onClick="form1.command.value='SETFLAG'" src="images/save.png" alt="<?=$SETFLAG_TITLE?>" border="0">
+        <? } ?></td>
+	  <?}?>
+	</tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+	<tr><td colspan="8">&nbsp;</td></tr>
+	<tr><td colspan="8"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td></tr>
+	</table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

@@ -1,0 +1,200 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+	$file_path = "run_list.txt";
+    
+    if (file_exists($file_path)) {
+		$file_handle = fopen($file_path, 'r'); 
+
+		$text_data = fread($file_handle, filesize($file_path));
+		$arr_run = explode(",",$text_data);
+		fclose($file_handle);
+	} else {
+		$arr_run = (array) null;
+		$arr_run[] = "../graph/types/Bar.php?gid=rpt_0_test_graph.php&UTC25550904&gh=700&gw=1000";
+		$arr_run[] = "0_test_rpt_pdf.php";
+	}
+
+	$err = "";
+	if ($command=="ADD") {
+    	if (in_array($prog_name, $arr_run)) {
+        	$err = "มีข้อมูลอยู่แล้ว ไม่ได้ทำการเพิ่มใน List";
+        } else {
+        	if (!$arr_run) $arr_run = (array) null;
+            $arr_run[] = $prog_name;
+            $data_to_write = implode(",",$arr_run);
+            $file_handle = fopen($file_path, 'w');
+			fwrite($file_handle, $data_to_write);
+			fclose($file_handle);
+		}
+	}
+
+	if ($command=="DELETE") {
+    	$idx = array_search($prog_name, $arr_run); 
+//    	echo "1..arr_run=".implode(",",$arr_run)."  (idx=$idx)<br>";
+    	if ($idx===false) {
+        	$err = "ไม่มีข้อมูลนี้อยู่ใน List ไม่สามารถลบได้";
+		} else {
+			$arr_run1 = array_splice($arr_run, $idx, 1);
+//	    	echo "2..arr_run=".implode(",",$arr_run)." , arr_run1=".implode(",",$arr_run1)."<br>";
+            $data_to_write = implode(",",$arr_run);
+            $file_handle = fopen($file_path, 'w');
+			fwrite($file_handle, $data_to_write);
+			fclose($file_handle);
+            $prog_name = $arr_run[0];
+		}		
+    }
+
+	if (!$prog_name) $prog_name = $arr_run[0];
+
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+		
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function call_program() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		document.form1.target = "_blank";
+
+		var progname = form1.prog_name.value;
+		if (progname.indexOf("?") > -1)
+			document.form1.action = progname+"&UTC" + rptDate;
+		else
+			document.form1.action = progname+"?UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "zscreen_testprogram.html";
+	} 
+	
+	function call_program_dialog() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			  rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+
+		var progname = form1.prog_name.value;
+		if (progname.indexOf("?") > -1)
+			progname = progname+"&UTC" + rptDate;
+		else
+			progname = progname+"?UTC" + rptDate;
+/*
+		childReturn = window.showModalDialog(progname+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>","","dialogHeight: 700px; dialogWidth: 900px; status: No; resizable: Yes; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			for(var i = 0; i < arrValue.length; i++) {
+				alert("return value ["+i+"]="+arrValue[i].trim());
+
+			}
+		} // end if
+*/
+		openModal(progname+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>", 20, 20, 900, 700);
+	}
+	
+	function event_dialog_return(from_src, returnValue) {
+		if (from_src=="click") {
+			alert("event_dialog_return. ("+from_src+") ..returnValue="+returnValue);
+		} else {
+			arrValue = returnValue.split("<::>");
+			for(var i = 0; i < arrValue.length; i++) {
+				alert("return value ["+i+"]="+arrValue[i].trim());
+			}
+		}
+	}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="center" valign="top">
+		<form name="form1" method="post" action="zscreen_testprogram.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		&nbsp;
+		<table width="90%"  border="0" cellspacing="0" cellpadding="0">
+			<tr>
+				<td align="center" width="100%" colspan="3">&nbsp;
+				</td>
+		  	</tr>
+			<tr>
+				<td align="center" width="100%" colspan="3">&nbsp;
+				</td>
+		  	</tr>
+<?
+			if ($err) {
+?>
+			<tr>
+				<td align="center" width="100%" colspan="3" bgcolor="#CCCCFF"><font size="+1" color="#FF0000">***** <?=$err?> *****</font></td>
+		  	</tr>
+<?
+            }
+?>
+			<tr>
+				<td width="10%" align="right" valign="top"><font size="-1" color="#0000FF">ชื่อโปรแกรม&nbsp;:&nbsp;</font></td>
+				<td>
+                	<input type="text"  id="prog_name" name="prog_name"  value="<?=$prog_name?>" size="130" class="textbox" ><br>
+                    <select onChange="form1.prog_name.value=this.value" size="10">
+                    <?
+                    		for($i=0; $i < count($arr_run); $i++) {
+								echo "<option value='$arr_run[$i]'>$arr_run[$i]</option>";
+							}
+					?>
+                    </select> 
+				</td>
+                <td width="15%" align="left" valign="top">
+					<input type="button" name="btn_run" value=" R U N " class="button" onClick="call_program()"><br><br>
+					<input type="button" name="btn_run" value=" RUN on WindowDialog" class="button" onClick="call_program_dialog()"><br><br>
+					<input type="button" name="btn_add" value=" Add to List " class="button" onClick="form1.command.value='ADD'; form1.submit();"><br><br>
+					<input type="button" name="btn_del" value=" Delete from List " class="button" onClick="form1.command.value='DELETE'; form1.submit();"><br><br>
+					<input type="button" name="btn_openModal" value=" openModal " class="button" onClick="openModal('select_userdetail_msg.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SELECTED_LIST=<?=$SELECTED_LIST?>&EXCEPT_PER_ID=<?=$EXCEPT_PER_ID?>&EXCEPT_LIST=<?=$EXCEPT_LIST?>&isLock=<?=$isLock?>&LOCK_MINISTRY_ID=<?=$LOCK_MINISTRY_ID?>&LOCK_DEPARTMENT_ID=<?=$LOCK_DEPARTMENT_ID?>&sess_selected_name=<?=$sess_selected_name?>',10,20,1200,520);">
+<!--				<button class="btn btn-primary" ng-click="openModal()" trasnlate>Open form dialog</button>-->
+				</td>
+                <td width="10%" align="left" valign="top">&nbsp;</td>
+			</tr>
+		</table>  
+		&nbsp;
+	  </form>	
+	  </td>
+	</tr>
+</table>
+<?
+		include("dialog_rtn.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

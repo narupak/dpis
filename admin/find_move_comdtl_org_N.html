@@ -1,0 +1,78 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	
+//	$db_dpis_n = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+	// ==== use for testing phase =====
+	$db_dpis_n = new connect_db($db_host, $db_name, $db_user, $db_pwd);
+	// ==========================
+	//--เพิ่ม การอัพเดทเปลี่ยนชื่อตำแหน่งในสายงาน ให้ POS_NO เดิม
+    if(trim($POS_POEM_NO) && trim($PL_CODE)){
+		//##############################
+		//---Get POS_ID -----------------------------
+			$cmd = " select POS_ID,PL_CODE from PER_POSITION where POS_NO='$POS_POEM_NO' and POS_STATUS=1";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			$POS_ID = trim($data[POS_ID]);
+		//##############################
+		//---Update New pl_code -----------------
+			/********$cmd = " update PER_POSITION set 
+						PL_CODE='$PL_CODE'
+					where POS_ID=$POS_ID ";
+			$count=$db_dpis->send_cmd($cmd);***********/
+	}
+
+	###NEWWWWW ###################################
+	if(trim($ORG_ID) && trim($POS_ID ) ){
+		$cmd = " 	select 	ORG_ID, ORG_ID_1, ORG_ID_2, PL_CODE, DEPARTMENT_ID
+							from  	PER_POSITION  
+							where ORG_ID=$ORG_ID ";
+		/*$cmd = " 	select 	ORG_ID, ORG_ID_1, ORG_ID_2, PL_CODE, DEPARTMENT_ID
+							from  	PER_POSITION  
+							where POS_ID=$POS_ID  ";*/
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+
+		$DEPARTMENT_ID = trim($data[DEPARTMENT_ID]);
+		$ORG_ID = trim($data[ORG_ID]);
+		$ORG_ID_1 = trim($data[ORG_ID_1]);
+		$ORG_ID_2 = trim($data[ORG_ID_2]);
+
+		if ($DEPARTMENT_ID) $tmp_ORG_ID[] =  $DEPARTMENT_ID;
+		if ($ORG_ID)		$tmp_ORG_ID[] =  $ORG_ID;
+		if ($ORG_ID_1)		$tmp_ORG_ID[] =  $ORG_ID_1;
+		if ($ORG_ID_2)		$tmp_ORG_ID[] =  $ORG_ID_2;
+		$search_org_id = implode(", ", $tmp_ORG_ID);
+		
+		$DEPARTMENT_NAME = $ORG_NAME = $ORG_NAME_1 = $ORG_NAME_2 = "";
+		$cmd = " select ORG_ID, ORG_NAME from PER_ORG where ORG_ID IN ($search_org_id) ";
+		$db_dpis->send_cmd($cmd);
+
+		while ( $data1 = $db_dpis->get_array() ) {
+			$DEPARTMENT_NAME = ($DEPARTMENT_ID == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$DEPARTMENT_NAME";
+			$ORG_NAME = 		($ORG_ID == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME";
+			$ORG_NAME_1 = 	($ORG_ID_1 == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME_1";
+			$ORG_NAME_2 = 	($ORG_ID_2 == trim($data1[ORG_ID]))? 		trim($data1[ORG_NAME]) : "$ORG_NAME_2";
+		}	// while		
+		
+		$cmd = " select ORG_ID_REF from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_ID = $data[ORG_ID_REF];
+		
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$MINISTRY_ID ";
+		$db_dpis->send_cmd($cmd);
+		$data = $db_dpis->get_array();
+		$MINISTRY_NAME = $data[ORG_NAME];
+	}
+
+?>
+<script>
+	parent.document.form1.POS_POEM_ORG1.value = '<?=$MINISTRY_NAME?>';
+	parent.document.form1.POS_POEM_ORG2.value = '<?=$DEPARTMENT_NAME?>';
+	parent.document.form1.POS_POEM_ORG3.value = '<?=$ORG_NAME?>';
+	parent.document.form1.POS_POEM_ORG4.value = '<?=$ORG_NAME_1?>';
+	parent.document.form1.POS_POEM_ORG5.value = '<?=$ORG_NAME_2?>';
+	
+	parent.document.form1.POS_POEM_ID.value = '<?=$POS_ID?>';
+</script>

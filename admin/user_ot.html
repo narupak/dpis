@@ -1,0 +1,685 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/user_ot.php"); 
+    
+    /*$cmdChk=" SELECT COUNT(COLUMN_NAME) AS CNT FROM USER_TAB_COLS WHERE TABLE_NAME='PER_PERSONAL' AND UPPER(COLUMN_NAME) IN('PER_OT_FLAG')";
+    $db_dpis->send_cmd($cmdChk);
+    $dataChk = $db_dpis->get_array();
+    if($dataChk[CNT] > 0){
+        $cmdA=" ALTER TABLE PER_PERSONAL modify PER_OT_FLAG NUMBER(10,0) ";
+        $db->send_cmd($cmdA);
+        $cmdA = "COMMIT";
+        $db->send_cmd($cmdA);
+    }*/
+    
+    $ShowConfig_OT = "ตามกฎหมาย";
+    if($P_OTTYPE_ORGANIZE=='2'){$ShowConfig_OT = "ตามมอบหมายงาน";}
+    
+    // kittiphat 16/11/2561
+    $cmdChk ="select count(*) as CNT from SYSTEM_CONFIG WHERE UPPER(CONFIG_NAME)= 'P_COL_OTSCAN'";
+    $db_dpis->send_cmd($cmdChk);
+    $dataOTSCAN = $db_dpis->get_array();
+    
+    if($dataOTSCAN[CNT]=="0"){
+    	$cmdM = "SELECT MAX(CONFIG_ID) AS MAXOFCONFIG_ID FROM SYSTEM_CONFIG";
+        $db_dpis->send_cmd($cmdM);
+        $dataMax = $db_dpis->get_array();
+        $MAXOFCONFIG_ID =  $dataMax[MAXOFCONFIG_ID];
+        
+        $MAXOFCONFIG_ID = $MAXOFCONFIG_ID+1;
+        $cmdA = "INSERT INTO SYSTEM_CONFIG (CONFIG_ID, CONFIG_NAME,CONFIG_VALUE,CONFIG_REMARK) 
+                        VALUES ($MAXOFCONFIG_ID,'P_COL_OTSCAN','T','T=แสดงจากเครื่องบันทึกเวลา, P=แสดงจากการ Process')";
+        $db_dpis->send_cmd($cmdA);
+    
+    }
+    
+    $cmdChk ="select count(*) as CNT from SYSTEM_CONFIG WHERE UPPER(CONFIG_NAME)= 'P_OTTYPE_ORGANIZE'";
+    $db_dpis->send_cmd($cmdChk);
+    $dataOTTYPE_ORGANIZE = $db_dpis->get_array();
+    
+    if($dataOTTYPE_ORGANIZE[CNT]=="0"){
+    	$cmdM = "SELECT MAX(CONFIG_ID) AS MAXOFCONFIG_ID FROM SYSTEM_CONFIG";
+        $db_dpis->send_cmd($cmdM);
+        $dataMax = $db_dpis->get_array();
+        $MAXOFCONFIG_ID =  $dataMax[MAXOFCONFIG_ID];
+        
+        $MAXOFCONFIG_ID = $MAXOFCONFIG_ID+1;
+        $cmdA = "INSERT INTO SYSTEM_CONFIG (CONFIG_ID, CONFIG_NAME,CONFIG_VALUE,CONFIG_REMARK) 
+                        VALUES ($MAXOFCONFIG_ID,'P_OTTYPE_ORGANIZE','1','1=โครงสร้างตามกฏหมาย, 2=โครงสร้างตามมอบหมาย')";
+        $db_dpis->send_cmd($cmdA);
+    
+    }
+    
+    
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+function check_data(command){
+	if(form1.group_id.value=="" || form1.group_id.value==0){
+		alert('กรุณาเลือกกลุ่มผู้ใช้งาน');
+	}else if(form1.username.value==""){
+		alert('กรุณาใส่ชื่อผู้ใช้งาน');
+		form1.username.focus();
+	}else if(form1.passwd.value=="" && command!="UPDATE"){
+		alert('กรุณาใส่รหัสผ่าน');
+		form1.passwd.focus();
+	}else if(form1.passwd.value.length<4  && command!="UPDATE"){
+		alert('รหัสผ่านสั้นเกินไป');
+		form1.passwd.focus();
+	}else if(form1.confirm_passwd.value!=form1.passwd.value){
+		alert('การยืนยันรหัสผ่านไม่ตรงกับรหัสผ่านที่ใส่ไว้');
+		form1.confirm_passwd.focus();
+	}else if(form1.user_name.value==""){
+		alert('กรุณาใส่ชื่อ');
+		form1.user_name.focus();
+	}else{
+		form1.command.value = command;
+		form1.submit();
+	}
+}
+
+function check_passwd_length(obj){
+	if(obj.value.length<4){
+		alert("รหัสผ่านสั้นเกินไป");
+		obj.focus();
+	}
+}
+
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function call_back(url){
+	form1.current_page.value = 0;
+	form1.action = url;
+	form1.submit();
+}
+function confirm_delete(idEncode , username){
+	if(confirm("ต้องการยกเลิกสถานะเจ้าของเรื่อง OT รายการนี้ใช่หรือไม่ [ " + username + " ] ?")){
+		form1.command.value = "DELETEAUDIT";
+		form1.idEncode.value = idEncode;
+		form1.submit();
+	} // end if
+}
+
+	function call_search_person () {	
+		parameter = "";
+	    call_openDialog("search_personot.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1000,600,"รายชื่อ<?=$PERSON_TITLE?>");	
+	}
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+function add_audit(form1){
+    if(form1.link_username.value=="") {
+        alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+        return false;
+    }
+    form1.command.value='ADDAUDIT'; 
+    return true; 
+}
+function check_add(form1) { 
+	if(form1.new_username.value==""  && form1.link_username.value=="") {
+		alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+		//form1.new_usename.focus();
+		return false;
+		} 
+		else if(form1.passwd.value=="") {
+		alert("กรุณาระบุข้อมูลรหัสผ่าน");
+		form1.passwd.focus();
+		return false;
+		}
+		else if(form1.confirm_passwd.value=="") {
+		alert("กรุณาระบุข้อมูล ยืนยันรหัสผ่าน");
+		form1.confirm_passwd.focus();
+		return false;
+		}   
+		else if(form1.confirm_passwd.value!=form1.passwd.value) {
+		alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+		form1.confirm_passwd.focus();
+		return false;
+		}
+		else  {
+		
+		form1.command.value='ADD'; 
+		
+		return true; 
+		}
+	}
+		
+	function check_upd(form1) { 
+		if(form1.select_group_id.value == 0) {
+		alert('เลือกกลุ่มผู้ใช้งาน'); 
+		form1.select_group_id.focus(); 
+		return false;
+		} 		
+		else if(form1.new_username.value==""  && form1.link_username.value=="") {
+		alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+		//form1.new_usename.focus();
+		return false;
+		} 
+/*		else if(form1.passwd.value=="") {
+		alert("กรุณาระบุข้อมูลรหัสผ่าน");
+		form1.passwd.focus();
+		return false;
+		}
+		else if(form1.confirm_passwd.value=="") {
+		alert("กรุณาระบุข้อมูล ยืนยันรหัสผ่าน");
+		form1.confirm_passwd.focus();
+		return false;
+		}  */
+		else if(form1.confirm_passwd.value!=form1.passwd.value) {
+		alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+		form1.confirm_passwd.focus();
+		return false;
+		}
+		else  {
+		
+		form1.command.value='UPDATE'; 
+		
+		return true; 
+		}
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+
+	function returnFrom(src, returnValue){
+		//alert("src="+src+"("+returnValue+")");
+                
+		 if  (src.indexOf("search_person") > -1) {
+                     
+			if(returnValue){
+				//var new_passwd = "";
+				arrValue = returnValue.split("<::>");
+				//form1.user_link_id.value = arrValue[0];
+				form1.user_titlename.value = arrValue[18];
+				form1.user_name.value = arrValue[19];
+				form1.link_username.value = arrValue[2]; 
+				
+				form1.org0.value = arrValue[4]; 
+				form1.hidorg0.value = arrValue[9]; 
+				form1.org1.value = arrValue[14]; 
+				form1.hidorg1.value = arrValue[26]; 
+	
+				//new_passwd = arrValue[3].substr(0, 10);
+				//arr_temp = new_passwd.split("-");
+				//new_passwd = arr_temp[2] + arr_temp[1] + (parseInt(arr_temp[0], 10) + 543);
+				
+				//form1.passwd.value = new_passwd;
+				//form1.confirm_passwd.value = new_passwd;
+				
+				//form1.user_address.value = arrValue[4];
+							
+				//form1.user_type[1].checked=true;
+				form1.user_name.readOnly = true;
+				//form1.user_address.readOnly = true;
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+        <tr> 
+          <td align="left" valign="top"><? $OPTIONAL_TITLE=" &gt; รายชื่อผู้ใช้งาน"; include("current_location.html");?></td>
+		</tr>
+  	<tr>
+    	<td align="left" valign="top">
+            <form name="form1" method="post" action="user_ot.html"  >
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="group_id" value="<? echo $group_id; ?>">
+		  <input type="hidden" name="group_name_th" value="<? echo $group_name_th; ?>">
+		  <input type="hidden" name="id" id="id" value="<? echo $id; ?>">
+          <input type="hidden" name="idEncode" id="idEncode" >        
+		  <input type="hidden" name="province_id" value="<?=$province_id?>">
+		  <input type="hidden" name="amphur_id" value="<?=$amphur_id?>">
+		  <input type="hidden" name="district_id" value="<?=$district_id?>">
+          <input type="hidden" name="HID_HRG" value="<?=$HID_HRG;?>">
+&nbsp;
+<? if(!$HID_HRG) {?>
+  <table width="95%" border="0"  align="center" cellpadding="1" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+    <tr>
+      <td>
+      
+      	<a href="javascript:call_back('user_group.html')">กลุ่มผู้ใช้งาน</a> : <?=$group_name_th?> <? if(($group_code=="BUREAU" || substr($group_code, 0, 7)=="BUREAU_") && $group_level){ ?>[ <?=$DEPARTMENT_NAME.(($group_level==5)?"&nbsp;-&nbsp;$ORG_NAME":"")?> ]<? } // end if ?>
+      
+      </td>
+    </tr>
+  </table>
+  
+
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td></td>
+    </tr>
+  </table> 
+  &nbsp;
+<? }?>
+
+  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr class="table_body">
+          <td height="25" colspan="2"\>&nbsp;&nbsp;&nbsp;ข้อมูลเข้าระบบ</td>
+        </tr>
+        <?if( $error_signin ){?>
+        <tr align="center">
+          <td colspan="2" class="label_alert"><?=$error_signin?></td>
+        </tr>
+        <?} // if?>
+        <tr>
+          <td width="28%" height="25" align="right"><b>กลุ่มผู้ใช้งาน&nbsp;:&nbsp;</b></td>
+          <td width="72%">
+          <? if($HID_HRG) {?>
+          <?   echo 'กลุ่มงาน OT';?>
+          <? }else{ ?>
+          	<? if($UPD){ create_list_box("select id,name_th from user_group order by name_th", "select_group_id", $select_group_id, "== เลือกกลุ่มผู้ใช้งาน ==", "style=\"width:'70%'\" "); }else{ echo $group_name_th;} ?>
+          <? }?>
+          </td>
+        </tr>
+        <tr>
+          <td align="right" valign="top"><b>ชื่อผู้ใช้งาน&nbsp;:&nbsp;</b></td>
+          <td><input name="link_username" type="text" class="textbox" value="<?=($user_link_id)?$username:""?>" size="20" maxlength="30" style="width:70%" readonly>
+                <input name="btn2" type="button" class="button" value="เลือกรายชื่อข้าราชการ" onClick="call_search_person();"></td>
+        </tr>
+        <!--
+		<?		
+//			$cmd = " select id, name_th from user_group where id<>1 and id<>$group_id order by name_th ";
+//			$count_other_group = $db->send_cmd($cmd);
+//			if($count_other_group && $SESS_USERGROUP==1 && $group_id!=1){
+		?>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td><table width="70%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		  	<?
+//				while($data = $db->get_array()){
+//					$data = array_change_key_case($data, CASE_LOWER);
+//					$inherit_group_id = $data[id];
+//					$inherit_group_name = $data[name_th];
+			?>
+            <tr>
+              <td width="3%" align="center"><input type="checkbox" name="list_inherit_group[]" value="<?//=$inherit_group_id?>" <?//=(in_array($inherit_group_id, $arr_inherit_group)?"checked":"")?>></td>
+              <td width="45%"><?//=$inherit_group_name?></td>
+			<?
+//					$data = $db->get_array();
+//					$data = array_change_key_case($data, CASE_LOWER);
+//					$inherit_group_id = $data[id];
+//					$inherit_group_name = $data[name_th];
+			?>
+              <td width="3%" align="center"><?// if($inherit_group_id){ ?><input type="checkbox" name="list_inherit_group[]" value="<?//=$inherit_group_id?>" <?//=(in_array($inherit_group_id, $arr_inherit_group)?"checked":"")?>><?// }else{ echo "&nbsp;"; } ?></td>
+              <td><?// if($inherit_group_id){ echo $inherit_group_name; }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+			<?
+//				} // end while
+			?>
+          </table></td>
+        </tr>
+		<? 
+//			} // end if 
+		?>
+		-->
+        <tr>
+          <td align="right"><?=$PRENAME_TITLE?>
+&nbsp;:&nbsp;</td>
+          <td><input name="user_titlename" type="text" class="textbox" value="<?=$user_titlename?>" size="20"  style="width:70%" <?=($user_link_id)?"readonly":""?>></td>
+        </tr>
+        <tr>
+          <td align="right"><?=$FULLNAME_TITLE?>
+&nbsp;:&nbsp;</td>
+          <td><input name="user_name" type="text" class="textbox" value="<?=$user_name?>" size="20"  style="width:70%" <?=($user_link_id)?"readonly":""?>></td>
+        </tr>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td align="right">เป็นผู้ดูแล OT ในระดับ
+&nbsp;:&nbsp;</td>
+          <td>
+          			<input type="radio" name="Level" id="Level1" value="1" checked> <?=$ORG_TITLE;?>
+                    &nbsp;
+          			<input type="radio" name="Level" id="Level2" value="2"> ต่ำกว่าสำนัก/กอง 1 ระดับ
+          </td>
+        </tr>
+        <tr>
+          <td align="right"><?=$ORG_TITLE;?>
+&nbsp;:&nbsp;</td>
+          <td><input name="org0" type="text" class="textbox" value="<?=$org0;?>" size="20"  style="width:70%" <?=($user_link_id)?"readonly":""?>>
+          <input type="hidden" name="hidorg0" value="<?=$hidorg0;?>">
+          </td>
+        </tr>
+        <tr>
+          <td align="right">ต่ำกว่าสำนัก/กอง 1 ระดับ
+&nbsp;:&nbsp;</td>
+          <td><input name="org1" type="text" class="textbox" value="<?=$org1?>" size="20"  style="width:70%" <?=($user_link_id)?"readonly":""?>>
+          <input type="hidden" name="hidorg1" value="<?=$hidorg1;?>">
+          </td>
+        </tr>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td><font color="blue">* กำหนดผู้ดูแล OT (<?=$ShowConfig_OT;?>)</font></td>
+        </tr>
+        <tr>
+          <td align="right">&nbsp;</td>
+          <td>&nbsp;</td>
+        </tr>
+        <!--tr>
+          <td height="66" colspan="2" valign="top">
+		  	<iframe frameborder="0" scrolling="NO" height="66" width="100%"  valign="top" src= "province_inframe.html?province_id=<?=$province_id?>&amphur_id=<?=$amphur_id?>&district_id=<?=$district_id?>" id="P_SELECT" >SELECT</iframe>
+          </td>
+        </tr-->
+        <tr bgcolor="#FFFFFF" align="center">
+          <td height="30" colspan="2"><? if ($UPD) { ?>
+            <?if($PAGE_AUTH["edit"]=="Y"){?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit22" type="submit" class="button" onClick="return check_upd(form1);" value="<?=$EDIT_TITLE?>">
+            <?  } else { ?>
+            <input name="image2" type="image" onClick="return check_upd(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+            <? } echo "&nbsp; &nbsp;"; ?>
+            <?}?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'" class="button" >
+            <?  } else { ?>
+            <input name="image22" type="image" onClick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+            <? } else { ?>
+            <?if($PAGE_AUTH["add"]=="Y"){?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Submit2" type="submit" class="button" onClick="return add_audit(form1);" value="<?=$ADD_TITLE?>">
+            <?  } else { ?>
+            <input name="image2" type="image" onClick="return add_audit(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+            <? } echo "&nbsp; &nbsp;";?>
+            <?}?>
+            <? if ($BUTTON_DISPLAY==1) { ?>
+            <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+            <?  } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">
+            <? } echo "&nbsp; &nbsp;";?>
+            <?}?></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table>
+  <?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type) $sort_type="1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+
+	$SortType[$arrSort[0]]	=$arrSort[1];
+//	if(!$order_by) $order_by=1;
+//	if (trim($search_code))		$arr_search_condition[] = "username like '%$search_code%'";
+//	if (trim($search_name))	$arr_search_condition[] = "fullname like '%$search_name%'";	
+//	if (trim($search_name))	$arr_search_condition[] = "fullname like '$search_name%'";	
+//	if(count($arr_search_condition)) $search_condition = " and ". implode(" and ", $arr_search_condition); 
+		
+	if($order_by==1){	//(ค่าเริ่มต้น) ลำดับที่
+		$order_str = " ORDER BY U.USERNAME ".$SortType[$order_by].",ORGASS.ORG_NAME ".$SortType[$order_by];
+  	}elseif($order_by==2) {	//ชื่อ
+		$order_str = " ORDER BY P.PER_NAME ".$SortType[$order_by].",P.PER_SURNAME ".$SortType[$order_by];
+	}elseif($order_by==3) {	//
+		$order_str = " ORDER BY ORGASS.ORG_NAME ".$SortType[$order_by];
+	}elseif($order_by==4) {	//
+		$order_str = " ORDER BY ORG_NAMELV1 ".$SortType[$order_by];
+	}
+        
+        if (trim($search_code)) $arr_search_condition[] = " trim(U.USERNAME) like '%".trim($search_code)."%' ";
+	if (trim($search_name))	$arr_search_condition[] = "trim(P.PER_NAME) like '%".trim($search_name)."%' OR trim(P.PER_SURNAME)  like '%".trim($search_name)."%'  ";	
+	if(count($arr_search_condition)) $search_condition = " AND ". implode(" AND ", $arr_search_condition);         
+        
+	$cmd =" SELECT NVL(COUNT(P.PER_ID),0) AS CNTUSER FROM PER_PERSONAL P
+                        LEFT JOIN USER_DETAIL U ON(U.USER_LINK_ID=P.PER_ID)
+                        LEFT JOIN PER_PRENAME PN ON(PN.PN_CODE=P.PN_CODE)
+                        LEFT JOIN PER_ORG_ASS ORGASS ON(ORGASS.ORG_ID=P.ORG_ID)
+                        WHERE P.PER_OT_FLAG !=0 AND  P.PER_OT_FLAG is not null
+                     	$search_condition ";
+	$db->send_cmd($cmd);
+        //echo '<pre>'.$cmd;
+	$data = $db->get_array();
+	$count_data = $data[CNTUSER];	
+  ?>
+  &nbsp;
+  <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+        </tr>
+        <tr>
+              <td width="19%" align="right">ชื่อผู้ใช้งาน&nbsp;:&nbsp;</td>
+              <td width="21%"><input type="text" name="search_code" value="<?=$search_code?>" style="width:98%" class="textbox" onKeyPress="return NumOnly(); return keyEnter(event,document.form1.Submit3);"></td>
+              <td width="8%" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="52%"><input type="text" name="search_name" value="<?=$search_name?>" style="width:50%" class="textbox" onKeyPress="return keyEnter(event,document.form1.Submit3);">
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="Submit3" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+                <input name="Submit4" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_code.value=''; form1.search_name.value=''; form1.current_page.value=0;">
+                <? } else { ?>
+                <input name="image" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image" type="image" onClick="form1.search_code.value=''; form1.search_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+                <?}?></td>
+              </tr>
+        <tr>
+          <td height="5"></td>
+          </tr>	 
+          </table></td>
+        </tr>
+		<tr>
+		  <td>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="15%" height="22"><? if($PAGE_AUTH["print"]=="Y"){ ?><!--input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"--><? }else{ echo "&nbsp;"; } ?></td>
+              <td align="center">พบข้อมูลรายชื่อผู้ใช้งาน ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><!--input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"--><? }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+          </table></td>
+		</tr>
+  </table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );	
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($current_page > 1){
+		if($db_type=="oci8"){
+			//$limit_data = " and id not in (select * from (select id from user_detail where group_id = $group_id $search_condition order by group_id, username) where rownum <= ". (($current_page - 1) * $data_per_page) .")";
+		}
+	}
+	
+	if($db_type=="oci8"){
+		$cmd = "SELECT U.USERNAME,PN.PN_NAME,P.PER_NAME,P.PER_SURNAME,ORGASS.ORG_NAME,P.PER_ID,P.PER_CARDNO,
+        				g.ORG_NAME as ORG_NAME_ORG,gemp.ORG_NAME as ORG_NAME_EMP,
+                        gempser.ORG_NAME as ORG_NAME_EMPSER,gtemp.ORG_NAME as ORG_NAME_TEMP,
+                        orglv1.ORG_NAME as ORG_NAMELV1,orglv1.OL_CODE,P.PER_STATUS,
+                        orgasslv1.ORG_NAME as ORGASS_NAMELV1,orgasslv1.OL_CODE as  ORGASS_OL_CODE
+                        FROM PER_PERSONAL P
+                        LEFT JOIN USER_DETAIL U ON(U.USER_LINK_ID=P.PER_ID)
+                        LEFT JOIN PER_PRENAME PN ON(PN.PN_CODE=P.PN_CODE)
+                        LEFT JOIN PER_ORG_ASS ORGASS ON(ORGASS.ORG_ID=P.ORG_ID)
+                        LEFT JOIN PER_POSITION c on (c.POS_ID = P.POS_ID)
+                        LEFT JOIN PER_ORG g on (g.ORG_ID=c.ORG_ID)
+                        LEFT JOIN PER_POS_EMP emp on (emp.POEM_ID=P.POEM_ID)
+                        LEFT JOIN PER_ORG gemp on (gemp.ORG_ID=emp.ORG_ID)
+                        LEFT JOIN PER_POS_EMPSER empser on (empser.POEMS_ID=P.POEMS_ID)
+                        LEFT JOIN PER_ORG gempser on (gempser.ORG_ID=empser.ORG_ID)
+                        LEFT JOIN PER_POS_TEMP temp on (temp.POT_ID=P.POT_ID)
+                        LEFT JOIN PER_ORG gtemp on (gtemp.ORG_ID=temp.ORG_ID)
+                        LEFT JOIN PER_ORG orglv1 on (orglv1.ORG_ID=P.PER_OT_FLAG)
+                        LEFT JOIN PER_ORG_ASS orgasslv1 on (orgasslv1.ORG_ID=P.PER_OT_FLAG)
+                        WHERE P.PER_OT_FLAG !=0 and P.PER_OT_FLAG is not null
+                        $search_condition
+                         $order_str ";
+	}
+	//echo $cmd; 
+	if ($db->send_cmd($cmd)) {
+		//$db->show_error();
+?>
+	<table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal" >
+	  <tr align="center" class="table_head"> 
+		<td width="15%" height="20" onClick="call_sort(1);"><strong><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> ชื่อผู้ใช้งาน</strong></td>
+		<td width="20%" onClick="call_sort(2);"><strong><? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> <?=$FULLNAME_TITLE?></strong></td>
+		<td width="25%" onClick="call_sort(3);"><strong><? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> <?=$ORG_TITLE?></strong></td>
+        <td width="25%" onClick="call_sort(4);"><strong><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> ต่ำกว่าสำนัก/กอง 1 ระดับ</strong></td>
+		<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td width="15%">ยกเลิกสถานะ<br>เจ้าของเรื่อง OT</td>
+		<?}?>
+	  </tr>
+	  <?
+          $CurPER_CARDNO='';
+		while ($data = $db->get_array()) {
+                    $tmp_id = $data[id];
+                    $dbUSERNAME = $data[USERNAME];
+                    $dbPN_NAME = $data[PN_NAME];
+                    $dbPER_NAME = $data[PER_NAME];
+                    $dbPER_SURNAME = $data[PER_SURNAME];
+                    
+                    if($P_OTTYPE_ORGANIZE=='2'){ // ตามมอบหมาย
+						$dbORG_NAME = $data[ORG_NAME];
+                        
+                    }else{
+                     	if($data[ORG_NAME_ORG]){
+                            $dbORG_NAME = $data[ORG_NAME_ORG];
+                        }elseif($data[ORG_NAME_EMP]){
+                            $dbORG_NAME = $data[ORG_NAME_EMP];
+                        }elseif($data[ORG_NAME_EMPSER]){
+                            $dbORG_NAME = $data[ORG_NAME_EMPSER];
+                        }elseif($data[ORG_NAME_TEMP]){
+                            $dbORG_NAME = $data[ORG_NAME_TEMP];
+                        }
+                     	
+                    }
+                    
+                    $dbORG_NAMELV1 = "";
+                    if($P_OTTYPE_ORGANIZE=='2'){ // ตามมอบหมาย
+                    	if(trim($data[ORGASS_OL_CODE])=="04"){
+                            $dbORG_NAMELV1 = $data[ORGASS_NAMELV1];
+                        }
+                    }else{
+                        if(trim($data[OL_CODE])=="04"){
+                            $dbORG_NAMELV1 = $data[ORG_NAMELV1];
+                        }
+                    }
+                    
+                    $dbPER_ID = $data[PER_ID];
+                    
+                    $fullname = $dbPN_NAME.$dbPER_NAME.' '.$dbPER_SURNAME;
+                    $dbIDEncode =  base64_encode($data[PER_CARDNO]);
+                    
+                    
+                    $class = "table_body";
+                    $onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+                    /*if($id==$tmp_id){ 
+                            $class = "table_body_over";
+                            $onmouse_event = "";
+                    } */// end if
+                    $alrtUSERNAME=$dbUSERNAME;
+                    $alrtFullname=$fullname;
+                    
+                    $curstyle = "";
+                    if($data[PER_STATUS]== 2){		//พ้นจากส่วนราชการ
+                
+                        $curstyle.="color:#FF0000"; 
+                    } // end if
+
+                    
+	?>
+	  <tr class="<?=$class?>" <?=$onmouse_event?> style="<?=$curstyle; ?>"> 
+		<td align="center" height="25"><?php echo $dbUSERNAME;?></td>
+		<td>&nbsp;<?php echo $fullname;?></td>
+		<td>&nbsp;<?php echo $dbORG_NAME;?></td>
+        <td>&nbsp;<?php echo $dbORG_NAMELV1;?></td>
+		<?if($PAGE_AUTH["del"]=="Y"){?>
+		<td align="center">
+		  <a href="<?="javascript:confirm_delete('$dbIDEncode','[$alrtUSERNAME] $alrtFullname')"?>">
+                     <img src="images/icon_clear.gif" border="0" alt="ลบข้อมูล">
+                  </a>
+                </td>
+		<?
+                }?>
+	  </tr>
+	  <? } ?>
+	</table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>
+  &nbsp;
+  <? } // if  count show ?>
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

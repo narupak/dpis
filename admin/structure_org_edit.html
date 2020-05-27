@@ -1,0 +1,514 @@
+<? 
+	if ($BYASS=="Y") $ORGTAB = "PER_ORG_ASS"; else $ORGTAB = "PER_ORG";
+//	echo "BYASS=$BYASS === $ORGTAB<br>";
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/structure_org_add_edit.php");
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function confirm_edit_save() {
+//		alert("confirm_edit_save....");
+		set_more_editor(); 
+//		alert("1");
+		if (!form1.ORG_NAME1.value || !form1.OL_CODE.value || !form1.OT_CODE.value || !form1.CT_CODE.value) {	
+			alert("กรุณากรอกข้อมูลตามรายการที่มีเครื่องหมาย (*) ให้ครบถ้วนก่อนการบันทึก");
+			return false;
+		} else if (form1.CT_CODE.value == 140 && !form1.PV_CODE1.value ) {
+			alert("กรุณาป้อนจังหวัด");
+			return false;
+		} else {
+//			alert("command=UPDATE...");
+			form1.command.value='UPDATE';
+			return true;
+		}
+	}
+	
+	function call_more_editor ( fieldname ) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?formname=form1&fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=520')
+	}
+	
+	function call_search_org_level () {	
+		parameter = "";
+	    call_openDialog("search_org_level.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$OL_TITLE?>");		
+	}
+	
+	function call_search_org_type () {	
+		parameter = "";
+	    call_openDialog("search_org_type.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$OT_TITLE?>");		
+	}
+	
+	function call_search_ministry_group () {	
+		parameter = "";
+	    call_openDialog("search_ministry_group.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กลุ่มกระทรวง");		
+	}
+	
+	function call_search_province_group () {	
+		parameter = "";
+	    call_openDialog("search_province_group.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กลุ่มจังหวัด");		
+	}
+	
+	function call_search_country () {	
+		parameter = "";
+	    call_openDialog("search_country.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$CT_TITLE?>");		
+	}
+	
+	function call_search_province () {	
+		if(form1.CT_CODE.value != 0){
+			parameter = "&CT_CODE=" + form1.CT_CODE.value;
+		}else{
+			alert("กรุณาเลือกประเทศก่อน");
+			form1.btn_country.focus();
+			return false;
+		}
+	    call_openDialog("search_province.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PV_TITLE?>");		
+	}
+	
+	function call_search_amphur () {
+		if(form1.PV_CODE1.value != 0){
+			parameter = "&PV_CODE1=" + form1.PV_CODE1.value;
+		}else{
+			alert("กรุณาเลือกจังหวัดก่อน");
+			form1.btn_province.focus();
+			return false;
+		}
+	    call_openDialog("search_amphur.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$AP_TITLE?>");		
+	}
+
+	function call_search_district () {
+		if(form1.AP_CODE.value != 0){
+			parameter = "&AP_CODE=" + form1.AP_CODE.value;
+		}else{
+			alert("กรุณาเลือก<?=$AP_TITLE?>ก่อน");
+			form1.btn_amphur.focus();
+			return false;
+		}
+	    call_openDialog("search_district.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DT_TITLE?>");		
+	}
+
+<!-- function สำหรับเรียกหน้าต่าง แผนที่ google เพื่อกำหนดตำแหน่ง latitude longtitude เพิ่ม โดยพงษ์ศักดิ์ 22/11/2552-->
+	function call_map_position() {
+		parameter = "&ORG_NAME=" + form1.ORG_NAME1.value;
+		parameter = parameter + "&PV_NAME=" + form1.PV_NAME1.value;
+		parameter = parameter + "&AP_NAME=" + form1.AP_NAME.value;
+		parameter = parameter + "&CT_NAME=" + form1.CT_NAME.value;
+		parameter = parameter + "&POS_LAT=" + form1.POS_LAT.value;
+		parameter = parameter + "&POS_LONG=" + form1.POS_LONG.value;
+	    call_openDialog("google_map_position.html?type="+parameter,800,600,"ตำแหน่งบน แผนที่ Google");		
+	}
+    <!-- จบ function google map -->	
+	
+	function call_change_structure_level (byass) {
+		parameter = "&ORG_ID=" + document.form1.ORG_ID1.value + "&ORG_ID_REF=" + document.form1.ORG_ID_REF.value+ "&BYASS=" + byass;
+	    call_openDialog("structure_org_parent.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1000,600,"Change Structure By <?=($BYASS=="Y"?"Assign":"Law")?> Parent");		
+	}
+	
+	function call_edit_structure (ORG_ID, ORG_ID_REF, LIST_OPENED_ORG) {
+		document.form1.ORG_ID1.value = ORG_ID;
+		document.form1.ORG_ID_REF.value = ORG_ID_REF;
+		document.form1.LIST_OPENED_ORG.value = LIST_OPENED_ORG;
+		document.form1.command.value = "";
+		document.form1.search_org_name.value = "";
+		document.form1.submit();
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org_level") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.OL_CODE.value = arrValue[0];
+				form1.OL_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_org_type") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.OT_CODE.value = arrValue[0];
+				form1.OT_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_ministry_group") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.MG_CODE.value = arrValue[0];
+				form1.MG_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_province_group") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PG_CODE.value = arrValue[0];
+				form1.PG_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_country") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.CT_CODE.value = arrValue[0];
+				form1.CT_NAME.value = arrValue[1];
+				form1.PV_CODE1.value = "";
+				form1.PV_NAME1.value = "";
+				form1.AP_CODE.value = "";
+				form1.AP_NAME.value = "";
+			} // end if
+		} else if  (src.indexOf("search_province") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PV_CODE1.value = arrValue[0];
+				form1.PV_NAME1.value = arrValue[1];
+				form1.AP_CODE.value = "";
+				form1.AP_NAME.value = "";
+				form1.DT_CODE.value = "";
+				form1.DT_NAME.value = "";
+			} // end if
+		} else if  (src.indexOf("search_amphur") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.AP_CODE.value = arrValue[0];
+				form1.AP_NAME.value = arrValue[1];
+				form1.DT_CODE.value = "";
+				form1.DT_NAME.value = "";
+			} // end if
+		} else if  (src.indexOf("search_district") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.DT_CODE.value = arrValue[0];
+				form1.DT_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("google_map_position") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.POS_LAT.value = arrValue[0];
+				form1.POS_LONG.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("structure_org_parent") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if(arrValue[0] != form1.ORG_ID_REF.value){
+					form1.NEW_ORG_ID_REF.value = arrValue[0];
+					form1.command.value = "CHANGESTRUCTUREPARENT";
+					form1.submit();
+				}
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span> 
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="structure_org_edit.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="NEW_ORG_ID_REF">
+          <input type="hidden" name="ORG_ID_REF" value="<?=$ORG_ID_REF?>">
+          <input type="hidden" name="ORG_ID1" value="<?=$ORG_ID1?>">
+          <input type="hidden" name="LIST_OPENED_ORG" value="<?=$LIST_OPENED_ORG?>">
+          <input type="hidden" name="ADD_FLAG" value="">
+          <input type="hidden" name="ORG_SEARCH" value="">
+			<input type="hidden" name="BYASS" value="<?=$BYASS?>">
+  <? if($command != "SEARCH_ORG" || !trim($search_org_name)){ ?>
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	    <td height="10">&nbsp;</td>
+    </tr>
+	<tr class="table_head">
+		<td height="21">แก้ไขโครงสร้าง</td>
+	</tr>
+    <tr>
+      <td width="55%" align="center" valign="top">
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+	  onKeyPress="return keyEnter(event,document.form1.Submit_edit);">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$ORG_NAME_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_NAME1" value="<?=$ORG_NAME1?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$ORG_SHORT_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_SHORT" value="<?=$ORG_SHORT?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=(($SESS_DEPARTMENT_NAME=="กรมการปกครอง")?"ชื่อเต็มส่วนราชการ":"ชื่อภาษาอังกฤษ");?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_ENG_NAME" value="<?=$ORG_ENG_NAME?>" style="width:85%" class="textbox" 
+				   <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td align="right" height="22">ลำดับส่วนราชการ&nbsp;:&nbsp;</td> 
+                  <td><input type="text" name="ORG_SEQ_NO" value="<?=$ORG_SEQ_NO?>" style="width:85%" class="textbox" 
+				  onKeyPress="return DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td width="35%" align="right" height="22"><?=$ORG_CODE_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_CODE" value="<?=$ORG_CODE?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td width="35%" align="right" height="22"><?=($MFA_FLAG==1)?"เมืองกำลังพัฒนา/เมืองพัฒนาแล้ว/Hardship":"รหัสอื่น"?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_DOPA_CODE" value="<?=$ORG_DOPA_CODE?>" style="width:85%" class="textbox" 
+				   <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$OL_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="OL_NAME" value="<?=$OL_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="OL_CODE" value="<?=$OL_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn2" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกฐานะของหน่วยงาน" onClick="call_search_org_level();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.OL_NAME.value=''; form1.OL_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$OT_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="OT_NAME" value="<?=$OT_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="OT_CODE" value="<?=$OT_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกสังกัด" onClick="call_search_org_type();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.OT_NAME.value=''; form1.OT_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+<?  if($BKK_FLAG != 1){ ?>
+                <tr>
+                  <td height="22" align="right">กลุ่มกระทรวง&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="MG_NAME" value="<?=$MG_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="MG_CODE" value="<?=$MG_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกกลุ่มกระทรวง" onClick="call_search_ministry_group();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.MG_NAME.value=''; form1.MG_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=($MFA_FLAG==1)?"กลุ่มภารกิจ":"กลุ่มจังหวัด"?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="PG_NAME" value="<?=$PG_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="PG_CODE" value="<?=$PG_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=($MFA_FLAG==1)?"กลุ่มภารกิจ":"กลุ่มจังหวัด"?>" onClick="call_search_province_group();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.PG_NAME.value=''; form1.PG_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+<? } ?>
+                <tr>
+                  <td height="22" align="right"><?=$ORG_JOB_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><a href="javascript:call_more_editor('ORG_JOB')">รายละเอียด</a><iframe id="editor_ORG_JOB" width="70%" height=0 frameborder="0"></iframe>
+                      <input type="hidden" name="ORG_JOB" id="ORG_JOB" value="">
+                  </td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$ORG_ADDR1_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ORG_ADDR1" value="<?=$ORG_ADDR1?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">&nbsp;</td>
+                  <td><input type="text" name="ORG_ADDR2" value="<?=$ORG_ADDR2?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">&nbsp;</td>
+                  <td><input type="text" name="ORG_ADDR3" value="<?=$ORG_ADDR3?>" style="width:85%" class="textbox"  
+				  <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$CT_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="CT_NAME" value="<?=$CT_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="CT_CODE" value="<?=$CT_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn_country" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$CT_TITLE?>" onClick="call_search_country();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DT_NAME.value=''; form1.DT_CODE.value=''; form1.AP_NAME.value=''; form1.AP_CODE.value=''; form1.PV_NAME1.value=''; form1.PV_CODE1.value=''; form1.CT_NAME.value=''; form1.CT_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;
+                    <?=$PV_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="PV_NAME1" value="<?=$PV_NAME1?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="PV_CODE1" value="<?=$PV_CODE1?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn_province" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PV_TITLE?>" onClick="call_search_province();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DT_NAME.value=''; form1.DT_CODE.value=''; form1.AP_NAME.value=''; form1.AP_CODE.value=''; form1.PV_NAME1.value=''; form1.PV_CODE1.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$AP_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="AP_NAME" value="<?=$AP_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="AP_CODE" value="<?=$AP_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn_amphur" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$AP_TITLE?>" onClick="call_search_amphur();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DT_NAME.value=''; form1.DT_CODE.value=''; form1.AP_NAME.value=''; form1.AP_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$DT_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="DT_NAME" value="<?=$DT_NAME?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="DT_CODE" value="<?=$DT_CODE?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn_district" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$DT_TITLE?>" onClick="call_search_district();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DT_NAME.value=''; form1.DT_CODE.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">วันที่มีคำสั่งปรับปรุงโครงสร้าง&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22"><input name="ORG_DATE" type="text" class="textbox" id="ORG_DATE" onBlur="//chk_date(this, 'BDH');" value="<?=$ORG_DATE?>" style="width:100% "></td>
+                      <td width="15%">&nbsp;<input type="reset" class="button" onClick="return showCalendar('ORG_DATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>"></td>
+                    </tr>
+                  </table></td>
+                </tr>
+                <tr>
+                  <td  height="22" align="right">เว็บไซต์&nbsp;:&nbsp;</td>
+				  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+				  <tr>
+				  <!--  ส่งไปกำหนดตำแหน่งใน google map แล้วเก็บค่า latitude longtitude ที่ POS_LAT POS_LONG .... แก้โดยพงษ์ศักดิ์ 22/11/2552 -->
+                  <td width="85%" height="22"><input type="text" name="ORG_WEBSITE" value="<?=$ORG_WEBSITE?>" style="width:100%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn_gmap" class="button" value="แผนที่" alt="กำหนดตำแหน่งบนแผนที่" onClick="call_map_position();"><input type="hidden" name="POS_LAT" value="<?=$POS_LAT?>"><input type="hidden" name="POS_LONG" value="<?=$POS_LONG?>"><? endif; ?></td>
+				  </tr></table></td>
+				  <!-- จบ google map -->
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$ORG_ACTIVE_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="radio" name="ORG_ACTIVE" value="1"  
+				  <?=($ORG_ACTIVE==1)?"checked":""?>>ปกติ&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				  <input type="radio" name="ORG_ACTIVE" value="0"  
+				  <?=($ORG_ACTIVE==0)?"checked":""?>>ยุบเลิก</td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">อ้างอิงโครงสร้างตาม<?=($BYASS=="Y") ? "กฏหมาย" : "มอบหมายงาน" ?>&nbsp;:&nbsp;</td>
+                  <td><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                    <tr>
+                      <td width="85%" height="22">
+						<input type="text" name="ORG_NAME_ASS" value="<?=$ORG_NAME_ASS?>" style="width:100%" class="textbox" readonly>
+						<input type="hidden" name="ORG_ID_ASS" value="<?=$ORG_ID_ASS?>">					  </td>
+                      <td width="15%">&nbsp;<? if($SESS_PROVINCE_CODE || ($ORG_ID1 && $ORG_ID_REF) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?><input type="button" name="btn3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกอ้างอิงโครงสร้างตาม<?=($BYASS=="Y") ? "กฏหมาย" : "มอบหมายงาน" ?>" onClick="call_search_org_ass();"><input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.ORG_NAME_ASS.value=''; form1.ORG_ID_ASS.value=''; return false;" align="center" alt="ล้างค่า"><? endif; ?></td>
+                    </tr>
+                  </table></td>
+                </tr>
+				<? if ($MFA_FLAG==1) { ?>
+                <tr>
+                  <td height="22" align="right">มีสิทธิลาพักผ่อนเพิ่ม 10 วันทำการ&nbsp;:&nbsp;</td>
+                  <td><input type="radio" name="ORG_ZONE" value="1"  
+				  <?=($ORG_ZONE==1)?"checked":""?>>ใช่&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				  <input type="radio" name="ORG_ZONE" value="0"  
+				  <?=($ORG_ZONE==0)?"checked":""?>>ไม่ใช่</td>
+                </tr>
+				<? } ?>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" style="width:70%" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+        </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_DATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+				<? if($ORG_ID1 && $ORG_ID_REF) : ?>
+                <tr align="center">
+                  <td height="30" colspan="2">
+                      <?if($PAGE_AUTH["edit"]=="Y" && $ORG_ID1!=1){?>
+					  <? if ($BUTTON_DISPLAY==1) { ?>
+					  <input name="Submit2" type="button" class="button" onClick="call_change_structure_level('<?=$BYASS?>');" value="เปลี่ยนระดับโครงสร้าง">
+					  <?  } else { ?>
+              <img src="images/change.png" alt="เปลี่ยนระดับโครงสร้าง" width="32" height="32" border="0" onClick="call_change_structure_level('<?=$BYASS?>'); form1.submit();" >
+              <? } echo "&nbsp; &nbsp;"; ?>
+					  <?}?>
+					  <?if($PAGE_AUTH["edit"]=="Y"){?>
+					  <? if ($BUTTON_DISPLAY==1) { ?>
+						<input name="Submit_edit" type="submit" class="button" onClick="return confirm_edit_save();" value="<?=$EDIT_TITLE?>">
+					   <?  } else { ?>
+						<input name="image2" type="image" onClick="return confirm_edit_save();" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>
+                      <?}?>
+                      <?if($PAGE_AUTH["del"]=="Y" && $ORG_ID1!=1){?>
+					  <?if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Submit_del" type="submit" class="button" onClick="if(confirm('ต้องการลบโครงสร้างส่วนราชการนี้ใช่หรือไม่ [<?=$ORG_NAME1?>] โครงสร้างลูกที่อยู่ภายใต้โครงสร้างส่วนราชการนี้จะถูกลบไปด้วย?')){ form1.command.value='DELETE'; }else{ return false; }" value="<?=$DEL_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image22" type="image" onClick="if(confirm('ต้องการลบโครงสร้างส่วนราชการนี้ใช่หรือไม่ [<?=$ORG_NAME1?>] โครงสร้างลูกที่อยู่ภายใต้โครงสร้างส่วนราชการนี้จะถูกลบไปด้วย?')){ form1.command.value='DELETE'; }else{ return false; }" src="images/delete.gif" alt="<?=$DEL_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+					  
+             <?}?>                  
+			 <? if ($PAGE_AUTH["edit"]=="Y" && $ORG_ID1!=1 && $ORGTAB=="PER_ORG") {
+					if ($BUTTON_DISPLAY==1) { ?>
+			 <input name="Submit23" type="submit" class="button" style="width:220" onClick="if(confirm('ข้อมูลโครงสร้างเก่าทั้งหมดจะถูกลบ  ต้องการคัดลอกโครงสร้างตามมอบหมายงานหรือไม่?')){ form1.command.value='COPY'; }else{ return false; }" value="คัดลอกโครงสร้างตามมอบหมายงาน">
+			 <?} else { ?>
+              			<img src="images/copy.png" alt="คัดลอกโครงสร้างตามมอบหมายงาน" width="32" height="32" border="0" onClick="if(confirm('ข้อมูลโครงสร้างเก่าทั้งหมดจะถูกลบ  ต้องการคัดลอกโครงสร้างตามมอบหมายงานหรือไม่?')){ form1.command.value='COPY'; form1.submit(); }else{ return false; }" value="คัดลอกโครงสร้างตามมอบหมายงาน" >
+              <? } echo "&nbsp; &nbsp;";
+				 } ?>			 </td>
+                </tr>
+		<? endif; ?>
+            </table></td>
+          </tr>
+      </table>
+      </td>
+    </tr>
+  </table>
+  <? } ?>
+<!--<textarea name="msg" rows="3" cols="100"><?=$msg?></textarea>-->
+  </form>	
+	  </td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if($command != "SEARCH_ORG" || !trim($search_org_name)){ ?>
+<script language="JavaScript">
+		var edOrgJob = document.getElementById("editor_ORG_JOB");
+		edOrgJob = (edOrgJob.contentWindow) ? edOrgJob.contentWindow : ((edOrgJob.contentDocument.document) ? edOrgJob.contentDocument.document : edOrgJob.contentDocument);
+//		alert("edOrgJob.name="+edOrgJob.name)
+		edOrgJob.document.open();
+		edOrgJob.document.write('<body style="font:10pt arial ; margin: 0px  0px; padding: 0px  0p"><?=$ORG_JOB?></body>');
+//		alert(editor_ORG_JOB.document.body.innerHTML);
+		edOrgJob.document.close();
+		edOrgJob.document.designMode  = "on";
+		
+		function set_more_editor () {
+//			alert("set_more_editor.....");
+			var edOrgJob = document.getElementById("editor_ORG_JOB");
+			edOrgJob = (edOrgJob.contentWindow) ? edOrgJob.contentWindow : ((edOrgJob.contentDocument.document) ? edOrgJob.contentDocument.document : edOrgJob.contentDocument);
+//			alert("edOrgJob.document.body.innerHTML="+edOrgJob.document.body.innerHTML)
+			form1.ORG_JOB.value = edOrgJob.document.body.innerHTML;
+//			alert("ORG_JOB.value="+form1.ORG_JOB.value);
+//			alert(form1.NEW_ORG_JOB.value);
+		}
+</script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<? } // end if ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

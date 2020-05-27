@@ -1,0 +1,152 @@
+<?
+	$VAR_FORMULA=stripslashes($VAR_FORMULA);
+	$VAR_LINK=stripslashes($VAR_LINK);
+
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	include "php_scripts/function_repgen.php";
+
+	echo "af - formula:$VAR_FORMULA | link:$VAR_LINK<br>";
+?>
+<html>
+<head>
+<title>การทดสอบสูตร</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function urlEncode(inputString, encodeAllCharacter){
+       var outputString = '';
+       if (inputString != null){
+         for (var i = 0; i < inputString.length; i++ ){
+            var charCode = inputString.charCodeAt(i);
+            var tempText = "";
+            if (charCode < 128) {
+                if (encodeAllCharacter)
+                {
+                  var hexVal = charCode.toString(16);
+                  outputString += '%' + ( hexVal.length < 2 ? '0' : '' ) + hexVal.toUpperCase();  
+                } else {
+                  outputString += String.fromCharCode(charCode);
+                }
+                            
+            } else if((charCode > 127) && (charCode < 2048)) {
+                tempText += String.fromCharCode((charCode >> 6) | 192);
+                tempText += String.fromCharCode((charCode & 63) | 128);
+                outputString += escape(tempText);
+            } else {
+                tempText += String.fromCharCode((charCode >> 12) | 224);
+                tempText += String.fromCharCode(((charCode >> 6) & 63) | 128);
+                tempText += String.fromCharCode((charCode & 63) | 128);
+                outputString += escape(tempText);
+            }
+         }
+       }
+       return outputString;
+    }
+
+	function change_current_page( page ){
+//		form1.VAR_LINK.value = urlEncode(form1.VAR_LINK.value, true);
+//		form1.VAR_FORMULA.value = urlEncode(form1.VAR_FORMULA.value, true);
+//		var v_link = urlEncode(form1.VAR_LINK.value, true);
+//		var v_formula = urlEncode(form1.VAR_FORMULA.value, true);
+//		parameter = "&VAR_FORMULA="+v_formula+"&VAR_LINK="+v_link;
+//		form1.action="repgen_vartest_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter
+		form1.current_page.value = page;
+		form1.submit();
+	}
+</script>
+<body>
+<form action="repgen_vartest.html" method="get" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="VAR_FORMULA" value="<?=$VAR_FORMULA?>">
+  <input type="hidden" name="VAR_LINK" value="<?=$VAR_LINK?>">
+  <input type="hidden" name="command">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">ข้อมูลทดสอบมีทั้งสิ้น <?=($count_data + 0)?> รายการ </td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+
+		if($DPISDB=="odbc"){	
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;
+			$cmd = "	select *	from	( select	top $select_top * from (
+														select top ". ($data_per_page * $current_page) ." * from repgen_variable
+										          ) ) 	";	
+		}elseif($DPISDB=="oci8"){
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = "select * from (
+							   select rownum rnum, q1.* from ( select * from repgen_variable)  q1
+						) where rnum between $rec_start and $rec_end  ";						
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = "	select * from repgen_variable $limit_data	";
+		} // end if
+		
+		$count_page_data = $db_dpis->send_cmd($cmd);
+//		$db_dpis->show_error();
+		echo "--$cmd<br>";
+//		echo "<input name='' type='text' value='$cmd'>";
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="10%" height="25" align="center">ลำดับที่</td>
+    <td width="40%" align="center">ผลลัพธ์</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+//			echo ">>>>$select_col<br>";
+       		$buff = explode("|",$select_col);
+			$arr_map = explode(",",$buff[2]);
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+                
+                $para = (array) null;
+                $strpara="";
+				for($i=0; $i < count($arr_map); $i++) {
+					$buff1 = explode("^",$arr_map[$i]);
+                    $buff2 = explode(".",$buff1[0]);
+                    $para[$buff1[1]] = $data[$buff2[1]];
+                    $strpara.= "(".$buff1[1].")=>(".$buff2[1].")".$para[$buff1[1]].":";
+				}
+//				echo "$data_count--$formula,".$strpara."<br>";
+				$val = compute_formula($formula, $para);
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$data_count?></td>
+    <td>&nbsp;<?=$val?></td>
+  </tr>
+  <?		endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

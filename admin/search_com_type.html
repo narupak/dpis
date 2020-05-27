@@ -1,0 +1,282 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+	include("php_scripts/function_list.php");	
+	
+	if ($COM_GROUP=='01') {
+		$where = "COM_GROUP in ('01','501','503')";
+	} elseif ($COM_GROUP=='02') {
+		if ($MFA_FLAG==1) {
+			$where = "COM_GROUP in ('02','502','503')";
+		} else { 
+			$where = "COM_GROUP in ('02','502')";
+		}
+	} elseif ($COM_GROUP=='03') {
+		$where = "COM_GROUP in ('03','504')";
+	} elseif ($COM_GROUP=='04') {
+		$where = "COM_GROUP in ('04','504')";
+	} elseif ($COM_GROUP=='05') {
+		$where = "COM_GROUP in ('05','507')";
+	} elseif ($COM_GROUP=='06') {
+		$where = "COM_GROUP in ('06','511')";
+	} elseif ($COM_GROUP=='07') {
+		$where = "COM_GROUP in ('07','509','510')";
+	} else {
+		$where = "COM_GROUP in ('$COM_GROUP')";
+	}
+
+  	$cmd = "	select 	CG_NAME from PER_COMGROUP where COM_GROUP='$COM_GROUP' ";
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$page_title = $data[cg_name];	
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	$arr_search_condition[] = "(COM_ACTIVE=1)";
+	if(trim($OL_CODE)) $arr_search_condition[] = "(trim(OL_CODE)='".trim($OL_CODE)."')";
+	if(trim($COM_ID_REF)) $arr_search_condition[] = "(COM_ID_REF=$COM_ID_REF)";
+  	if(trim($search_com_type)) $arr_search_condition[] = "(COM_TYPE like '$search_com_type%')";
+  	if(trim($search_com_name)) $arr_search_condition[] = "(COM_DESC like '%$search_com_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = "	select 		count(COM_TYPE) as count_data 
+			from 		PER_COMTYPE 
+			where 		$where
+						$search_condition		   ";
+	$db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+    $msg= "[$dpisdb_user] $cmd ($count_data)<br>";
+?>
+<html>
+<head>
+<title><?=$page_title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+function checkadd() {  //ตัวที่สอง สำหรับเพิ่มเติม filed
+//			alert("command="+form1.command.value);
+			if (form1.command.value!='ADD_filed')  {
+				form1.command.value='ADD_filed';
+				alert("กรุณากรอกข้อมูลเพิ่มเติม");
+			} else {
+			  var forms=document.form1;  //ผมสร้างตัวแปรมาเพื่ออ้างถึง form ครับ
+			  if(forms.search_com_type.value == ""){ //เช็ค if ใน textfile ที่กำหนด ตรง .value == "" คือถ้าเป็นค่า null ก็ให้ทำงานภายใน if นี้.
+   			  alert('กรุณากรอกรหัส');  //สั่งให้ขึ้นข้อความที่ต้องการ
+   			  forms.search_com_type.focus();  //เพิ่มความฉลาดให้โปรแกรมโดยการให้ cursor วิ่งไปในช่องที่ว่างอยู่  
+   			  return false;  //return false เป็นการไม่ให้โปรแกรมหรือหน้าเว็บเราทำงานต่อ
+			  }else if(forms.search_com_name.value == ""){
+  			  alert('กรุณากรอกประเภทคำสั่ง');
+ 			   forms.search_com_name.focus();  
+ 			   return false; 
+			   }else if(forms.com_desc.value == ""){
+  			  alert('กรุณากรอกคำอธิบาย');
+ 			   forms.com_desc.focus();  
+ 			   return false;
+			   }else if(forms.com_group.value == ""){
+  			  alert('กรุณากรอกประเภทแบบคำสั่ง');
+ 			   forms.com_group.focus();  
+ 			   return false;
+ 				 }else { 
+  				form1.command.value='ADD';
+				return true;
+				}
+			}
+//			alert("af...command="+form1.command.value);
+//			form1.submit();
+//			return 1;
+		}
+function checkcancel() {
+form1.command.value='';
+}
+</script>
+<?
+if($command == "ADD"){
+		//$SESS_USERID ไอดีผู้ทำการเปลี่ยนข้อมล
+		$command = "";
+		$UPDATE_DATE = date("Y-m-d H:i:s");
+		$cmd = "select COM_TYPE, COM_NAME, COM_DESC, COM_GROUP from PER_COMTYPE where COM_TYPE='$search_com_type'";
+		$count_duplicate = $db_dpis->send_cmd($cmd);
+		if($count_duplicate <= 0){
+			$cmd = "insert into PER_COMTYPE (COM_TYPE, COM_NAME, COM_DESC, COM_GROUP, COM_SEQ_NO, COM_ACTIVE, COM_OTHERNAME) 
+			values ('$search_com_type', '$search_com_name', '$com_desc', '$com_group', '', 1, '$com_othername')";
+			$db_dpis->send_cmd($cmd);
+			//$db_dpis->show_error();
+			insert_log("ข้อมูลหลักM03 > ตำแหน่งM0312 >  ประเภทคำสั่ง   > เพิ่มข้อมูล [".$search_com_type." : ".$search_com_name."]");
+		}else{
+			$data = $db_dpis->get_array();			
+			$err_text = "รหัสข้อมูลซ้ำ [".$data[COM_TYPE]." ".$data[COM_NAME]."]";
+		} // endif
+	}
+?>
+<body>
+<form action="search_com_type.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="OL_CODE" value="<?=$OL_CODE?>">
+  <input type="hidden" name="COM_ID_REF" value="<?=$COM_ID_REF?>">
+  <input type="hidden" name="COM_GROUP" value="<?=$COM_GROUP?>">
+  <input type="hidden" name="command" value="<?=$command?>">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr><?=$err_text?>
+              <td width="18%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="27%"><input type="text" name="search_com_type" value="<?=$search_com_type?>" style="width:98%" class="textbox"></td>
+              <td width="8%" align="right"><?=$COM_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="47%"><input type="text" name="search_com_name" value="<?=$search_com_name?>" style="width:98%" class="textbox"></td>
+			  </tr>
+			  <? if($command == "ADD_filed"){ ?>
+				<tr>
+			    <td  colspan="1" align="right"><?=$OTHERNAME_TITLE?>&nbsp;:&nbsp;</td>
+				<td colspan="3" align="left"><textarea name="com_othername" rows="3" class="selectbox" style="width:70%" ></textarea></td>
+			    </tr>
+				<tr>
+			     <td  colspan="1" align="right"><span class="label_alert">*</span>&nbsp;คำอธิบาย&nbsp;:&nbsp;</td>
+				<td colspan="3" align="left"><textarea name="com_desc"  rows="3" class="selectbox" style="width:70%" ></textarea></td>
+			    </tr>
+				<tr>
+			     <td  colspan="1" align="right"><span class="label_alert">*</span>&nbsp;แบบคำสั่ง&nbsp;:&nbsp;</td>
+				 <td colspan="3" align="left"><? list_per_comgroup(com_group, trim($com_group))?></td>
+			    </tr>
+				<?}?>
+			  <tr>
+              <td align="center" colspan="4"><? if ($BUTTON_DISPLAY==1) { ?>
+			  		<? if($command != "ADD_filed"){ ?>
+			  <input name="btn2" type="submit" class="button" value="<?=$SEARCH_TITLE?>" onClick="form1.current_page.value=0;">
+			  <input name="btn3" type="submit" class="button" value="<?=$SHOW_ALL_TITLE?>" onClick="form1.search_com_type.value=''; form1.search_com_name.value=''; form1.current_page.value=0;">
+			    	<?}?>
+			  <? } else { ?>
+			 			 <? if($command != "ADD_filed"){ ?>
+                <input name="image2" type="image" onClick="javascript:form1.current_page.value=0;" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+                <input name="image2" type="image" onClick="form1.search_com_type.value=''; form1.search_com_name.value=''; form1.current_page.value=0;" src="images/showall.png" alt="<?=$SHOW_ALL_TITLE?>">
+						<?}?>
+                <?}?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูล<?=$page_title?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	</tr>
+  </table>
+<?
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+
+		if($DPISDB=="odbc"){				   
+			$select_top = ($current_page==$total_page)?($count_data - ($data_per_page * ($current_page - 1))):$data_per_page;		
+			$cmd = " select	top ". ($data_per_page * $current_page) ."
+									COM_TYPE, COM_NAME, COM_DESC 
+							 from 	PER_COMTYPE 
+							 where 	$where
+									$search_condition
+							order by	IIF(ISNULL(COM_SEQ_NO), 9999, COM_SEQ_NO), COM_TYPE ";
+		}elseif($DPISDB=="oci8"){
+			$tmp1 = $current_page * $data_per_page;
+			$tmp2 = ($current_page - 1) * $data_per_page;
+			$cmd = " select * from (
+								select alist.*, rownum  rnum from (	
+									select 	COM_TYPE, COM_NAME, COM_DESC 
+							 			from 	PER_COMTYPE 
+							 			where 	$where
+										$search_condition
+										order by	COM_SEQ_NO, COM_TYPE  ) 
+									alist
+								where rownum <= $tmp1
+							) where rnum > $tmp2   ";			
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd = " select	COM_TYPE, COM_NAME, COM_DESC 
+							 from 	PER_COMTYPE 
+							 where 	$where
+									$search_condition
+							order by	COM_SEQ_NO, COM_TYPE
+									$limit_data ";
+		} // end if
+
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		//$db_dpis->show_error();
+//                echo  $cmd ;
+//		$msg = "[$dpisdb_user] $cmd ($count_page_data)<br>";
+//		echo "<textarea cols='100' rows='3'>$msg</textarea>";
+		if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head" align="center">
+    <td width="10%" height="25">รหัส</td>
+    <td width="10%"><?=$page_title?></td>
+	<td>คำอธิบาย</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$TMP_COM_TYPE = $data[COM_TYPE];
+				$current_list .= ((trim($current_list))?",":"") . "$TMP_COM_TYPE";
+				$TMP_COM_NAME = trim($data[COM_NAME]);
+				$TMP_COM_DESC = trim($data[COM_DESC]);
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_COM_TYPE<::>$TMP_COM_DESC<::>$TMP_COM_NAME<::>$send_by";
+  ?>
+  <tr class="<?=$class?>" onClick="parent.refresh_opener('<?=$returnValue?>');" style="cursor:hand;" <?=$onmouse_event?>>
+    <td height="22" align="center"><?=$TMP_COM_TYPE?></td>
+    <td>&nbsp;<?=$TMP_COM_NAME?></td>
+	<td>&nbsp;<?=$TMP_COM_DESC?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>

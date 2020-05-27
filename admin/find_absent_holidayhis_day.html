@@ -1,0 +1,341 @@
+ <?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+
+/*
+	$PER_ID = 14479;
+	$PER_ID = 15866;	
+	$AB_CODE = "01";
+	$STARTDATE = "14/05/2550";
+	$ENDDATE = "21/05/2550";
+	$STARTPERIOD = "2";
+	$ENDPERIOD = "3";
+	$chkSave = "1";
+*/
+
+	//	นับจำนวนวันลา โดยไม่รวมวันหยุดเสาร์ - อาทิตย์ และวันหยุดราชการ (table) X
+	//วันเริ่มต้น
+	$arr_temp = explode("/", $STARTDATE);
+	$START_DAY = $arr_temp[0];
+	$START_MONTH = $arr_temp[1];
+	$START_YEAR = $arr_temp[2] - 543;
+	$STARTDATE_ce_era = $START_YEAR ."-". $START_MONTH ."-". $START_DAY;
+	
+	//ถึงวันที่
+	$arr_temp = explode("/", $ENDDATE);
+	$END_DAY = $arr_temp[0];
+	$END_MONTH = $arr_temp[1];
+	$END_YEAR = $arr_temp[2] - 543;
+	$ENDDATE = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;
+	$ENDDATE_ce_era = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;	
+	
+	if(!$INVALID_STARTDATE && !$INVALID_ENDDATE){
+		$ABSENT_DAY = 0;		$SUM_END_DAY = 1;		$FLG_HG_DAY = 0;
+
+/****
+		if($AB_COUNT == 2){		//ไม่นับวันหยุดเท่านั้น 
+				// Step 0 : หาวันหยุดพิเศษ ที่จะไม่นำมานับเป็นวันหยุด ที่อยู่ในช่วงวันที่เลือก ตั้งแต่ ถึง สิ้นสุด
+				if($DPISDB=="odbc") {
+					$cmd = " select 		HG_CODE, LEFT(START_DATE, 10) as START_DATE, LEFT(END_DATE, 10) as END_DATE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and LEFT(START_DATE, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+														and LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+									";
+				}elseif($DPISDB=="oci8"){	
+					$cmd = " select 		HG_CODE, SUBSTR(START_DATE, 1, 10) as START_DATE, SUBSTR(END_DATE, 1, 10) as END_DATE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and SUBSTR(START_DATE, 1, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+														and SUBSTR(END_DATE, 1, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+									";
+				}elseif($DPISDB=="mysql"){
+					$cmd = " select 		HG_CODE, LEFT(START_DATE, 10) as START_DATE, LEFT(END_DATE, 10) as END_DATE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and LEFT(START_DATE, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+														and LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+									";
+				}
+				$db_dpis->send_cmd($cmd);
+				$data = $db_dpis->get_array();
+				$HG_CODE = $data[HG_CODE];
+				if(!$HG_CODE)	$HG_CODE="";
+				
+				$HG_START_DATE = $data[START_DATE];
+				$HG_END_DATE = $data[END_DATE];
+				
+				// หาวันหยุด ตาม HG_NAME ในช่วง $HG_START_DATE ถึง $HG_END_DATE ทั้งหมด เพื่อไม่นำมานับเป็นวันหยุด
+				if($HG_CODE && ($HG_START_DATE && $HG_END_DATE)){
+					$arr_DAY_NUM_HG_NAME[$HG_CODE] = array();
+					//Step 0.1 :::: check ในตาราง PER_HOLIDAY_GROUP ว่าเป็นวันหยุด
+					$cmd =" select HG_NAME from PER_HOLIDAY_GROUP where HG_CODE=$HG_CODE and HG_ACTIVE=1  ";
+					$db_dpis->send_cmd($cmd);
+					$data = $db_dpis->get_array();
+					$HG_NAME = $data[HG_NAME];
+					if(!$HG_NAME)	$HG_NAME="";
+					
+					$arr_temp = explode("-", $HG_START_DATE);
+					$HG_START_YEAR = $arr_temp[0] - 543;
+					$HG_START_MONTH = $arr_temp[1];
+					$HG_START_DAY = $arr_temp[2];
+			
+					$arr_temp = explode("-", $HG_END_DATE);
+					$HG_END_YEAR = $arr_temp[0] - 543;
+					$HG_END_MONTH = $arr_temp[1];
+					$HG_END_DAY = $arr_temp[2]; 
+		
+					if($HG_NAME != ""){
+						//while($HG_START_YEAR!=$HG_END_YEAR || $HG_START_MONTH!=$HG_END_MONTH || $HG_START_DAY!=$HG_END_DAY){
+							$DAY_NUM_HG_NAME = date("w", mktime(0, 0, 0, $HG_START_MONTH, $HG_START_DAY, $HG_START_YEAR));	//Numeric representation of the day of the week (0=sunday and 6=sat day)
+							if(trim($HG_NAME)=="อาทิตย์-จันทร์" && ($DAY_NUM_HG_NAME == 0 || $DAY_NUM_HG_NAME == 1)){					// 0 - 1			
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="จันทร์-อังคาร" && ($DAY_NUM_HG_NAME == 1 || $DAY_NUM_HG_NAME == 2)){			// 1 - 2	
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="อังคาร-พุธ" && ($DAY_NUM_HG_NAME == 2 || $DAY_NUM_HG_NAME == 3)){				// 2 - 3	
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="พุธ-พฤหัสบดี" && ($DAY_NUM_HG_NAME == 3 || $DAY_NUM_HG_NAME == 4)){			// 3 - 4	
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="พฤหัสบดี-ศุกร์" && ($DAY_NUM_HG_NAME == 4 || $DAY_NUM_HG_NAME == 5)){		// 4 - 5	
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="ศุกร์-เสาร์" && ($DAY_NUM_HG_NAME == 5 || $DAY_NUM_HG_NAME == 6)){				// 5 - 6	
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}else if(trim($HG_NAME)=="เสาร์-อาทิตย์" && ($DAY_NUM_HG_NAME == 6 || $DAY_NUM_HG_NAME == 0)){			//default 6 - 0
+									$arr_DAY_NUM_HG_NAME[$HG_CODE][] = trim($HG_START_DATE);
+							}	
+						//} // end while
+					} //end if
+				} //end if($HG_CODE && ($HG_START_DATE && $HG_END_DATE))
+					
+				//test $HG_CODE = ตัวที่มี
+				$str_DAY_NUM_HG_NAME = "";
+				if(is_array($arr_DAY_NUM_HG_NAME[$HG_CODE])){
+					$str_DAY_NUM_HG_NAME = implode(",",$arr_DAY_NUM_HG_NAME[$HG_CODE]);
+				}
+		} //end if($AB_COUNT == 2) 
+****/
+		// END 0 ------------------------------------------------------------------------------------------------------------------------------------
+		
+		$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+		$DAY_NUM_START_FIRST = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));	//Numeric representation of the day of the week (0=sunday and 6=sat day)
+		while($START_YEAR!=$END_YEAR || $START_MONTH!=$END_MONTH || $START_DAY!=$END_DAY){
+			if($AB_COUNT == 2){		//ไม่นับวันหยุดเท่านั้น
+				if($DPISDB=="odbc") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				elseif($DPISDB=="mysql")
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+				$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+
+				// วน loop นับวัน ABSENT_DAY ที่ไม่อยู่ในปฏิทินวันหยุด (พิเศษ) PER_HOLIDAYHIS //
+				$DAY_NUM_START = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));	//Numeric representation of the day of the week (0=sunday and 6=sat day)
+				$DAY_NUM_END = date("w", mktime(0, 0, 0, $END_MONTH, $END_DAY, $END_YEAR));	//Numeric representation of the day of the week (0=sunday and 6=sat day)
+				//=====N E W START_DATE 	======//		ถ้าไม่มีปฏิทินวันหยุด ให้ check นับวันหยุด เสาร์อาทิตย์ เหมือนเดิม
+				//Step 1 :::: check ในตาราง วันหยุด (พิเศษ) โดยไม่รวมวันหยุด (พิเศษ)  หาเริ่มต้น ระหว่าง และสิ้นสุด (loop)
+				$HG_NAME="";
+				if($DPISDB=="odbc") {
+					/*$cmd = " select 		HG_CODE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and (LEFT(START_DATE, 10) <= '$START_YEAR-$START_MONTH-$START_DAY' or LEFT(START_DATE, 10) >= '$END_YEAR-$END_MONTH-$END_DAY') 
+														and (LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY' and LEFT(END_DATE, 10) >= '$END_YEAR-$END_MONTH-$END_DAY')
+									";*/
+						$cmd = " select 		a.HG_CODE,b.HG_NAME, LEFT(START_DATE, 10) as START_DATE, LEFT(END_DATE, 10) as END_DATE
+										from 			PER_HOLIDAYHIS a, PER_HOLIDAY_GROUP b
+										where 		a.PER_ID=$PER_ID and a.HG_CODE=b.HG_CODE
+															and LEFT(START_DATE, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+															and LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+															and b.HG_ACTIVE=1
+										";
+				}elseif($DPISDB=="oci8"){
+					/*$cmd = " select 		HG_CODE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and (SUBSTR(START_DATE, 1, 10) <= '$START_YEAR-$START_MONTH-$START_DAY' or SUBSTR(START_DATE, 1, 10) >= '$END_YEAR-$END_MONTH-$END_DAY') 
+														and (SUBSTR(END_DATE, 1, 10) >= '$START_YEAR-$START_MONTH-$START_DAY' and SUBSTR(END_DATE, 1, 10) >= '$END_YEAR-$END_MONTH-$END_DAY')
+									";*/
+						$cmd = " select 		a.HG_CODE,b.HG_NAME, SUBSTR(START_DATE, 1, 10) as START_DATE, SUBSTR(END_DATE, 1, 10) as END_DATE
+										from 			PER_HOLIDAYHIS a, PER_HOLIDAY_GROUP b
+										where 		a.PER_ID=$PER_ID and a.HG_CODE=b.HG_CODE
+															and SUBSTR(START_DATE, 1, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+															and SUBSTR(END_DATE, 1, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+															and b.HG_ACTIVE=1
+										";
+				}elseif($DPISDB=="mysql"){
+					/*$cmd = " select 		HG_CODE
+									from 			PER_HOLIDAYHIS
+									where 		PER_ID=$PER_ID 
+														and (LEFT(START_DATE, 10) <= '$START_YEAR-$START_MONTH-$START_DAY' or LEFT(START_DATE, 10) >= '$END_YEAR-$END_MONTH-$END_DAY') 
+														and (LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY' and LEFT(END_DATE, 10) >= '$END_YEAR-$END_MONTH-$END_DAY')
+									";*/
+						$cmd = " select 		a.HG_CODE,b.HG_NAME, LEFT(START_DATE, 10) as START_DATE, LEFT(END_DATE, 10) as END_DATE
+										from 			PER_HOLIDAYHIS a, PER_HOLIDAY_GROUP b
+										where 		a.PER_ID=$PER_ID and a.HG_CODE=b.HG_CODE
+															and LEFT(START_DATE, 10) <= '$END_YEAR-$END_MONTH-$END_DAY'
+															and LEFT(END_DATE, 10) >= '$START_YEAR-$START_MONTH-$START_DAY'
+															and b.HG_ACTIVE=1
+										";
+				}
+				$db_dpis->send_cmd($cmd);
+				$data = $db_dpis->get_array();
+				$HG_NAME = $data[HG_NAME];
+				if(!$HG_NAME)	$HG_NAME="";
+
+				if($HG_NAME==""){  // ไม่มีข้อมูลในปฏิทินวันหยุด (พิเศษ) PER_HOLIDAYHIS กำหนด default เป็น เสาร์-อาทิตย์
+						if($DAY_NUM_START > 0 && $DAY_NUM_START < 6 && !$IS_HOLIDAY)		$ABSENT_DAY++;
+				}else{		//$HG_NAME = วันหยุดที่ไม่ได้ทำงาน คือไม่นับว่าเป็นวันทำงาน และไม่นับจำนวนวันหยุด เพราะเป็นวันที่หยุดอยู่แล้ว
+					if(trim($HG_NAME)=="อาทิตย์-จันทร์"){					// 0 - 1			
+						//if(($DAY_NUM_START==0 || $DAY_NUM_START==1) || ($DAY_NUM_END==0 || $DAY_NUM_END==1))		$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START> 1 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE])&& !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) && !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="จันทร์-อังคาร"){			// 1 - 2			($DAY_NUM_START!= 1 && $DAY_NUM_END!= 1) && ($DAY_NUM_START!= 2 && $DAY_NUM_END!= 2)
+						//if(($DAY_NUM_START==1 || $DAY_NUM_START==2)	|| ($DAY_NUM_END==1 || $DAY_NUM_END==2))		$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START!= 1 && $DAY_NUM_START!= 2  && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="อังคาร-พุธ"){				// 2 - 3	
+						//if(($DAY_NUM_START==2 || $DAY_NUM_START==3) || ($DAY_NUM_END==2 || $DAY_NUM_END==3))		$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START!= 2 || $DAY_NUM_START!= 3 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="พุธ-พฤหัสบดี"){			// 3 - 4	
+						//if(($DAY_NUM_START==3 || $DAY_NUM_START==4) || ($DAY_NUM_END==3 || $DAY_NUM_END==4))		$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START!= 3 || $DAY_NUM_START!= 4 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="พฤหัสบดี-ศุกร์"){			// 4 - 5	
+						//if(($DAY_NUM_START==4 || $DAY_NUM_START==5) || ($DAY_NUM_END==4 || $DAY_NUM_END==5))	$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START!= 4 || $DAY_NUM_START!= 5 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="ศุกร์-เสาร์"){					// 5 - 6	
+						//if(($DAY_NUM_START==5 || $DAY_NUM_START==6) || ($DAY_NUM_END==5 || $DAY_NUM_END==6))	$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START!= 5 || $DAY_NUM_START!= 6 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}else if(trim($HG_NAME)=="เสาร์-อาทิตย์"){			//default 6 - 0
+						//if(($DAY_NUM_START==6 || $DAY_NUM_START==0) || ($DAY_NUM_END==6 || $DAY_NUM_END==0))	$FLG_HG_DAY = 1;
+						//if($DAY_NUM_START> 0 || $DAY_NUM_START< 6 && (is_array($arr_DAY_NUM_HG_NAME[$HG_CODE]) &&  !in_array('$START_YEAR-$START_MONTH-$START_DAY',$arr_DAY_NUM_HG_NAME[$HG_CODE])) &&  !$IS_HOLIDAY) $ABSENT_DAY++;
+					}	
+				}	 //end else	
+			}elseif($AB_COUNT == 1){	//นับวันหยุดด้วย
+				$ABSENT_DAY++;
+			} // end if
+
+			$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, ($START_DAY + 1), $START_YEAR));
+			$arr_temp = explode("-", $TMP_STARTDATE);
+			$START_DAY = $arr_temp[2];
+			$START_MONTH = $arr_temp[1];
+			$START_YEAR = $arr_temp[0];
+} // end while
+
+		$ABSENT_DAY_COUNT = $ABSENT_DAY;
+		$ABSENT_DAY =$ABSENT_DAY_COUNT + ($SUM_END_DAY - $FLG_HG_DAY);  //บวกวันสิ้นสุด ที่ไม่ได้ count และลบด้วยวันที่ไม่นับวันหยุดออก 1
+?>
+				<!--<script>
+				alert('<?=$AB_COUNT."  ~~ ($HG_START_DATE ^ $HG_END_DATE) ~~ ".$HG_CODE.$HG_NAME."_ [S:$DAY_NUM_START / E:$DAY_NUM_END] _ (ABSENT_DAY = $ABSENT_DAY_COUNT + ($SUM_END_DAY - $FLG_HG_DAY)) "; ?>');		//$HG_START_DATE ^ $HG_END_DATE			$str_DAY_NUM_HG_NAME
+				</script> -->
+<?
+		if($STARTPERIOD == 2 && $ENDPERIOD == 1) $ABSENT_DAY -= 0.5;
+		if($STARTPERIOD != 3) $ABSENT_DAY -= 0.5;
+		if($ENDPERIOD != 3 && $TMP_STARTDATE != $ENDDATE) $ABSENT_DAY -= 0.5;
+		if($STARTPERIOD == 3 && $ENDPERIOD != 3 && $TMP_STARTDATE == $ENDDATE) $ABSENT_DAY -= 0.5;
+		// $ABSENT_DAY = $ABSENT_DAY ."+".$STARTPERIOD."&&".$ENDPERIOD;
+	} // end if
+
+	// ======================================================
+	// ===== START process เช็คว่ามีการลาซ้ำกับวันที่เคยลาไปแล้วหรือไม่ =====
+	$count_confirm = $count_duplicate_date = 0;
+	if ($ABS_ID) {
+		if ($DPISDB == "odbc")		$absid_condition = " and (ABS_ID<>$ABS_id) ";
+		elseif ($DPISDB == "oci8")	$absid_condition = " and (ABS_ID!=$ABS_id) ";
+		elseif($DPISDB=="mysql") $absid_condition = " and (ABS_ID!=$ABS_id) ";
+	}
+	if ($STARTPERIOD == 1) {
+		$startperiod_condition1 = " (ABS_STARTPERIOD in (1,3)) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD in (1,3)) ";
+	} elseif ($STARTPERIOD == 2) {
+		$startperiod_condition1 = " (ABS_STARTPERIOD in (2, 3)) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD in (2, 3)) ";
+	} elseif ($STARTPERIOD == 3) { 
+		$startperiod_condition1 = " (ABS_STARTPERIOD<=3) ";
+		$startperiod_condition2 = " (ABS_ENDPERIOD<=3) ";
+	}
+	if ($ENDPERIOD == 1) {
+		$endperiod_condition1 = " (ABS_STARTPERIOD in (1, 3)) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD in (1, 3)) ";
+	} elseif ($ENDPERIOD == 2) {
+		$endperiod_condition1 = " (ABS_STARTPERIOD in (2, 3)) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD in (2, 3)) ";
+	} elseif ($ENDPERIOD == 3) {	
+		$endperiod_condition1 = " (ABS_STARTPERIOD<=3) ";
+		$endperiod_condition2 = " (ABS_ENDPERIOD<=3) ";
+	}
+
+	if ($chkSave == 1 || $chkSave == 2) {
+		if ($chkSave == 1) {
+			// ===== เช็คว่ามีการเพิ่มการลาในข้อมูลเดือนที่ยืนยันแล้วหรือไม่ =====	
+//			$search_abs_startdate = (substr($STARTDATE, -4) - 543) ."-". substr($STARTDATE, 3, 2);
+//			$search_abs_enddate = (substr($ENDDATE, -4) - 543) ."-". substr($ENDDATE, 3, 2);	
+//			$cmd = "select ABS_MONTH from PER_ABSENT_CONF where ABS_MONTH like '$search_abs_startdate' or ABS_MONTH like '$search_abs_enddate' ";
+//			$count_confirm = $db_dpis->send_cmd($cmd);
+		}
+
+		$arr_temp = explode("-", $STARTDATE_ce_era);
+		$START_DAY = $arr_temp[2];
+		$START_MONTH = $arr_temp[1];
+		$START_YEAR = $arr_temp[0];
+		$tmp = mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR);
+		$tmp_date = date("Y-m-d", $tmp);
+		
+		while ($tmp_date <= $ENDDATE_ce_era && !trim($count_duplicate_date)) {
+			if ($tmp_date == $STARTDATE_ce_era) {			
+				// ===== เช็ควันลาเริ่มต้น
+				$cmd = "select PER_ID from PER_ABSENT
+						 where PER_ID=$PER_ID $absid_condition and 
+						 ( '$tmp_date' = ABS_STARTDATE ) and $startperiod_condition1 ";	
+				$count_duplicate_date = $db_dpis->send_cmd($cmd);
+				//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+				if (!trim($count_duplicate_date)) {
+					$cmd = "select PER_ID from PER_ABSENT
+							 where PER_ID=$PER_ID $absid_condition and 
+							 ( '$tmp_date' = ABS_ENDDATE ) and $startperiod_condition2 ";	
+					$count_duplicate_date = $db_dpis->send_cmd($cmd);
+					//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+				}
+			} elseif ($tmp_date == $ENDDATE_ce_era) {
+				// ===== เช็ควันลาสิ้นสุด
+				$cmd = "select PER_ID from PER_ABSENT
+						 where PER_ID=$PER_ID $absid_condition and 
+						 ( '$tmp_date' = ABS_STARTDATE ) and $endperiod_condition1 ";	
+				$count_duplicate_date = $db_dpis->send_cmd($cmd);
+				//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+				if (!trim($count_duplicate_date)) {
+					$cmd = "select PER_ID from PER_ABSENT
+							 where PER_ID=$PER_ID $absid_condition and 
+							 ( '$tmp_date' = ABS_ENDDATE ) and $endperiod_condition2 ";	
+					$count_duplicate_date = $db_dpis->send_cmd($cmd);
+					//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";
+				}				
+			} else {			
+				// ===== เช็ควันลาว่าอยู่ในระหว่างวันลาเริ่มต้นและวันลาสิ้นสุดใน db		
+				$cmd = "select PER_ID from PER_ABSENT
+						where 	PER_ID=$PER_ID $absid_condition and 
+								ABS_STARTDATE <= '$tmp_date' and ABS_ENDDATE >= '$tmp_date' ";
+				$count_duplicate_date = $db_dpis->send_cmd($cmd);
+				//echo "$cmd<br />count_duplicate_date=$count_duplicate_date<br />";				
+			}	
+
+			//echo ++$num . " วัน || $tmp_date != $ENDDATE_ce_era<br>";				
+			$num_day++;
+			$tmp = mktime(0, 0, 0, $START_MONTH, $START_DAY+$num_day, $START_YEAR);	
+			$tmp_date = date("Y-m-d", $tmp);			
+		}	// end while 
+	}	// end if
+	// ===== END process เช็คว่ามีการลาซ้ำกับวันที่เคยลาไปแล้วหรือไม่ ===== 
+	// ====================================================
+?>
+<script>
+<? if(!$INVALID_STARTDATE && !$INVALID_ENDDATE && !$count_confirm && !$count_duplicate_date) { ?>
+	parent.document.form1.<?=$VAR_DAY?>.value = '<?=$ABSENT_DAY?>';
+	<? if(($command=="ADD" || $command=="UPDATE") && ($chkSave==1 || $chkSave ==2)){ ?>
+//parent.document.form1.submit();
+	<? } ?>
+<? }else if($count_confirm) { ?>	
+	alert('ไม่สามารถเพิ่มข้อมูลการลา/สาย/ขาดได้  เนื่องจากมีการยืนยันข้อมูลแล้ว');
+<? }else if($count_duplicate_date){ ?>
+	alert('พบข้อมูลการลาในวันที่ต้องการลาแล้ว กรุณาเลือกวันที่ใหม่อีกครั้ง\n');
+<? }else{ ?>
+	alert("<?=$INVALID_STARTDATE?><?=(($INVALID_STARTDATE && $INVALID_ENDDATE)?"\\n":"")?><?=$INVALID_ENDDATE?>");
+<? } ?>
+</script>

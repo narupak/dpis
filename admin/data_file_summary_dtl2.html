@@ -1,0 +1,250 @@
+<?
+	$SUM_QTY += 0;
+	
+	if($command == "UPDATE" && trim($PL_CODE) && trim($CL_CODE) && trim($PT_CODE)){
+		$cmd = " update PER_SUM_DTL2 set
+						 	SUM_QTY = $SUM_QTY,
+							UPDATE_USER=$SESS_USERID, UPDATE_DATE='$UPDATE_DATE'
+						 where SUM_ID=$SUM_ID and SUM_TYPE=$SUM_TYPE and trim(PL_CODE)='$PL_CODE' and trim(CL_NAME)='$CL_CODE' and trim(PT_CODE)='$PT_CODE'
+					   ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+	
+	if($command == "DELETE" && trim($PL_CODE) && trim($CL_CODE) && trim($PT_CODE)){
+		$cmd = " delete from PER_SUM_DTL2 where SUM_ID=$SUM_ID and SUM_TYPE=$SUM_TYPE and trim(PL_CODE)='$PL_CODE' and trim(CL_NAME)='$CL_CODE' and trim(PT_CODE)='$PT_CODE' ";
+		$db_dpis->send_cmd($cmd);
+	} // end if
+
+	if($UPD){
+		$cmd = " select		a.PL_CODE, b.PL_NAME, a.CL_NAME, a.PT_CODE, c.PT_NAME, a.SUM_QTY
+						 from		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c
+						 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE
+						 				and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+										and trim(a.PL_CODE)='$PL_CODE' and trim(a.CL_NAME)='$CL_CODE' and trim(a.PT_CODE)='$PT_CODE'
+					   ";
+		$db_dpis->send_cmd($cmd);
+//		echo "$cmd<br>";
+//		$db_dpis->show_error();
+		$data = $db_dpis->get_array();
+		$PL_NAME = $data[PL_NAME];
+		$CL_NAME = $data[CL_NAME];
+		$PT_NAME = $data[PT_NAME];
+		$SUM_QTY = $data[SUM_QTY];
+	} // end if
+	
+	if(!$UPD){
+		$PL_CODE = "";
+		$PL_NAME = "";
+		$CL_CODE = "";
+		$CL_NAME = "";
+		$PT_CODE = "";
+		$PT_NAME = "";
+		$SUM_QTY = "";
+	} // end if
+	
+	$cmd = " select		a.SUM_ID
+					 from		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c
+					 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+				   ";
+	$count_data = $db_dpis->send_cmd($cmd);
+
+	$total_page = ceil( $count_data / $data_per_page );
+	if($current_page > $total_page) $current_page = $total_page;
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<script>
+	function confirm_delete(data_id0, data_id1, data_id2, data_label){
+		if(confirm("ต้องการลบข้อมูลสรุปจำนวน<?=($SUM_TYPE==1)?"ตำแหน่งมีคนครอง":"ตำแหน่งว่าง"?>นี้ใช่หรือไม่ [ " + data_label + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.PL_CODE.value = data_id0;
+			form1.CL_CODE.value = data_id1;
+			form1.PT_CODE.value = data_id2;
+			form1.submit();
+		} // end if
+	}
+</script>
+<input type="hidden" name="PL_CODE" value="<?=$PL_CODE?>">
+<input type="hidden" name="CL_CODE" value="<?=$CL_CODE?>">
+<input type="hidden" name="PT_CODE" value="<?=$PT_CODE?>">
+<? if($UPD){ ?>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  <tr>
+    <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td colspan="2" height="5"></td>
+      </tr>
+      <tr>
+        <td width="35%" height="22" align="right"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+        <td width="65%"><input type="text" name="PL_NAME" value="<?=$PL_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right"><?=$CL_TITLE?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="CL_NAME" value="<?=$CL_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right"><?=$PT_TITLE?>&nbsp;:&nbsp;</td>
+        <td><input type="text" name="PT_NAME" value="<?=$PT_NAME?>" style="width:40%" class="textbox"  readonly="true"></td>
+      </tr>
+      <tr>
+        <td height="22" align="right">จำนวนตำแหน่ง&nbsp;:&nbsp;</td>
+        <td><input type="text" name="SUM_QTY" value="<?=$SUM_QTY?>" class="textbox"></td>
+      </tr>
+	  <tr>
+	  	<td colspan="2" height="5"></td>		
+	  </tr>
+      <tr align="center">
+        <td height="30" colspan="2"><? if ($UPD) { ?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onclick="form1.command.value='CANCEL'" class="button" />
+          <?  } else { ?>
+          <input name="image2" type="image" onclick="form1.command.value='CANCEL'" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?if($PAGE_AUTH["edit"]=="Y"){?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Submit22" type="submit" class="button" onclick="form1.command.value='UPDATE'" value="<?=$EDIT_TITLE?>" />
+          <?  } else { ?>
+          <input name="image22" type="image" onclick="form1.command.value='UPDATE'" src="images/save.png" alt="<?=$EDIT_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?}?>
+          <? } else { ?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>" />
+          <?  } else { ?>
+          <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onclick="form1.reset();" />&nbsp;
+          <? } echo "&nbsp; &nbsp;";?>
+          <?if($PAGE_AUTH["add"]=="Y"){?>
+          <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Submit2" type="submit" class="button" onclick="form1.command.value='ADD'" value="<?=$ADD_TITLE?>" />
+          <?  } else { ?>
+          <input name="image23" type="image" onclick="form1.command.value='ADD'" src="images/save.png" alt="<?=$ADD_TITLE?>" />
+          <? } echo "&nbsp; &nbsp;";?>
+          <?}?>
+          <?}?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+<? } // end if ?>
+ &nbsp;
+<table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+      <tr height="22">
+        <!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+        <td align="center">พบข้อมูลสรุปจำนวน<?=($SUM_TYPE==1)?"ตำแหน่งมีคนครอง":"ตำแหน่งว่าง"?> ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+        <!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+      </tr>
+    </table></td>
+  </tr>
+</table>
+ &nbsp;
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record (trim(a.PL_CODE) + '|' + trim(a.CL_NAME) + '|' + trim(a.PT_CODE)) as concat_pk 
+							 from 		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c 
+							 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+							 order by a.PL_CODE, a.CL_NAME, a.PT_CODE ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." (trim(a.PL_CODE) + '|' + trim(a.CL_NAME) + '|' + trim(a.PT_CODE)) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+ 			 $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = " select		top $data_per_page
+										a.PL_CODE, b.PL_NAME, a.CL_NAME, a.PT_CODE, c.PT_NAME, a.SUM_QTY  
+						 from 		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c
+						 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+						$limit_data
+						order by	a.PL_CODE, a.CL_NAME, a.PT_CODE "; 
+	}elseif($DPISDB=="oci8"){
+		$tmp1 = $current_page * $data_per_page;
+		$tmp2 = ($current_page - 1) * $data_per_page;
+		$cmd = "select * from (
+							select alist.*, rownum  rnum from (	
+								 select		a.PL_CODE, b.PL_NAME, a.CL_NAME, a.PT_CODE, c.PT_NAME, a.SUM_QTY
+								 from		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c
+								 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+								 order by a.PL_CODE, a.CL_NAME, a.PT_CODE
+							) alist
+							where rownum <= $tmp1
+						) where rnum > $tmp2   ";						
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select		a.PL_CODE, b.PL_NAME, a.CL_NAME, a.PT_CODE, c.PT_NAME, a.SUM_QTY  
+						 from 		PER_SUM_DTL2 a, PER_LINE b, PER_TYPE c
+						 where	a.PL_CODE=b.PL_CODE and a.PT_CODE=c.PT_CODE and a.SUM_ID=$SUM_ID and a.SUM_TYPE=$SUM_TYPE
+						order by	a.PL_CODE, a.CL_NAME, a.PT_CODE
+										$limit_data "; 
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	echo "$cmd<br>";
+//	$db_dpis->show_error();
+	if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head" align="center">
+    <td height="25"><?=$PL_TITLE?></td>
+    <td width="20%"><?=$CL_TITLE?></td>
+    <td width="20%"><?=$PT_TITLE?></td>
+    <td width="20%">จำนวนตำแหน่ง</td>
+    <td width="5%"><?=$EDIT_TITLE?>&nbsp;</td>
+    <td width="5%"><?=$DEL_TITLE?>&nbsp;</td>
+  </tr>
+  <?
+		$current_list = "";
+		$data_count = 0;
+  		while($data = $db_dpis->get_array()) :
+			$data_count++;
+			if($data_count > $data_per_page) break;
+			$TMP_PL_CODE = trim($data[PL_CODE]);
+			$TMP_CL_CODE = trim($data[CL_NAME]);
+			$TMP_PT_CODE = trim($data[PT_CODE]);
+			$current_list .= ((trim($current_list))?",":"") . ($TMP_PL_CODE ."|". $TMP_CL_CODE ."|". $TMP_PT_CODE);
+
+			$PL_NAME = $data[PL_NAME];
+			$CL_NAME = $data[CL_NAME];
+			$PT_NAME = $data[PT_NAME];
+			$SUM_QTY = number_format($data[SUM_QTY]);
+
+			$class = "table_body";
+			$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+			if($PL_CODE==$TMP_PL_CODE && $CL_CODE==$TMP_CL_CODE && $PT_CODE==$TMP_PT_CODE){ 
+				$class = "table_body_over";
+				$onmouse_event = "";
+			} // end if		
+  ?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+    <td height="22">&nbsp;<?=$PL_NAME?></td>
+    <td align="center"><?=$CL_NAME?></td>
+    <td align="center"><?=$PT_NAME?></td>
+    <td align="right"><?=$SUM_QTY?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:form1.action+='?UPD=1';form1.PL_CODE.value='$TMP_PL_CODE'; form1.CL_CODE.value='$TMP_CL_CODE'; form1.PT_CODE.value='$TMP_PT_CODE'; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขสรุปจำนวน<?=($SUM_TYPE==1)?"ตำแหน่งมีคนครอง":"ตำแหน่งว่าง"?>"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center"><a href="<?="javascript:confirm_delete('$TMP_PL_CODE','$TMP_CL_CODE','$TMP_PT_CODE','$PL_NAME : $CL_NAME : $PT_NAME : $SUM_QTY')"?>"><img src="images/b_drop.png" border="0" alt="ลบสรุปจำนวน<?=($SUM_TYPE==1)?"ตำแหน่งมีคนครอง":"ตำแหน่งว่าง"?>"></td>
+	  <?}?>
+  </tr>
+  <?
+  		endwhile;
+  ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+	} // end if
+?>

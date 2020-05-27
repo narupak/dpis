@@ -1,0 +1,143 @@
+<?
+	include("../php_scripts/connect_database.php");
+//	include("php_scripts/session_start.php");
+
+	$db_dpis3 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	$db_dpis4 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+
+	$SPSALA_PERCENT2 = 0;
+	$SPSALA_PERCENT4 = 0;
+
+	if($SALQ_YEAR && $SALQ_TYPE){
+		if ($SALQ_TYPE == 1 || $SALQ_TYPE == 2)				$PER_TYPE = 1; 		// ข้าราชการ
+		elseif ($SALQ_TYPE == 3 || $SALQ_TYPE == 4)		$PER_TYPE = 2; 		// ลูกจ้างประจำ
+		elseif ($SALQ_TYPE == 5 || $SALQ_TYPE == 6)		$PER_TYPE = 3; 		// พนักงานราชการ
+		
+		if ($SALQ_TYPE == 1 || $SALQ_TYPE == 3 || $SALQ_TYPE == 5)				$SALQ_TYPE = 1; 		// ครั้งที่ 1
+		if ($SALQ_TYPE == 2 || $SALQ_TYPE == 4 || $SALQ_TYPE == 6)				$SALQ_TYPE = 2; 		// ครั้งที่ 2
+		
+		if ($PER_TYPE == 1) 							// ข้าราชการ
+			if ($SALQ_TYPE == 1) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POSITION c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+											a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POS_ID=c.POS_ID ";
+			} elseif ($SALQ_TYPE==2) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POSITION c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+							  				SALP_LEVEL=1 and a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POS_ID=c.POS_ID ";			
+			}
+		elseif ($PER_TYPE == 2)					// ลูกจ้างประจำ
+			if ($SALQ_TYPE == 1) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POS_EMP c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+											a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POEM_ID=c.POEM_ID ";
+			} elseif ($SALQ_TYPE==2) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POS_EMP c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+							  				SALP_LEVEL=1 and a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POEM_ID=c.POEM_ID ";			
+			}
+		elseif ($PER_TYPE == 3)					// พนักงานราชการ
+			if ($SALQ_TYPE == 1) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POS_EMPSER c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+											a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POEMS_ID=c.POEMS_ID ";
+			} elseif ($SALQ_TYPE==2) {
+				$cmd = " select 		sum(SALP_SALARY_OLD) as SUM_SALA_OLD, sum(SALP_SALARY_NEW) as SUM_SALA_NEW, 
+											sum(SALP_SPSALARY) as SUM_SPSALA
+							  from 		PER_SALPROMOTE a, PER_PERSONAL b, PER_POS_EMPSER c
+							  where 		SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and
+							  				SALP_LEVEL=1 and a.DEPARTMENT_ID=$DEPARTMENT_ID and 
+											c.ORG_ID=$ORG_ID and a.PER_ID=b.PER_ID and b.POEMS_ID=c.POEMS_ID ";			
+			}
+		
+		$count_data = $db_dpis3->send_cmd($cmd);
+		$data3 = $db_dpis3->get_array();
+		$tmp_sum_old = $data3[SUM_SALA_OLD];
+		$tmp_sum_new = $data3[SUM_SALA_NEW];
+		$SALA_SUM_OLD = number_format($data3[SUM_SALA_OLD], 2, '.', ',');
+		$SALA_SUM_NEW = number_format($data3[SUM_SALA_NEW], 2, '.', ',');
+		$SPSALA_SUM = number_format($data3[SUM_SPSALA], 2, '.', ',');				
+		$SALA_RISE = $data3[SUM_SALA_NEW] - $data3[SUM_SALA_OLD];
+		$SALA_PERCENT = number_format(($SALA_RISE * 100) / $data3[SUM_SALA_OLD], 2, '.', ',');
+		$SALA_RISE = number_format($data3[SUM_SALA_NEW] - $data3[SUM_SALA_OLD], 2, '.', ',');
+		
+		
+		if ($ORG_ID) {
+			$cmd = " select SALQD_QTY1, SALQD_QTY2 from PER_SALQUOTADTL1 
+						  where SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and ORG_ID=$ORG_ID and DEPARTMENT_ID=$DEPARTMENT_ID ";
+		} elseif ($ORG_ID_ASS) {
+			$cmd = " select SALQD_QTY1, SALQD_QTY2 from PER_SALQUOTADTL2
+						  where SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and ORG_ID=$ORG_ID and DEPARTMENT_ID=$DEPARTMENT_ID ";		
+		}						  
+		$db_dpis3->send_cmd($cmd);
+		$data3 = $db_dpis3->get_array();
+		//$db_dpis3->show_error();				
+		$tmp_all_level1 = $data3[SALQD_QTY2];
+		$SALA_ALL_LEVEL1 = number_format($data3[SALQD_QTY2], 0, '.', ',');
+		
+		if ($PER_TYPE == 1) {				// ข้าราชการ
+			$cmd = " 	select 	count(c.PER_ID) as SUM_PER, b.ORG_ID 
+							from 		PER_PERSONAL a, PER_POSITION b, PER_SALPROMOTE c  
+							where 	SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and SALP_LEVEL=1 and 
+										DEPARTMENT_ID=$DEPARTMENT_ID and 
+										a.POS_ID=b.POS_ID and  a.PER_ID=c.PER_ID and b.ORG_ID=$ORG_ID 
+							group by b.ORG_ID ";
+		} elseif ($PER_TYPE == 2) {		// ลูกจ้างประจำ
+			$cmd = " 	select 	count(c.PER_ID) as SUM_PER, b.ORG_ID 
+							from 		PER_PERSONAL a, PER_POS_EMP b, PER_SALPROMOTE c  
+							where 	SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and SALP_LEVEL=1 and 
+										DEPARTMENT_ID=$DEPARTMENT_ID and 							
+										a.POEM_ID=b.POEM_ID and  a.PER_ID=c.PER_ID and b.ORG_ID=$ORG_ID 
+							group by b.ORG_ID ";		
+		} elseif ($PER_TYPE == 3) {		// พนักงานราชการ
+			$cmd = " 	select 	count(c.PER_ID) as SUM_PER, b.ORG_ID 
+							from 		PER_PERSONAL a, PER_POS_EMPSER b, PER_SALPROMOTE c  
+							where 	SALQ_YEAR='$SALQ_YEAR' and SALQ_TYPE=$SALQ_TYPE and SALP_LEVEL=1 and 
+										DEPARTMENT_ID=$DEPARTMENT_ID and 							
+										a.POEMS_ID=b.POEMS_ID and  a.PER_ID=c.PER_ID and b.ORG_ID=$ORG_ID 
+							group by b.ORG_ID ";		
+		}
+		$db_dpis3->send_cmd($cmd);
+		$data3 = $db_dpis3->get_array();
+		//echo "$cmd<br>";
+		$tmp_tot_level1 = $data3[SUM_PER];
+		$SALA_TOT_LEVEL1 = number_format($data3[SUM_PER], 0, '.', ',');
+		
+		$SALA_REST_LEVEL1 = number_format($tmp_all_level1 - $tmp_tot_level1, 0, '.', ','); ;
+	}	// end if 		
+?>
+
+<script>
+//	parent.document.form1.action+='?UPD=1';
+//	parent.document.form1.command.value='PROCESS';		
+//	parent.document.form1.submit();
+	parent.document.form1.SALA_ALL_LEVEL1.value = "<?=$SALA_ALL_LEVEL1?>";
+	parent.document.form1.SALA_TOT_LEVEL1.value = "<?=$SALA_TOT_LEVEL1?>";
+	parent.document.form1.SALA_REST_LEVEL1.value = "<?=$SALA_REST_LEVEL1?>";
+	parent.document.form1.SALA_SUM_OLD.value = "<?=$SALA_SUM_OLD?>";
+	parent.document.form1.SALA_RISE.value = "<?=$SALA_RISE?>";
+	parent.document.form1.SALA_SUM_NEW.value = "<?=$SALA_SUM_NEW?>";	
+	parent.document.form1.SALA_PERCENT.value = "<?=$SALA_PERCENT?>";	
+	parent.document.form1.current_page.value = 1;
+	parent.document.form1.submit();		
+<? if (!$RPT_N) { ?>
+	parent.document.form1.SPSALA_SUM.value = "<?=$SPSALA_SUM?>";		
+	parent.document.form1.SPSALA_PERCENT2.value = "<?=$SPSALA_PERCENT2?>";
+	parent.document.form1.SPSALA_PERCENT4.value = "<?=$SPSALA_PERCENT4?>";
+<? } ?>
+</script>

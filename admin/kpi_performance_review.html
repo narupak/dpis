@@ -1,0 +1,398 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/kpi_performance_review.php");
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function select_pfr(pfr_id, pfr_id_ref, pfr_department_id){
+		form1.PFR_ID.value = pfr_id;
+		form1.PFR_ID_REF.value = pfr_id_ref;
+		form1.DEPARTMENT_ID_SELECTED.value = pfr_department_id;
+		form1.submit();
+	}
+	
+	function add_opened_pfr(opened_pfr_id){
+		opened_pfr = form1.LIST_OPENED_PFR.value;
+		if(opened_pfr==""){
+			opened_pfr = "," + opened_pfr_id + ",";
+		}else{
+			opened_pfr += (opened_pfr_id + ",");
+		}
+		form1.LIST_OPENED_PFR.value = opened_pfr;
+//		alert(form1.LIST_OPENED_PFR.value);
+//		form1.PFR_ID.value = opened_pfr_id;
+//		form1.PFR_ID_REF.value = "";
+		form1.submit();
+	}
+	
+	function remove_closed_pfr(closed_pfr_id){
+		opened_pfr = form1.LIST_OPENED_PFR.value;
+		if(opened_pfr==""){
+			opened_pfr = "";
+		}else{
+			search_str = "," + closed_pfr_id + ",";
+			pos = opened_pfr.indexOf(search_str);
+	//		alert(pos);
+			opened_pfr = opened_pfr.substring(0, pos) + opened_pfr.substring((pos + search_str.length - 1), opened_pfr.length);
+			if(opened_pfr=="," || opened_pfr==",,") opened_pfr = "";
+		}
+		form1.LIST_OPENED_PFR.value = opened_pfr;	
+	//	alert(form1.LIST_OPENED_PFR.value);
+	//	form1.PFR_ID.value = form1.PFR_ID_REF.value;
+	//	form1.PFR_ID_REF.value = "";
+		form1.submit();
+	}
+
+	function call_change_pfr_level () {
+		parameter = "&PFR_YEAR=<?=$PFR_YEAR?>&PFR_ID=" + document.form1.PFR_ID.value + "&PFR_ID_REF=" + document.form1.PFR_ID_REF.value + "&MINISTRY_ID=" + form1.MINISTRY_ID.value + "&DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+		call_openDialog("kpi_performance_review_parent.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"Change Performance Review Parent");
+	}
+
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE+"&send_by=call_search_ministry";
+		call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE+"&send_by=call_search_department";
+			call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function checkaddyear(f) {
+	if(f.NEW_PFR_YEAR.value=="") {
+		alert("กรุณาระบุ <?=$YEAR_TITLE?>");
+		f.NEW_PFR_YEAR.focus();
+		return false;
+		} 
+		else  	
+		 form1.command.value='ADDYEAR'; 					
+		return true;
+		}
+
+	function checkupdate(f) {
+	if(f.PFR_NAME.value=="") {
+		alert("กรุณาระบุ ประเด็น ");
+		f.PFR_NAME.focus();
+		return false;
+		} 
+		else  						
+		form1.command.value='UPDATE';
+		return true;
+		}
+		
+		function checkadd(f) {
+	if(f.NEW_PFR_NAME.value=="") {
+		alert("กรุณาระบุ ประเด็น");
+		f.NEW_PFR_NAME.focus();
+		return false;
+		} 
+		else 
+		form1.command.value='ADD';
+		return true;
+		}
+
+		function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="call_search_ministry") {
+					form1.MINISTRY_ID.value = arrValue[0];
+					form1.MINISTRY_NAME.value = arrValue[1];
+					form1.DEPARTMENT_ID.value = "";
+					form1.DEPARTMENT_NAME.value = "";
+				} else if (arrValue[7]=="call_search_department") {
+					form1.DEPARTMENT_ID.value = arrValue[0];
+					form1.DEPARTMENT_NAME.value = arrValue[1];
+					form1.submit();
+				}
+			} // end if
+		} else if  (src.indexOf("kpi_performance_review_parent") > -1) {
+//				   alert('2..'+returnValue+arrValue[1]+"..."+arrValue[0]);
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if(arrValue[0] != form1.PFR_ID_REF.value){
+				form1.NEW_PFR_ID_REF.value = arrValue[0];
+				form1.command.value = "CHANGEPFRPARENT";
+				form1.submit();
+				}
+			} // end if
+		}  		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_performance_review.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="NEW_PFR_ID_REF">
+          <input type="hidden" name="PFR_ID_REF" value="<?=$PFR_ID_REF?>">
+          <input type="hidden" name="PFR_ID" value="<?=$PFR_ID?>">
+          <input type="hidden" name="LIST_OPENED_PFR" value="<?=$LIST_OPENED_PFR?>">
+          <input type="hidden" name="PFR_YEAR" value="<?=$PFR_YEAR?>">
+&nbsp;   
+  <table width="95%"  border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" valign="top">
+          <table width="98%" border="0" align="center" cellpadding="1" cellspacing="1" class="table_body">
+            <tr><td height="10"></td></tr>
+			<tr align="center">
+              <td height="25">
+			  <? if($HAVE_YEAR && $DEPARTMENT_ID || $BKK_FLAG==1){ ?>
+			  <table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+				  <td width="12%" rowspan="2" align="center" valign="top"><table width="95%" border="0" cellspacing="0" cellpadding="0" class="table_body_3">
+                    <tr>
+                      <td height="22" align="center" class="table_head"><?=$YEAR_TITLE?></td>
+                    </tr>
+					<? 
+						foreach($arr_pfr_year as $value){ 
+							$class = "table_body_3";
+							if($value==$PFR_YEAR) $class = "table_body_3_over";
+					?>
+                    <tr>
+                      <td height="22" class="<?=$class?>" align="center"><span onClick="form1.PFR_YEAR.value='<?=$value?>'; form1.PFR_ID.value=''; form1.PFR_ID_REF.value=''; form1.LIST_OPENED_PFR.value=''; form1.DEPARTMENT_ID_SELECTED.value='';form1.submit();" style="cursor:hand;"><?=$value?></span></td>
+                    </tr>
+					<? } // end foreach ?>
+                  </table></td>
+				  <td width="1%" rowspan="2">&nbsp;</td>
+				  <?
+						$class = "table_head";
+						if(!$PFR_ID) $class = "table_body_over";
+						if($BKK_FLAG==1 && !$DEPARTMENT_ID)	$DEPARTMENT_ID=0;	
+				  ?>
+                  <!--td height="22" class="<?=$class?>">&nbsp;<span onClick="select_pfr(<?=($START_PFR_ID + 0)?>,<?=($START_PFR_ID + 0)?>,'<?=$DEPARTMENT_ID; ?>');" style="cursor:hand;">การประเมินผลการปฏิบัติราชการ ประจำ<?=$YEAR_TITLE?> <?=$PFR_YEAR?></span></td-->
+                  <td height="22" class="<?=$class?>">&nbsp;<span onClick="form1.PFR_YEAR.value='<?=$PFR_YEAR?>'; form1.PFR_ID.value=''; form1.PFR_ID_REF.value=''; form1.LIST_OPENED_PFR.value=''; form1.DEPARTMENT_ID_SELECTED.value='';form1.submit();" style="cursor:hand;">การประเมินผลการปฏิบัติราชการ ประจำ<?=$YEAR_TITLE?> <?=$PFR_YEAR?></span></td>
+                </tr>
+                <tr>
+                  <td><? list_tree_pfr("", $START_PFR_ID, $PFR_ID, 1); ?></td>
+                </tr>
+              </table>
+			  <? 
+			  	}elseif(!$DEPARTMENT_ID){ echo "กรุณาเลือก<?=$DEPARTMENT_TITLE?>ที่ต้องการดูข้อมูล";
+				}else{ echo "ไม่มีข้อมูลการประเมินผลการปฏิบัติราชการ"; } // end if 
+			  ?>
+			  </td>
+			</tr>
+            <tr><td height="10"></td></tr>
+          </table>
+	  </td>
+      <td width="45%" align="center" valign="top">
+	  <? if($DEPARTMENT_ID || $BKK_FLAG==1){ ?>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="23%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?><?=$YEAR_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td width="25%" align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$YEAR_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="NEW_PFR_YEAR" value="" style="width:20%" class="textbox" onKeyPress="return DigitOnly();"></td>
+                </tr>
+                <tr align="center">
+                  <td height="30" colspan="2">
+                      <?if($PAGE_AUTH["add"]=="Y"){?>
+                      <input name="Submit2" type="submit" class="button" onClick="form1.PFR_ID.value=''; return checkaddyear(form1);" value="เพิ่ม<?=$YEAR_TITLE?>">
+                      <?}?>                  
+                      <input name="Reset1" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+					  </td>
+                </tr>
+            </table></td>
+          </tr>
+      </table>
+	  &nbsp;
+	  <? } // end if ?>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td width="25%" align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:75%" class="textbox" readonly><input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+			<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+			&nbsp;&nbsp;<input type="button" name="btn_ministry" class="button" value="<?=$SELECT_TITLE?>" title="<?=$MINISTRY_SELECT?>" onClick="call_search_ministry();">
+			&nbsp;<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.MINISTRY_ID.value=''; form1.MINISTRY_NAME.value=''; form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; form1.submit();" align="center" alt="ล้างค่า">
+			<? } // end if ?>
+		    </td>
+                </tr>
+				<tr>
+                  <td align="right" height="22"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><!--$HAVE_YEAR.":::".$PFR_ID."//".$DEPARTMENT_ID."<<===>>".$DEPARTMENT_ID_SELECTED."~~~".$PFR_YEAR." && ".$PAGE_AUTH["add"]." && ".$BKK_FLAG;-->
+		    <input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:75%" class="textbox" readonly><input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>"> <input type="hidden" name="DEPARTMENT_ID_SELECTED" value="<?=$DEPARTMENT_ID_SELECTED?>"><? //if($BKK_FLAG!=1){ ?>
+			<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+			&nbsp;&nbsp;<input type="button" name="btn_department" class="button" value="<?=$SELECT_TITLE?>" title="<?=$DEPARTMENT_SELECT?>" onClick="call_search_department();">
+			&nbsp;<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.DEPARTMENT_ID.value=''; form1.DEPARTMENT_NAME.value=''; form1.submit();" align="center" alt="ล้างค่า">
+			<? } // end if ?>
+		    <? //} ?>
+			</td>
+                </tr>
+				
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+            </table></td>
+          </tr>
+      </table>
+      &nbsp;
+	  <? if($HAVE_YEAR && $PFR_ID) : ?>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="40%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">เปลี่ยนระดับ&amp;ปรับปรุงประเด็น</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td width="25%" align="right" height="22"><span class="label_alert">*</span>&nbsp;ประเด็น&nbsp;:&nbsp;</td>
+                  <td>
+				    	<textarea name="PFR_NAME" rows="10" class="selectbox" style="width:85%" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$PFR_NAME?></textarea></td>
+                </tr>
+	  <? if($BKK_FLAG==1){ ?>
+            <tr>
+              <td height="22" align="right">&nbsp;</td>
+              <td>
+				<select name=PFR_TYPE" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"disabled"?>>
+					<?  foreach($ARR_PFR_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($PFR_TYPE==$key)?"selected":""?> ><?=$value; ?></option><?  } ?>
+				</select>				
+				</td>
+				</tr>
+	  <? } // end if ?>
+				<? if($PFR_ID && ($DEPARTMENT_ID==$DEPARTMENT_ID_SELECTED)) : ?>
+                <tr align="center">
+                  <td height="30" colspan="2">
+                      <?if($PAGE_AUTH["edit"]=="Y"){?>
+					  <input name="Submit2" type="button" class="button" onClick="call_change_pfr_level();" value="เปลี่ยนระดับประเด็น">
+					  <?}?>
+                      <?if($PAGE_AUTH["edit"]=="Y"){?>
+                      <input name="Submit22" type="submit" class="button" onClick="return checkupdate(form1);" value="ปรับปรุงประเด็น">
+                      <?}?>
+                      <?if($PAGE_AUTH["del"]=="Y"){?>
+                      <input name="Submit22" type="submit" class="button" onClick="if(confirm('ต้องการลบประเด็นการประเมินผลนี้ใช่หรือไม่ [<?=$PFR_NAME?>] ประเด็นอื่น ๆ ที่อยู่ภายใต้ประเด็นนี้จะถูกลบไปด้วย?')){ form1.command.value='DELETE'; }else{ return false; }" value="ลบประเด็น">
+                      <?}?>                  </td>
+                </tr>
+				<? endif; ?>
+            </table></td>
+          </tr>
+      </table>
+	  &nbsp;
+	  <? endif; ?>
+	  <? if(($PFR_YEAR && $PAGE_AUTH["add"]=="Y" && (!$PFR_ID&&!$DEPARTMENT_ID_SELECTED)) || ($PFR_ID && ($DEPARTMENT_ID==$DEPARTMENT_ID_SELECTED))) : ?>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0">
+			<tr>
+			  <td><table width="23%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+				  <tr>
+					<td height="22" align="center" class="table_body" onClick="javascript:form1.PFR_ID.value=''; form1.DEPARTMENT_ID_SELECTED.value=''; form1.submit(); ">เพิ่มประเด็น</td>
+				  </tr>		
+			  </table></td>
+			</tr>
+	  </table>
+	  <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+          <tr>
+            <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td colspan="2" height="5"></td>
+                </tr>
+                <tr>
+                  <td width="25%" align="right" height="22"><span class="label_alert">*</span>&nbsp;ประเด็น&nbsp;:&nbsp;</td>
+                  <td><textarea name="NEW_PFR_NAME" rows="10" class="selectbox" style="width:85%"></textarea></td>
+                </tr>
+	  <? if($BKK_FLAG==1){ ?>
+            <tr>
+              <td height="22" align="right">&nbsp;</td>
+              <td>
+				<select name=NEW_PFR_TYPE" <?=(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW)?"":"disabled"?>>
+					<?  foreach($ARR_PFR_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($NEW_PFR_TYPE==$key)?"selected":""?> ><?=$value; ?></option><?  } ?>
+				</select>				
+				</td>
+				</tr>
+	  <? } // end if ?>
+                <tr align="center">
+                  <td height="30" colspan="2">
+                    <?if($PAGE_AUTH["add"]=="Y"){?>
+                      <input name="Submit2" type="submit" class="button" onClick="return checkadd(form1);" value="เพิ่มประเด็น<?=($PFR_ID?"ย่อย":"")?>">
+                      <?}?>                  
+				  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+					  </td>
+                </tr>
+
+            </table></td>
+          </tr>
+      </table>
+	  <? endif; ?>
+      </td>
+    </tr>
+  </table> 
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

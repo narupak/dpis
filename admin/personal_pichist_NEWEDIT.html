@@ -1,0 +1,438 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/personal_pichist.php");
+	include("php_scripts/load_per_control.php");
+	
+	$cmd =" select 		count(PER_ID) as count_data 
+					from 		PER_PERSONALPIC
+					where		PER_ID=$PER_ID
+				   ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(pic_seq){
+		if(confirm("ต้องการลบข้อมูลรูปภาพลำดับที่ "+pic_seq+" นี้ ใช่หรือไม่?")){
+			form1.command.value = "DELETE";
+			form1.PIC_SEQ.value = pic_seq;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_person () {	
+		parameter = "";
+		childReturn = window.showModalDialog("search_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");		
+			form1.PER_ID.value = arrValue[0];
+			form1.submit();
+		} // end if
+	}
+	
+	function onEnterKeyToAddMsg() { 
+		if (window.event.keyCode == 13) // Enter pressed?
+		{ 
+//			alert("1-"+document.form1.UploadBtn.value);
+//			var d_addmsg = document.getElementById('addMSG'); 
+			var d_addmsg = document.form1.UploadBtn;
+//			alert("2 - name="+d_addmsg.name);
+			d_addmsg.focus();
+//			alert("3");
+			d_addmsg.click();
+//			alert("4");
+		} 
+	}
+	function setLayer(layerID){
+		if(document.getElementById(layerID)){
+			if(document.getElementById(layerID).style.display=='none'){
+				document.getElementById(layerID).style.display='block';	
+			}else{
+				document.getElementById(layerID).style.display='none';
+			}
+			if(document.getElementById(layerID).style.visibility=='hidden'){
+				document.getElementById(layerID).style.visibility='visible';
+			}else{
+				document.getElementById(layerID).style.visibility='hidden';
+			}
+		}
+	}
+</script>
+
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<? if (!$HIDE_HEADER) { ?>
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+	<? } ?>
+    	<tr> 
+	  <td align="left" valign="top">
+<?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลประวัติรูปภาพ":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		$setPerStyle="display:none; visibility:hidden";
+		if($UPD||$VIEW){ $setPerStyle="display:block; visibility:visible"; }
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="personal_pichist.html" enctype="multipart/form-data"><!-- onSubmit="return check(this);" //ไม่มี function นี้ --->
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+	   	  <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+&nbsp;<table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+      <tr>
+        <td width="15%" height="22" align="right"><?=$FULLNAME_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" readonly></td>
+        <td width="20%" height="22" align="right"><?=$CARDNO_TITLE?>&nbsp;:&nbsp;</td>
+        <td align="center"><input type="text" name="PER_CARDNO" value="<?=$PER_CARDNO?>" style="width:70%" class="textbox" readonly></td>
+        <td width="25%">	<? if (!$HIDE_HEADER) { ?><!--<input name="btn" type="button" class="button" value="ค้นหาจากรายชื่อ" onClick="call_search_person();">-->
+          &nbsp;<? if ($BUTTON_DISPLAY==1) { ?> <input name="BackBtn" type="button" class="button" value="<?=$SELECT_PERSON_TITLE?>" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_ability'"><?  } else {  echo "&nbsp; &nbsp;"; ?>
+              <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE?>" width="32" height="32" border="0" onClick="javascript:window.location='personal_master.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&SEARCHHIS=personal_ability'">
+              <? } echo "&nbsp; &nbsp;"; ?>
+		  
+		  <!--history.back(); --><? } ?></td>
+      </tr>
+    </table></td>
+  </tr>
+</table>
+&nbsp;
+<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body" onClick="javascript:setLayer('id_pichist');"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูล</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table id="id_pichist" width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" style="<?=$setPerStyle; ?>">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="20%" height="22" align="right" nowrap="nowrap">&nbsp;<span class="label_alert">*</span>&nbsp;ชื่อรูปภาพ : &nbsp;</td>
+                  <td width="40%" height="22">
+				  	<input type="text" name="PIC_NAME" value="<?=$PIC_NAME?>" style="width:100%" class="textbox" readonly>
+				  <? 
+				  	//fix เพื่อ TEST
+					$PIC_IP="http://192.168.1.26/";		//$PIC_IP="http://192.168.30.55:8081/";				//  $PIC_IP="http://www.ocsc.go.th/";							//เอามาจาก textbox สร้างคอลัมน์เก็บเพิ่ม
+					$PIC_PATH	=	"img12/";			//TEST	"ocsccms/images/frontweb/"	จาก textbox
+					$PIC_REMARK=$PIC_IP; 		//TEST
+					//__$PIC_NAME	=	"1111.jpg";			//TEST	logo_menu1.jpg	จาก textbox
+					if($PIC_IP)	$PIC_PATH_IP = $PIC_IP.$PIC_PATH.$PIC_NAME;  			//$PIC_PATH = str_replace("../","",$PIC_PATH);	
+					 echo 	$PIC_PATH_IP;
+				  ?>
+				  </td>
+                  <td align="left" rowspan="5">
+						<table width="90%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                			<tr>
+                  				<td align="center">
+								<? if($PIC_PATH_IP){	$PIC_PATH_NAME = ($PIC_PATH_IP)?($PIC_PATH_IP):"images/my_preview.gif"; 	}else{	$PIC_PATH_NAME = file_exists($PIC_PATH.$PIC_NAME)?($PIC_PATH.$PIC_NAME):"images/my_preview.gif";	 } ?>
+								<img src="<?=$PIC_PATH_NAME; ?>" width="110" height="132"></td>
+							</tr>
+			                <tr>
+								<td height="22" align="center"><input id="PERSONAL_PIC_ID" name="PERSONAL_PIC" type="file" class="black_small"  onKeyDown="onEnterKeyToAddMsg();" <?=trim($PER_CARDNO)?"":"disabled"?>></td>
+                			</tr>
+						<? if(($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y") && !$VIEW){ ?>
+                			<tr>
+                  				<td height="22" align="center">
+				  			<?if($PAGE_AUTH["edit"]=="Y" && $PER_ID){?>
+								<? if($PIC_NAME && file_exists($PIC_NAME)){ ?>
+                                	<input name="Submit22" type="submit" class="button" onClick="form1.command.value='DELETE';" value="ลบรูป">
+                                 <? } ?>
+								<input name="UploadBtn" type="submit" class="button" onClick="if(form1.PERSONAL_PIC.value.trim() != ''){ form1.command.value='UPDATEIMG'; }else{ alert('ระบุรูปใหม่ที่ต้องการเปลี่ยน'); document.getElementById('PERSONAL_PIC_ID').focus(); return false; }" value="เปลี่ยนรูป">
+							<?}?>
+                            	</td>
+                			</tr>
+						<? } // end if ?>
+                			<tr>
+                  				<td height="22" align="center" class="label_alert"><?=$img_error?></td>
+                			</tr>
+              			</table>
+              	</td>
+            </tr>
+			<tr>
+              <td width="20%" align="right" nowrap="nowrap">ที่เก็บแฟ้ม : &nbsp;</td>
+				  <td width="40%" height="22">
+<table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+  <tr>
+    <td >IP เครื่อง : </td>
+    <td><input type="text" name="PIC_IP" value="<?=$PIC_IP?>" style="width:100%" class="textbox" readonly></td>
+  </tr>
+  <tr>
+    <td>ที่เก็บ :</td>
+    <td><input type="text" name="PIC_PATH" value="<?=$PIC_PATH?>" style="width:100%" class="textbox" readonly></td>
+  </tr>
+</table></td>
+			</tr>
+			<tr>
+              <td width="20%" align="right" nowrap="nowrap">ลำดับที่ : &nbsp;</td>
+                  <td width="40%" height="22">
+				  	<input type="text" name="PIC_SEQ" value="<?=$PIC_SEQ?>" style="width:10%" class="textbox" readonly>
+				  </td>
+			</tr>
+			<tr>
+              <td width="20%" align="right" nowrap="nowrap">แสดงภาพ : &nbsp;</td>
+                  <td width="40%" height="22">
+					<input name="PIC_SHOW" type="checkbox" value="1" <?=($PIC_SHOW==1)?"checked":""?>>
+                  </td>
+			</tr>
+			<tr>
+               	<td height="22" align="right"><?=$REMARK_TITLE;?> : &nbsp;</td>
+                <td width="40%" height="22">
+					<textarea name="PIC_REMARK" class="selectbox" cols="100" rows="3" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>><?=$PIC_REMARK?></textarea>
+			    </td>
+			</tr>
+               	<td height="22" align="right" valign="top">วันที่ Upload : &nbsp;</td>
+				<td width="40%" height="22" valign="top">
+			  		<input type="text" name="PIC_SAVEDATE" value="<?=$PIC_SAVEDATE?>" style="width:100%" class="textbox" readonly>
+		   		</td>
+            <tr>
+              <td width="20%"  align="right" nowrap="nowrap"><?=$UPDATE_USER_TITLE;?> : &nbsp;</td>
+              <td>
+			  <table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+			  <tr><td width="25%"><input name="SHOW_UPDATE_USER" type="text" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+                    <td width="17%">&nbsp;</td>
+			  		<td width="11%" align="right" nowrap="nowrap"><?=$UPDATE_DATE_TITLE;?> : &nbsp;</td>
+			  		<td width="47%" align="left"><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+              </tr>
+			  </table>
+          </table></td>
+        </tr>
+		<? if($PER_ID) : ?>
+        <tr align="center">
+          <td height="25"><br>
+		  		<? if ($UPD || $VIEW) { ?><? if ($BUTTON_DISPLAY==1) { ?>
+              <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';" class="button" >
+              <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='CANCEL';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+			  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="UpdateBtn2" type="submit" class="button" onClick="form1.command.value='UPDATE';" value="<?=$EDIT_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='UPDATE';" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> 
+      		  <? } else { ?><? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>"> 
+      		  <?  } else { ?>
+             <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+              <? } echo "&nbsp; &nbsp;";?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+	  		  <input name="Submit2" type="submit" class="button" onClick="form1.command.value='ADD';" value="<?=$ADD_TITLE?>">
+			  <?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='ADD';" src="images/save.png" alt="<?=$ADD_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?><?}?> 
+              <?}?>
+          </td>
+        </tr>
+		<? endif; ?>
+        <tr>
+          <td height="5"></td>
+          </tr>
+      </table></td>
+    </tr>
+  </table> 
+  &nbsp;
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบข้อมูลรูปภาพทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select 	top $start_record trim(PER_PICSEQ) as concat_pk 
+							from 		PER_PERSONALPIC
+							where    PER_ID=$PER_ID
+							order by 	PER_PICSEQ ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(PER_PICSEQ) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+  			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}
+
+	if($DPISDB=="odbc"){
+		$cmd = "	SELECT 		top $data_per_page  *
+							FROM			PER_PERSONALPIC
+							WHERE			PER_ID=$PER_ID
+													$search_condition
+													$limit_data
+							ORDER BY	PER_PICSEQ 	";
+					
+	}elseif($DPISDB=="oci8"){			 
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		*
+								  from 		PER_PERSONALPIC
+								  where 		PER_ID=$PER_ID
+												$search_condition
+								  order by 	PER_PICSEQ
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";							 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	SELECT 	*
+							FROM	PER_PERSONALPIC
+							WHERE	PER_ID=$PER_ID
+											$search_condition
+							ORDER BY PER_PICSEQ
+											$limit_data ";
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "count_page_data=$count_page_data-->$cmd<br>";
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  	<td width="7%" height="21"><strong><?=$SEQ_NO_TITLE;?></strong></td>
+      	<td>รูปภาพ</td>
+      	<td>ชื่อ</td>
+      	<td>วันที่ Upload</td>
+      	<td width="5%">&nbsp;</td>
+		<td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><? } ?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+    $PER_ORDER_BY=1;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_PIC_SEQ = $data[PER_PICSEQ];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PIC_SEQ;
+		$T_PIC_SEQ = substr("000",0,3-strlen("$TMP_PIC_SEQ"))."$TMP_PIC_SEQ";
+        if (trim($data[PER_CARDNO]) && trim($data[PER_CARDNO]) != "NULL")
+			$TMP_PIC_NAME = $data[PER_PICPATH].$data[PER_CARDNO]."-".$T_PIC_SEQ.".jpg";
+        else
+        	$TMP_PIC_NAME = $data[PER_PICPATH].$data[PER_GENNAME]."-".$T_PIC_SEQ.".jpg";
+		//$TMP_PIC_IP = $data[PER_PICIP];					//เพิ่ม คอลัมน์ PER_PICIP ใหม่
+		//if($TMP_PIC_IP){		$TMP_PIC_PATH = str_replace("../","",$data[PER_PICPATH]);			$TMP_PIC_NAME = $TMP_PIC_IP.$TMP_PIC_PATH;		}else{		$TMP_PIC_NAME = $data[PER_PICPATH]; 	}
+		//if (trim($data[PER_CARDNO]) && trim($data[PER_CARDNO]) != "NULL")
+		//		$TMP_PIC_NAME = $TMP_PIC_NAME.$data[PER_CARDNO]."-".$T_PIC_SEQ.".jpg";
+		//else
+		//  	$TMP_PIC_NAME = $TMP_PIC_NAME$data[PER_GENNAME]."-".$T_PIC_SEQ.".jpg";	
+		$TMP_SAVEDATE = show_date_format($data[PER_PICSAVEDATE], 1);
+		$TMP_PIC_SHOW = ($data[PIC_SHOW]=="1"?"แสดงภาพ":"");
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PIC_SEQ==$TMP_PIC_SEQ){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      	<td height="25" align="center"><?=$num_order?></td>
+      	<td align="center">
+        	<img src="<?=($TMP_PIC_NAME && file_exists($TMP_PIC_NAME))?($TMP_PIC_NAME):"images/my_preview.gif"?>" width="110" height="132">
+	  	</td>
+      	<td align="left"><?=$TMP_PIC_NAME?></td>
+      	<td align="center"><?=$TMP_SAVEDATE?></td>
+      	<td align="center"><?=$TMP_PIC_SHOW?></td>
+      	<td align="center">&nbsp;<a href="<?="javascript:form1.action+='?VIEW=1';form1.PIC_SEQ.value=$TMP_PIC_SEQ; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูข้อมูลรูป" width="16" height="16" border="0"></a></td>
+	  <?if($PAGE_AUTH["edit"]=="Y"){?>
+ 	     <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.PIC_SEQ.value=$TMP_PIC_SEQ; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูลรูป"></a></td>
+	  <?}?>
+	  <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_PIC_SEQ)"?>"><img src="images/b_drop.png" border="0" alt="ลบรูป"></td>
+	  <?}?>
+	</tr>
+	<? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="24">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+<? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<? if (!$HIDE_HEADER) { ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

@@ -1,0 +1,201 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");	
+	include("php_scripts/load_per_control.php");
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	if(trim($SELECTED_LIST)) $ARR_SELECTED = explode(",", $SELECTED_LIST);
+	if(trim($EXCEPT_LIST)) $ARR_EXCEPT = explode(",", $EXCEPT_LIST);
+	
+	if(trim($EXCEPT_PER_ID)) $arr_search_condition[] = "id not in ($EXCEPT_PER_ID)";
+	if($command=='SEARCH'){	
+		if(trim($search_per_name)) $arr_search_condition[] = "(fullname like '%$search_per_name%')";		
+		$command="";	//เซตให้มัน รีเฟรชแล้วมีค่า SELECTED_LIST
+	}
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " where " . implode(" and ", $arr_search_condition);
+
+	//หาชื่อผู้ที่มีในระบบการ login
+	$cmd1 ="select count(id) as count_data from user_detail 
+					$search_condition
+					order by username";
+	$db->send_cmd($cmd1);
+	//echo $cmd1;
+	//$db->show_error();
+	$data = $db->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+?>
+<html>
+<head>
+<title>รายชื่อข้าราชการ/ลูกจ้างประจำ</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.isSubmit.value = true;
+		form1.submit();
+	}
+
+	function control_all(isChecked){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "SELECT_PER";
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+//			alert(objName);
+			if( search_str == objName ){ 
+				if(getObj[i].disabled == false) getObj[i].checked = isChecked;
+				PER_ID = getObj[i].name.substr(getObj[i].name.lastIndexOf( "_" ) + 1);
+//				alert(PER_ID);
+				if(isChecked && getObj[i].disabled == false){
+					if(SELECTED_LIST.indexOf("," + PER_ID + ",") == -1){
+//						SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+//						if(SELECTED_LIST==",") SELECTED_LIST = "";
+
+						if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+						else SELECTED_LIST += (PER_ID + ",");
+					} // end if
+				}else{
+					SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+					if(SELECTED_LIST==",") SELECTED_LIST = "";
+				} // end if
+			} // end if
+		}	// end for
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+//		alert(form1.SELECTED_LIST.value);
+	} 
+	
+	function update_list(isChecked, PER_ID, dataCount){
+		var SELECTED_LIST = form1.SELECTED_LIST.value;
+		if(SELECTED_LIST != "") SELECTED_LIST = "," + SELECTED_LIST + ",";
+
+		if(isChecked){
+			var countChecked = 0;
+			if(SELECTED_LIST=="") SELECTED_LIST = "," + PER_ID + ",";
+			else SELECTED_LIST += (PER_ID + ",");
+			
+			getObj = document.getElementsByTagName("input");
+			search_str = "SELECT_PER";
+			for(i=0; i<getObj.length; i++){
+				if(getObj[i].type != "checkbox") continue;
+				objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+				if( search_str == objName && getObj[i].checked ) countChecked++;
+				if( countChecked == dataCount ) form1.CHECKALL.checked = true;
+			} // end for
+		}else{
+			SELECTED_LIST = SELECTED_LIST.replace(("," + PER_ID + ","), ",");
+			if(SELECTED_LIST==",") SELECTED_LIST = "";
+			if(form1.CHECKALL.checked) form1.CHECKALL.checked = false;
+		} // end if
+//		alert(SELECTED_LIST);
+		form1.SELECTED_LIST.value = SELECTED_LIST.substr(1, (SELECTED_LIST.lastIndexOf(",") - 1));
+//		alert(form1.SELECTED_LIST.value);
+	}
+</script>
+<body onUnload="if(!form1.isSubmit.value && form1.command.value!='SEARCH'){ parent.refresh_opener(form1.SELECTED_LIST.value); }">
+<form action="select_person_msg.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="command" value="<?=$command; ?>">
+  <input type="hidden" name="SELECTED_LIST" value="<?=$SELECTED_LIST?>">
+  <input type="hidden" name="EXCEPT_PER_ID" value="<?=$EXCEPT_PER_ID?>">
+  <input type="hidden" name="EXCEPT_LIST" value="<?=$EXCEPT_LIST?>">
+  <input type="hidden" name="isSubmit">
+&nbsp;
+<table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+	<tr>
+	  <td width="20%" align="right">ชื่อ<?=$page_title?>&nbsp;:&nbsp;</td>
+	  <td><input type="text" name="search_per_name" value="<?=$search_per_name?>" style="width:98%" class="textbox"></td>
+	  <td width="20%" align="center"><input name="btn2" type="submit" class="button" value="ค้นหา" onClick="form1.command.value='SEARCH';form1.current_page.value=0;"><input name="btn3" type="submit" class="button" value="แสดงทั้งหมด" onClick="form1.search_per_name.value=''; form1.current_page.value=0;"></td>
+	</tr>
+    <tr>
+	  <td height="30" align="center" class="label_hilight" colspan="3">พบรายชื่อ<?=$PERSON_TITLE?> ทั้งสิ้น <?=($count_data + 0)?> ราย</td>
+	</tr>
+  </table>
+<?
+			$total_page = ceil( $count_data / $data_per_page );	
+			$page_link = create_link_page($total_page, $current_page);
+			$limit_data = "";
+
+			//หาชื่อผู้ที่มีในระบบการ login
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+			$cmd1 ="select id,username,user_link_id,fullname from user_detail 
+							$search_condition 
+							order by username
+							$limit_data
+							";
+			//echo $cmd1;
+			$count_page_data = $db->send_cmd($cmd1);
+			//$db->show_error();
+			if($count_page_data){
+?>
+<table width="95%"  border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+  <tr class="table_head">
+    <td width="3%" align="center"><input type="checkbox" name="CHECKALL" value="" onClick="control_all(this.checked);"></td>
+    <td align="center">ชื่อ นามสกุล</td>
+  </tr>
+  <? 
+			$current_list = "";
+			$data_count = 0;
+			$count_selected = 0;
+			while($datausr = $db->get_array()) :
+				$datausr = array_change_key_case($datausr, CASE_LOWER);
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				
+				$TMP_PER_ID = $datausr[id];
+				$TMP_PER_FULLNAME=$datausr[fullname];
+				
+				$class = "table_body";
+				$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+
+				$returnValue = "$TMP_PER_ID<::>$TMP_PER_FULLNAME";
+				
+				$checked = "";
+				if(in_array($TMP_PER_ID, $ARR_SELECTED) && !in_array($TMP_PER_ID, $ARR_EXCEPT)){ 
+					$count_selected++;
+					$checked = "checked";
+				} // end if
+				
+				$disabled = "";
+				if(in_array($TMP_PER_ID, $ARR_EXCEPT)) $disabled = "disabled";
+  ?>
+  <tr class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+	<td align="center"><input type="checkbox" name="SELECT_PER_<?=$TMP_PER_ID?>" value="<?=$TMP_PER_ID?>" onClick="update_list(this.checked, <?=$TMP_PER_ID?>, <?=$count_page_data?>);" <?=$checked?> <?=$disabled?>></td>
+    <td>&nbsp;<?=$TMP_PER_FULLNAME;	?></td>
+  </tr>
+  <?	endwhile; ?>
+</table>
+<? if($total_page > 1) : ?>
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td><?=$page_link?></td>
+  </tr>
+</table>
+<? endif; ?>&nbsp;
+<?
+		} // end if
+?>
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+</form>
+</body>
+</html>
+<script>
+<? if($count_selected==$count_page_data && $count_selected){ ?>form1.CHECKALL.checked=true;<? } ?>
+</script>

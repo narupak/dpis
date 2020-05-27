@@ -1,0 +1,196 @@
+    <table width="100%" height="100%"  border="0" cellpadding="0" cellspacing="0" bordercolor="#FFFFFF" id="tablebarmenu">
+        <tr align=center>
+          <td width="10"></td>
+	<? 
+		$class = "menu_inactive";
+//		if( !$MENU_ID_LV0 ) $class = "menu_active"; 
+		$classonover = "this.className='menu_active';";
+		$classonout = "this.className='menu_inactive';";
+		if($FILENAME=="main_1.html" || $FILENAME=="main_2.html"){ 
+			$class = "menu_active";
+			$classonout = "";
+		}
+
+//		echo "$MENU_ID_LV0,$MENU_ID_LV1,$MENU_ID_LV2,$MENU_ID_LV3<br>"	;
+		if ($MENU_ID_LV3 > 0)  { 
+           	$table_name = "backoffice_menu_bar_lv2"; $table_name1 = "backoffice_menu_bar_lv3"; 
+            $menu_id_cond = $MENU_ID_LV2;
+            $parent_cond = "parent_id_lv2 = $MENU_ID_LV2";
+		} elseif ($MENU_ID_LV2 > 0)  { 
+           	$table_name = "backoffice_menu_bar_lv1"; $table_name1 = "backoffice_menu_bar_lv2"; 
+            $menu_id_cond = $MENU_ID_LV1;
+            $parent_cond = "parent_id_lv1 = $MENU_ID_LV1";
+		} elseif ($MENU_ID_LV1 > 0)  { 
+           	$table_name = "backoffice_menu_bar_lv0"; $table_name1 = "backoffice_menu_bar_lv1"; 
+            $menu_id_cond = $MENU_ID_LV0;
+            $parent_cond = "parent_id_lv0 = $MENU_ID_LV0";
+		} elseif ($MENU_ID_LV0 > 0)  { 
+           	$table_name = ""; $table_name1 = "backoffice_menu_bar_lv0"; 
+            $menu_id_cond = "";
+            $parent_cond = "";
+		} else { 
+        	$table_name = ""; $table_name1 = ""; $menu_id_cond = ""; $parent_cond = ""; 
+		}
+
+		$CATE_FID = 1;
+
+		if ($table_name) {
+			$cmd = "select menu_id, menu_label, type_linkto, linkto_web from $table_name where flag_show='S' and langcode='TH' and fid=$CATE_FID and menu_id=$menu_id_cond order by menu_order";
+//			echo "$cmd<br />";
+			if($db->send_cmd($cmd)){
+				$data = $db->get_array();
+				$data = array_change_key_case($data, CASE_LOWER);
+				$menu_title = trim($data[menu_label]);
+			?>
+	        <td nowrap id="menu1" width="5%" class="<?=$class?>" onmouseover="<?=$classonover?>call_menu_lv1_show(1)" onmouseout="<?=$classonout?>call_menu_lv1_hide(1)" style="cursor:hand"><?=$menu_title?></td>
+			<td width="10"></td>
+			<?
+            }
+			if ($table_name1) {
+				$cmd = "select menu_id, menu_label, type_linkto, linkto_web from $table_name1 where flag_show='S' and langcode='TH' and fid=$CATE_FID and $parent_cond order by menu_order";
+//				echo "$cmd<br />";
+				if($db->send_cmd($cmd)){
+					$data_count = 0;
+					while( $data = $db->get_array() ){
+						$data = array_change_key_case($data, CASE_LOWER);
+						$data_count++;
+						$bar_menu_lvN[$data_count]["id"] = $data[menu_id];
+						$bar_menu_lvN[$data_count]["label"] = trim($data[menu_label]);
+						$bar_menu_lvN[$data_count]["link_type"] = trim($data[type_linkto]);
+						$bar_menu_lvN[$data_count]["link_web"] = trim($data[linkto_web]);
+
+						if ($MENU_ID_LV3 > 0)  { 
+							$enq_cond = "menu_id_lv0=$MENU_ID_LV0 and menu_id_lv1=$MENU_ID_LV1 and menu_id_lv2=$MENU_ID_LV2 and menu_id_lv3=".trim($data[menu_id]);
+						} elseif ($MENU_ID_LV2 > 0)  { 
+							$enq_cond = "menu_id_lv0=$MENU_ID_LV0 and menu_id_lv1=$MENU_ID_LV1 and menu_id_lv2=".trim($data[menu_id])." and menu_id_lv3=0";
+						} elseif ($MENU_ID_LV1 > 0)  { 
+							$enq_cond = "menu_id_lv0=$MENU_ID_LV0 and menu_id_lv1=".trim($data[menu_id])." and menu_id_lv2=0 and menu_id_lv3=0";
+						} elseif ($MENU_ID_LV0 > 0)  { 
+							$enq_cond = "menu_id_lv0=".trim($data[menu_id])." and menu_id_lv1=0 and menu_id_lv2=0 and menu_id_lv3=0";
+						} else { 
+							$enq_cond = "menu_id_lv0=".trim($data[menu_id])." and menu_id_lv1=0 and menu_id_lv2=0 and menu_id_lv3=0";
+						}
+
+						$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and $enq_cond order by can_inq desc ";
+						$new_db->send_cmd($cmd);
+//						echo "2-$cmd<br />";
+//						$new_db->show_error();
+						$new_data = $new_db->get_array();
+						$new_data = array_change_key_case($new_data, CASE_LOWER);
+						$bar_menu_lvN[$data_count]["can_inq"] = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+//						if (trim($new_data[can_inq])=="Y")
+//							echo ">>".$bar_menu_lvN[$data_count]["label"]."-".$bar_menu_lvN[$data_count]["link_web"]."<br />";
+					} // end while $data
+				} // end if($db->send_cmd($cmd))
+				$count_bar_menu = count($bar_menu_lvN);
+//				echo "$count_bar_menu<br />";
+			} // if ($table_name1)
+		} // if ($table_name)
+        $main_sel=($MENU_TYPE==2?"main_1.html":"main.html");
+        ?>
+	        <td nowrap id="menu0" width="5%" class="<?=$class?>" onclick="location.href='<?=$main_sel?>'" onmouseover="<?=$classonover?>call_menu_lv1_show(0)" onmouseout="<?=$classonout?>call_menu_lv1_hide(0)" style="cursor:hand">หน้าแรก</td>
+			<td width="10"></td>
+			<? if ($MENU_ID_LV2 > 0 && strpos($FILENAME, "main_2.html") === false) { 
+            		if ($MENU_ID_LV3 > 0)
+						$back_cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=$MENU_ID_LV2&MENU_ID_LV3=0";
+            		else if ($MENU_ID_LV2 > 0)
+						$back_cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=0&MENU_ID_LV3=0";
+					else
+						$back_cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=0&MENU_ID_LV2=0&MENU_ID_LV3=0";
+            ?>	
+		        <td nowrap id="menu2" width="5%" class="<?=$class?>" onclick="location.href='main_2.html?<?=$back_cond?>'" onmouseover="<?=$classonover?>call_menu_lv1_show(0)" onmouseout="<?=$classonout?>call_menu_lv1_hide(0)" style="cursor:hand">หน้าสอง</td>
+			<td width="10"></td>
+			<? } 
+					$cmd = " select	M.MSG_ID, M.USER_ID as POST_USER_ID, U.USER_ID as USER_ID, MSG_TYPE
+									from	PER_MESSAGE M ,PER_MESSAGE_USER U
+								  where	M.MSG_ID = U.MSG_ID(+) and U.USER_ID=$SESS_USERID 
+                                  			and U.MSG_STATUS = 0 ";	
+                    
+					$countdata = $db_dpis->send_cmd($cmd);
+//					$db_dpis->show_error();
+//					echo "$cmd<br>";
+					
+					if($countdata)	$a_msg = "ข้อความ [new $countdata]";
+					else	$a_msg = "ข้อความ";
+            ?>
+	        <td nowrap id="menu3" width="5%" class="<?=$class?>" onclick="location.href='main_message.html'" onmouseover="<?=$classonover?>call_menu_lv1_show(0)" onmouseout="<?=$classonout?>call_menu_lv1_hide(0)" style="cursor:hand"><?=$a_msg?></td>
+			<td width="10"></td>
+            <?
+			$class = "menu_inactive";
+			$classonover = "this.className='menu_active';";
+			$classonout = "this.className='menu_inactive';";
+			if($FILENAME=="logout.html"){ 
+				$class = "menu_active";
+				$classonout = "";
+			}
+            ?>
+            <td nowrap id="menu999" width="7%" class="<?=$class?>" onClick="location.href='logout.html'" onmouseover="<?=$classonover?>call_menu_lv1_show(999)" onmouseout="<?=$classonout?>call_menu_lv1_hide(999)" style="cursor:hand">ออกจากระบบ</td>
+            <td width="10"></td>
+        </tr></table>
+	<iframe id="DivShimLV1" src="javascript:true;" scrolling="no" frameborder="0" style="position:absolute; top:0px; left:0px; display:none;"></iframe>
+	<div id="Layer1Menu1" style="position:absolute; width:150px; height:476px; z-index:100; left: 23px; top: 1000px; display:none;" onmouseover="call_menu_lv1_show(1)" onmouseout="call_menu_lv1_hide(1)"> 
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" id="Table1Menu1" style="cursor:hand" class="menu_div">
+        <?
+		if ($count_bar_menu) {
+			for($i=1; $i<=$count_bar_menu; $i++){
+				$class = "menu_inactive";
+				$classonover = "this.className='menu_active';";
+				$classonout = "this.className='menu_inactive';";
+
+				if($bar_menu_lvN[$i]["can_inq"]=="Y"){
+					$outer_link = 0;
+					if($bar_menu_lvN[$i]["link_web"]){ 
+                    
+		       	        if ($MENU_ID_LV3) {
+   	    		            $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=$MENU_ID_LV2&MENU_ID_LV3=".$bar_menu_lvN[$i]["id"];
+						} elseif ($MENU_ID_LV2) {
+                		    $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV3=0";
+						} elseif ($MENU_ID_LV1) {
+		                    $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV2=0&MENU_ID_LV3=0";
+						} elseif ($MENU_ID_LV0) {
+        		   	        $cond = "MENU_ID_LV0=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV1=0&MENU_ID_LV2=0&MENU_ID_LV3=0";
+						}
+                        
+						if(substr(trim($bar_menu_lvN[$i]["link_web"]), 0, 7)!="http://" && substr(trim($bar_menu_lvN[$i]["link_web"]), 0, 8)!="https://"){
+							$extract_parameter = explode("?", $bar_menu_lvN[$i]["link_web"]);
+							if(count($extract_parameter) > 1) $bar_menu_lvN[$i]["link_web"] .= "&$cond";
+							else $bar_menu_lvN[$i]["link_web"] .= "?$cond";
+						}else{
+							$outer_link = 1;
+						} // end if
+					} else {
+		       	        if ($MENU_ID_LV3) {
+                		    $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=$MENU_ID_LV2&MENU_ID_LV3=".$bar_menu_lvN[$i]["id"];
+						} elseif ($MENU_ID_LV2) {
+		                    $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=$MENU_ID_LV1&MENU_ID_LV2=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV3=0";
+						} elseif ($MENU_ID_LV1) {
+        		   	        $cond = "MENU_ID_LV0=$MENU_ID_LV0&MENU_ID_LV1=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV2=0&MENU_ID_LV3=0";
+						} elseif ($MENU_ID_LV0) {
+        		   	        $cond = "MENU_ID_LV0=".$bar_menu_lvN[$i]["id"]."&MENU_ID_LV1=0&MENU_ID_LV2=0&MENU_ID_LV3=0";
+						}
+						$bar_menu_lvN[$i]["link_web"]="main_2.html?$cond";
+					} // end if
+                    $menu_id = $bar_menu_lvN[$i]["id"];
+                    $link_web = $bar_menu_lvN[$i]["link_web"];
+                    $menu_lv1_label = $bar_menu_lvN[$i]["label"];
+//					echo "$menu_lv1_label-$link_web<br />";
+                    $layer_id=1;
+					$onmouseover .= " call_menu_lv1_show($layer_id);";
+					$onmouseout .= " call_menu_lv1_hide($layer_id);";
+		?>
+    	<tr id="menu_lv1_<?=$layer_id?>_<?=$menu_id?>" onmouseover="<?=$onmouseover?>" onmouseout="<?=$onmouseout?>" class="<?=($MENU_ID_LV1==$menu_id)?"menu_lv1_active":"menu_lv1_inactive"?>"> 
+      		<td height="25" nowrap class="menu_td">
+	  		<? if(trim($link_web)){ ?>
+	  			&nbsp;<a href="<?=trim($link_web)?$link_web:"#"?>"><?=$menu_lv1_label?></a>&nbsp;
+	  		<? }else{ ?>
+	  			&nbsp;<?=$menu_lv1_label?>&nbsp;
+	  		<? } // end if ?>
+	  		</td>
+		</tr>
+			<?
+				} // if can_inq
+			} // for
+		} // if ($count_bar_menu)
+		?>
+  		</table>
+	</div>

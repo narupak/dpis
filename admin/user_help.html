@@ -1,0 +1,379 @@
+<? 
+	include("../php_scripts/connect_database_help.php");
+	$cssfileselected = "stylesheets/style.css";
+	include("php_scripts/user_help.php"); 
+    
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function check_data(command){
+		if(form1.username.value==""){
+			alert('กรุณาใส่ชื่อผู้ใช้งาน');
+			form1.username.focus();
+		}else if(form1.passwd.value=="" && command!="UPDATE"){
+			alert('กรุณาใส่รหัสผ่าน');
+			form1.passwd.focus();
+		}else if(form1.passwd.value.length<4  && command!="UPDATE"){
+			alert('รหัสผ่านสั้นเกินไป');
+			form1.passwd.focus();
+		}else if(form1.confirm_passwd.value!=form1.passwd.value){
+			alert('การยืนยันรหัสผ่านไม่ตรงกับรหัสผ่านที่ใส่ไว้');
+			form1.confirm_passwd.focus();
+		}else{
+			form1.command.value = command;
+			form1.submit();
+		}
+	}
+
+	function check_passwd_length(obj){
+		if(obj.value.length<4){
+			alert("รหัสผ่านสั้นเกินไป");
+			obj.focus();
+		}
+	}
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function call_back(url){
+		form1.current_page.value = 0;
+		form1.action = url;
+		form1.submit();
+	}
+	
+	function confirm_update(username){
+		form1.command.value = "UPD";
+		form1.username.value = username;
+		form1.submit();
+	}
+
+	function confirm_delete(username){
+		if(confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่ [ " + username + " ] ?")){
+			form1.command.value = "DELETE";
+			form1.username.value = username;
+			form1.submit();
+		} // end if
+	}
+
+	function ProcessUploading() {
+	//	alert(document.getElementById("obj_uploading"));
+		document.getElementById("obj_uploading").style.display = "block";
+		document.getElementById("obj_uploading").style.top = document.body.scrollTop + ((document.body.clientHeight / 2) + 5);
+		document.getElementById("obj_uploading").style.left = document.body.scrollLeft  + ((document.body.clientWidth / 2) - 80);
+		document.getElementById("obj_uploading").style.visibility = "visible";
+		return true;
+	}
+
+	function check_add(form1) { 
+		if(form1.username.value=="") {
+			alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+			return false;
+		} else if(form1.passwd.value=="") {
+			alert("กรุณาระบุข้อมูลรหัสผ่าน");
+			form1.passwd.focus();
+			return false;
+		} else if(form1.confirm_passwd.value=="") {
+			alert("กรุณาระบุข้อมูล ยืนยันรหัสผ่าน");
+			form1.confirm_passwd.focus();
+			return false;
+		} else if(form1.confirm_passwd.value!=form1.passwd.value) {
+			alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+			form1.confirm_passwd.focus();
+			return false;
+		} else  {
+			form1.command.value='ADD'; 
+			return true; 
+		}
+	}
+
+	function check_upd(form1) { 
+		if(form1.username.value=="") {
+			alert("กรุณาระบุข้อมูลชื่อผู้ใช้งาน");
+			return false;
+		} else if(form1.confirm_passwd.value!=form1.passwd.value) {
+			alert("รหัสผ่าน กับ ยืนยันรหัสผ่านไม่เหมือนกัน กรุณาระบุใหม่");
+			form1.confirm_passwd.focus();
+			return false;
+		} else {
+			form1.command.value='UPDATE'; 
+			return true; 
+		}
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+</script>
+<span id="defaultTheme"></span> 
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="user_help.html" enctype="multipart/form-data" >
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+	  	  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+  &nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>ข้อมูลผู้ใช้</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="25" colspan="2"\>&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+        <?if( $error_signin ){?>
+        <tr align="center"> 
+          <td colspan="2" class="label_alert"> 
+            <?=$error_signin?>
+          </td>
+        </tr>
+        <?} // if?>
+        <tr>
+          <td align="right" valign="top"><b>ชื่อผู้ใช้งาน&nbsp;:&nbsp;</b></td>
+          <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td>
+				<input name="username" type="text" class="textbox" value="<?=$username;?>" size="20" maxlength="30" style="width:70%" onKeyPress="">
+			  </td>
+            </tr>
+          </table></td>
+        </tr>
+        <tr>
+          <td align="right"><? if($UPD){ ?><b>เปลี่ยนรหัสผ่าน : </b><? }else{ ?><b>รหัสผ่านใหม่ : </b><? } ?>&nbsp;</td>
+          <td><input name="passwd" type="password" class="textbox" value="<?=$passwd?>" size="20" maxlength="30" style="width:70%" >
+          </td>
+        </tr>
+        <tr>
+          <td align="right"><b>ยืนยันรหัสผ่าน&nbsp;:&nbsp;</b></td>
+          <td><font face="MS Sans Serif" size="1">
+            <input name="confirm_passwd" type="password" class="textbox"  value="<?=$confirm_passwd?>" size="20" maxlength="30" style="width:70%" >
+          </font> <span lang="en-us"><font color="#FF0000"></font></span></td>
+        </tr>
+        <tr>
+          <td align="right" valign="top"><b>ระดับการใช้งาน&nbsp;:&nbsp;</b></td>
+          <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td>
+				<input name="f_level" type="text" class="textbox" value="<?=$f_level;?>" size="5" maxlength="1" style="width:70%" onKeyPress="">
+			  </td>
+            </tr>
+          </table></td>
+        </tr>
+        <tr bgcolor="#FFFFFF" align="center">
+          <td height="30" colspan="2">
+			<? if ($UPD) { ?>
+				<input type="submit" name="Reset2" value="ยกเลิก" onClick="form1.command.value='CANCEL'" class="button" >
+				<input name="Submit22" type="submit" class="button" onClick="return check_upd(form1);" value="แก้ไข">
+			<? } else { ?>
+				<input name="Reset" type="reset" class="button" value="ล้างจอภาพ"> 
+				<input name="Submit2" type="submit" class="button" onClick="return check_add(form1);" value="เพิ่ม">
+			<? } ?>
+          </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  <?
+	if(!$sort_by) $sort_by=1;
+	$sort_type = (isset($sort_type))?  $sort_type : "1:asc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+	if (trim($search_code))		$arr_search_condition[] = "username like '%$search_code%'";
+	if(count($arr_search_condition)) $search_condition = " where ". implode(" and ", $arr_search_condition); 
+		
+	if($order_by==1){	//(ค่าเริ่มต้น) ลำดับที่
+		$order_str = "username ".$SortType[$order_by];
+	}
+	$cmd =" select count(id) as count_data from user_system $search_condition ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+  ?>
+  &nbsp;
+  <table width="90%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+  <table width="90%" align="center"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+            <tr>
+              <td width="5%" align="right">รหัส&nbsp;:&nbsp;</td>
+              <td width="15%"><input type="text" name="search_code" value="<?=$search_code?>" style="width:98%" class="textbox" onKeyPress=""></td>
+              <td width="5%" align="right">ชื่อ&nbsp;:&nbsp;</td>
+              <td>&nbsp;</td>
+              <td width="20%" align="center">
+                <input name="Submit3" type="submit" class="button" value="ค้นหา" onClick="form1.current_page.value=0;">
+                <input name="Submit3" type="submit" class="button" value="ดูทั้งหมด" onClick="form1.search_code.value=''; form1.current_page.value=0;">
+				</td>
+            </tr>
+        <tr>
+          <td height="5"></td>
+          </tr>	 
+          </table></td>
+        </tr>
+		<tr>
+		  <td>
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type?>">
+<?=$SORT_TITLE?></td>
+</tr>
+</table>
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="15%" height="22"><? if($PAGE_AUTH["print"]=="Y"){ ?><!--input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"--><? }else{ echo "&nbsp;"; } ?></td>
+              <td align="center">พบข้อมูลรายชื่อผู้ใช้งาน ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><!--input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"--><? }else{ echo "&nbsp;"; } ?></td>
+            </tr>
+          </table></td>
+		</tr>
+  </table>  
+  <?
+	$total_page = ceil( $count_data / $data_per_page );	
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+
+	if($db_type=="mysql"){
+		$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+	}
+	if($current_page > 1){
+		if($db_type=="mssql"){
+			$limit_data = " and username not in (select top $start_record username from user_system $search_condition order by username) ";
+		}elseif($db_type=="oci8"){
+			$limit_data = " and username not in (select * from (select username from user_system $search_condition order by username) where rownum <= ". (($current_page - 1) * $data_per_page) .")";
+		}
+	} // end if 
+	
+	if($db_type=="mssql"){
+		$cmd = " select top $data_per_page * from user_system
+						 $search_condition
+					 	 $limit_data
+						 order by $order_str ";
+	}elseif($db_type=="mysql"){
+		$cmd = " select * from user_system
+						 $search_condition
+						 order by $order_str
+						 $limit_data ";
+	}elseif($db_type=="oci8"){
+		$cmd = " select * from (select * from user_system
+						 $search_condition
+						 $limit_data
+						 order by $order_str
+						) where rownum <= $data_per_page ";
+	}
+//	echo "username list-$cmd<br>";
+	if ($db_dpis->send_cmd($cmd)) {
+//		$db_dpis->show_error();
+?>
+	<table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal" >
+	  <tr align="center" class="table_head"> 
+		<td width="70%" height="20" onClick="call_sort(1);"><? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>ชื่อผู้ใช้งาน</td>
+		<td>ระดับ</td>
+		<td width="5%">แก้ไข</td>
+		<td width="5%">ลบ</td>
+	  </tr>
+	  <?
+		while ($data = $db_dpis->get_array()) {
+			$data = array_change_key_case($data, CASE_LOWER);
+			$show_username = $data[username];
+			$show_f_level = $data[f_level];
+		
+			$class = "table_body";
+			$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+			if($username==$show_username){ 
+				$class = "table_body_over";
+				$onmouse_event = "";
+			} // end if
+	?>
+	  <tr class="<?=$class?>" <?=$onmouse_event?>> 
+		<td align="left" height="25">&nbsp;&nbsp;<?=$show_username?></td>
+		<td align="center"><?=$show_f_level?></td>
+		<td align="center">
+		  <? if(strlen($show_username) > 0) : ?>
+        	<a href="<?="javascript:confirm_update('$show_username')"?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้อมูล"></a>
+		  <? endif; ?>&nbsp;
+		</td>
+		<td align="center">
+		  <? if(strlen($show_username) > 0) : ?>
+		  	<a href="<?="javascript:confirm_delete('$show_username')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้อมูล"></a>
+		  <? endif; ?>&nbsp;
+		</td>
+	  </tr>
+	  <? } ?>
+	</table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>
+  &nbsp;
+  <? } // if  count show ?>
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+<!-- Layer for uploading -->
+<div style="position:absolute;width:160;height:160; visibility:hidden; display:none;" id="obj_uploading">
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,29,0" width="160" height="160">
+    <param name="movie" value="images/uploading.swf">
+    <param name="quality" value="high">
+    <embed src="images/uploading.swf" quality="high" pluginspage="http://www.macromedia.com/go/getflashplayer" type="application/x-shockwave-flash" width="160" height="160"></embed>
+  </object>
+</div>
+<!-- Layer for uploading -->
+</html>

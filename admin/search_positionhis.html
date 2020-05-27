@@ -1,0 +1,181 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+	include("php_scripts/function_share.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="search_positionhis.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+  &nbsp;
+<?
+	$cmd = " select PN_NAME, PER_NAME, PER_SURNAME from PER_PERSONAL a, PER_PRENAME b 
+	               where a.PER_ID=$PER_ID and a.PN_CODE=b.PN_CODE ";
+	$db_dpis->send_cmd($cmd);
+	$data = $db_dpis->get_array();
+	$PER_NAME = $data[PN_NAME] . $data[PER_NAME] ." ". $data[PER_SURNAME];
+	
+	$cmd = " select POH_ID from PER_POSITIONHIS where PER_ID=$PER_ID and LEVEL_NO in ('D1', 'D2', 'K4') ";
+	$count_data = $db_dpis->send_cmd($cmd);
+?>
+<table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<td align="center">พบประวัติการดำรงตำแหน่งของ <?=$PER_NAME?> ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+     </tr>
+   </table></td>
+	</tr>
+</table>    
+<?
+		$cmd = "	select POH_ID, POH_EFFECTIVEDATE, POH_ENDDATE, POH_ORG, POH_ORG2, POH_ORG3, PL_CODE, PM_CODE, PT_CODE, 
+						POH_POS_NO, POH_POS_NO_NAME,	MOV_CODE, POH_DOCNO, POH_PM_NAME, POH_PL_NAME, POH_LEVEL_NO
+						from PER_POSITIONHIS 
+	               		where PER_ID=$PER_ID and LEVEL_NO in ('D1', 'D2', 'K4')  
+						order by 	POH_EFFECTIVEDATE desc, POH_SEQ_NO desc ";	
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="4%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td width="20%"><strong><?=$MOV_TITLE?></strong></td>
+      <td width="8%"><strong><?=$DOCNO_TITLE?></strong></td>
+      <td width="8%"><strong><?=$POH_EFFECTIVEDATE_TITLE?></strong></td>
+      <td width="5%"><strong><?=$POS_NO_TITLE?></strong></td>
+      <td><strong><?=$PL_TITLE?></strong></td>
+      <td width="6%"><strong><?=$LEVEL_TITLE?></strong></td>
+      <td width="12%"><strong><?=$DEPARTMENT_TITLE?></strong></td>
+      <td width="15%"><strong><?=$ORG_TITLE?></strong></td>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_POH_ID = trim($data[POH_ID]);
+		$current_list .= ((trim($current_list))?",":"") . $TMP_POH_ID;
+		$TMP_POH_EFFECTIVEDATE = show_date_format($data[POH_EFFECTIVEDATE], $DATE_DISPLAY);
+		$TMP_POH_ENDDATE = show_date_format($data[POH_ENDDATE], $DATE_DISPLAY);
+
+		$TMP_LEVEL_NO = trim($data[POH_LEVEL_NO]);
+		if (!$TMP_LEVEL_NO) $TMP_LEVEL_NO = trim($data[LEVEL_NO]);
+		$cmd = " select LEVEL_NAME, POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$TMP_LEVEL_NO' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_LEVEL_NAME = $data2[LEVEL_NAME];
+		$TMP_POSITION_LEVEL = $data2[POSITION_LEVEL];
+		if (!$TMP_POSITION_LEVEL) $TMP_POSITION_LEVEL = $TMP_LEVEL_NAME;
+		
+		$TMP_POH_POS_NO = (trim($data[POH_POS_NO]))?   $data[POH_POS_NO_NAME].' '.$data[POH_POS_NO] : "-";
+		
+		$TMP_ORG_NAME_2 = $data[POH_ORG2];
+		$TMP_ORG_NAME_3 = $data[POH_ORG3];
+		$TMP_POH_ASS_ORG = $data[POH_ASS_ORG];
+		
+		$TMP_PL_CODE = trim($data[PL_CODE]);
+		$TMP_POH_PL_NAME = trim($data[POH_PL_NAME]);
+		$TMP_PM_CODE = trim($data[PM_CODE]);
+		$TMP_PT_CODE = trim($data[PT_CODE]);
+		$TMP_PN_CODE = $data[PN_CODE];
+		$TMP_EP_CODE = $data[EP_CODE];
+		$TMP_TP_CODE = $data[TP_CODE];
+		$TMP_MOV_CODE = $data[MOV_CODE];
+		$TMP_POH_DOCNO = $data[POH_DOCNO];
+		$TMP_POH_LAST_POSITION = $data[POH_LAST_POSITION];
+		$TMP_POH_SEQ_NO = $data[POH_SEQ_NO];
+		$TMP_AUDIT_FLAG = $data[AUDIT_FLAG];
+
+		$cmd = " select MOV_NAME from PER_MOVMENT where MOV_CODE='$TMP_MOV_CODE' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_MOV_NAME = $data2[MOV_NAME];		
+		$TMP_PL_NAME = "";
+		$cmd = " select PL_NAME from PER_LINE where PL_CODE='$TMP_PL_CODE' ";			
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_PL_NAME = $data2[PL_NAME];
+		if (!$TMP_PL_NAME) $TMP_PL_NAME = $TMP_POH_PL_NAME;
+
+		$cmd = " 	select PM_NAME from PER_MGT	where PM_CODE='$TMP_PM_CODE'  ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_PM_NAME = trim($data2[PM_NAME]);
+
+		$cmd = " 	select PT_NAME from PER_TYPE	where PT_CODE='$TMP_PT_CODE'  ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_PT_NAME = trim($data2[PT_NAME]);
+
+		if ($RPT_N)
+			$TMP_PL_NAME = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)? "$TMP_PL_NAME" : "") . (trim($TMP_PM_NAME) ?")":"");
+		else
+			$TMP_PL_NAME = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)?($TMP_PL_NAME ." ". level_no_format($TMP_LEVEL_NO) . (($TMP_PT_NAME != "ทั่วไป" && $TMP_LEVEL_NO >= 6)?"$TMP_PT_NAME":"")):"") . (trim($TMP_PM_NAME) ?")":"");
+		if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง" || !$TMP_PL_NAME) $TMP_PL_NAME = trim($data[POH_PL_NAME]);
+		if (!$TMP_ORG_NAME_2) $TMP_ORG_NAME_2 = trim($data[POH_ORG]);
+	
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($CP_CODE==$TMP_CP_CODE){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr  class="<?=$class?>" style="cursor:hand;" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_count?></td>
+      <td>&nbsp;<?=$TMP_MOV_NAME?></td>
+      <td>&nbsp;<?=$TMP_POH_DOCNO?></td>
+      <td>&nbsp;<?=$TMP_POH_EFFECTIVEDATE?></td>
+      <td>&nbsp;<?=$TMP_POH_POS_NO?></td>
+      <td>&nbsp;<?=$TMP_PL_NAME?></td>
+      <td>&nbsp;<?=$TMP_POSITION_LEVEL?></td>
+      <td>&nbsp;<?=$TMP_ORG_NAME_2?></td>
+      <td>&nbsp;<?=$TMP_ORG_NAME_3?></td>
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer"  height="25">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+	<?}	// while?>
+  </table>
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<br>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

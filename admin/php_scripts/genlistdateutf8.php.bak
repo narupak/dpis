@@ -1,0 +1,47 @@
+<?php 
+include("../../php_scripts/connect_database.php");
+include("../php_scripts/function_share.php");
+header("content-type: application/x-javascript; charset=TIS-620");
+$abs_startdate =save_date($_GET['abs_startdate']);
+$startperiod =$_GET['startperiod'];
+$abs_enddate =save_date($_GET['abs_enddate']);
+$endperiod =$_GET['endperiod'];
+$ab_code =$_GET['ab_code'];
+$per_id =$_GET['per_id'];
+$cmd = "WITH
+				AllWorkDay As
+				(
+				  select * from (
+					select x.*,(case when TO_CHAR(TO_DATE(x.LISTDATE,'YYYY-MM-DD'), 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') IN ('SAT', 'SUN') then 1 else
+					  case when exists (select null from PER_HOLIDAY where HOL_DATE = x.LISTDATE) then 1 else 0 end end) HOL
+					  , (case when LISTDATE='$abs_startdate' then (case when $startperiod<>2 then 1 else 0.5 end) 
+						else (case when LISTDATE='$abs_enddate' then (case when $endperiod<>1 then 1 else 0.5 end) else 1 end )end) CNT
+					from (
+					  select to_char(LISTDATE,'YYYY-MM-DD') LISTDATE from (
+						SELECT (TO_DATE('$abs_startdate', 'YYYY-MM-DD'))-1+rownum AS LISTDATE FROM all_objects
+						 WHERE (TO_DATE('$abs_startdate', 'YYYY-MM-DD HH24:MI:SS'))-1+ rownum <= TO_DATE('$abs_enddate', 'YYYY-MM-DD')
+					  )
+					) x
+				  )
+				  where (select ab_count from PER_ABSENTTYPE where trim(ab_code)='$ab_code')=1 or HOL=0
+
+				)
+
+				select s.as_id,s.as_year,s.as_cycle,min(LISTDATE) abs_start,max(LISTDATE) abs_end,sum(a.CNT) nday from AllWorkDay a
+				left join PER_ABSENTSUM s on (s.per_id=$per_id and a.LISTDATE between s.start_date and s.end_date)
+				group by s.as_id,s.as_year,s.as_cycle
+				ORDER by abs_start";
+//$db_dpis->send_cmd($cmd);
+
+?>
+<table class="label_normal">
+<?php while ($data = $db_dpis->get_array()) {?>
+<tr>
+	<td nowrap="nowrap">รอบที่ <?php //?> 
+		<input type="text" name="START_DATE_1" value="01/10/2558" class="readonly" readonly="" size="10"> ถึง 
+		<input type="text" name="START_DATE_1" value="01/10/2558" class="readonly" readonly="" size="10"> : 
+		<input type="text" name="START_DATE_1" value="1.5" class="readonly" size="5"> วัน
+	</td>
+</tr>
+<?php }?>
+</table>

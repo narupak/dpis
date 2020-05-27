@@ -1,0 +1,127 @@
+<?php
+	if (!$imgpath) $imgpath = "../images/";
+	$c = strpos($imgpath, "../");
+    if ($c !== false) {
+		$imgpath1 = substr($imgpath, $c+3);
+//	 	echo "1.imgpath1=$imgpath1 [$c]<br>";
+	} else {
+		$imgpath1 = $imgpath;
+//	 	echo "2.imgpath1=$imgpath1<br>";
+	}
+	$outfilename = $imgpath1.$imgname;
+//	unlink($outfilename);
+// 	echo "outimgname=$outfilename<br>";
+
+	if ($command=="UPDATEIMG") {
+		if(is_uploaded_file($BG_PIC)){
+			$tmp_filename = $imgpath1."TMPIMG001.jpg";
+			move_uploaded_file($BG_PIC, $tmp_filename);	
+			$arr_img_attr = getimagesize($tmp_filename);
+//			echo "<pre>"; print_r($arr_img_attr); echo "</pre>";
+			switch($arr_img_attr[2]){
+					case IMAGETYPE_GIF :																	// 1
+					$img = @imagecreatefromgif($tmp_filename);
+					break;
+				case IMAGETYPE_JPEG :																// 2
+					$img = @imagecreatefromjpeg($tmp_filename);
+					break;						
+				case IMAGETYPE_PNG :																// 3
+					$img = @imagecreatefrompng($tmp_filename);
+					break;
+				case IMAGETYPE_BMP :																// 6
+					$img = @imagecreatefrombmp($tmp_filename);
+					break;
+				case IMAGETYPE_WBMP :															// 15
+					$img = @imagecreatefromwbmp($tmp_filename);
+					break;
+				default : 
+//					echo "NOT SUPPORT IMAGE FORMAT<br>";
+					$img = imagecreatefromstring(file_get_contents($tmp_filename));
+					unlink($tmp_filename);
+					imagepng($img, $tmp_filename);
+					imagedestroy($img);
+					$img = @imagecreatefrompng($tmp_filename);
+			} // end switch case
+//			echo "image resource :: $img<br>";
+			unlink($tmp_filename);
+			$convert_success = imagejpeg($img, $outfilename, 100);
+//			echo "convert result :: $convert_success<br>";
+			imagedestroy($img);
+			$img_error = "เปลี่ยนรูป [$outfilename]";
+		}else{
+			$img_error = "ไม่สามารถเปลี่ยนรูปได้";
+		} // end if
+	} // end if ($command=="UPDATEIMG")
+?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb">
+<head>
+<title>Upload Background Images</title>
+<meta http-equiv="content-type" content="text/html;charset=windows-874"/>
+<link href="/web/style.css" rel="stylesheet" type="text/css"/>
+<script src="/web/script.js" type="text/javascript"></script>
+
+<script type="text/jscript">//<![CDATA[
+String.prototype.trim = function() { return this.replace(/^\s+|\s+$/g, ''); };
+
+function set_imgfile() {
+	if(form1.BG_PIC.value.trim() != ''){
+		var picstr = form1.BG_PIC.value.trim();
+		c = picstr.lastIndexOf("\\");
+		form1.imgname.value=picstr.substr(c+1);
+//		alert("imgfile="+form1.imgname.value);
+		form1.command.value='UPDATEIMG'; 
+		return true;
+	}else{ 
+		alert('ระบุรูปใหม่ที่ต้องการเปลี่ยน'); 
+		form1.BG_PIC.focus();
+		return false;
+	}
+}
+
+function call_back() {
+	if (form1.imgname.value) {
+		img = form1.imgname.value;
+		retVal = "0<::>"+img;
+	} else {
+		retVal = "0<::>";
+	}
+	parent.refresh_opener(retVal);
+}
+</script>
+</head>
+
+<body>
+<form name="form1" action="upload_bg.html" method="post" enctype="multipart/form-data">
+
+<input type="hidden" name="command" value="">
+<input type="hidden" name="imgpath" value="<?=$imgpath?>">
+<input type="hidden" name="imgname" value="<?=$imgname?>">
+
+<table>
+	<tr>
+     	<td>รูปพื้นหลัง</td>
+        <? if($imgname) $fullimgname=$imgpath1.$imgname; else $fullimgname=""; ?>
+		<td align="center"><img src="<?=$fullimgname?>" width="30%" height="30%"><br /><?=$fullimgname?>
+		</td>
+        <td height="22" align="center">
+        	<input name="BG_PIC" type="file" class="black_small" value="<?=$BG_PIC?>" size="60">
+		</td>
+		<td height="22" align="center">
+			<input name="Submit1" type="submit" class="button" onClick="set_imgfile()" value="โหลดรูปพื้น">
+        </td>
+	</tr>
+    <tr>
+    	<td></td>
+    	<td></td>
+    	<td></td>
+    	<td>
+			<input name="return_main" type="button" class="button" onClick="call_back()" value="ปิดจอภาพ">
+        </td>
+    </tr>
+</table>
+&nbsp;&nbsp;&nbsp;&nbsp;
+</form>
+</body>
+</html>
+ 

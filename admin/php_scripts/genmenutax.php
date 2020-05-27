@@ -1,0 +1,49 @@
+<?php
+include("../../php_scripts/connect_database.php");
+$db = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+/*ส่วนเพิ่มเติมเรื่องภาษี*/
+$sql="SELECT linkto_web FROM BACKOFFICE_MENU_BAR_LV2 WHERE linkto_web ='import_file.html?form=per_taxhis.php'";
+$count_menu= $db->send_cmd($sql);
+if(!$count_menu){
+    $sqllink_th="INSERT INTO BACKOFFICE_MENU_BAR_LV2(FID, LANGCODE, MENU_ID, MENU_ORDER, MENU_ICON, MENU_LABEL, FLAG_SHOW, TYPE_LINKTO, 
+            LINKTO_WEB, LINKTO_TID, PARENT_ID_LV0, PARENT_ID_LV1, CREATE_DATE, CREATE_BY, UPDATE_DATE, UPDATE_BY) 
+            VALUES(1, 'TH', 458, 20, NULL, 'P1120 นำเข้าข้อมูลหนังสือรับรองการหักภาษี (กรมบัญชีกลาง)', 'S', 'W', 'import_file.html?form=per_taxhis.php', 
+            0, 35, 251, sysdate, 1, sysdate, 1)";
+    $db->send_cmd($sqllink_th);
+    $sqllink_en="INSERT INTO BACKOFFICE_MENU_BAR_LV2(FID, LANGCODE, MENU_ID, MENU_ORDER, MENU_ICON, MENU_LABEL, FLAG_SHOW, TYPE_LINKTO, 
+        LINKTO_WEB, LINKTO_TID, PARENT_ID_LV0, PARENT_ID_LV1, CREATE_DATE, CREATE_BY, UPDATE_DATE, UPDATE_BY) 
+            VALUES (1, 'EN', 458, 20, NULL, 'P1120 นำเข้าข้อมูลหนังสือรับรองการหักภาษี (กรมบัญชีกลาง)', 'S', 'W', 'import_file.html?form=per_taxhis.php', 
+            0, 35, 251, sysdate, 1, sysdate, 1)";
+    $db->send_cmd($sqllink_en);
+    
+    $sql="INSERT INTO user_privilege(group_id,page_id,menu_id_lv0, 
+                    menu_id_lv1,menu_id_lv2,menu_id_lv3,can_add,can_edit,can_del,can_inq,can_print,can_confirm,
+                    can_audit,can_attach) 
+            VALUES(1,1,35,251,458,0,'Y','Y','Y','Y','Y','Y','Y','Y')";
+    $db->send_cmd($sql);
+}
+
+$sql="SELECT linkto_web FROM BACKOFFICE_MENU_BAR_LV2 WHERE linkto_web ='personal_master.html?SEARCHHIS=per_taxhis'";
+$count_menu= $db->send_cmd($sql);
+if(!$count_menu){
+    $sqllink_th="INSERT INTO BACKOFFICE_MENU_BAR_LV2(FID, LANGCODE, MENU_ID, MENU_ORDER, MENU_ICON, MENU_LABEL, FLAG_SHOW, TYPE_LINKTO, 
+                    LINKTO_WEB, LINKTO_TID, PARENT_ID_LV0, PARENT_ID_LV1, CREATE_DATE, CREATE_BY, UPDATE_DATE, UPDATE_BY) 
+          VALUES(1, 'TH', 459, 45, NULL, 'P0145 ประวัติหนังสือรับรองการหักภาษี (กรมบัญชีกลาง)', 'S', 'W', 'personal_master.html?SEARCHHIS=per_taxhis', 
+                    0, 35, 241, sysdate, 1, sysdate, 1)";
+    $db->send_cmd($sqllink_th);
+    $sqllink_en="INSERT INTO BACKOFFICE_MENU_BAR_LV2(FID, LANGCODE, MENU_ID, MENU_ORDER, MENU_ICON, MENU_LABEL, FLAG_SHOW, TYPE_LINKTO, 
+                    LINKTO_WEB, LINKTO_TID, PARENT_ID_LV0, PARENT_ID_LV1, CREATE_DATE, CREATE_BY, UPDATE_DATE, UPDATE_BY) 
+            VALUES(1, 'EN', 459, 45, NULL, 'P0145 ประวัติหนังสือรับรองการหักภาษี (กรมบัญชีกลาง)', 'S', 'W', 'personal_master.html?SEARCHHIS=per_taxhis', 
+            0, 35, 241, sysdate, 1, sysdate, 1)";
+    $db->send_cmd($sqllink_en);
+    $sql="INSERT INTO user_privilege(group_id,page_id,menu_id_lv0, 
+                    menu_id_lv1,menu_id_lv2,menu_id_lv3,can_add,can_edit,can_del,can_inq,can_print,can_confirm,
+                    can_audit,can_attach) 
+            VALUES(1,1,35,241,459,0,'Y','Y','Y','Y','Y','Y','Y','Y')";
+    $db->send_cmd($sql);
+    
+}
+
+/**/
+?>

@@ -1,0 +1,199 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+
+	$cmd = " select PJ_NAME from PER_PROJECT where PJ_ID = $PJ_ID ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$PJ_NAME = $data[PJ_NAME];
+
+	$parent_list = "";
+	list_parent($PJ_ID, $PJ_ID_REF);
+
+	function list_tree_pj ($pre_image, $pj_parent, $sel_pj_id, $tree_depth) {
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $LIST_OPENED_PJ, $PJ_ID, $PJ_YEAR, $DEPARTMENT_ID;
+		
+		$opened_pj = substr($LIST_OPENED_PJ, 1, -1);
+		$arr_opened_pj = explode(",", $opened_pj);
+		
+		$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		
+		$cmd = " select 	PJ_ID , PJ_NAME, PJ_ID_REF 
+				   from 		PER_PROJECT 
+				   where 	".(trim($pj_parent)?"PJ_ID_REF = $pj_parent":"(PJ_ID_REF = 0 or PJ_ID_REF is null)")." and PJ_ID not in ($PJ_ID)
+						 	and PJ_YEAR='$PJ_YEAR' and DEPARTMENT_ID=$DEPARTMENT_ID
+				  order by 	PJ_NAME 
+				";
+		$count_data = $db_dpis->send_cmd($cmd);
+//		echo "$cmd<br>";
+//		$db_dpis->show_error();
+		if($count_data){
+			echo "<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"label_normal\">";		
+			while($data = $db_dpis->get_array()){
+				$cmd = " select PJ_ID from PER_PROJECT where PJ_ID not in ($PJ_ID) and PJ_ID_REF=". $data[PJ_ID];
+				$count_sub_tree = $db_dpis2->send_cmd($cmd);
+
+				$class = "table_body";
+				if($data[PJ_ID] == $sel_pj_id) $class = "table_body_over";
+				$icon_name = "icon_plus.gif";
+				$onClick = "add_opened_pj(". $data[PJ_ID] .");";
+				if(in_array($data[PJ_ID], $arr_opened_pj)){ 
+					$icon_name = "icon_minus.gif";
+					$onClick = "remove_closed_pj(". $data[PJ_ID] .");";
+				} // end if
+				if(!$count_sub_tree) $icon_name = "";
+				echo "<tr>";
+				echo "<td width=\"15\" align=\"center\"><img src=\"images/$icon_name\" width=\"9\" height=\"9\" onClick=\"$onClick\" style=\"cursor:hand;\"></td>";
+				echo "<td class=\"$class\" height=\"22\">&nbsp;<span onClick=\"select_pj(". $data[PJ_ID] .",". ($data[PJ_ID_REF] + 0) .");\" style=\"cursor:hand\">" . $data[PJ_NAME] . "</span></td>";
+				echo "</tr>";
+				
+				if($count_sub_tree && in_array($data[PJ_ID], $arr_opened_pj)){
+					echo "<tr>";
+					echo "<td width=\"15\" align=\"center\"></td>";
+					echo "<td>";
+					$display = "none";
+					if(in_array($data[PJ_ID], $arr_opened_pj)) $display = "block";
+					echo "<div id=\"DIV_". $data[PJ_ID] ."\" style=\"display:$display\">";
+					list_tree_pj("", $data[PJ_ID], $sel_pj_id, ($tree_depth + 1));
+					echo "</div>";
+					echo "</td>";
+					echo "</tr>";
+				} // end if
+			} // end while						
+			echo "</table>";
+		} // end if
+	} // function
+
+	function list_parent($PJ_ID, $PJ_ID_REF){
+		global $dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port;
+		global $parent_list, $PJ_YEAR;
+		
+		$db_dpis = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+		
+		if(!$PJ_ID_REF){
+			return;
+		}else{
+			$cmd = " select PJ_NAME, PJ_ID_REF from PER_PROJECT where PJ_ID=$PJ_ID_REF ";
+			$db_dpis->send_cmd($cmd);
+			$data = $db_dpis->get_array();
+			if($parent_list) $parent_list = " > " . $parent_list;
+			$parent_list = $data[PJ_NAME] . $parent_list;
+			
+			$PJ_ID = $PJ_ID_REF;
+			$PJ_ID_REF = $data[PJ_ID_REF];
+			
+			list_parent($PJ_ID, $PJ_ID_REF);
+		} // end if
+	} // function
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function select_pj(pj_id, pj_id_ref){
+		var returnValue = pj_id + "<::>" + pj_id_ref;
+		parent.refresh_opener(returnValue);
+	}
+
+	function add_opened_pj(opened_pj_id){
+		opened_pj = form1.LIST_OPENED_PJ.value;
+		if(opened_pj==""){
+			opened_pj = "," + opened_pj_id + ",";
+		}else{
+			opened_pj += (opened_pj_id + ",");
+		}
+		form1.LIST_OPENED_PJ.value = opened_pj;
+	//	alert(form1.LIST_OPENED_PJ.value);
+	//	form1.PJ_ID.value = opened_pj_id;
+	//	form1.PJ_ID_REF.value = "";
+		form1.submit();
+	}
+	
+	function remove_closed_pj(closed_pj_id){
+		opened_pj = form1.LIST_OPENED_PJ.value;
+		if(opened_pj==""){
+			opened_pj = "";
+		}else{
+			search_str = "," + closed_pj_id + ",";
+			pos = opened_pj.indexOf(search_str);
+	//		alert(pos);
+			opened_pj = opened_pj.substring(0, pos) + opened_pj.substring((pos + search_str.length - 1), opened_pj.length);
+			if(opened_pj=="," || opened_pj==",,") opened_pj = "";
+		}
+		form1.LIST_OPENED_PJ.value = opened_pj;	
+	//	alert(form1.LIST_OPENED_PJ.value);
+	//	form1.PJ_ID.value = form1.PJ_ID_REF.value;
+	//	form1.PJ_ID_REF.value = "";
+		form1.submit();
+	}
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="pj_pj_parent.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PJ_ID_REF" value="<?=$PJ_ID_REF?>">
+          <input type="hidden" name="PJ_ID" value="<?=$PJ_ID?>">
+          <input type="hidden" name="LIST_OPENED_PJ" value="<?=$LIST_OPENED_PJ?>">
+		  <input type="hidden" name="PJ_YEAR" value="<?=$PJ_YEAR?>">
+          <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+          <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+&nbsp;
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr>
+      <td height="21"><table width="100%" border="0" cellpadding="1" cellspacing="1" class="input_table">
+        <tr>
+          <td width="20%" align="right" height="25"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+          <td width="30%"><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:85%" class="textbox" readonly></td>
+          <td width="20%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+          <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:85%" class="textbox" readonly></td>
+        </tr>
+      </table></td>
+    </tr>
+    <tr class="table_head">
+      <td height="21">&nbsp;<?=$PJ_NAME?></td>
+    </tr>
+	<tr>
+	  <td height="21">ระดับโครงการปัจจุบัน : <?=$parent_list?></td>
+	</tr>
+    <tr class="table_body">
+	  <td height="21" align="center"><table width="98%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <?
+						$class = "table_body";
+						if(!$PJ_ID) $class = "table_body_over";
+				  ?>
+          <td height="22" class="<?=$class?>">&nbsp;<span onClick="select_pj(0,0);" style="cursor:hand;">โครงการ <?=$YEAR_TITLE?> <?=$PJ_YEAR?></span></td>
+        </tr>
+        <tr>
+          <td height="22"><? list_tree_pj("", 0, $PJ_ID_REF, 1); ?></td>
+        </tr>
+      </table></td>
+	</tr>
+  </table>
+   
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center" class="menu_inactive"><span style="cursor:hand; " onClick="window.parent.close(); self.close();"><?=$CLOSE_WINDOW_TITLE?></span></td>
+    </tr>
+  </table>
+  &nbsp;
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+</html>

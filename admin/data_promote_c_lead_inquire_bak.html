@@ -1,0 +1,295 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	
+	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;	
+	
+	if ($PER_TYPE == 1)			{ $arr_search_from[] = "PER_POSITION b";   	$field_position = ", PL_CODE"; }
+	$search_condition = $search_from = "";
+	if(count($arr_search_from))			$search_from			= ", " . implode(", ", $arr_search_from);
+	if(count($arr_search_condition)) 	$search_condition 	= "and " . implode(" and ", $arr_search_condition);	
+
+	$cmd = " 	select 		b.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, a.LEVEL_NO as LEVEL_FILL, b.LEVEL_NO as LEVEL_NOW, b.POS_ID, c.PL_CODE, b.PER_SALARY, c.ORG_ID, c.ORG_ID_1, 
+									min(POH_EFFECTIVEDATE) as POH_EFFECTIVEDATE
+					from			PER_POSITIONHIS a, PER_PERSONAL b, PER_POSITION c  
+					where		a.MOV_CODE in ('101', '10110', '10120', '10130', '10140', '105', '10510', '10520')  and 
+									((a.LEVEL_NO='1' and b.LEVEL_NO='1') or (a.LEVEL_NO='2' and b.LEVEL_NO='2') or (a.LEVEL_NO='3' and b.LEVEL_NO='3')) and   
+									PER_TYPE=1 and PER_STATUS=1 and  
+									a.PER_ID=b.PER_ID and b.POS_ID=c.POS_ID 
+					group by   b.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, a.LEVEL_NO, b.LEVEL_NO, b.POS_ID, c.PL_CODE, b.PER_SALARY, c.ORG_ID, c.ORG_ID_1
+					order by  	ORG_ID, ORG_ID_1, LEVEL_FILL, c.PL_CODE, LEVEL_NOW, PER_NAME, PER_SURNAME ";
+	$db_dpis->send_cmd($cmd);
+	$count_data = "";
+	while ($data = $db_dpis->get_array()) {
+		$amnt_year = "";
+		$tmp_date = explode("-", $data[POH_EFFECTIVEDATE]);
+		$amnt_year = mktime(0 , 0 , 0, 10, 01, ($PRO_YEAR-543)) - mktime(0, 0, 0, $tmp_date[1], substr($tmp_date[2],0,2), $tmp_date[0]); 
+		$amnt_year = (($amnt_year / 86400) / 365);
+		if ($amnt_year < 2.0)  	continue; 	
+		else							 	$count_data += 1;
+	} 
+	//$db_dpis->show_error();
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(PER_ID , en_name){
+		if(confirm("ต้องการลบประวัติการศึกษานี้ใช่หรือไม่ [ " + en_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.PER_ID.value = PER_ID;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_person () {	
+		parameter = "";
+		childReturn = window.showModalDialog("search_person_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.PER_ID.value = arrValue[0];
+			form1.submit();
+		} // end if
+	}	
+</script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="black_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top"><? $OPTIONAL_TITLE=""; include("current_location.html");?></td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_promote_c_lead_inquire.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+        &nbsp;&nbsp; 
+        <table width="90%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="black_normal">
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="black_normal">
+                      <tr> 
+                        <td width="20%" height="22" align="right">ประจำปีงบประมาณ&nbsp;&nbsp;</td>
+                        <td width="30%"><input type="text" name="PRO_YEAR" value="<?=$PRO_YEAR?>" class="textbox" onKeyPress="DigitOnly();" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                        <td width="20%" align="center"> 
+				  <input name="Reset" type="reset" class="button" value="เคลียร์"> 
+				  <input name="Submit1" type="submit" class="button" onClick="form1.command.value='SEARCH';" value="ค้นหา">			   
+			   </td>
+                      </tr>
+                    </table></td>
+        </tr>
+        <tr>
+          <td height="5"></td>
+          </tr>
+        <tr>
+      </table></td>
+    </tr>
+  </table> 
+    <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr height="22">
+<!--              <td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+              <td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+<!--              <td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+            </tr>
+          </table>  
+	</td></tr>
+</table>  
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and (trim(PRO_YEAR) + trim(PRO_TYPE) + trim(a.PER_ID)) not in (select top $start_record (trim(PRO_YEAR) + trim(PRO_TYPE) + trim(PER_ID)) from PER_PROMOTE_C where PRO_TYPE=1 and PRO_YEAR='$PRO_YEAR' order by PER_ID) ";
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = "	select		top $data_per_page 
+										a.PER_ID, b.PN_CODE, b.PER_NAME, b.PER_SURNAME, LEVEL_NO,  
+										PER_SALARY, POS_ID, POEM_ID, PER_TYPE 
+						from			PER_PROMOTE_C a, PER_PERSONAL b 
+						where		PRO_TYPE=1 and PRO_YEAR='$PRO_YEAR' and a.PER_ID=b.PER_ID 
+										$search_condition
+										$limit_data
+						order by	PER_NAME, PER_SURNAME";	
+	}elseif($DPISDB=="oci8"){
+		$tmp1 = $current_page * $data_per_page;
+		$tmp2 = ($current_page - 1) * $data_per_page;
+		$cmd = "select * from (
+					select alist.*, rownum  rnum from (	
+							select 		b.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, a.LEVEL_NO as LEVEL_FILL, b.LEVEL_NO as LEVEL_NOW, b.POS_ID, c.PL_CODE, b.PER_SALARY, c.ORG_ID, c.ORG_ID_1, 
+										   	min(POH_EFFECTIVEDATE) as POH_EFFECTIVEDATE
+							from			PER_POSITIONHIS a, PER_PERSONAL b, PER_POSITION c  
+							where		a.MOV_CODE in ('101', '10110', '10120', '10130', '10140', '105', '10510', '10520')  and 
+											((a.LEVEL_NO='1' and b.LEVEL_NO='1') or (a.LEVEL_NO='2' and b.LEVEL_NO='2') or (a.LEVEL_NO='3' and b.LEVEL_NO='3')) and   
+											PER_TYPE=1 and PER_STATUS=1 and  
+											a.PER_ID=b.PER_ID and b.POS_ID=c.POS_ID 
+							group by   b.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, a.LEVEL_NO, b.LEVEL_NO, b.POS_ID, c.PL_CODE, b.PER_SALARY, c.ORG_ID, c.ORG_ID_1
+							order by  	ORG_ID, ORG_ID_1, LEVEL_FILL, c.PL_CODE, LEVEL_NOW, PER_NAME, PER_SURNAME 	  ) 
+						alist
+					where rownum <= $tmp1
+				) where rnum > $tmp2   ";						
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="black_normal">
+    <tr align="center" class="table_head">
+	  <td width="5%" height="23"><strong>ลำดับที่</strong></td>
+      <td width="18%"><strong>สำนัก/กอง</strong></td>
+      <td width="18%"><strong>ต่ำกว่าสำนัก/กอง 1 ระดับ</strong></td>
+      <td><strong>ชื่อ-สกุล</strong></td>
+      <td width="11%"><strong>วันที่เข้าสู่ระดับ</strong></td>
+      <td width="10%"><strong>ขั้นเงินเดือน</strong></td>
+      <td width="12%">ตำแหน่งเดิม</td>
+	  <td width="12%">ตำแหน่งใหม่</td>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_number = ($data_per_page * ($current_page-1));
+
+	while ($data = $db_dpis->get_array()) {
+		$tmp = $amnt_year = "";
+		$tmp_date = explode("-", $data[POH_EFFECTIVEDATE]);
+		$amnt_year = mktime(0 , 0 , 0, 10, 01, ($PRO_YEAR-543)) - mktime(0, 0, 0, $tmp_date[1], substr($tmp_date[2],0,2), $tmp_date[0]); 
+		$amnt_year = (($amnt_year / 86400) / 365);
+$TMP_PER_NAME = trim($data[PER_NAME]) . " " . trim($data[PER_SURNAME]);
+echo "$TMP_PER_NAME = " . (($PRO_YEAR+1)-543) ."-09-30 ลบ ". $data[POH_EFFECTIVEDATE] ." == " ;
+echo mktime(0 , 0 , 0, 09, 30, (($PRO_YEAR)-543)) ." ลบ ". mktime(0, 0, 0, $tmp_date[1], substr($tmp_date[2],0,2), $tmp_date[0]) . " == ";	
+echo "$amnt_year == $tmp<br>";
+
+		if ($amnt_year < 2.0)  	continue; 	
+		else								$data_count++;
+
+		$POH_EFFECTIVEDATE = substr($tmp_date[2],0,2) ."/". $tmp_date[1] ."/". ($tmp_date[0] + 543);
+		$check_date = mktime(0, 0, 0, $tmp_date[1] + 24, substr($tmp_date[2],0,2), $tmp_date[0]);
+		$check_date = date("Y-m-d", $before_cmd_date);
+	
+		$data_number++;
+echo "data_count=$data_count | data_per_page=$data_per_page<br>";		
+		if($data_count > $data_per_page) break;
+		$TMP_PER_ID = $data[PER_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PER_ID;
+		$TMP_PER_NAME = trim($data[PER_NAME]) . " " . trim($data[PER_SURNAME]);
+		$POS_DATE = trim($data[POS_DATE]);
+		$PER_SALARY = number_format(trim($data[PER_SALARY]), 2, '.', ',');
+		$PER_TYPE = trim($data[PER_TYPE]);
+		$LEVEL_NOW = trim($data[LEVEL_NOW]);
+
+		$PN_CODE = trim($data[PN_CODE]);
+		$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$PN_CODE' ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$PN_NAME = trim($data1[PN_NAME]);
+
+		$PL_CODE = trim($data[PL_CODE]);
+		$cmd = " select PL_NAME from PER_LINE where PL_CODE='$PL_CODE' ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$POSITION_NAME = (trim($data1[PL_NAME]))? trim($data1[PL_NAME]) : "";
+		
+		$POS_ID = trim($data[POS_ID]);
+		$cmd = " 	select ORG_ID, ORG_ID_1 from PER_POSITION where POS_ID=$POS_ID ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$ORG_ID = trim($data1[ORG_ID]);
+		$ORG_ID_1 = trim($data1[ORG_ID_1]);
+		if ($ORG_ID || $ORG_ID_1) {
+			$ORG_NAME = $ORG_NAME_1; 
+			$cmd = " select ORG_ID, ORG_NAME from PER_ORG where ORG_ID in ($ORG_ID, $ORG_ID_1) ";
+			$db_dpis1->send_cmd($cmd);
+			while ($data1 = $db_dpis1->get_array() ) {
+				$ORG_NAME 	= ($ORG_ID == trim($data1[ORG_ID]))?		trim($data1[ORG_NAME]) : $ORG_NAME;
+				$ORG_NAME_1 	= ($ORG_ID_1 == trim($data1[ORG_ID]))?		trim($data1[ORG_NAME]) : $ORG_NAME_1;
+			}
+		}		
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PER_ID==$TMP_PER_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if	
+?>
+
+	<tr class="<?=$class?>" <?=$onmouse_event?>>
+		  <td height="25" align="center"><?=$data_number?></td>
+		  <td>&nbsp;<?=$ORG_NAME?></td>
+		  <td>&nbsp;<?=$ORG_NAME_1?></td>
+		  <td>&nbsp;<?="$PN_NAME$TMP_PER_NAME"?></td>
+		  <td align='center'>&nbsp;<?=$POH_EFFECTIVEDATE?></td>
+		  <td align='right'><?=$PER_SALARY?>&nbsp;</td>
+		  <td>&nbsp;<?=($POSITION_NAME)? "$POSITION_NAME $LEVEL_NOW" : ""; ?></td>
+		  <td>&nbsp;<?=($POSITION_NAME)? "$POSITION_NAME " . ($LEVEL_NOW + 1) : ""; ?></td>
+  	</tr>
+<? } // while?>
+
+	<? if($PAGE_AUTH["edit"]=="Y"){ ?>
+    <tr class='table_footer' height='21'>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>
+	  <td>&nbsp;</td>	  
+	</tr>
+	<? } ?>
+	</table>
+  
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="black_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>
+  &nbsp; 
+
+<? } // if ($count_page_data) ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+</html>

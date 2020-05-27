@@ -1,0 +1,463 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_retire_comdtl.php");
+	
+	//$COM_PER_TYPE = (trim($COM_PER_TYPE))? $COM_PER_TYPE : 1;
+	
+	$cmd =" select 		PER_ID
+					from 		PER_COMDTL
+					where		COM_ID=$COM_ID
+					order by CMD_SEQ  ";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";		
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<!-- <link rel="stylesheet" href="stylesheets/style<?=$RPT_N?>.css" type="text/css">-->
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function confirm_add() {
+	if(form1.COM_NO.value=="") {
+		alert("กรุณาระบุ คำสั่งเลขที่");
+		form1.COM_NO.focus();
+		return false;
+		} 
+		else if(form1.COM_TYPE_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทคำสั่ง");
+		form1.COM_TYPE_NAME.focus();
+		return false;
+		}
+		else  {	
+		form1.command.value = "ADD";
+		return true;
+	}
+	}
+	
+	function confirm_update() {
+	if(form1.COM_NO.value=="") {
+		alert("กรุณาระบุ คำสั่งเลขที่");
+		form1.COM_NO.focus();
+		return false;
+		} 
+		else if(form1.COM_TYPE_NAME.value=="") {
+		alert("กรุณาระบุ ประเภทคำสั่ง");
+		form1.COM_TYPE_NAME.focus();
+		return false;
+		}
+		else  {	
+		form1.command.value = "UPDATE";
+		return true;
+		}
+	}
+
+	function confirm_command() {
+		if (confirm("ต้องการยืนยันบัญชีแนบท้ายคำสั่งออกจากราชการ ใช่หรือไม่ ?")) {
+			form1.command.value = "COMMAND";
+			return true;			
+		} else {
+			return false;
+		}
+	}
+
+	function confirm_delete(com_id , com_name){
+		if(confirm("ต้องการลบบัญชีแนบท้ายคำสั่งออกจากราชการนี้ ่ [ " + com_name + " ] ใช่หรือไม ?")){
+			form1.command.value = "DELETE_COMMAND";
+			form1.COM_ID.value = com_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function confirm_delete_per(per_id , per_name){
+		if(confirm("ต้องการลบข้าราชการ/ลูกจ้างแนบท้ายบัญชีคำสั่งออกจากราชการนี้  [ " + per_name + " ] ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE_COMDTL";
+			form1.PER_ID.value = per_id;
+			form1.submit();
+		} // end if
+	}		
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_comtype (code, name) {	
+		var type_code = eval("form1." + code);
+		var type_name = eval("form1." + name);		
+		parameter = "";
+		childReturn = window.showModalDialog("search_com_type_frame.html?COM_GROUP=06&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.COM_TYPE.value = arrValue[0];
+			form1.COM_TYPE_NAME.value = arrValue[1];
+		} // end if
+	}
+	
+	function call_data_command() {	
+		for(var i=0; i < form1.COM_PER_TYPE.length; i++){
+			if(form1.COM_PER_TYPE[i].checked == true){
+				var PER_TYPE=form1.COM_PER_TYPE[i].value;
+			}
+		}
+		parameter = "";
+		if(PER_TYPE){	parameter += "&PER_TYPE="+PER_TYPE; }
+		var COM_SITE = "data_retire_comdtl";
+		var COM_TYPE_NM="ออกจากส่วนราชการ";
+		var COM_GROUP_IN  = "'06','511'";
+		if(COM_SITE){	parameter += "&COM_SITE="+COM_SITE; }
+		if(COM_TYPE_NM){	parameter += "&COM_TYPE_NM="+COM_TYPE_NM; }
+		if(COM_GROUP_IN){	parameter += "&COM_GROUP_IN="+COM_GROUP_IN; }
+		childReturn = window.showModalDialog("data_req_command_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 680px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");			
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.COM_ID.value = arrValue[0];
+			form1.COM_NAME.value = arrValue[1];
+			form1.current_page.value = 1;
+			buff="";
+			if (arrValue[2]){
+				buff="&ORG_ID="+arrValue[2];
+			}
+			buff1=form1.action;
+			if(arrValue[3]){
+				form1.action=form1.action+arrValue[3]+buff;
+			}
+			//---------------
+			form1.submit();
+			form1.action=buff1;
+		} // end if 
+	}
+
+	function send_command() {
+		if (confirm("ต้องการส่งบัญชีแนบท้ายคำสั่งออกจากส่วนราชการ ใช่หรือไม่?")) {
+			form1.command.value = "SEND";
+			form1.current_page.value = 1;				
+			ProcessUploading();
+			return true;
+		} else {
+			return false;
+		}
+	}	
+		
+	function call_edit_data_comdtl_form(com_id, per_id) {	
+		for(var i=0; i < form1.COM_PER_TYPE.length; i++){
+			if(form1.COM_PER_TYPE[i].checked == true){
+				var PER_TYPE=form1.COM_PER_TYPE[i].value;
+			}
+		}
+		parameter = "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		if(PER_TYPE){	parameter += "&PER_TYPE="+PER_TYPE; }
+		childReturn = window.showModalDialog("data_retire_comdtl_form_frame.html?UPD=1&COM_ID=" + com_id + "&PER_ID=" + per_id + "&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			form1.submit();
+		} // end if 
+	}
+	
+	function call_view_data_comdtl_form(com_id, per_id) {	
+		parameter = "&MINISTRY_ID=<?=$MINISTRY_ID?>&DEPARTMENT_ID=<?=$DEPARTMENT_ID?>";
+		childReturn = window.showModalDialog("data_retire_comdtl_form_frame.html?VIEW=1&COM_ID=" + com_id + "&PER_ID=" + per_id + "&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 800px; dialogWidth: 1100px; status: No; resizable: No; help: No; statusbar: No;");		
+		if(childReturn){
+			form1.submit();
+		} // end if 
+	}	
+
+	function call_pdf_report() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_retire_comdtl<?=$RPT_N ?>.php?report_title=" + report_title;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_retire_comdtl.html";
+	} 
+	
+	function call_export_file() {
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_retire_comdtl_xls<?=$RPT_N ?>.php?report_title=" + report_title;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_retire_comdtl.html";
+	}
+	
+	function call_select_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_select_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.MINISTRY_ID.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert("กรุณาเลือกกระทรวง (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกระทรวง");
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}		
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.DEPARTMENT_ID.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.search_org_id.value = arrValue[0];
+				form1.search_org_name.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert("กรุณาเลือกกรม (กำหนดค่าเริ่มต้นหน่วยงาน)");
+			<? }else{ ?>
+			alert("กรุณาเลือกกรม");
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_retire_comdtl2.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="COM_ID" value="<?=$COM_ID?>">		  
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+          <input type="hidden" name="COM_CONFIRM" value="<?=$COM_CONFIRM?>">
+       	  <input type="hidden" name="COM_GROUP_IN" value="<?=$COM_GROUP_IN?>">
+       	  <input type="hidden" name="COM_SITE" value="<?=$COM_SITE?>">
+       	  <input type="hidden" name="COM_TYPE_NM" value="<?=$COM_TYPE_NM?>">
+
+  &nbsp;
+<table width="90%" border="0" align="center" cellpadding="0" cellspacing="0">
+	<tr>
+	  <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+     <tr height="22">
+	<? if($COM_ID){ ?>
+	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_report" type="button" class="button" value="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+      <?  } else { ?>
+      <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE?>" onClick="call_pdf_report();">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td>
+	<? } // end if ?>
+	<td align="center">พบข้อมูล<?=$MENU_TITLE_LV2?>ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+	<? if($COM_ID){ ?>
+	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+	  <? if ($BUTTON_DISPLAY==1) { ?>
+      <input name="btn_export" type="button" class="button" value="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <?  } else { ?>
+      <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE?>" onClick="call_export_file();">
+      <? } ?>      <? }else{ echo "&nbsp;"; } ?></td>
+	<? } // end if ?>
+     </tr>
+   </table></td>
+	</tr>
+</table>  
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and PER_ID not in (select top $start_record PER_ID from PER_COMDTL where COM_ID=$COM_ID order by CMD_SEQ) ";
+		}elseif($DPISDB=="mysql"){
+		  $limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		} // end if
+	} // end if 
+
+	if($DPISDB=="odbc"){
+		$cmd = "	select		top $data_per_page 
+										a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, CMD_POSITION, CMD_ORG3, a.CMD_LEVEL 
+						from			PER_COMDTL a, PER_PERSONAL b
+						where		COM_ID=$COM_ID and a.PER_ID=b.PER_ID 
+										$limit_data
+					order by 	CMD_SEQ 	";	
+	}elseif($DPISDB=="oci8"){
+		$tmp1 = $current_page * $data_per_page;
+		$tmp2 = ($current_page - 1) * $data_per_page;
+		$cmd = "select * from (
+					select alist.*, rownum  rnum from (	
+						select		a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, CMD_POSITION, CMD_ORG3, a.CMD_LEVEL 
+						from			PER_COMDTL a, PER_PERSONAL b
+						where		COM_ID=$COM_ID and a.PER_ID=b.PER_ID 
+						order by 	CMD_SEQ  ) 
+						alist
+					where rownum <= $tmp1
+				) where rnum > $tmp2   ";						
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	select		a.PER_ID, b.PN_CODE, PER_NAME, PER_SURNAME, CMD_POSITION, CMD_ORG3, a.CMD_LEVEL 
+						from			PER_COMDTL a, PER_PERSONAL b
+						where		COM_ID=$COM_ID and a.PER_ID=b.PER_ID 
+						order by 	CMD_SEQ
+							$limit_data ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+  <table width="90%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="7%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td height="25"><?=$FULLNAME_TITLE?></td>
+      <td width="28%"><?=$CMD_POSITION_TITLE;?> (เดิม)</td>
+      <td width="28%"><strong><?=$ORG_TITLE;?> (เดิม)</strong></td>      
+	  <td width="4%"><?=$INQ_TITLE?></td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?>
+      <td width="4%"><?=$EDIT_TITLE?></td>
+      <?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?>
+      <td width="4%"><?=$DEL_TITLE?></td>
+      <?}?>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	$data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		$data_num++;
+		if($data_count > $data_per_page) break;
+		$TMP_PER_ID= $data[PER_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_PER_ID;
+		$TMP_CMD_SEQ = $data[CMD_SEQ];
+		$TMP_PER_NAME = $data[PER_NAME] ." ". $data[PER_SURNAME];
+		
+		if($DPISDB=="mysql"){
+			$temp_pos = explode("|", trim($data[CMD_POSITION]));
+		}else{
+			$temp_pos = explode("\|", trim($data[CMD_POSITION]));
+		}
+		$TMP_PL_NAME = $temp_pos[1];
+		$TMP_CMD_LEVEL = trim($data[CMD_LEVEL]);
+		$cmd = " select LEVEL_NAME, POSITION_LEVEL from PER_LEVEL where LEVEL_NO='$TMP_CMD_LEVEL' ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$LEVEL_NAME = $data2[LEVEL_NAME];
+		$POSITION_LEVEL = $data2[POSITION_LEVEL];
+		if (!$POSITION_LEVEL) $POSITION_LEVEL = $LEVEL_NAME;
+		
+		if ($RPT_N)
+		    $TMP_POSITION = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)? "$TMP_PL_NAME$POSITION_LEVEL" : "") . (trim($TMP_PM_NAME) ?")":"");
+		else
+		    $TMP_POSITION = (trim($TMP_PM_NAME) ?"$TMP_PM_NAME (":"") . (trim($TMP_PL_NAME)?($TMP_PL_NAME ." ". level_no_format($TMP_CMD_LEVEL) . (($TMP_PT_CODE != "11" && $TMP_CMD_LEVEL >= 6)?"$TMP_PT_NAME":"")):"") . (trim($TMP_PM_NAME) ?")":"");
+		$TMP_ORG = $data[CMD_ORG3];
+	
+		$PN_CODE = trim($data[PN_CODE]);
+		$cmd = " select PN_NAME from PER_PRENAME where PN_CODE='$PN_CODE' ";
+		$db_dpis1->send_cmd($cmd);
+		$data1 = $db_dpis1->get_array();
+		$PN_NAME = trim($data1[PN_NAME]);
+		
+		$returnValue = "!<::>!<::>!<::>!<::>$TMP_PER_ID<::>$count_data";
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($PER_ID==$TMP_PER_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+    <tr class="<?=$class?>" <?=$onmouse_event?>>
+      <td height="25" align="center"><?=$data_num?></td>
+      <td>&nbsp;<?="$PN_NAME$TMP_PER_NAME"?></td>
+      <td>&nbsp;<?=$TMP_POSITION?></td>
+      <td>&nbsp;<?=$TMP_ORG?></td>
+	  <? $returnValueA=""; $VIEW='?VIEW=1';	$returnValueA="3<::>".$returnValue."<::>$VIEW"; ?>
+      <td align="center">&nbsp;<a href="<?="javascript:parent.refresh_opener('$returnValueA');"?>"><img src="images/icon_eye.gif" alt="ดูข้าราชการ/ลูกจ้าง ยืนยันบัญชีแนบท้ายคำสั่งออกจากราชการ" width="16" height="16" border="0"></a></td>
+<?if($PAGE_AUTH["edit"]=="Y") { 
+	if($COM_CONFIRM==1 || ($COM_STATUS=="S" && $SESS_USERGROUP_LEVEL >= 5)) {
+      echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	} else {?>
+	  <? $returnValueA="";  $UPD='?UPD=1';	$returnValueA="3<::>".$returnValue."<::>$UPD";  ?>
+      <td align="center">&nbsp;<a href="<?="javascript:parent.refresh_opener('$returnValueA');"?>"><img src="images/b_edit.png" border="0" alt="แก้ไขข้าราชการ/ลูกจ้าง ยืนยันบัญชีแนบท้ายคำสั่งออกจากราชการ"></a></td>
+<?}
+}?>
+<?if($PAGE_AUTH["del"]=="Y") { 
+	if($COM_CONFIRM==1 || ($COM_STATUS=="S" && $SESS_USERGROUP_LEVEL >= 5)) {
+      echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	} else {?>
+      <td align="center"><a href="<?="javascript:confirm_delete_per($TMP_PER_ID,'$PN_NAME$TMP_PER_NAME')"?>"><img src="images/b_drop.png" border="0" alt="ลบข้าราชการ/ลูกจ้าง ยืนยันบัญชีแนบท้ายคำสั่งออกจากราชการ"></td>
+<?}
+}?>  
+    </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+      <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="90%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+  <? endif; ?>&nbsp;
+  <? } // if  count show ?>
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<?=$alert_adding_command?>
+</script>
+</html>

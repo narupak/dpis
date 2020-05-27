@@ -1,0 +1,437 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/function_list.php");
+	include("php_scripts/load_per_control.php");
+
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	$UPDATE_DATE = date("Y-m-d H:i:s");	
+	
+	$PER_TYPE = (trim($PER_TYPE))? $PER_TYPE : 1;
+	if ($PER_TYPE == 1) {
+		$field1 = "POS_NO as PNO,POS_NO_NAME as PNONAME, PL_NAME as PNAME ";
+		$field = "PRO_DATE as PDATE, POS_ID as PID";
+		$table = "PER_PROMOTE_P";
+		$cmd_position = "	select  $field1 from PER_POSITION a, PER_LINE b 
+									where a.PL_CODE=b.PL_CODE and POS_ID=";
+		$field_limit_data = "(PRO_DATE + POS_ID + PER_ID)";
+		$orderby = "PRO_DATE, POS_ID";		
+		
+		if (trim($POS_POEM_ID)) $arr_search_condition[] = "(POS_ID = $POS_POEM_ID)";
+	} elseif ($PER_TYPE == 2) {
+		$field1 = "POEM_NO as PNO, POEM_NO_NAME as PNONAME, PN_NAME as PNAME ";
+		$field = "PRO_DATE as PDATE, POEM_ID as PID"; 
+		$table = "PER_PROMOTE_E";
+		$cmd_position = "	select  $field1 from PER_POS_EMP a, PER_POS_NAME b
+									where a.PN_CODE=b.PN_CODE and POEM_ID=";
+		$field_limit_data = "(PRO_DATE + POEM_ID + PER_ID)";
+		$orderby = "PRO_DATE, POEM_ID";
+
+		if (trim($POS_POEM_ID)) $arr_search_condition[] = "(POEM_ID = $POS_POEM_ID)";
+	} elseif ($PER_TYPE == 3) {
+		$field1 = "POEMS_NO as PNO,POEMS_NO_NAME as PNONAME, EP_NAME as PNAME";
+		$field = "PRO_DATE as PDATE, POEMS_ID as PID"; 
+		$table = "PER_PROMOTE_E";
+		$cmd_position = "	select $field1 from PER_POS_EMPSER a, PER_EMPSER_POS_NAME b
+									where a.EP_CODE=b.EP_CODE and POEM_ID=";
+		$field_limit_data = "(PRO_DATE + POEMS_ID + PER_ID)";
+		$orderby = "PRO_DATE, POEM_ID";
+		
+		if (trim($POS_POEM_ID)) $arr_search_condition[] = "(POEMS_ID = $POS_POEM_ID)";		
+	} elseif ($PER_TYPE == 4) {
+		$field1 = "POT_NO as PNO,POT_NO_NAME as PNONAME, TP_NAME as PNAME";
+		$field = "PRO_DATE as PDATE, POT_ID as PID"; 
+		$table = "PER_PROMOTE_E";
+		$cmd_position = "	select $field1 from PER_POS_TEMP a, PER_TEMP_POS_NAME b
+									where a.TP_CODE=b.TP_CODE and POT_ID=";
+		$field_limit_data = "(PRO_DATE + POT_ID + PER_ID)";
+		$orderby = "PRO_DATE, POT_ID";
+		
+		if (trim($POS_POEM_ID)) $arr_search_condition[] = "(POT_ID = $POS_POEM_ID)";		
+	}
+
+	$table_select = $table;
+    
+	if (trim($PRO_DATE_START)) {
+		$temp = explode("/", $PRO_DATE_START);
+		$temp_date = ($temp[2] - 543) ."-". $temp[1] ."-". $temp[0];
+		$arr_search_condition[] = "(PRO_DATE > '$temp_date')";
+	}
+	if (trim($PRO_DATE_END)) {
+		$temp = explode("/", $PRO_DATE_END);
+		$temp_date = ($temp[2] - 543) ."-". $temp[1] ."-". $temp[0];
+		$arr_search_condition[] = "(PRO_DATE < '$temp_date')";	
+	}
+	if($DEPARTMENT_ID){ 
+		$arr_search_condition[] = "(DEPARTMENT_ID=$DEPARTMENT_ID)";
+	}elseif($MINISTRY_ID){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$MINISTRY_ID ";
+		$db_dpis->send_cmd($cmd);
+		while($data=$db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	}elseif($PV_CODE){
+		$cmd  = " select distinct ORG_ID_REF from PER_ORG where OL_CODE='03' and PV_CODE='$PV_CODE' ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID_REF];
+		$arr_search_condition[] = "(DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+	$search_condition = "";
+	if ($arr_search_condition) $search_condition = "where " . implode(" and ", $arr_search_condition);
+
+	$cmd =" select distinct $field from $table $search_condition ";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_more_editor (fieldname) {
+		var getdate = new Date();
+		MM_openBrWindow("maximize_editor.html?fieldname="+fieldname+"&gatedate="+getdate,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=550,height=590')
+	}
+	
+	function call_search_perline_perposname () {	
+		if(form1.DEPARTMENT_ID.value.trim()==""){ 
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+		return false;
+		}else{
+			parameter = "&isLock=1&LOCK_MINISTRY_ID=" + form1.MINISTRY_ID.value + "&LOCK_DEPARTMENT_ID=" + form1.DEPARTMENT_ID.value;
+			if (form1.PER_TYPE.value == 1)
+				childReturn = window.showModalDialog("search_position_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+			else if (form1.PER_TYPE.value == 2)
+				childReturn = window.showModalDialog("search_pos_emp_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			else if (form1.PER_TYPE.value == 3)
+				childReturn = window.showModalDialog("search_pos_emp_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");		
+			else if (form1.PER_TYPE.value == 4)
+				childReturn = window.showModalDialog("search_pos_temp_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");					
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.POS_POEM_ID.value = arrValue[0];
+				form1.POS_POEM_NO.value = arrValue[1];
+				form1.PL_PN_NAME.value = arrValue[2];			
+				form1.PL_PN_CODE.value = arrValue[3];
+				<? if ($POSITION_NO_CHAR=="Y") { ?>
+					if (form1.PER_TYPE.value == 1)		form1.POS_POEM_NO_NAME.value = arrValue[6]; 
+					if (form1.PER_TYPE.value == 2)		form1.POS_POEM_NO_NAME.value = arrValue[6]; 
+					if (form1.PER_TYPE.value == 3)		form1.POS_POEM_NO_NAME.value = arrValue[4]; 
+					if (form1.PER_TYPE.value == 4)		form1.POS_POEM_NO_NAME.value = arrValue[5]; 
+				<? } ?>
+			} // end if
+		} //end else
+	}
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+		childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+		if(childReturn){
+			arrValue = childReturn.split("<::>");
+			form1.MINISTRY_ID.value = arrValue[0];
+			form1.MINISTRY_NAME.value = arrValue[1];
+			form1.DEPARTMENT_ID.value = "";
+			form1.DEPARTMENT_NAME.value = "";
+		} // end if
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$MINISTRY_ID":"form1.ORG_ID_1.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+			childReturn = window.showModalDialog("search_org_frame.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,"","dialogHeight: 600px; dialogWidth: 800px; status: No; resizable: No; help: No; statusbar: No;");
+			if(childReturn){
+				arrValue = childReturn.split("<::>");
+				form1.DEPARTMENT_ID.value = arrValue[0];
+				form1.DEPARTMENT_NAME.value = arrValue[1];
+			} // end if
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+function check_valid_date() {
+		if(form1.PRO_DATE_START.value && form1.PRO_DATE_END.value){
+			intMinDate = Date.parse(form1.PRO_DATE_START.value);
+			intMaxDate = Date.parse(form1.PRO_DATE_END.value);
+			if(intMaxDate < intMinDate){
+				alert("กำหนดช่วงวันที่ ไม่ถูกต้อง");
+				form1.PRO_DATE_END.focus();
+				return false;
+			} else  			
+		form1.command.value='SEARCH';
+		return true; 
+		}
+	}
+
+	function clear_form () {
+		form1.PER_TYPE[0].selected = true;
+		form1.PRO_DATE_START.value = "";
+		form1.PRO_DATE_END.value = "";
+		form1.POS_POEM_NO.value = "";
+		<? if ($POSITION_NO_CHAR=="Y") { ?>form1.POS_POEM_NO_NAME.value = "";<? } ?>
+		form1.POS_POEM_ID.value = "";
+		form1.PL_PN_CODE.value = "";
+		form1.PL_PN_NAME.value= "";
+		<? if($CTRL_TYPE < 3 && $SESS_USERGROUP_LEVEL < 3){ ?>
+		form1.MINISTRY_ID.value = "";
+		form1.MINISTRY_NAME.value = "";
+		<? } // end if ?>
+		<? if($CTRL_TYPE < 4 && $SESS_USERGROUP_LEVEL < 4){ ?>
+		form1.DEPARTMENT_ID.value = "";
+		form1.DEPARTMENT_NAME.value = "";
+		<? } // end if ?>
+	}
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="data_promote_e_p_quality_search.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="table_select" value="<?=$table_select?>">
+        &nbsp;&nbsp; 
+		<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr> 
+                        <td height="22" align="right"><?=$PER_TYPE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td colspan="3">
+						<select name="PER_TYPE">
+							<?  foreach($PERSON_TYPE as $key=>$value){  ?><option value="<?=$key; ?>"<?=($PER_TYPE==$key)?"selected":""?>><?=$value; ?></option><?  } ?>
+						</select>
+						</td>
+                      </tr>
+                      <tr>
+                        <td height="22" align="right"><span class="label_alert">*</span>&nbsp;<?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+							<input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>" style="width:75%" class="textbox" readonly>&nbsp;
+							<? if(($CTRL_TYPE==1 || $CTRL_TYPE==2) && !($isLock && $LOCK_MINISTRY_ID)){ ?><input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()"><? } // end if ?>
+							<input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">
+						</td>
+                        <td align="right"><span class="label_alert">*</span>&nbsp;<?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+							<input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>" style="width:75%" class="textbox" readonly>&nbsp;
+							<? if($CTRL_TYPE != 4 && !($isLock && $LOCK_DEPARTMENT_ID)){ ?><input type="button" name="btn_department" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_department()"><? } // end if ?>
+							<input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">
+						</td>
+                      </tr>
+                      <tr> 
+                        <td height="22" align="right" width="20%">วันที่ประมวลผล&nbsp;:&nbsp;</td>
+                        <td width="30%">
+							<input type="text" name="PRO_DATE_START" id="PRO_DATE_START" value="<?=$PRO_DATE_START?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.PRO_DATE_START,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>&nbsp;&nbsp;
+							<input type="reset" class="button" onClick="return showCalendar('PRO_DATE_START', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">                        </td>
+                        <td align="right" width="13%"><?=$TO_DATE_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="PRO_DATE_END" id="PRO_DATE_END" value="<?=$PRO_DATE_END?>" class="textbox" onKeyPress="DateOnly();" onBlur="changedateformat(form1.PRO_DATE_END,this.value)" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>> 
+                          &nbsp;&nbsp; <input type="reset" class="button" onClick="return showCalendar('PRO_DATE_END', 'dd/mm/y');" value="<?=$SELECT_TITLE?>">                        </td>
+                      </tr>
+                      <tr> 
+                        <td align="right"><?=$POS_NO_TITLE?>&nbsp;:&nbsp;</td>
+                        <td><? if ($POSITION_NO_CHAR=="Y") { ?>
+                                <input type="text" name="POS_POEM_NO_NAME" value="<?=$POS_POEM_NO_NAME?>" style="width:20%" class="textbox">
+                                <? } ?>
+                                <input type="text" name="POS_POEM_NO" value="<?=$POS_POEM_NO?>" style="width:48%" class="textbox" onKeyPress="DigitOnly();" > 
+                                <input name="POS_POEM_ID" type="hidden" id="" value="<?=$POS_POEM_ID?>">&nbsp;						
+                        <input type="button" name="Submit3" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกเลขที่ตำแหน่ง" onClick="call_search_perline_perposname();"></td>
+                        <td align="right"><?=$PL_TITLE?>&nbsp;:&nbsp;</td>
+                        <td>
+							  	<input name="PL_PN_NAME" type="text" class="textbox" style="width:70%" value="<?=$PL_PN_NAME?>" readonly> 
+                                <input name="PL_PN_CODE" type="hidden"  value="<?=$PL_PN_CODE?>">						</td>
+                      </tr>
+                    </table></td>
+        </tr>
+        <tr align="center">
+          <td height="25"><!---<? if ($BUTTON_DISPLAY==1) { ?>
+				<input name="Submit1" type="button" class="button" onClick="window.parent.close(); self.close();" value="<?=$CLOSE_WINDOW_TITLE?>">	<? } else { ?>
+              <img src="images/cancel2.png" alt="<?=$CLOSE_WINDOW_TITLE?>" width="32" height="32" border="0" onClick="window.parent.close(); self.close();">
+      		  <?}  echo "&nbsp; &nbsp;"; ?>	---><? if ($BUTTON_DISPLAY==1) { ?> 
+      		  	<input name="Reset1" type="button" class="button" value="<?=$CLEAR_TITLE?>" onClick="clear_form();"> <? } else { ?>
+            <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="clear_form();">&nbsp;
+<?} echo "&nbsp; &nbsp;"; ?><? if ($BUTTON_DISPLAY==1) { ?>
+				<input name="Submit2" type="submit" class="button" onClick="return check_valid_date();" value="<?=$SEARCH_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="form1.command.value='SEARCH';" src="images/search.png" alt="<?=$SEARCH_TITLE?>">
+              <? } echo "&nbsp; &nbsp;"; ?>
+          </td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+    <tr>
+	  <td height="30" align="center" class="label_hilight">พบข้อมูลวันที่ประมวลผล/ตำแหน่ง ของข้าราชการ/ลูกจ้างที่มีคุณสมบัติได้เลื่อนตำแหน่งทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+    </tr>
+</table>  
+<?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$limit_data = " and ($field_limit_data) not in (select top $start_record ($field_limit_data) from $table $search_condition order by $orderby) ";
+		}elseif($DPISDB=="mysql"){
+			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	} // end if 
+	
+	if($DPISDB=="odbc"){
+		$cmd = "	select		distinct top $data_per_page 
+										 	$field, DEPARTMENT_ID
+							from		$table
+											$search_condition
+											$limit_data
+							order by 	$orderby 	";	
+	}elseif($DPISDB=="oci8"){
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 		distinct $field, DEPARTMENT_ID
+								  from 			$table
+								  		 			$search_condition
+								  order by 	$orderby  
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";				 					 
+	}elseif($DPISDB=="mysql"){
+		$cmd = "	select	distinct $field, DEPARTMENT_ID
+							from		$table
+										$search_condition
+							order by 	$orderby 
+										$limit_data  ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+	//echo "-> $cmd";
+	if ($count_page_data) {
+?>
+  <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+	  <td width="10%" height="21"><strong><?=$SEQ_NO_TITLE?></strong></td>
+      <td width="15%"><strong>วันที่</strong></td>
+      <td width="15%"><strong><?=$POS_NO_TITLE?></strong></td>
+      <td><strong><?=$CMD_POSITION_TITLE?></strong></td>
+      <td width="25%"><strong><?=$DEPARTMENT_TITLE?></strong></td>
+    </tr>
+    <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_PRO_DATE = show_date_format($data[PDATE], 1);
+		$TMP_POS_ID = $data[PID];
+		
+		$cmd = $cmd_position . $TMP_POS_ID;
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_POS_NO = $data2[PNO];
+		$TMP_POS_NO_NAME = $data2[PNONAME];
+		$TMP_POS_NAME = $data2[PNAME];
+		
+		$TMP_DEPARTMENT_ID = $data[DEPARTMENT_ID];
+		$cmd = " select ORG_NAME from PER_ORG where ORG_ID=$DEPARTMENT_ID ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$TMP_DEPARTMENT_NAME = $data2[ORG_NAME];
+	
+		$returnValue = "2<::>$TMP_POS_ID<::>$TMP_POS_NO|$TMP_POS_NO_NAME<::>$TMP_POS_NAME<::>$TMP_PRO_DATE<::>$TMP_DEPARTMENT_ID<::>$table<::>$PER_TYPE<::>data_promote_e_p_quality<::>SELECT";
+
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if(false){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+          <tr class="<?=$class?>" <?=$onmouse_event?> style="cursor:hand;" onClick="parent.refresh_opener('<?=$returnValue?>');"> 
+            <td height="25" align="center"><?=$data_count?></td>
+			<td align="center"><?=$TMP_PRO_DATE?></td>
+			<td align="center"><?=$TMP_POS_NO_NAME.$TMP_POS_NO?></td>
+			<td>&nbsp;<?=$TMP_POS_NAME?></td>
+			<td>&nbsp;<?=$TMP_DEPARTMENT_NAME?></td>
+	  </tr>
+    <? } ?>
+	<?if($PAGE_AUTH["edit"]=="Y"){?>
+    <tr class="table_footer" height="21">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+	<?}?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

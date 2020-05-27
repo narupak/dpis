@@ -1,0 +1,253 @@
+<?
+	include("../php_scripts/connect_database.php");
+    
+	$db1 = new connect_db($db_host, $db_name, $db_user, $db_pwd, $db_port);	
+	$db2 = new connect_db($db_host, $db_name, $db_user, $db_pwd, $db_port);	
+	$new_db = new connect_db($db_host, $db_name, $db_user, $db_pwd, $db_port);
+    
+   	$db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+?>
+<!doctype html>
+<html lang=''>
+<head>
+   <meta charset='windows-874'>
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="stylesheets/menu_styles.css">
+<!--   <script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>-->
+<!--	<link rel="stylesheet" href="stylesheets/style.css">-->
+   <script src="java_scripts/jquery-latest.min.js" type="text/javascript"></script>
+   <script src="java_scripts/menu_script.js"></script>
+   <title>CSS MenuMaker</title>
+</head>
+<body>
+<div id='cssmenu'>
+<ul>
+
+<?
+	$CATE_FID = 1;
+
+	$cmd = "select menu_id, menu_label, type_linkto, linkto_web from backoffice_menu_bar_lv0 where flag_show='S' and langcode='TH' and fid=$CATE_FID order by menu_order";
+	if($db->send_cmd($cmd)){
+		$data_count = 0;
+		while( $data = $db->get_array() ){
+			$data = array_change_key_case($data, CASE_LOWER);
+			$data_count++;
+			$bar_menu_lv0[$data_count]["id"] = $data[menu_id];
+			$bar_menu_lv0[$data_count]["label"] = trim($data[menu_label]);
+			$bar_menu_lv0[$data_count]["link_type"] = trim($data[type_linkto]);
+			$bar_menu_lv0[$data_count]["link_web"] = trim($data[linkto_web]);
+
+			$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$data[menu_id]." and menu_id_lv1=0 and menu_id_lv2=0 and menu_id_lv3=0 order by can_inq desc ";
+			$new_db->send_cmd($cmd);
+			$new_data = $new_db->get_array();
+			$new_data = array_change_key_case($new_data, CASE_LOWER);
+			$bar_menu_lv0[$data_count]["can_inq"] = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+		}
+	}
+	$count_bar_menu_lv0 = count($bar_menu_lv0);
+?>
+	<li><a href='#'><span>หน้าแรก</span></a></li>
+<?
+	for($i=1; $i<=$count_bar_menu_lv0; $i++){
+		$class = "menu_inactive";
+		$classonover = "this.className='menu_active';";
+		$classonout = "this.className='menu_inactive';";
+		if( $MENU_ID_LV0==$bar_menu_lv0[$i]["id"] ){ 
+			$class = "menu_active";
+			$classonout = "";
+		}
+		if($bar_menu_lv0[$i]["can_inq"]=="Y"){
+			$outer_link = 0;
+			if($bar_menu_lv0[$i]["link_web"]){ 
+				if(substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 7)!="http://" && substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 8)!="https://"){
+					$extract_parameter = explode("?", $bar_menu_lv0[$i]["link_web"]);
+					if(count($extract_parameter) > 1) $bar_menu_lv0[$i]["link_web"] .= "&MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+					else $bar_menu_lv0[$i]["link_web"] .= "?MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+				}else{
+					$outer_link = 1;
+				} // end if
+?>
+				<li><a href='<?=$bar_menu_lv0[$i]["link_web"]?>'><span><?=$bar_menu_lv0[$i]["label"]?></span></a>
+<?
+			} else {
+?>
+				<li class='active has-sub'><a href='<?=$bar_menu_lv0[$i]["link_web"]?>'><span><?=$bar_menu_lv0[$i]["label"]?></span></a>
+<?
+			} // end if
+			$layer_id = $i;
+			$ref_id_lv0 = $bar_menu_lv0[$i]["id"];
+
+			$cmd = " 	select		distinct a.menu_id
+							from		backoffice_menu_bar_lv1 a, backoffice_menu_bar_lv2 b
+							where		a.menu_id=b.parent_id_lv1
+											and a.flag_show='S' and a.langcode='TH' and a.fid=$CATE_FID and a.parent_id_lv0=$ref_id_lv0
+											and b.flag_show='S' and b.langcode='TH' and b.fid=$CATE_FID and b.parent_id_lv0=$ref_id_lv0 ";
+			$count_bar_menu_lv2_all = $db->send_cmd($cmd);
+//			echo "1..cmd=$cmd (".$count_bar_menu_lv2_all.")<br>";
+//			$db->show_error();
+//			echo "count_bar_menu_lv2_all=$count_bar_menu_lv2_all<br />";
+		
+			$wher_add = "";
+			if(($SESS_GROUPCODE == "BUREAU" || substr($SESS_GROUPCODE, 0, 7) == "BUREAU_" ) || $SESS_USERGROUP==3){ 	// login มาเป็นตัวข้าราชการ ไม่ให้แสดงเมนู P01 ทั้งหมด
+				$wher_add = " and menu_id != 241 ";
+			}
+			$cmd = "	select 	menu_id, menu_label, type_linkto, linkto_web 
+							from 		backoffice_menu_bar_lv1
+							where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 $wher_add
+							order by menu_order";
+			$count_bar_menu_lv1 = $db->send_cmd($cmd);
+//			echo $cmd."<br>";
+			$div1height = $count_bar_menu_lv1 * 26;
+        	if ($div1height  > 475) $div1height  = 475;
+//			echo "count_bar_menu_lv1=$count_bar_menu_lv1 , count_bar_menu_lv2_all=$count_bar_menu_lv2_all<br />";
+?>
+			<ul>
+<?
+			if($count_bar_menu_lv1){
+				$data_order = 0;
+				while($data = $db->get_array()){
+					$data = array_change_key_case($data, CASE_LOWER);
+//					$data_order++;
+					$ref_id_lv1 = $data[menu_id];
+					$menu_lv1_label = trim($data[menu_label]);
+					$link_type = trim($data[type_linkto]);
+					$link_web = trim($data[linkto_web]);
+					if($link_web){ 
+						$extract_parameter = explode("?", $link_web);
+						if(count($extract_parameter) > 1) $link_web .= "&MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$data[menu_id];
+						else $link_web .= "?MENU_ID_LV0=".$ref_id_lv0."&MENU_ID_LV1=".$data[menu_id];
+					}
+
+					$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$ref_id_lv0." and menu_id_lv1=".$data[menu_id]." and menu_id_lv2=0 and menu_id_lv3=0 order by can_inq desc ";
+					$new_db->send_cmd($cmd);
+//					$new_db->show_error();
+					$new_data = $new_db->get_array();
+					$new_data = array_change_key_case($new_data, CASE_LOWER);
+					$can_inq = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+					if ($SESS_USERID != 1 && (trim($data[linkto_web]) == "select_database.html" || trim($data[linkto_web]) == "select_initial_org.html")) $can_inq = "N";
+
+					if( $can_inq=="Y" ){
+						$data_order++;
+						$cmd = "	select 	menu_id, menu_label, type_linkto, linkto_web 
+										from 		backoffice_menu_bar_lv2
+										where 	flag_show='S' and langcode='TH' and fid=$CATE_FID and parent_id_lv0=$ref_id_lv0 and parent_id_lv1=$ref_id_lv1
+										order by menu_order";
+						$count_bar_menu_lv2 = $db1->send_cmd($cmd);
+//						echo "cmd=$cmd (count_bar_menu_lv2=$count_bar_menu_lv2)<br>";
+						
+						$onmouseover = "this.className='menu_lv1_active';";
+						$onmouseout = "this.className='menu_lv1_inactive';";
+						if($MENU_ID_LV1==$data[menu_id]){
+							$onmouseover = "";
+							$onmouseout = "";
+						} // end if 
+					
+						$data_count++;
+						$bar_menu_lv1[$data_count]["parent_lv0"] = $ref_id_lv0;
+						$bar_menu_lv1[$data_count]["layer_id"] = $layer_id;
+						$bar_menu_lv1[$data_count]["order"] = $data_order;
+						$bar_menu_lv1[$data_count]["id"] = $data[menu_id];
+						$bar_menu_lv1[$data_count]["label"] = trim($data[menu_label]);
+						$bar_menu_lv1[$data_count]["link_type"] = trim($data[type_linkto]);
+						$bar_menu_lv1[$data_count]["link_web"] = trim($data[linkto_web]);
+						$bar_menu_lv1[$data_count]["can_inq"] = $can_inq;
+						$bar_menu_lv1[$data_count][lv2_bar_cnt] = $count_bar_menu_lv2;
+//						echo "count_bar_menu_lv2=$count_bar_menu_lv2<br />";
+//						echo ">>".$bar_menu_lv1[$data_count]["label"].":".$bar_menu_lv1[$data_count]["link_web"]."<br>";
+
+						$onmouseover .= " call_menu_lv1_show($layer_id); call_menu_lv2_show($data_count, $data_order, $data[menu_id]);";
+						$onmouseout .= " call_menu_lv1_hide($layer_id); call_menu_lv2_hide($data_count, $data[menu_id]);";
+           				$outer_link = 0;
+						if($count_bar_menu_lv2){
+							if($bar_menu_lv0[$i]["link_web"]){ 
+								if(substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 7)!="http://" && substr(trim($bar_menu_lv0[$i]["link_web"]), 0, 8)!="https://"){
+									$extract_parameter = explode("?", $bar_menu_lv0[$i]["link_web"]);
+									if(count($extract_parameter) > 1) $bar_menu_lv0[$i]["link_web"] .= "&MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+									else $bar_menu_lv0[$i]["link_web"] .= "?MENU_ID_LV0=".$bar_menu_lv0[$i]["id"]."&MENU_ID_LV1=0";
+								}else{
+									$outer_link = 1;
+								} // end if
+							} // end if
+//							echo "$data_count. lv1..'".$bar_menu_lv1[$data_count]["link_web"]."'<br>";
+							if ($bar_menu_lv1[$data_count]["link_web"]) {
+//								echo "1..>link_web>".$bar_menu_lv1[$data_count]["link_web"]."<br>";
+?>
+	    						<li><a href='<?=$bar_menu_lv1[$data_count]["link_web"]?>'><span><?=$bar_menu_lv1[$data_count]["label"]?></span></a>
+<?
+							} else {                            
+//								echo "2..>link_web>".$bar_menu_lv1[$data_count]["link_web"]."<br>";
+?>
+	    						<li class='active has-sub'><a href='#'><span><?=$bar_menu_lv1[$data_count]["label"]?></span></a>
+<?
+							} // end if
+
+?>
+								<ul>
+<?
+							$data_count1 = -1;
+							while($data1 = $db1->get_array()){
+                            	$data_count1++;
+								$data1 = array_change_key_case($data1, CASE_LOWER);
+								$bar_menu_lv2[$data_count1]["id"] = $data1[menu_id];
+								$bar_menu_lv2[$data_count1]["label"] = trim($data1[menu_label]);
+								$bar_menu_lv2[$data_count1]["link_type"] = trim($data1[type_linkto]);
+								$bar_menu_lv2[$data_count1]["link_web"] = trim($data1[linkto_web]);
+                                
+								$cmd = " select can_inq from user_privilege where group_id in ($ACCESSIBLE_GROUP) and page_id=1 and menu_id_lv0=".$ref_id_lv0." and menu_id_lv1=".$ref_id_lv1." and menu_id_lv2=".$data1[menu_id]." and menu_id_lv3=0 order by can_inq desc ";
+								$new_db->send_cmd($cmd);
+//								$new_db->show_error();
+								$new_data = $new_db->get_array();
+								$new_data = array_change_key_case($new_data, CASE_LOWER);
+								$can_inq = trim($new_data[can_inq])?trim($new_data[can_inq]):"N";
+
+								$bar_menu_lv2[$data_count1]["can_inq"] = $can_inq;
+
+								if ($SESS_USERID != 1 && (trim($data[linkto_web]) == "select_database.html" || trim($data[linkto_web]) == "select_initial_org.html")) $can_inq = "N";
+
+								if( $can_inq=="Y" ){		
+	       							if ($bar_menu_lv2[$data_count1]["link_web"]) {
+//										echo "1..>link_web>".$bar_menu_lv2[$data_count1]["link_web"]."<br>";
+?>
+		    							<li><a href='<?=$bar_menu_lv2[$data_count1]["link_web"]?>'><span><?=$bar_menu_lv2[$data_count1]["label"]?></span></a>
+<?
+									} else {                            
+//										echo "2..>link_web>".$bar_menu_lv2[$data_count1]["link_web"]."<br>";
+?>
+	    								<li class='active has-sub'><a href='#'><span><?=$bar_menu_lv2[$data_count1]["label"]?></span></a>
+<?
+									} // end if
+?>
+									</li>
+<?
+								} // end if ( $can_inq=="Y" )
+							} // end while
+?>
+							</ul>
+                            </li>
+<?
+						} else {
+?>
+	   						<li><a href='<?=$bar_menu_lv1[$data_count]["link_web"]?>'><span><?=$bar_menu_lv1[$data_count]["label"]?></span></a></li>
+<?
+						} // end if($count_bar_menu_lv2)
+            	    } // end if( $can_inq=="Y" )
+				} // end while
+			} // end if($count_bar_menu_lv1)
+?>
+			</ul>
+			</li>        
+<?
+		} // if
+	} // for
+
+	if($SESS_MINISTRY_NAME=="กรุงเทพมหานคร"){ 
+?>
+		<li onClick="window.open('http://<?=$dpis35db_host?>:81/Praxticol5_bkk/checklogin.jsp?uname=<?=$SESS_USERNAME?>','new_sarabun')"><a href='#'><span>สารบรรณ</span></a></li>
+<? } ?>
+	<li><a href='logout.html'><span>ออกจากระบบ</span></a></li>
+</ul>
+</div>
+</body>
+<html>

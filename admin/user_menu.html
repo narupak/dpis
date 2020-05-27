@@ -1,0 +1,675 @@
+<? 
+	include("../php_scripts/connect_database.php");
+    
+    if (!$group_open_depth) $group_open_depth = "";
+    
+	include("php_scripts/user_menu.php"); 
+
+	if(trim($SELECTED_PER_ID)){	  $ARRSELECTED_PER_ID=explode(",",trim($SELECTED_PER_ID));		}
+	if( $command=="COPY" && is_array($ARRSELECTED_PER_ID) ){
+	for($j=0; $j < count($ARRSELECTED_PER_ID); $j++) {
+				//อัพเดทพาสเวิร์ด 1234
+/*				
+				$setpwd = md5(1234);
+				$cmd = " update user_detail set password = '$setpwd' where group_id=$ARRSELECTED_PER_ID[$j] ";
+				$db->send_cmd($cmd);
+*/				
+				//echo "$cmd<br>";
+				//------------------
+
+			$arr_auth = explode("|", substr($auth_list, 1, -1));
+			for($i=0; $i<count($arr_auth); $i++){
+				//echo $ARRSELECTED_PER_ID[$j]."+".$arr_auth[$i]."<br>";
+				
+				$auth_detail = explode(",", $arr_auth[$i]);
+				$cmd = " select group_id from user_privilege where group_id=$ARRSELECTED_PER_ID[$j] and page_id=$auth_detail[1] and menu_id_lv0=$auth_detail[2] and menu_id_lv1=$auth_detail[3] and menu_id_lv2=$auth_detail[4] and menu_id_lv3=$auth_detail[5] ";
+				if(!$db->send_cmd($cmd)) :
+					$cmd = " insert into user_privilege (group_id, page_id, menu_id_lv0, menu_id_lv1, menu_id_lv2, menu_id_lv3, can_add, can_edit, can_del, can_inq, can_print, can_confirm, can_audit, can_attach)
+									 values (".$ARRSELECTED_PER_ID[$j].",".$auth_detail[1].", '".$auth_detail[2]."', '".$auth_detail[3]."', '".$auth_detail[4]."', '".$auth_detail[5]."', '".$auth_detail[6]."', '".$auth_detail[7]."', '".$auth_detail[8]."', '".$auth_detail[9]."', '".$auth_detail[10]."', '".$auth_detail[11]."', '".$auth_detail[12]."', '".$auth_detail[13]."') ";
+					$db->send_cmd($cmd);
+				else :
+					$cmd = " update user_privilege 
+									 set	can_add = '".$auth_detail[6]."',
+									 		can_edit = '".$auth_detail[7]."',
+											can_del = '".$auth_detail[8]."',
+											can_inq = '".$auth_detail[9]."',
+											can_print = '".$auth_detail[10]."',
+											can_confirm = '".$auth_detail[11]."',
+											can_audit = '".$auth_detail[12]."',
+											can_attach = '".$auth_detail[13]."'
+									 where group_id=$ARRSELECTED_PER_ID[$j] and page_id=$auth_detail[1] and menu_id_lv0=$auth_detail[2] and menu_id_lv1=$auth_detail[3] and menu_id_lv2=$auth_detail[4] and menu_id_lv3=$auth_detail[5] ";
+					$db->send_cmd($cmd);
+				endif;
+				//echo "=> $cmd<br>";				
+				//$db->show_error();
+			}
+		}
+		$msg_result="การคัดลอกสิทธิ์กลุ่มผู้ใช้งานเสร็จสิ้น";
+		insert_log("$MENU_TITLE_LV0 > $MENU_TITLE_LV1 > คัดลอกสิทธิ์กลุ่มผู้ใช้งาน [$group_name_th]");
+	} //end if
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script language="JavaScript">
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function update_auth(group_id){
+		form1.action += "?UPD=1&ch_group=1";
+		form1.group_id.value =group_id;
+		form1.submit();
+	}
+	
+	function update_parent_lv(type, page_id, program_id_lv0, program_id_lv1, program_id_lv2, program_id_lv3){
+		auth_list = form1.auth_list.value;
+		sel_type = "Y";
+
+		eval(" form1.can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1 + "_" + program_id_lv2 + "_" + program_id_lv3 + ".checked = true");
+
+		search_str = "|" + form1.group_id.value + "," + page_id + "," + program_id_lv0 + "," + program_id_lv1 + "," + program_id_lv2 + "," + program_id_lv3 + ",";
+		pos = auth_list.indexOf(search_str);
+		pos += (search_str.length);
+		switch(type){
+			case "add" :
+					target_pos = pos + 0;
+					break;
+			case "edit" :
+					target_pos = pos + 2;
+					break;
+			case "del" :
+					target_pos = pos + 4;
+					break;
+			case "inq" :
+					target_pos = pos + 6;
+					break;
+			case "print" :
+					target_pos = pos + 8;
+					break;
+			case "confirm" :
+					target_pos = pos + 10;
+					break;
+			case "audit" :
+					target_pos = pos + 12;
+					break;
+			case "attach" :
+					target_pos = pos + 14;
+					break;
+		}
+		form1.auth_list.value = auth_list.substring(0, target_pos) + sel_type + auth_list.substring(target_pos + 1, auth_list.length);
+	}
+	
+	function sel_all_sub_lv0(type, page_id, program_id_lv0){
+		eval(" checked = form1.can_" + type + "_" + page_id + "_" + program_id_lv0 + "_0_0_0.checked");
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "can_" + type + "_" + page_id + "_" + program_id_lv0;
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox") continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+			objName = objName.substr(0, objName.lastIndexOf( "_" ));
+			objName = objName.substr(0, objName.lastIndexOf( "_" ));
+			if( search_str == objName ){ getObj[i].checked = checked; }
+		}
+
+		sel_type = "N";
+		if(checked==true){ sel_type = "Y"; }
+
+		auth_list = form1.auth_list.value;
+		search_str = "|" + form1.group_id.value + "," + page_id + "," + program_id_lv0 + ",";	
+		pos = auth_list.indexOf(search_str);
+		while(pos != -1){
+			pos = (auth_list.indexOf(",", pos + search_str.length + 1) + 1);
+			pos = (auth_list.indexOf(",", pos) + 1);
+			pos = (auth_list.indexOf(",", pos) + 1);
+			switch(type){
+				case "add" :
+						target_pos = pos + 0;
+						break;
+				case "edit" :
+						target_pos = pos + 2;
+						break;
+				case "del" :
+						target_pos = pos + 4;
+						break;
+				case "inq" :
+						target_pos = pos + 6;
+						break;
+				case "print" :
+						target_pos = pos + 8;
+						break;
+				case "confirm" :
+						target_pos = pos + 10;
+						break;
+				case "audit" :
+						target_pos = pos + 12;
+						break;
+				case "attach" :
+						target_pos = pos + 14;
+						break;
+			}
+			auth_list = auth_list.substring(0, target_pos) + sel_type + auth_list.substring(target_pos + 1, auth_list.length);
+			pos = auth_list.indexOf(search_str, target_pos);
+		} // endwhile
+		form1.auth_list.value = auth_list;
+	}
+
+	function sel_all_sub_lv1(type, page_id, program_id_lv0, program_id_lv1){
+		eval(" checked = form1.can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1 + "_0_0.checked");
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1;
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox" ) continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+			objName = objName.substr(0, objName.lastIndexOf( "_" ));
+			if( search_str == objName ){ getObj[i].checked = checked; }
+		}
+
+		sel_type = "N";
+		if(checked==true){ 
+			sel_type = "Y"; 
+			update_parent_lv(type, page_id, program_id_lv0, 0, 0, 0);
+		}
+
+		auth_list = form1.auth_list.value;
+		search_str = "|" + form1.group_id.value + "," + page_id + "," + program_id_lv0 + "," + program_id_lv1 + ",";
+		pos = auth_list.indexOf(search_str);
+		while(pos != -1){
+			pos = (auth_list.indexOf(",", pos + search_str.length + 1) + 1);
+			pos = (auth_list.indexOf(",", pos) + 1);
+			switch(type){
+				case "add" :
+						target_pos = pos + 0;
+						break;
+				case "edit" :
+						target_pos = pos + 2;
+						break;
+				case "del" :
+						target_pos = pos + 4;
+						break;
+				case "inq" :
+						target_pos = pos + 6;
+						break;
+				case "print" :
+						target_pos = pos + 8;
+						break;
+				case "confirm" :
+						target_pos = pos + 10;
+						break;
+				case "audit" :
+						target_pos = pos + 12;
+						break;
+				case "attach" :
+						target_pos = pos + 14;
+						break;
+			}
+			auth_list = auth_list.substring(0, target_pos) + sel_type + auth_list.substring(target_pos + 1, auth_list.length);
+			pos = auth_list.indexOf(search_str, target_pos);
+		} // endwhile
+		form1.auth_list.value = auth_list;
+	}
+
+	function sel_all_sub_lv2(type, page_id, program_id_lv0, program_id_lv1, program_id_lv2){
+		eval(" checked = form1.can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1 + "_" + program_id_lv2 + "_0.checked");
+
+		getObj = document.getElementsByTagName("input");
+		search_str = "can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1 + "_" + program_id_lv2;
+		for(i=0; i<getObj.length; i++){
+			if(getObj[i].type != "checkbox" ) continue;
+			objName = getObj[i].name.substr(0, getObj[i].name.lastIndexOf( "_" ));
+			if( search_str == objName ){ getObj[i].checked = checked; }
+		}
+
+		sel_type = "N";
+		if(checked==true){ 
+			sel_type = "Y"; 
+			update_parent_lv(type, page_id, program_id_lv0, program_id_lv1, 0, 0);
+			update_parent_lv(type, page_id, program_id_lv0, 0, 0, 0);
+		}
+
+		auth_list = form1.auth_list.value;
+		search_str = "|" + form1.group_id.value + "," + page_id + "," + program_id_lv0 + "," + program_id_lv1 + "," + program_id_lv2 + ",";
+		pos = auth_list.indexOf(search_str);
+		while(pos != -1){
+			pos = (auth_list.indexOf(",", pos + search_str.length + 1) + 1);
+			switch(type){
+				case "add" :
+						target_pos = pos + 0;
+						break;
+				case "edit" :
+						target_pos = pos + 2;
+						break;
+				case "del" :
+						target_pos = pos + 4;
+						break;
+				case "inq" :
+						target_pos = pos + 6;
+						break;
+				case "print" :
+						target_pos = pos + 8;
+						break;
+				case "confirm" :
+						target_pos = pos + 10;
+						break;
+				case "audit" :
+						target_pos = pos + 12;
+						break;
+				case "attach" :
+						target_pos = pos + 14;
+						break;
+			}
+			auth_list = auth_list.substring(0, target_pos) + sel_type + auth_list.substring(target_pos + 1, auth_list.length);
+			pos = auth_list.indexOf(search_str, target_pos);
+		} // endwhile
+		form1.auth_list.value = auth_list;
+	}
+
+	function sel_all_sub_lv3(type, page_id, program_id_lv0, program_id_lv1, program_id_lv2, program_id_lv3){
+		eval(" checked = form1.can_" + type + "_" + page_id + "_" + program_id_lv0 + "_" + program_id_lv1 + "_" + program_id_lv2 + "_" + program_id_lv3 + ".checked");
+
+		sel_type = "N";
+		if(checked==true){ 
+			sel_type = "Y"; 
+			update_parent_lv(type, page_id, program_id_lv0, program_id_lv1, program_id_lv2, 0);
+			update_parent_lv(type, page_id, program_id_lv0, program_id_lv1, 0, 0);
+			update_parent_lv(type, page_id, program_id_lv0, 0, 0, 0);
+		}
+
+		auth_list = form1.auth_list.value;
+		search_str = "|" + form1.group_id.value + "," + page_id + "," + program_id_lv0 + "," + program_id_lv1 + "," + program_id_lv2 + "," + program_id_lv3 + ",";
+		pos = auth_list.indexOf(search_str);
+		pos += (search_str.length);
+		switch(type){
+			case "add" :
+					target_pos = pos + 0;
+					break;
+			case "edit" :
+					target_pos = pos + 2;
+					break;
+			case "del" :
+					target_pos = pos + 4;
+					break;
+			case "inq" :
+					target_pos = pos + 6;
+					break;
+			case "print" :
+					target_pos = pos + 8;
+					break;
+			case "confirm" :
+					target_pos = pos + 10;
+					break;
+			case "audit" :
+					target_pos = pos + 12;
+					break;
+			case "attach" :
+					target_pos = pos + 14;
+					break;
+		}
+		form1.auth_list.value = auth_list.substring(0, target_pos) + sel_type + auth_list.substring(target_pos + 1, auth_list.length);
+	}
+
+	function call_back(url){
+		form1.action = url;
+		form1.submit();
+	}
+
+	function call_show_group() {	
+		parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;		//  + "&group_id="+ form1.group_id.value;+ "&auth_list=" + form1.auth_list.value ;
+	    call_openDialog("show_group.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อกลุ่มผู้ใช้งานที่เลือก");		
+	}
+
+	function call_select_group () {	
+		parameter = "&SELECTED_LIST=" + form1.SELECTED_PER_ID.value;		// + "&auth_list=" + form1.auth_list.value ;
+	    call_openDialog("select_user_group.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"กลุ่มผู้ใช้งาน");		
+	}
+
+	function update_open_list(menudepth, id) {
+//		alert("add id("+menudepth+"-"+id+") to ="+document.form1.group_open_depth.value);
+		if (document.form1.group_open_depth.value.length > 0) {
+			var arr_id = document.form1.group_open_depth.value.split(",");
+			var founded=false;
+			for(var i = 0; i < arr_id.length; i++) {
+				var val = ""+menudepth+"-"+id;
+				if (arr_id[i]==val) {
+					var remove = arr_id.splice(i,1);
+					founded=true;
+					break;
+				}
+			}
+			if (!founded) 	document.form1.group_open_depth.value += ","+menudepth+"-"+id;
+			else document.form1.group_open_depth.value = arr_id.toString();
+		} else
+			document.form1.group_open_depth.value = ""+menudepth+"-"+id;
+//		alert("open list="+document.form1.group_open_depth.value);
+		document.form1.submit();
+	}
+	
+	function call_report (type) {
+		document.form1.target = "_blank";
+		if(type==1){ 
+			document.form1.action = "report/rpt_user_menu.php";
+			document.form1.f_show_full.value=2;	// select
+		}else if(type==2){ 
+			document.form1.action = "report/rpt_user_menu.php";
+			document.form1.f_show_full.value=1;	// full
+		}else if(type==3){ 
+			document.form1.action = "report/rpt_user_menu_xls.php";
+			document.form1.f_show_full.value=2;
+		}else{ 
+			document.form1.action = "report/rpt_user_menu_xls.php"; 
+			document.form1.f_show_full.value=1;
+		}
+		document.form1.submit();
+		document.form1.action="user_menu.html"
+		document.form1.target = "_self";
+	} 
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("select_user_group") > -1) {
+			if(returnValue){
+				form1.SELECTED_PER_ID.value = returnValue;
+				form1.btn_view_list.style.display = "block";			form1.btn_view_list.style.visibility = "visible";
+				form1.btn_confirm_list.style.display = "block";		form1.btn_confirm_list.style.visibility = "visible";
+			}else{
+				form1.btn_view_list.style.display = "none";			form1.btn_view_list.style.visibility = "hidden";
+				form1.btn_confirm_list.style.display = "none";		form1.btn_confirm_list.style.visibility = "hidden";
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	<td height="10"><?include("header_menu.html")?></td>
+  	</tr>
+        <tr> 
+          <td align="left" valign="top"><? $OPTIONAL_TITLE=" &gt; สิทธิ์การใช้งาน"; include("current_location.html");?></td>
+		</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="user_menu.html" enctype="multipart/form-data">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+		  <input type="hidden" name="group_id" value="<?=$group_id?>">
+		  <input type="hidden" name="group_name_th" value="<?=$group_name_th?>">
+		  <input type="hidden" name="group_open_depth" value="<?=$group_open_depth?>">
+		  <input name="auth_list" type="hidden" value="<?=$auth_list?>">
+		  <input name="f_show_full" type="hidden" value="">
+&nbsp;
+  <table width="95%" border="0"  align="center" cellpadding="1" cellspacing="1" bgcolor="#FFFFFF" class="label_normal">
+    <tr>
+      <td><a href="javascript:call_back('user_group.html')">กลุ่มผู้ใช้งาน</a><font color="#003366"><span class="lnb_blue"> :</span></font>
+              <?=$group_name_th?>      </td>
+	 <td><? if(trim($msg_result)){	echo "<font align='center' color='#0000FF'>".$msg_result."</font>";	} ?></td>
+    </tr>
+              <tr>
+                <td><input name="btn_select_list" type="button" class="button" value="คัดลอกสิทธิเมนูไปที่..." onClick="call_select_group();"> &nbsp;
+                  <input name="btn_view_list" type="button" class="button" value="ดูกลุ่มผู้ใช้งานที่เลือก" style="display:none;visibility:hidden;" onClick="call_show_group();">
+				  <input  name="btn_confirm_list"  type="button" class="button" onClick=" form1.command.value='COPY';form1.submit();" value="ยืนยันการคัดลอกสิทธิ์" style="display:none;visibility:hidden;">
+				  <input type="hidden" name="SELECTED_PER_ID" value="<?=$SELECTED_PER_ID?>"></td>
+		<td height="30" colspan="6">
+			<table width="95%" border="0"  align="center" cellpadding="1" cellspacing="1" bgcolor="#FFFFFF" class="label_normal"><tr>
+				<td width="20%">
+                    <?if($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y"){?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="btn2" type="submit" class="button" onClick=" form1.command.value='UPDATE'; " value="<?=$EDIT_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image22" type="image" onClick=" form1.command.value='UPDATE'; " src="images/save.png" alt="<?=$EDIT_TITLE?>">
+                      <input name="image222" type="image" onClick=" form1.command.value='COPY'; " src="images/copy.png" alt="คัดลอก">
+                      <? } echo "&nbsp; &nbsp;"; ?>
+                      <?}?>
+                    <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Reset" type="submit" class="button" onClick=" call_back('user_group.html'); " value="<?=$CANCEL_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image2" type="image" onClick=" call_back('user_group.html'); " src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+				</td>
+                <td>
+					<table width="95%" border="1"  align="center" cellpadding="1" cellspacing="1" bgcolor="#FFFFFF" class="label_normal"><tr>
+                    <td align="center">
+		                <? if ($BUTTON_DISPLAY==1) { ?>
+    	                	&nbsp;<?=$PDF_TITLE?>&nbsp;
+    		                <input name="btn3" type="button" class="button" value="ตามหน้าจอ" onClick="call_report(1);">  <?  } else { ?><img src="images/doc_icon_pdf.jpg" border="0" alt="ตามหน้าจอ" onClick="call_report(1);">
+        		        <? } echo "&nbsp;";?>
+            		    <? if ($BUTTON_DISPLAY==1) { ?>
+                		    <input name="btn31" type="button" class="button" value="ทุกเมนู" onClick="call_report(2);">  <?  } else { ?><img src="images/doc_icon_pdf.jpg" border="0" alt="ทุกเมนู" onClick="call_report(2);">
+	                	<? } echo "";?>
+					</td>
+                	<td align="center">
+	    	            <? if ($BUTTON_DISPLAY==1) { ?>
+    	                	&nbsp;<?=$EXCEL_TITLE?>&nbsp;
+        		            <input name="btn4" type="button" class="button" value="ตามหน้าจอ" onClick="call_report(3);">  <?  } else { ?><img src="images/doc_icon_excel.jpg" border="0" alt="ตามหน้าจอ" onClick="call_report(3);">
+            		    <? } echo "&nbsp;"; ?>
+                		<? if ($BUTTON_DISPLAY==1) { ?>
+                    		<input name="btn41" type="button" class="button" value="ทุกเมนู" onClick="call_report(4);">  <?  } else { ?><img src="images/doc_icon_excel.jpg" border="0" alt="ทุกเมนู" onClick="call_report(4);">
+	                	<? } echo ""; ?>
+					</td>
+				</tr></table>
+			</tr></table>
+		</td>
+              </tr>
+  </table>
+   
+  <?// if($UPD) : ?>
+  <table width="95%" align="center" cellpadding="1" cellspacing="1" class="input_table">
+    <tr>
+      <td colspan="9"><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+          <tr class="menu_sub_nonactive">
+            <td width="1%" height="25">&nbsp;</td>
+            <td><b><?=$name_th?></b></td>
+          </tr>
+          <tr>
+            <td>&nbsp;</td>
+            <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <? for($i=0; $i<count($arr_section); $i++) : ?>
+                  <td width="33%"><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                      <tr>
+                        <td width="16"><input type="radio" name="page_id" value="<?=$arr_section[$i]["id"]?>" onClick="form1.action+='?UPD=1'; form1.submit();" <?=( ($page_id==$arr_section[$i]["id"])?"checked":"" )?>></td>
+                        <td><?=$arr_section[$i]["name"]?>
+                        </td>
+                      </tr>
+                  </table></td>
+                  <? endfor; ?>
+                </tr>
+            </table></td>
+          </tr>
+      </table></td>
+    </tr>
+    <tr class="table_head">
+      <td align="center" height="20">ชื่อเมนู</td>
+      <td width="8%" align="center">แสดง</td>
+      <td width="8%" align="center">เพิ่ม</td>
+      <td width="8%" align="center">แก้ไข</td>
+      <td width="8%" align="center">ลบ</td>
+      <td width="8%" align="center">รายงาน</td>
+      <td width="8%" align="center">ยืนยันคำสั่ง</td>
+      <td width="8%" align="center">ตรวจสอบ</td>
+      <td width="8%" align="center">แนบไฟล์</td>
+    </tr>
+    <? 
+		switch($page_id){
+			case 1 :		$menu_depth = $BACKOFFICE_MENU_DEPTH;
+								break;
+			case 2 :		$menu_depth = $MAIN_MENU_DEPTH;
+								break;
+		} // end 
+
+//		echo "group_open_depth=$group_open_depth<br>";
+		$arr_open_list = explode(",",$group_open_depth);
+
+		if($menu_depth >= 1){
+			for($i=0; $i<count($arr_program_lv0[$page_id]); $i++) :
+				$program_id_lv0 = $arr_program_lv0[$page_id][$i]["id"];
+//				echo "1-".$arr_program_lv0[$page_id][$i]["id"]."-".$arr_program_lv0[$page_id][$i]["name"]."<br>";
+				$search_str = "|".$group_id.",".$page_id.",".$program_id_lv0.",0,0,0";
+				$search_offset = strpos($auth_list, $search_str) + strlen($search_str);
+				$can_add_pos = $search_offset + 1;
+				$can_edit_pos = $search_offset + 3;
+				$can_del_pos = $search_offset + 5;
+				$can_inq_pos = $search_offset + 7;
+				$can_print_pos = $search_offset + 9;
+				$can_confirm_pos = $search_offset + 11;
+				$can_audit_pos = $search_offset + 13;
+				$can_attach_pos = $search_offset + 15;
+  ?>
+    <tr class="table_body" onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" style="cursor:hand">
+      <td  onClick="update_open_list(1, <?=$arr_program_lv0[$page_id][$i]["id"]?>);">&nbsp;<?=$arr_program_lv0[$page_id][$i]["flag"]." ".$arr_program_lv0[$page_id][$i]["name"]?>   
+	  </td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_inq_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('inq', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_inq_pos]=="Y")?"checked":"" )?> <?=(($arr_program_lv0[$page_id][$i]["name"]=="ตั้งค่าระบบ" && $group_id==1)?"disabled":"") ?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_add_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('add', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_add_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_edit_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('edit', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_edit_pos]=="Y")?"checked":"" )?> <?=(($arr_program_lv0[$page_id][$i]["name"]=="ตั้งค่าระบบ" && $group_id==1)?"disabled":"")?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_del_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('del', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_del_pos]=="Y")?"checked":"" )?>></td>
+	  <td align="center"><input type="checkbox" align="center" size="10" name="can_print_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('print', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_print_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_confirm_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('confirm', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_confirm_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_audit_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('audit', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_audit_pos]=="Y")?"checked":"" )?>></td>
+	  <td align="center"><input type="checkbox" align="center" size="10" name="can_attach_<?=$page_id?>_<?=$program_id_lv0?>_0_0_0" value="Y" onClick="sel_all_sub_lv0('attach', <?=$page_id?>, <?=$program_id_lv0?>);" <?=( ($auth_list[$can_attach_pos]=="Y")?"checked":"" )?>></td>
+    </tr>
+    <? 
+		$key_openlist = "1-".$program_id_lv0;
+//		echo "[key $key_openlist in array =".array_search($key_openlist, $arr_open_list)."] ";
+		if (array_search($key_openlist, $arr_open_list)!==false) {
+			if($menu_depth >= 2){
+				for($j=0; $j<count($arr_program_lv1[$page_id][$program_id_lv0]); $j++){
+					$program_id_lv1 = $arr_program_lv1[$page_id][$program_id_lv0][$j]["id"];
+//					echo "2-".$arr_program_lv1[$page_id][$program_id_lv0][$j]["id"]."-".$arr_program_lv1[$page_id][$program_id_lv0][$j]["name"]."<br>";
+					$search_str = "|".$group_id.",".$page_id.",".$program_id_lv0.",".$program_id_lv1.",0,0";
+					$search_offset = strpos($auth_list, $search_str) + strlen($search_str);
+					$can_add_pos = $search_offset + 1;
+					$can_edit_pos = $search_offset + 3;
+					$can_del_pos = $search_offset + 5;
+					$can_inq_pos = $search_offset + 7;
+					$can_print_pos = $search_offset + 9;
+					$can_confirm_pos = $search_offset + 11;
+					$can_audit_pos = $search_offset + 13;
+					$can_attach_pos = $search_offset + 15;
+  ?>
+    <tr class="table_body_2" onMouseOver="this.className='table_body_2_over';" onMouseOut="this.className='table_body_2';" style="cursor:hand">
+      <td onClick="update_open_list(2, <?=$arr_program_lv1[$page_id][$program_id_lv0][$j]["id"]?>);">&nbsp;&nbsp;&nbsp;&nbsp;<?=$arr_program_lv1[$page_id][$program_id_lv0][$j]["flag"]." ".$arr_program_lv1[$page_id][$program_id_lv0][$j]["name"]?></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_inq_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('inq', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_inq_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_add_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('add', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_add_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_edit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('edit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_edit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_del_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('del', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_del_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_print_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('print', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_print_pos]=="Y")?"checked":"" )?>></td>	  
+	  <td align="center"><input type="checkbox" align="center" size="10" name="can_confirm_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('confirm', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_confirm_pos]=="Y")?"checked":"" )?>></td>
+<td align="center"><input type="checkbox" align="center" size="10" name="can_audit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('audit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_audit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_attach_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_0_0" value="Y" onClick="sel_all_sub_lv1('attach', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>);" <?=( ($auth_list[$can_attach_pos]=="Y")?"checked":"" )?>></td>	  
+    </tr>
+    <? 
+		$key_openlist1 = "2-".$program_id_lv1;
+//		echo "[key $key_openlist1 in array =".array_search($key_openlist1, $arr_open_list)."] ";
+		if (array_search($key_openlist1, $arr_open_list)!==false) {
+			if($menu_depth >= 3){
+				for($x=0; $x<count($arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1]); $x++){
+					$program_id_lv2 = $arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1][$x]["id"];
+//					echo "3-".$arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1][$x]["name"]."<br>";
+					$search_str = "|".$group_id.",".$page_id.",".$program_id_lv0.",".$program_id_lv1.",".$program_id_lv2.",0";
+					$search_offset = strpos($auth_list, $search_str) + strlen($search_str);
+					$can_add_pos = $search_offset + 1;
+					$can_edit_pos = $search_offset + 3;
+					$can_del_pos = $search_offset + 5;
+					$can_inq_pos = $search_offset + 7;
+					$can_print_pos = $search_offset + 9;
+					$can_confirm_pos = $search_offset + 11;
+					$can_audit_pos = $search_offset + 13;
+					$can_attach_pos = $search_offset + 15;
+  ?>
+    <tr class="table_body_3" onMouseOver="this.className='table_body_3_over';" onMouseOut="this.className='table_body_3';"  style="cursor:hand">
+      <td onClick="update_open_list(3, <?=$arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1][$x]["id"]?>);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?=$arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1][$x]["flag"]." ".$arr_program_lv2[$page_id][$program_id_lv0][$program_id_lv1][$x]["name"]?></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_inq_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('inq', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_inq_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_add_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('add', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_add_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_edit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('edit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_edit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_del_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('del', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_del_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_print_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('print', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_print_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_confirm_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('confirm', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_confirm_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_audit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('audit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_audit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_attach_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_0" value="Y" onClick="sel_all_sub_lv2('attach', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>);" <?=( ($auth_list[$can_attach_pos]=="Y")?"checked":"" )?>></td>
+    </tr>
+    <? 
+		$key_openlist2 = "3-".$program_id_lv2;
+//		echo "[key $key_openlist2 in array =".array_search($key_openlist2, $arr_open_list)."] ";
+		if (array_search($key_openlistd, $arr_open_list)!==false) {
+			if($menu_depth >= 4){
+				for($y=0; $y<count($arr_program_lv3[$page_id][$program_id_lv0][$program_id_lv1][$program_id_lv2]); $y++){
+					$program_id_lv3 = $arr_program_lv3[$page_id][$program_id_lv0][$program_id_lv1][$program_id_lv2][$y]["id"];
+					$search_str = "|".$group_id.",".$page_id.",".$program_id_lv0.",".$program_id_lv1.",".$program_id_lv2.",".$program_id_lv3;
+					$search_offset = strpos($auth_list, $search_str) + strlen($search_str);
+					$can_add_pos = $search_offset + 1;
+					$can_edit_pos = $search_offset + 3;
+					$can_del_pos = $search_offset + 5;
+					$can_inq_pos = $search_offset + 7;
+					$can_print_pos = $search_offset + 9;
+					$can_confirm_pos = $search_offset + 11;
+					$can_audit_pos = $search_offset + 13;
+					$can_attach_pos = $search_offset + 15;
+  ?>
+    <tr class="table_body_2" onMouseOver="this.className='table_body_2_over';" onMouseOut="this.className='table_body_2';"  style="cursor:hand">
+      <td onClick="update_open_list(4, <?=$arr_program_lv3[$page_id][$program_id_lv0][$program_id_lv1][$program_id_lv2][$y]["id"]?>);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?=$arr_program_lv3[$page_id][$program_id_lv0][$program_id_lv1][$program_id_lv2][$y]["name"]?></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_inq_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('inq', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_inq_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_add_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('add', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_add_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_edit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('edit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_edit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_del_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('del', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_del_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_print_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('print', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_print_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_confirm_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('confirm', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_confirm_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_audit_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('audit', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_audit_pos]=="Y")?"checked":"" )?>></td>
+      <td align="center"><input type="checkbox" align="center" size="10" name="can_attach_<?=$page_id?>_<?=$program_id_lv0?>_<?=$program_id_lv1?>_<?=$program_id_lv2?>_<?=$program_id_lv3?>" value="Y" onClick="sel_all_sub_lv3('attach', <?=$page_id?>, <?=$program_id_lv0?>, <?=$program_id_lv1?>, <?=$program_id_lv2?>, <?=$program_id_lv3?>);" <?=( ($auth_list[$can_attach_pos]=="Y")?"checked":"" )?>></td>
+    </tr>
+    <? 
+				} // end for 
+			} // end if menu_depth >= 4
+		} // end if (array_search($key_openlist2, $arr_open_list)!==false) loop menu_depth = 3
+	?>
+    <? 
+				} // end for 
+			} // end if menu_depth >= 3
+		} // end if (array_search($key_openlist1, $arr_open_list)!==false) loop menu_depth = 2
+	?>
+    <? 
+				} // end for 
+			} // end if menu_depth >= 2
+		} // end if (array_search($key_openlist, $arr_open_list)!==false) loop menu_depth = 1
+	?>
+    <?
+			endfor; 
+		} // end if menu_depth >= 1
+	?>
+    <tr align="center">
+      <td height="30" colspan="9">
+          <?if($PAGE_AUTH["edit"]=="Y" || $PAGE_AUTH["add"]=="Y"){?>
+		  <? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="btn5" type="submit" class="button" onClick=" form1.command.value='UPDATE'; " value="<?=$EDIT_TITLE?>">
+		  <?  } else { ?>
+		  <input name="image223" type="image" onClick=" form1.command.value='UPDATE'; " src="images/save.png" alt="<?=$EDIT_TITLE?>">
+		  <? } echo "&nbsp; &nbsp;"; ?>
+          <?}?>
+	  	<? if ($BUTTON_DISPLAY==1) { ?>
+          <input name="Reset" type="submit" class="button" onClick=" call_back('user_group.html'); " value="<?=$CANCEL_TITLE?>">
+		  <?  } else { ?>
+          <input name="image23" type="image" onClick=" call_back('user_group.html'); "  src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+          <? } echo "&nbsp; &nbsp;";?>
+      </td>
+    </tr>
+  </table>
+  <?// endif; ?>
+        </form>	
+		</td>
+	</tr>
+</table>&nbsp;
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

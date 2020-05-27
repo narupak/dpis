@@ -1,0 +1,642 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/workflow_personal_address.php");
+
+	$ADR_TYPE_tmp1 = (isset($ADR_TYPE))? $ADR_TYPE_tmp1 : 1 ;
+	
+	$cmd =" select count(ADR_ID) as count_data from PER_WORKFLOW_ADDRESS where PER_ID=$PER_ID and ADR_WF_STATUS!='04' ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];	
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css"></head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($F_REFRESH=="1") { ?>
+//		alert(<? echo "F_REFRESH=$F_REFRESH, EDU_WF_STATUS=$EDU_WF_STATUS"; ?>);
+// 		parent.refresh_opener(<?=$EDU_WF_STATUS?>);
+ 		parent.parent.refresh_opener(true);
+<? } ?>
+
+	function upd_status_command( status ) {
+		form1.command.value = "UPD-"+status;
+	}
+
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function confirm_delete(add_id , add_name){
+		if(confirm("ต้องการลบที่อยู่นี้ใช่หรือไม่ [ " + add_name + " ]?")){
+			form1.command.value = "DELETE";
+			form1.ADR_ID.value = add_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_person () {	
+		parameter = "";
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}
+	
+	function call_search_province () {	
+		parameter = '&CT_CODE=140';	//ประเทศไทย	form1.CT_CODE.value
+	    call_openDialog("search_province.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$PV_TITLE?>");		
+	}	
+	
+	function call_search_amphur () {
+		if(form1.PV_CODE1.value != 0){
+			parameter = "&PV_CODE1=" + form1.PV_CODE1.value;
+		}else{
+			alert("กรุณาเลือกจังหวัดก่อน");
+			form1.btn_province.focus();
+			return false;
+		}
+	    call_openDialog("search_amphur.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$AP_TITLE?>");		
+	}
+	
+	
+	function call_search_country () {	
+		parameter = "";
+	    call_openDialog("search_country.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$CT_TITLE?>");		
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {
+			var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+			parameter = "";
+			MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+</script>
+
+<script type="text/javascript" language="JavaScript">
+function checkadd(f) {
+		if(f.ADR_TYPE.value=="") {
+			alert("กรุณาระบุประเภทที่อยู่");
+			f.ADR_TYPE.focus();
+			return false;
+		} else 
+			form1.command.value='ADD';
+		return true;
+  }
+		
+  function checkupdate(f) {
+		if(f.ADR_TYPE.value=="") {
+			alert("กรุณาระบุประเภทที่อยู่");
+			f.ADR_TYPE.focus();
+			return false;
+		} else 
+			form1.command.value='UPDATE';
+			return true;
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_person") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PER_ID.value = arrValue[0];
+				form1.submit();
+			} // end if
+		} else if  (src.indexOf("search_province") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.PV_CODE1.value = arrValue[0];
+				form1.PV_NAME1.value = arrValue[1];
+				form1.AP_CODE.value = "";
+				form1.AP_NAME.value = "";
+			} // end if
+		} else if  (src.indexOf("search_amphur") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.AP_CODE.value = arrValue[0];
+				form1.AP_NAME.value = arrValue[1];
+			} // end if
+		} else if  (src.indexOf("search_country") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				form1.CT_CODE.value = arrValue[0];
+				form1.CT_NAME.value = arrValue[1];
+			} // end if
+		} 		
+//		$( "#d_frame" )[0].src="";
+//		alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  <? if(!$HIDE_HEADER){ ?>
+  <tr>
+    <td height="10"><?include("header_menu.html")?></td>
+  </tr>
+  <? } ?>
+  <tr>
+    <td align="left" valign="top"><?	
+		$OPTIONAL_TITLE="".(($HIDE_HEADER)?"ข้อมูลที่อยู่":"") ;
+		if ($UPD) $OPTIONAL_TITLE.=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE.=" &gt; ดูข้อมูล";
+		include("current_location.html");
+?>
+    </td>
+  </tr>
+  <tr>
+    <td align="left" valign="top"><form name="form1" method="post" action="workflow_personal_address.html" enctype="multipart/form-data" >
+      <input type="hidden" name="current_page" value="<?=$current_page?>">
+      <input type="hidden" name="total_page" value="<?=$total_page?>">
+      <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+      <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+      <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+      <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+      <input type="hidden" name="command" value="">
+      <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+      <input type="hidden" name="ADR_ID" value="<?=$ADR_ID?>">
+      <input type="hidden" name="F_REFRESH" value="<?=$F_REFRESH?>">
+      <input type="hidden" name="HIDE_HEADER" value="<?=$HIDE_HEADER?>">
+      &nbsp;
+      <table width="90%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td width="25%" height="22" align="right"><?=$FULLNAME_TITLE?></td>
+              <td align="center"><input type="text" name="PER_NAME" value="<?=$PER_NAME?>" style="width:98%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+              <td width="25%"><? if (!$HIDE_HEADER) { ?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="btn2" type="button" class="button" value="<?=$SELECT_PERSON_TITLE ?>" onClick="call_search_person();">
+                      <?  } else {  echo "&nbsp; &nbsp;"; ?>
+                      <img src="images/select_person.png" alt="<?=$SELECT_PERSON_TITLE ?>" width="32" height="32" border="0" onClick="call_search_person();">
+                      <? } echo "&nbsp; &nbsp;"; ?>
+                <? } ?></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+       
+      <table width="95%" align="center" cellpadding="0" cellspacing="0">
+        <tr>
+          <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+            <tr>
+              <td height="22" align="center" class="table_body"><?=($UPD)?"แก้ไข":"เพิ่ม"?>
+                ข้อมูล</td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+      <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+        <tr>
+          <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+            <tr>
+              <td height="5"></td>
+            </tr>
+            <tr>
+              <td height="22" align="center"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+                <tr>
+                  <td align="right">เลขที่บ้าน&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_NO" value="<?=$ADR_NO; ?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+				  <td width="15%">&nbsp;</td>
+				  <td width="35%">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">หมู่บ้าน&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_VILLAGE" value="<?=$ADR_VILLAGE?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">อาคาร&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_BUILDING" value="<?=$ADR_BUILDING?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">ซอย&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_SOI" value="<?=$ADR_SOI?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">ถนน&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_ROAD" value="<?=$ADR_ROAD?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right">หมู่ที่&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_MOO" value="<?=$ADR_MOO?>" maxlength="4" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">ตำบล/แขวง&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="ADR_DISTRICT" value="<?=$ADR_DISTRICT?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td align="right"><?=$PV_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="PV_NAME1" value="<?=$PV_NAME1?>"  style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                      <input type="hidden" name="PV_CODE1" value="<?=$PV_CODE1?>">
+                      <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?>
+                      <input type="button" name="btn_province" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกจังหวัด" onClick="call_search_province();">
+                      <input name="image" type="image" onClick="form1.AP_NAME.value=''; form1.AP_CODE.value=''; form1.PV_NAME1.value=''; form1.PV_CODE1.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                      <? endif; ?></td>
+                  <td height="22" align="right" valign="middle"><?=$AP_TITLE?>/เขต&nbsp;:&nbsp;</td>
+                  <td valign="bottom"><input type="text" name="AP_NAME" value="<?=$AP_NAME?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>>
+                      <input type="hidden" name="AP_CODE" value="<?=$AP_CODE?>">
+                      <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")) : ?>
+                      <input type="button" name="btn_amphur" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกอำเภอ" onClick="call_search_amphur();">
+                      <input name="image" type="image" onClick="form1.AP_NAME.value=''; form1.AP_CODE.value=''; return false;" src="images/icon_clear.gif" alt="ล้างค่า" align="center" width="22" height="22">
+                      <? endif; ?>                  </td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="middle">รหัสไปรษณีย์&nbsp;:&nbsp;</td>
+                  <td valign="bottom"><input type="text" name="ADR_ZIPCODE" value="<?=$ADR_ZIPCODE?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">อีเมล์&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="EMAIL" value="<?=$EMAIL?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="middle">โทรศัพท์ที่บ้าน&nbsp;:&nbsp;</td>
+                  <td valign="bottom"><input type="text" name="TEL_HOME" value="<?=$TEL_HOME?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">โทรศัพท์ที่ทำงาน&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="TEL_OFFICE" value="<?=$TEL_OFFICE?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right" valign="middle">โทรศัพท์มือถือ&nbsp;:&nbsp;</td>
+                  <td valign="bottom"><input type="text" name="TEL_MOBILE" value="<?=$TEL_MOBILE?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                  <td align="right">โทรสาร&nbsp;:&nbsp;</td>
+                  <td><input type="text" name="TEL_FAX" value="<?=$TEL_FAX?>" style="width:70%" class="textbox" <?=($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y")?"":"readonly"?>></td>
+                </tr>
+                <tr>
+                  <td height="22" align="right"><?=$REMARK_TITLE?>&nbsp;:&nbsp;</td>
+                  <td><textarea name="ADR_REMARK" rows="3" class="selectbox" style="width:65%"><?=$ADR_REMARK?></textarea></td>
+                  <td align="right">&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+            <tr>
+              <td align="right"><?=$UPDATE_USER_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_USER" type="text" class="textbox" value="<?=$SHOW_UPDATE_USER?>" readonly></td>
+              <td align="right"><?=$UPDATE_DATE_TITLE?>&nbsp;:&nbsp;</td>
+              <td><input name="SHOW_UPDATE_DATE" type="text" class="textbox" value="<?=$SHOW_UPDATE_DATE?>" readonly></td>
+            </tr>
+                <tr>
+                  <td height="22" align="right"><span class="label_alert">*</span>&nbsp;</td>
+                  <td colspan="3"><input name="ADR_TYPE" type="radio" value="1" <?=($ADR_TYPE_tmp1==1)?"checked":""?>>
+                    &nbsp;ที่อยู่ปัจจุบัน&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <input name="ADR_TYPE" type="radio" value="2" <?=($ADR_TYPE_tmp2==2)?"checked":""?>>
+                    &nbsp;ที่อยู่ตามทะเบียนบ้าน&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <input name="ADR_TYPE" type="radio" value="3" <?=($ADR_TYPE_tmp3==3)?"checked":""?>>
+                    &nbsp;ที่อยู่ตามบัตรประชาชน&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <input name="ADR_TYPE" type="radio" value="4" <?=($ADR_TYPE_tmp4==4)?"checked":""?>>
+                    &nbsp;ที่อยู่ตามภูมิลำเนา&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </td>
+                </tr>
+            <tr>
+              <td height="22" align="right"><span class="label_alert">*</span>&nbsp;</td>
+			  <?
+			  		if ($ADR_WF_STATUS=="01") {
+						$ADR_STATUS_TEXT="สร้างงาน";
+					} else if ($ADR_WF_STATUS=="02") {
+		                if($SESS_USERGROUP_LEVEL < 5){  // admin
+							$ADR_STATUS_TEXT="รออนุมัติ";
+						} else {
+							$ADR_STATUS_TEXT="ส่งงาน";
+						}
+					} else if ($ADR_WF_STATUS=="03") {
+						$ADR_STATUS_TEXT="ส่งกลับ";
+					} else if ($ADR_WF_STATUS=="04") {
+						$ADR_STATUS_TEXT="อนุมัติ";
+					} else if ($ADR_WF_STATUS=="05") {
+						$ADR_STATUS_TEXT="ไม่อนุมัติ";
+					} else {
+						$ADR_STATUS_TEXT="???";
+					}
+			  ?>
+              <td colspan="3">สถานะรายการ : <?=$ADR_STATUS_TEXT?></td>
+            </tr>
+              </table></td>
+            </tr>
+            <? if($PER_ID) : ?>
+            <tr>
+              <td height="5"></td>
+            </tr>
+            <tr align="center">
+              <td height="25"><? if ($UPD || $VIEW) { ?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL'; form1.ADR_ID.value='';" class="button" >
+                      <?  } else { ?>
+                      <input name="image2" type="image" onClick="form1.command.value='CANCEL'; form1.ADR_ID.value='';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+                      <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Submit22" type="submit" class="button" onClick="return checkupdate(form1);" value="<?=$EDIT_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image22" type="image" onClick="return checkupdate(form1);" src="images/save.png" alt="<?=$EDIT_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+                <?}?>
+                <? if($SESS_USERGROUP_LEVEL < 5){?> <!-- user admin -->
+					<!--? if ($PAGE_AUTH["confirm"]=="Y"){?-->
+						<? if ($ADR_WF_STATUS=="01"){?> <!-- ถ้า status เป็น สร้างงาน -->
+						<? } else if ($ADR_WF_STATUS=="02"){?>  <!-- ถ้า status เป็น รออนุมัติ -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit93" style="width:70" type="submit" class="button" onClick="upd_status_command('03');" value="ส่งกลับ" alt="ส่งกลับ" title="ส่งกลับ">
+							<?  } else { ?>
+                            <input name="image222" type="image" onClick="upd_status_command('03');" src="images/back.gif" alt="ส่งกลับ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit94" style="width:70" type="submit" class="button" onClick="upd_status_command('04');" value="อนุมัติ" alt="อนุมัติ" title="อนุมัติ">
+							<?  } else { ?>
+                            <input name="image2222" type="image" onClick="upd_status_command('04');" src="images/ok.gif" alt="อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit95" style="width:70" type="submit" class="button" onClick="upd_status_command('05');" value="ไม่อนุมัติ" alt="ไม่อนุมัติ" title="ไม่อนุมัติ">
+							<?  } else { ?>
+                            <input name="image22222" type="image" onClick="upd_status_command('05');" src="images/cancel2.png" alt="ไม่อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($ADR_WF_STATUS=="03"){ ?> <!-- ถ้า status เป็น ส่งกลับ -->
+						<? } else if ($ADR_WF_STATUS=="04"){?> <!-- ถ้า status เป็น อนุมัติ -->
+						<? } else if ($ADR_WF_STATUS=="05"){?>  <!-- ถ้า status เป็น ไม่อนุมัติ -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit93" style="width:70" type="submit" class="button" onClick="upd_status_command('03');" value="ส่งกลับ" alt="ส่งกลับ" title="ส่งกลับ">
+							<?  } else { ?>
+                            <input name="image2223" type="image" onClick="upd_status_command('03');" src="images/back.gif" alt="ส่งกลับ">
+                            <? } echo "&nbsp; &nbsp;";?>
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit94" style="width:70" type="submit" class="button" onClick="upd_status_command('04');" value="อนุมัติ" alt="อนุมัติ" title="อนุมัติ">
+							<?  } else { ?>
+                            <input name="image22223" type="image" onClick="upd_status_command('04');" src="images/ok.gif" alt="อนุมัติ">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } ?>
+					<!--? } ?-->
+				<? } else { ?> <!-- แต่ละจังหวัด -->
+					<!--?if($PAGE_AUTH["confirm"]=="Y"){?-->
+						<? if ($ADR_WF_STATUS=="01"){?>  <!-- ถ้า status เป็น สร้างงาน -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit92" style="width:70" type="submit" class="button" onClick="upd_status_command('02');" value="ส่งงาน" alt="ส่งงาน" title="ส่งงาน">
+							<?  } else { ?>
+                            <input name="image222232" type="image" onClick="upd_status_command('02');" src="images/up.gif" alt="ส่งงาน">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($ADR_WF_STATUS=="02"){?>  <!-- ถ้า status เป็น รออนุมัติ  -->
+						<? } else if ($ADR_WF_STATUS=="03"){?> <!-- ถ้า status เป็น ส่งกลับ  -->
+							<? if ($BUTTON_DISPLAY==1) { ?>
+							<input name="Submit92" style="width:70" type="submit" class="button" onClick="upd_status_command('02');" value="ส่งงาน" alt="ส่งงาน" title="ส่งงาน">
+							<?  } else { ?>
+                            <input name="image2222322" type="image" onClick="upd_status_command('02');" src="images/up.gif" alt="ส่งงาน">
+                            <? } echo "&nbsp; &nbsp;";?>
+						<? } else if ($ADR_WF_STATUS=="04"){?> <!-- ถ้า status เป็น อนุมัติ  -->
+						<? } else if ($ADR_WF_STATUS=="05"){?> <!-- ถ้า status เป็น ไม่อนุมัติ  -->
+						<? } ?>
+					<!--?}?-->
+				<? } ?>
+                      <? } else { ?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Reset" type="reset" class="button" value="<?=$CLEAR_TITLE?>">
+                      <?  } else { ?>
+                      <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                      <? } echo "&nbsp; &nbsp;";?>
+                      <?if($PAGE_AUTH["add"]=="Y"){?>
+                      <? if ($BUTTON_DISPLAY==1) { ?>
+                      <input name="Submit2" type="submit" class="button" onClick="return checkadd(form1);" value="<?=$ADD_TITLE?>">
+                      <?  } else { ?>
+                      <input name="image23" type="image" onClick="return checkadd(form1);" src="images/save.png" alt="<?=$ADD_TITLE?>">
+                      <? } echo "&nbsp; &nbsp;";?>
+                <?}?>
+                      <?}?>              </td>
+            </tr>
+            <? endif; ?>
+            <tr>
+              <td height="3"></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table>
+        &nbsp;
+        <table width="95%" border="0" align="center" cellpadding="0" cellspacing="0">
+            <tr>
+              <td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+                  <tr height="22">
+                    <!--	<td width="15%"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_report" type="button" class="button" value="ดูรายงาน" onClick="call_pdf_report();"><? }else{ echo "&nbsp;"; } ?></td> -->
+                    <td align="center">พบ <?=$MENU_TITLE_LV2?> ทั้งสิ้น <?=($count_data + 0)?> รายการ</td>
+                    <!--	<td width="15%" align="right"><? if($PAGE_AUTH["print"]=="Y"){ ?><input name="btn_export" type="button" class="button" value="ส่งออกไฟล์" onClick="call_export_file();"><? }else{ echo "&nbsp;"; } ?></td> -->
+                  </tr>
+              </table></td>
+            </tr>
+          </table>
+      <?
+	if($current_page > 1){
+		if($DPISDB=="odbc"){
+			$cmd = " select top $start_record trim(ADR_ID) as concat_pk from PER_WORKFLOW_ADDRESS 
+							where PER_ID=$PER_ID and ADR_WF_STATUS!='04' $search_condition order by ADR_TYPE, ADR_ID ";
+			$db_dpis->send_cmd($cmd);
+			while($data = $db_dpis->get_array()) $arr_exclude[] = "'".$data[concat_pk]."'";
+			$limit_data = (trim($search_condition)?" and ":" where ")." trim(ADR_ID) not in (". implode(", ", $arr_exclude) .")";
+		}elseif($DPISDB=="mysql"){
+ 			$limit_data = " limit " . (($current_page - 1) * $data_per_page) . ", " . $data_per_page;
+		}
+	}	
+
+	if($DPISDB=="odbc"){
+		$cmd = " select			top $data_per_page 
+											ADR_ID,PER_ID,ADR_TYPE,ADR_NO,ADR_ROAD,ADR_SOI ,ADR_MOO,ADR_VILLAGE,ADR_BUILDING,ADR_DISTRICT,
+											AP_CODE,PV_CODE,ADR_HOME_TEL,ADR_OFFICE_TEL,ADR_FAX,ADR_MOBILE,ADR_EMAIL,ADR_POSTCODE,
+											ADR_REMARK,UPDATE_USER,UPDATE_DATE, ADR_WF_STATUS
+						 from			PER_WORKFLOW_ADDRESS
+						 where		PER_ID=$PER_ID and ADR_WF_STATUS!='04'
+											$limit_data
+						order by 	ADR_TYPE, ADR_ID 	";	
+	}elseif($DPISDB=="oci8"){			 
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+						   select rownum rnum, q1.* from ( 
+								  select 	ADR_ID,PER_ID,ADR_TYPE,ADR_NO,ADR_ROAD,ADR_SOI ,ADR_MOO,ADR_VILLAGE,ADR_BUILDING,ADR_DISTRICT,
+												AP_CODE,PV_CODE,ADR_HOME_TEL,ADR_OFFICE_TEL,ADR_FAX,ADR_MOBILE,ADR_EMAIL,ADR_POSTCODE,
+												ADR_REMARK,UPDATE_USER,UPDATE_DATE, ADR_WF_STATUS
+								  from 		PER_WORKFLOW_ADDRESS
+								  where 	PER_ID=$PER_ID and ADR_WF_STATUS!='04'
+												$search_condition
+								  order by 	ADR_TYPE, ADR_ID
+						   )  q1
+					) where rnum between $rec_start and $rec_end  ";					 		
+	}elseif($DPISDB=="mysql"){
+		$cmd = " select			ADR_ID,PER_ID,ADR_TYPE,ADR_NO,ADR_ROAD,ADR_SOI ,ADR_MOO,ADR_VILLAGE,ADR_BUILDING,ADR_DISTRICT,
+											AP_CODE,PV_CODE,ADR_HOME_TEL,ADR_OFFICE_TEL,ADR_FAX,ADR_MOBILE,ADR_EMAIL,ADR_POSTCODE,
+											ADR_REMARK,UPDATE_USER,UPDATE_DATE, ADR_WF_STATUS
+						 from		PER_WORKFLOW_ADDRESS
+						 where	PER_ID=$PER_ID and ADR_WF_STATUS!='04'
+						order by 	ADR_TYPE, ADR_ID
+										$limit_data  ";	
+	} // end if
+	
+	$count_page_data = $db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	if ($count_page_data) {
+?>
+          <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+            <tr align="center" class="table_head">
+              <td height="25"><strong>ที่อยู่</strong></td>
+              <td width="20%"><strong>โทรศัพท์</strong></td>
+              <td width="15%"><strong>อีเมล์</strong></td>
+              <td width="12%"><strong>ประเภทที่อยู่</strong></td>
+			  <td width="15%"><strong><?=$REMARK_TITLE?></strong></td>
+              <td width="4%"><?=$INQ_TITLE?></td>
+              <?if($PAGE_AUTH["edit"]=="Y"){?><td width="4%"><?=$EDIT_TITLE?></td><?}?>
+              <?if($PAGE_AUTH["del"]=="Y"){?><td width="4%"><?=$DEL_TITLE?></td><?}?>
+			   <td width="3%">จำนวนไฟล์</td>
+              <?if($PAGE_AUTH["attach"]=="Y"){ ?><td width="4%"><?=$LOAD_TITLE?></td><?}?>
+            </tr>
+            <?
+	$current_list = "";
+	$data_count = 0;
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+		if($data_count > $data_per_page) break;
+		$TMP_ADR_ID = $data[ADR_ID];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_ADR_ID;
+
+		$TMP_AMPHUR_NAME = $TMP_PROVINCE_NAME = "";
+		$TMP_AP_CODE = $data[AP_CODE];
+		if($TMP_AP_CODE){
+			$cmd = " select  AP_NAME from PER_AMPHUR  where AP_CODE='$TMP_AP_CODE' ";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_AMPHUR_NAME = $data2[AP_NAME];
+		} // end if
+		
+		$TMP_PV_CODE = $data[PV_CODE];
+		if($TMP_PV_CODE){
+			$cmd = " select  PV_NAME from PER_PROVINCE  where PV_CODE='$TMP_PV_CODE' ";
+			$db_dpis2->send_cmd($cmd);
+			$data2 = $db_dpis2->get_array();
+			$TMP_PROVINCE_NAME = $data2[PV_NAME];
+		} // end if
+
+		$TMP_ADDRESS="";
+		if($data[ADR_VILLAGE]) $TMP_ADDRESS .= "หมู่บ้าน".$data[ADR_VILLAGE]." ";
+		if($data[ADR_BUILDING]) $TMP_ADDRESS .= "อาคาร".$data[ADR_BUILDING]." ";
+		if($data[ADR_NO]) $TMP_ADDRESS .= "เลขที่ ".$data[ADR_NO]." ";
+		if($data[ADR_MOO]) $TMP_ADDRESS .= "หมู่ที่ ".$data[ADR_MOO]." ";
+		if($data[ADR_SOI]) $TMP_ADDRESS .= "ซอย".$data[ADR_SOI]." ";
+		if($data[ADR_ROAD]) $TMP_ADDRESS .= "ถนน".$data[ADR_ROAD]." ";
+		if($data[ADR_DISTRICT]) $TMP_ADDRESS .= "ตำบล/แขวง ".$data[ADR_DISTRICT]." ";
+		if($TMP_AMPHUR_NAME) $TMP_ADDRESS .= "<br>อำเภอ/เขต ".$TMP_AMPHUR_NAME." ";
+		if($TMP_PROVINCE_NAME) $TMP_ADDRESS .= "<br>จังหวัด ".$TMP_PROVINCE_NAME." ";
+		if($data[ADR_POSTCODE]) $TMP_ADDRESS .= "<br>รหัสไปรษณีย์ ".$data[ADR_POSTCODE]." ";
+
+		$TMP_ADR_HOME_TEL = "";	$TMP_ADR_OFFICE_TEL = "";	$TMP_ADR_FAX = "";	$TMP_ADR_MOBILE = "";	$TMP_ADR_EMAIL="";
+		if($data[ADR_HOME_TEL])	$TMP_ADR_HOME_TEL="บ้าน. ".$data[ADR_HOME_TEL]."<br>";
+		if($data[ADR_OFFICE_TEL])	$TMP_ADR_OFFICE_TEL="ที่ทำงาน. ".$data[ADR_OFFICE_TEL]."<br>";
+		if($data[ADR_MOBILE])	$TMP_ADR_MOBILE="มือถือ. ".$data[ADR_MOBILE]."<br>";
+		if($data[ADR_FAX])	$TMP_ADR_FAX="โทรสาร. ".$data[ADR_FAX];
+		if($data[ADR_EMAIL])	$TMP_ADR_EMAIL=$data[ADR_EMAIL];
+		
+		if($data[ADR_TYPE]==1){
+			$TMP_ADR_TYPE = "ปัจจุบัน";
+		}else 		if($data[ADR_TYPE]==2){
+			$TMP_ADR_TYPE = "ตามทะเบียนบ้าน";
+		}else 		if($data[ADR_TYPE]==3){
+			$TMP_ADR_TYPE = "ตามบัตรประชาชน";
+		}else 		if($data[ADR_TYPE]==4){
+			$TMP_ADR_TYPE = "ตามภูมิลำเนา";
+		}
+		
+		$TMP_REMARK = $data[ADR_REMARK];
+		$TMP_ADR_WF_STATUS = $data[ADR_WF_STATUS];
+		
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($ADR_ID==$TMP_ADR_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+            <tr class="<?=$class?>" <?=$onmouse_event?>>
+              <td align="left"><?=trim($TMP_ADDRESS); ?></td>
+              <td align="left"><?=trim($TMP_ADR_HOME_TEL.$TMP_ADR_OFFICE_TEL.$TMP_ADR_MOBILE.$TMP_ADR_FAX); ?></td>
+              <td align="left"><?=trim($TMP_ADR_EMAIL);?></td>
+              <td align="center"><?=trim($TMP_ADR_TYPE); ?></td>
+			  <td align="center"><?=trim($TMP_REMARK); ?></td>
+              <td align="center"><a href="<?="javascript:form1.action+='?VIEW=1';form1.ADR_ID.value=$TMP_ADR_ID; form1.submit();"?>""><img src="images/icon_eye.gif" alt="ดูประวัติที่อยู่" width="16" height="16" border="0"></a></td>
+              <?if($PAGE_AUTH["edit"]=="Y"){
+	   		if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_ADR_WF_STATUS=='02' || $TMP_ADR_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+              <td align="center">&nbsp;<a href="<?="javascript:form1.action+='?UPD=1';form1.ADR_ID.value=$TMP_ADR_ID; form1.submit();"?>""><img src="images/b_edit.png" border="0" alt="แก้ไขประวัติที่อยู่"></a></td>
+		  <?}
+	  }?>
+              <?if($PAGE_AUTH["del"]=="Y"){
+	   		if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_ADR_WF_STATUS=='02' || $TMP_ADR_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+              <td align="center">&nbsp;<a href="<?="javascript:confirm_delete($TMP_ADR_ID,'$TMP_ADR_TYPE')"?>"><img src="images/b_drop.png" border="0" alt="ลบประวัติที่อยู่"></a></td>
+		  <?}
+	  }?>
+	  <td align="center">&nbsp;<? 
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+} // end if
+?>		
+<a href="<?="javascript:call_menu_desc('PER_WORKFLOW_ADDRESS','$TMP_ADR_ID','$TMP_ADR_TYPE','$PER_ID')"?>"><?=$numfiles; ?></a> 
+<?	 
+	  }else{	 echo "-";	} 
+	  ?></td>
+<?if($PAGE_AUTH["attach"]=="Y"){ ?>
+           <? if ($SESS_USERGROUP_LEVEL >= 5 && ($TMP_ADR_WF_STATUS=='02' || $TMP_ADR_WF_STATUS=='05')){
+	         echo "<td align='center'><font color='#FF0000'><strong>-</strong></font></td>";
+	  		} else {?>
+              <td align="center">
+	<input type="hidden" name="CATEGORY" value="PER_WORKFLOW_ADDRESS">
+	<input type="hidden" name="LAST_SUBDIR" value="<?=$TMP_ADR_ID; ?>">
+	<input type="hidden" name="UPFOR" value="<?=$TMP_ADR_TYPE; ?>">
+			  &nbsp; <a href="<?="javascript:call_menu_desc('PER_WORKFLOW_ADDRESS','$TMP_ADR_ID','$TMP_ADR_TYPE','$PER_ID')"?>"><img src="images/file.jpg" border="0" alt="<?=$ALT_LOAD_TITLE?>"></a></td>
+		  <?}?>
+<?}?>
+            </tr>
+            <? } ?>
+            <?if($PAGE_AUTH["edit"]=="Y"){?>
+            <tr class="table_footer">
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+			  <td>&nbsp;</td>
+              <?if($PAGE_AUTH["edit"]=="Y"){?><td>&nbsp;</td><?}?>
+              <?if($PAGE_AUTH["del"]=="Y"){?><td>&nbsp;</td><?}?>
+			  <td>&nbsp;</td>
+              <?if($PAGE_AUTH["attach"]=="Y"){ ?><td>&nbsp;</td><?}?>
+            </tr>
+            <?}?>
+          </table>
+      <? if($total_page > 1) : ?>
+          <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+            <tr>
+              <td align="center"><?=$page_link?></td>
+            </tr>
+          </table>
+      <? endif; ?>
+      &nbsp;
+          <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+            <tr>
+              <td colspan="10">&nbsp;</td>
+            </tr>
+            <tr>
+              <td colspan="10"><iframe style="visibility:hidden" width="100%" height="100%" frameborder="0" scrolling="yes" id="PER_FILE_IFRAME" name="">รายละเอียดไฟล์ข้อมูลข้าราชการ/ลูกจ้างประจำ</iframe></td>
+            </tr>
+          </table>
+          <? } // if  count show ?>
+          <input type="hidden" name="current_list" value="<?=$current_list?>">
+    </form></td>
+  </tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<? if(!$HIDE_HEADER){ ?>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<? } ?>
+</html>

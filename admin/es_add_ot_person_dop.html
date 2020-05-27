@@ -1,0 +1,540 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/load_per_control.php");
+    include("php_scripts/es_add_ot_person_dop.php");  
+    
+    
+    /* echo $CTRL_TYPE."||".$SESS_USERGROUP_LEVEL;*/
+    switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			$PROVINCE_CODE = $PROVINCE_CODE;
+			$PROVINCE_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){								
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			$PROVINCE_CODE = $PROVINCE_CODE;
+			$PROVINCE_NAME = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$MAIN_ORG_ID = $ORG_ID;
+			$MAIN_ORG_NAME = $ORG_NAME;
+			break;
+		case 6 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			$search_org_id_1 = $ORG_ID_1;
+			$search_org_name_1 = $ORG_NAME_1;
+			$MAIN_MINISTRY_ID = $MINISTRY_ID;
+			$MAIN_MINISTRY_NAME = $MINISTRY_NAME;
+			$MAIN_DEPARTMENT_ID = $DEPARTMENT_ID;
+			$MAIN_DEPARTMENT_NAME = $DEPARTMENT_NAME;
+			$MAIN_ORG_ID = $ORG_ID;
+			$MAIN_ORG_NAME = $ORG_NAME;
+			break;
+	} // end switch case
+    
+    
+    function get_id_es($db_dpis2,$id,$time_start,$time_end){
+        
+            $date1=date_create("$time_start");
+            $date2=date_create("$time_end");
+            $diff=date_diff($date1,$date2);
+            $sum_date = $diff->format("%a")+1;
+            $cmd = "select  a.PER_ID
+                            from  TA_PER_OT ot
+                            left join PER_PERSONAL a 
+                            on(a.PER_ID=ot.PER_ID)
+                            left join PER_PRENAME g 
+                            on(g.PN_CODE=a.PN_CODE)
+                            where 	a.PER_ID = $id
+                            
+                            AND ( ot.OT_DATE BETWEEN  '$time_start' and '$time_end')
+                            GROUP BY a.PER_ID
+                            HAVING count(*) < $sum_date ";
+            $db_dpis2->send_cmd($cmd);
+            $data2 = $db_dpis2->get_array();
+            $id_s = $data2[PER_ID];
+            return $id_s;
+    } 
+    function get_date_es($db_dpis2,$id,$time_start,$time_end,$date_display){
+        $date1=date_create("$time_start");
+        $date2=date_create("$time_end");
+        $diff=date_diff($date1,$date2);
+        $sum_date = $diff->format("%a")+1;
+        $date_tt = strtotime($time_start);
+        $date_tt2 = strtotime("-1 day", $date_tt);
+        $date_tt3 =date('Y-m-d', $date_tt2);
+        $date = $date_tt3; //mdy
+        for($j=0;$j<$sum_date;$j++){
+
+                $date = strtotime($date);
+                $date_f2 = strtotime("+1 day", $date);
+                $date =date('Y-m-d', $date_f2);
+                $cmd = " select  OT_DATE from TA_PER_OT 
+                                WHERE OT_DATE='$date'  AND PER_ID=$id  ";
+                $count_duplicate1 = $db_dpis2->send_cmd($cmd);
+                if($count_duplicate1 <= 0){
+                    //$f_date = date('Y - m - d',$date_f)
+                    $date_esf = show_date_format($date, $date_display);
+                    $timestamp .= "&nbsp;&nbsp;".$date_esf."<br>";
+                }
+        } 
+        return $timestamp;
+    }
+?>
+<html>
+<head>
+<title><?=$page_title;?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script type="text/javascript" >
+    function replace_ot(){
+       if(confirm("กรุณายืนยันเพื่อทำรายการ")){
+
+        }else{
+            return false;
+        }
+        form1.command.value='NEW';
+	return true;
+    }
+</script>
+<body>
+<form action="es_add_ot_person_dop.html" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page;?>">
+  <input type="hidden" name="total_page" value="<?=$total_page;?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3;?>">
+  <input type="hidden" name="CntEncode" id="CntEncode" value="<?=$Olddata_count;?>">
+  <input type="hidden" name="command">
+  <input type="hidden" name="isLock" value="<?=$isLock;?>">
+  <input type="hidden" name="LOCK_MINISTRY_ID" value="<?=$LOCK_MINISTRY_ID;?>">
+  <input type="hidden" name="LOCK_DEPARTMENT_ID" value="<?=$LOCK_DEPARTMENT_ID;?>">
+  <input type="hidden" name="HideID" value="<?=$HideID;?>">
+  <input type="hidden" name="TIME_START" value="<?=$TIME_START;?>">
+  <input type="hidden" name="TIME_END" value="<?=$TIME_END;?>">
+  <input type="hidden" name="PER_AUDIT_FLAG" value="<?=$PER_AUDIT_FLAG;?>">
+  <input type="hidden" name="NAME_GROUP_HRD" value="<?=$NAME_GROUP_HRD;?>">
+  <input type="hidden" name="OT_STATUS" value="<?=$OT_STATUS;?>">
+  
+  
+
+
+<?
+                
+
+                $db_dpis->send_cmd($cmd);
+                //$db_dpis->show_error();
+                $data = $db_dpis->get_array();
+                
+		if($DPISDB=="oci8"){
+		  $cmd = "  select 	a.PER_ID, a.PER_TYPE,ot.OT_DATE ,
+                                        g.PN_SHORTNAME||a.PER_NAME||' '||a.PER_SURNAME  AS FULLNAME_SHOW,
+                                        ot.NUM_HRS,ot.AMOUNT,
+                                        ot.ORG_ID , ot.DEPARTMENT_ID,ot.ORG_LOWER1   
+                            from  TA_PER_OT ot
+                            left join PER_PERSONAL a on(a.PER_ID=ot.PER_ID) 
+                            left join PER_PRENAME g on(g.PN_CODE=a.PN_CODE) 
+                            where 	a.PER_ID in($HideID)
+                                        AND ( ot.OT_DATE BETWEEN  '$TIME_START' and '$TIME_END')
+                            order by    ot.OT_DATE ASC,a.PER_NAME ASC,a.PER_SURNAME ASC ";
+
+		} // end if
+              // echo "<pre>".$cmd;
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		if($count_page_data){
+        	$DATA_FULLNAME_SHOW= "";
+                $ORG_NAME_OT = "";
+                $DATA_NUM_HRS = "";
+                $DATA_AMOUNT = "";
+            $data_count = 0;
+            $DATA_OT_DATE="";
+            $DATA_OT_DATE_C = "";
+            while($data = $db_dpis->get_array()) {
+                $data_count++;
+                /* ของเดิม 
+                    if($DATA_OT_DATE!=$data[OT_DATE]){
+                        $DATA_FULLNAME_SHOW = $DATA_FULLNAME_SHOW.show_date_format($data[OT_DATE], $DATE_DISPLAY)."&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;".$data_count.". ".$data[FULLNAME_SHOW]."<br>";
+                    }else{
+                        $DATA_FULLNAME_SHOW = $DATA_FULLNAME_SHOW."&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;".$data_count.". ".$data[FULLNAME_SHOW]."<br>";
+                    }
+                */
+               
+                /*เพิ่มเติม */
+                if($DATA_OT_DATE_C != $data[OT_DATE]){
+                        $DATA_OT_DATE = $DATA_OT_DATE."&nbsp;".show_date_format($data[OT_DATE], $DATE_DISPLAY)."<br>";
+                }else{
+                        $DATA_OT_DATE = $DATA_OT_DATE."&nbsp;"." "."<br>";
+                }
+                
+                
+                $DATA_FULLNAME_SHOW = $DATA_FULLNAME_SHOW."&nbsp;&nbsp;&nbsp;".$data[FULLNAME_SHOW]."<br>";
+                if(!empty($data[NUM_HRS])){
+                	$DATA_NUM_HRS = $DATA_NUM_HRS.number_format($data[NUM_HRS])."<br>";
+                }else{
+                	$DATA_NUM_HRS = $DATA_NUM_HRS.""."<br>";
+                }
+                if(!empty($data[AMOUNT])){
+                	$DATA_AMOUNT = $DATA_AMOUNT.number_format($data[AMOUNT])."<br>";
+                }else{
+                	$DATA_AMOUNT = $DATA_AMOUNT.""."<br>";
+                }
+                $ORG_ID_OT = $data[ORG_ID];
+                $DEPARTMENT_ID_OT = $data[DEPARTMENT_ID];
+                
+                if($data[ORG_LOWER1] !="-1" && $data[ORG_LOWER1] !="" ){
+                	$ConOrgS = $data[ORG_LOWER1];
+                }elseif($DEPARTMENT_ID_OT != "-1"){
+                	$ConOrgS = $DEPARTMENT_ID_OT;
+                }else{
+                	$ConOrgS = $ORG_ID_OT;
+                }
+
+				if($P_OTTYPE_ORGANIZE==2){	
+                    $cmd = "select ORG_NAME from PER_ORG_ASS where ORG_ID = $ConOrgS ";
+                }else{
+                    $cmd = "select ORG_NAME from PER_ORG where ORG_ID = $ConOrgS "; 
+                }
+
+				//echo $cmd ."<br>";
+                $db_dpis2->send_cmd($cmd);
+                $data3 = $db_dpis2->get_array();
+                $ORG_NAME_OT = $ORG_NAME_OT."&nbsp;&nbsp;&nbsp;".$data3[ORG_NAME]."<br>";
+                
+                /*end เพิ่มเติม*/
+                $DATA_OT_DATE_C=$data[OT_DATE];
+           }
+            $HideID_Show= explode(",",$HideID);
+            $ID_Show = ""; 
+            $PER_ID_CHK = "";
+
+            for($i=0;$i<count($HideID_Show);$i++){
+
+                $cmd = " select  PER_ID ,ORG_ID , DEPARTMENT_ID from TA_PER_OT 
+                         WHERE (OT_DATE >= '$TIME_START' AND OT_DATE <= '$TIME_END')  AND PER_ID = $HideID_Show[$i]  ";
+
+                $db_dpis3->send_cmd($cmd);
+                //echo $cmd."<br>";
+                $chk_data = $db_dpis3->get_array();
+                $chk_id = $chk_data[PER_ID];
+                //echo $HideID_Show[$i]."||".$TIME_START."||".$TIME_END;
+
+                $get_idf = get_id_es($db_dpis3,$HideID_Show[$i],$TIME_START,$TIME_END);
+                
+               	if(($chk_id != $HideID_Show[$i]) || ($HideID_Show[$i] == $get_idf)){
+                    $cmd = " select a.PER_ID from PER_PERSONAL a ,PER_PRENAME g 
+                                where PER_ID = $HideID_Show[$i] and g.PN_CODE=a.PN_CODE  order by  a.PER_NAME ASC,a.PER_SURNAME ASC ";
+                    $db_dpis3->send_cmd($cmd);
+                    $data_p = $db_dpis3->get_array();
+                    $PER_ID_CHK = $PER_ID_CHK."&nbsp;&nbsp;".$data_p[PER_ID]."<br>";
+                } 
+            }    
+
+           ?>           
+   <table width="100%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td>  
+        <table width="80%" align="center" cellpadding="0" cellspacing="0" >  
+              <tr>
+                  <td >
+                      <table width="100%"  border="0" align="center" >
+                          <tr>  
+                              <table width="100%" align="center" cellpadding="0" cellspacing="0" >  
+                                  <tr>
+                                      <td >
+                                          <table width="100%"  border="0" align="center" > 
+                                              <tr>
+                                                  <td>
+                                                      <table width="100%" align="center" cellpadding="0" cellspacing="0" >  
+                                                          <tr>
+                                                              <td width="25%" rowspan="2" align="left" ><br><font color="red" style="font-weight: bold;">พบรายชื่อที่กำหนดให้ทำ OT ไว้แล้ว ดังนี้ :</font>&nbsp;</td>   
+                                                          </tr> 
+                                                      </table>
+                                                  </td>
+                                              </tr>    
+                                              <tr>
+                                                  <td>
+                                                      <table width="100%" align="center" cellpadding="0" cellspacing="0" >  
+                                                          <tr>
+                                                              <td >
+                                                                  <table width="100%"  border="1" align="center" cellpadding="1" cellspacing="1"  > 
+                                                                      <tr valign="top">
+                                                                          <td width="30%" align="center" style="font-weight: bold;">หน่วยงานเจ้าของเรื่อง (OT)</td>
+                                                                          <td width="30%" align="center" style="font-weight: bold;">ชื่อ-นามสกุล</td>
+                                                                          <td width="12%" align="center" style="font-weight: bold;">วันที่</td>
+                                                                          <td width="10%" align="center" style="font-weight: bold;">จำนวนชั่วโมง</td>
+                                                                          <td width="10%" align="center" style="font-weight: bold;">จำนวนเงิน</td>
+                                                                      </tr>
+                                                                      <tr valign="top">
+                                                                          <td  align="left"><?=$ORG_NAME_OT;?></td>
+                                                                          <td  align="left"><?=$DATA_FULLNAME_SHOW;?></td>
+                                                                          <td  align="left"><?=$DATA_OT_DATE;?></td>
+                                                                          <td  align="center"><?=$DATA_NUM_HRS;?></td>
+                                                                          <td  align="center"><?=$DATA_AMOUNT;?></td>
+                                                                      </tr>
+                                                                      <br/>
+                                                                  </table>
+                                                              </td>    
+                                                          </tr>
+                                                      </table>
+                                                  </td>
+                                              </tr>    
+                                          </table>
+                                      </td>    
+                                  </tr> 
+                              </table>  
+                          </tr>
+                          <tr>
+                             <td align="right">&nbsp;</td>
+                          </tr>
+                          <tr>
+                              <table width="100%" align="center" cellpadding="0" cellspacing="0" >  
+                                  <tr>
+                                      <td >
+                                          <table width="100%"  border="0" align="center" >
+                                             <?php if($PER_ID_CHK){?>   
+                                              <tr>  
+                                                  <td width="9.8%" align="left"></td>
+                                                  <td align="left"><font color="0000FF" style="font-weight: bold;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; 
+                                                      กรุณายืนยันการทำรายการ</font></td>
+
+                                              </tr>
+                                              <tr>
+                                                  <td align="right">&nbsp;</td>
+                                                  <td align="left" colspan="3"><font color="0000FF" style="font-weight: bold;">                                                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;
+                                                                                            ***ระบบจะบันทึกเฉพาะ วันที่และบุคคลที่ยังไม่มีการกำหนดค่า
+                                                                    </font>
+                                                  </td>
+                                              </tr>
+                                              <?php }else{}?>
+                                              <tr>
+                                                  <td align="right">&nbsp;</td>
+                                                  <td align="left">&nbsp;</td>
+                                              </tr>
+                                              <tr>
+                                                  <td>
+                                                      
+                                                  </td>
+                                                  <td>
+                                                       <table width="100%" align="center" cellpadding="0" cellspacing="0" > 
+                                                    <?php if($PER_ID_CHK){?>       
+                                                        <tr>
+                                                            <td >
+                                                                <table width="100%"  border="0" align="center" > 
+                                                                    <tr>
+                                                                        <td>
+                                                                            <table width="100%" align="center" cellpadding="0" cellspacing="0" >  
+                                                                                <tr>
+                                                                                    <td >
+                                                                                        <table width="100%"  border="1" align="center"  cellpadding="1" cellspacing="1"> 
+                                                                                            <tr valign="top">
+                                                                                                <td width="30%" align="center" style="font-weight: bold;">หน่วยงานเจ้าของเรื่อง (OT)</td>
+                                                                                                <td width="30%" align="center" style="font-weight: bold;">ชื่อ-นามสกุล</td>
+                                                                                                <td width="15%" align="center" style="font-weight: bold;">วันที่</td>
+                                                                                            </tr>
+                                                                                        <?
+                                                                                            $HideID_Show= explode(",",$HideID);
+                                                                                            $ID_Show = ""; 
+                                                                                            $FULLNAME = "";
+                                                                                            
+                                                                                            
+                                                                                        
+                                                                                            
+                                                                                            //หาว่าอยู่กลุ่ม กจ. กรม หรือไม่--------------------------------
+                                                                                            $cmd4 = "	select	 b.CODE from	user_detail a, user_group b
+                                                                                                            where a.group_id=b.id AND a.ID=".$SESS_USERID;
+                                                                                            $db_dpis2->send_cmd($cmd4);
+                                                                                            $data4 = $db_dpis2->get_array();
+                                                                                            if ($data4[CODE]) {
+                                                                                                $NAME_GROUP_HRD = $data4[CODE];
+                                                                                            }else{
+                                                                                                $NAME_GROUP_HRD = "";
+                                                                                            }
+                                                                                            
+                                                                                             if ($SESS_USERGROUP !=1 && $NAME_GROUP_HRD!='HRD'){
+                                                                                             		$cmd2 = " select POS_ID,ORG_ID,POEM_ID,POEMS_ID,POT_ID,PER_OT_FLAG from PER_PERSONAL where PER_ID=$SESS_PER_ID"; 
+                                                                                                    $db_dpis2->send_cmd($cmd2);
+                                                                                                    $data2 = $db_dpis2->get_array();
+                                                                                                    $PER_OT_FLAG = $data2[PER_OT_FLAG]; /*รหัสเจ้าของ OT ตามกฏหมาย*/
+                                                                                                    
+                                                                                                    if($P_OTTYPE_ORGANIZE==2){	
+                                                                                                    	$cmd3 = " select g.ORG_NAME ,g.ORG_ID from PER_ORG_ASS  g where g.ORG_ID=$PER_OT_FLAG "; 
+                                                                                                    }else{
+                                                                                                    	$cmd3 = " select g.ORG_NAME ,g.ORG_ID from PER_ORG  g where g.ORG_ID=$PER_OT_FLAG "; 
+                                                                                                    }
+                                                                                                    $db_dpis2->send_cmd($cmd3);
+                                                                                                    $data3 = $db_dpis2->get_array();
+                                                                                                    $ORG_NAME_OT_CHKTmp= $data3[ORG_NAME];
+                                                                                             
+                                                                                             }else{ // กลุ่มแอดมิน และ กจ.กรม
+                                                                                                    $ORG_NAME_OT_CHKTmp= $DEPARTMENT_NAME;
+                                                                                             
+                                                                                             }
+                                                                                             
+                                                                                            
+                                                                                             
+                                                                                             
+
+                                                                                            for($i=0;$i<count($HideID_Show);$i++){
+
+                                                                                                $cmd = " select  PER_ID ,ORG_ID , DEPARTMENT_ID,ORG_LOWER1 from TA_PER_OT 
+                                                                                                         WHERE (OT_DATE >= '$TIME_START' AND OT_DATE <= '$TIME_END')  AND PER_ID = $HideID_Show[$i]  ";
+
+                                                                                                $db_dpis3->send_cmd($cmd);
+                                                                                                //echo $cmd."<br>";
+                                                                                                $chk_data = $db_dpis3->get_array();
+                                                                                                $chk_id = $chk_data[PER_ID];
+
+                                                                                                $get_idf = get_id_es($db_dpis3,$HideID_Show[$i],$TIME_START,$TIME_END);
+                                                                                                if(($chk_id != $HideID_Show[$i]) || ($HideID_Show[$i] == $get_idf)){
+                                                                                                    $cmd = " select g.PN_SHORTNAME||a.PER_NAME||' '||a.PER_SURNAME  AS FULLNAME from PER_PERSONAL a ,PER_PRENAME g 
+                                                                                                                where PER_ID = $HideID_Show[$i] and g.PN_CODE=a.PN_CODE  order by  a.PER_NAME ASC,a.PER_SURNAME ASC ";
+
+                                                                                                    $db_dpis3->send_cmd($cmd);
+                                                                                                    $data_p = $db_dpis3->get_array();
+                                                                                                    $FULLNAME = "&nbsp;&nbsp;".$data_p[FULLNAME]."<br>";
+                                                                                                    $DEPARTMENT_ID_CHK = $chk_data[DEPARTMENT_ID];
+                                                                                                    $ORG_ID_CHK = $chk_data[ORG_ID];
+                                                                                                    $date_es_ot = get_date_es($db_dpis5,$HideID_Show[$i],$TIME_START,$TIME_END,$DATE_DISPLAY)."<br>";
+                                                                                                    if($data[ORG_LOWER1] !="-1" && $data[ORG_LOWER1] !="" ){
+                                                                                                        $ConOrgS = $data[ORG_LOWER1];
+                                                                                                    }elseif($DEPARTMENT_ID_OT == "-1"){
+                                                                                                        $ConOrgS = DEPARTMENT_ID_CHK;
+                                                                                                    }else{
+                                                                                                        $ConOrgS = ORG_ID_CHK;
+                                                                                                    }
+                                                                                    				
+                                                                                                    if($P_OTTYPE_ORGANIZE==2){	
+                                                                                                    	$cmd = "select ORG_NAME from PER_ORG_ASS where ORG_ID = $ConOrgS ";
+                                                                                                    }else{
+                                                                                                    	$cmd = "select ORG_NAME from PER_ORG where ORG_ID = $ConOrgS "; 
+                                                                                                    }
+                                                                                                    
+                                                                                                    $db_dpis3->send_cmd($cmd);
+                                                                                                    $data3 = $db_dpis3->get_array();
+                                                                                                    $ORG_NAME_OT_CHK = "&nbsp;&nbsp;&nbsp;".$ORG_NAME_OT_CHKTmp."<br>";
+
+                                                                                            
+                                                                                            ?>
+                                                                                            <tr valign="top">
+                                                                                                <td  align="left"><? echo $ORG_NAME_OT_CHK; ?></td>
+                                                                                                <td  align="left"><? echo  $FULLNAME;?></td>
+                                                                                                <td  align="left"><? echo $date_es_ot;?></td>
+                                                                                            </tr>
+                                                                                            <? } } ?>
+                                                                                            <br/>
+                                                                                        </table>
+                                                                                    </td>    
+                                                                                </tr>
+                                                                            </table>
+                                                                        </td>
+                                                                        <td width="25%" align="left"></td>
+                                                                    </tr>    
+                                                                </table>
+                                                            </td>    
+                                                        </tr> 
+                                                     <?php }else{}?>   
+                                                    </table> 
+                                                  </td>    
+                                              </tr>
+                                              <tr>
+                                                  <td align="right">&nbsp;</td>
+                                                  <td align="left">&nbsp;</td>
+                                              </tr>
+                                              <tr>
+                                                  <td align="right">&nbsp;</td>
+                                                      <td align="left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; 
+                                                          <?php // if($DATA_AMOUNT){ ?>
+                                                          
+                                                          <?php // }else{ ?>
+                                                            <!--<input name="Submit_ok" type="submit" class="button" onClick="replace_ot()" value=" ยืนยันกำหนดค่าใหม่  ">-->
+                                                          <?php // } ?>
+                                                          <?php if($PER_ID_CHK){?>
+                                                            <input name="Submit_ok" type="submit" class="button" onClick="form1.command.value='SCRIPT';" value=" ยืนยันการทำรายการ  ">
+                                                          <?php }else{?>
+                                                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp; 
+                                                          <?php }?>
+                                                            <input name="Submit_cancle" type="submit" class="button" onClick="parent.document.form1.SELECTED_PER_ID.value = '';parent.refresh_opener('1');" value=" ยกเลิกการทำรายการ ">
+                                                  </td>
+                                              </tr>
+                                              <tr>
+                                                <td align="right">&nbsp;</td>
+                                                <td align="left">&nbsp;</td>
+                                              </tr>
+                                          </table>
+                                      </td>    
+                                  </tr> 
+                              </table>  
+                          </tr>
+                          
+                      </table>
+                  </td>    
+              </tr> 
+            </table> 
+        </td>    
+    </tr>
+</table>         
+<?
+		} // end if
+?>
+</form>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+</html>

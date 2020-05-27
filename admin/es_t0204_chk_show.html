@@ -1,0 +1,388 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/function_list.php");
+	include("php_scripts/load_per_control.php");
+    
+    $db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+
+    
+    
+?>
+<html>
+<head>
+<title><?=$webpage_title;?> - <?=$MENU_TITLE_LV0;?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1;?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function call_rtf_pdf_report(report_type) {
+		if(document.form1.hddata_count.value == 0 || document.form1.hddata_count.value == ''){ 
+				alert('ไม่พบข้อมูล');
+				return false();
+		}else{
+			var  report_type
+			var currDate = new Date();
+			var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+				   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+			var report_title = "รายงานข้อมูลการลงเวลาในช่วงที่มีการลา";
+	
+			//document.form1.target = "_blank";
+			 if (report_type==1){
+			document.form1.action = "report/rpt_es_t0204_check_show.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate+"&FLAG_RTF=1";
+			}else if (report_type==0){ 
+			document.form1.action = "report/rpt_es_t0204_check_show.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate+"&FLAG_RTF=0";
+			}
+			document.form1.submit();
+			document.form1.target = "_self";
+			document.form1.action = "es_t0204_check_show.html";
+	    }
+	  
+	}
+	
+	function call_export_file() {
+		if(document.form1.hddata_count.value == 0 || document.form1.hddata_count.value == ''){ 
+				alert('ไม่พบข้อมูล');
+				return false();
+		}else{
+			var currDate = new Date();
+			var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+				   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+			var report_title = "รายงานข้อมูลการลงเวลาในช่วงที่มีการลา";
+	
+			document.form1.action = "report/rpt_es_t0204_check_show_xls.php?report_title=" + encodeURIComponent(report_title) + "&table=<?=$table;?>&UTC" + rptDate;
+			document.form1.submit();
+			document.form1.target = "_self";
+			document.form1.action = "es_t0204_check_show.html";
+		}
+	}	
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		if ($UPD) $OPTIONAL_TITLE=" &gt; แก้ไขข้อมูล"; elseif ($VIEW) $OPTIONAL_TITLE=" &gt; ดูข้อมูล";
+
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="es_t0204_chk_show.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page;?>">
+          <input type="hidden" name="total_page" value="<?=$total_page;?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="การลงเวลาในช่วงที่มีการลา">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="ORGID" value="<?=$ORGID;?>">
+          <input type="hidden" name="BGN" value="<?=$BGN;?>">
+          <input type="hidden" name="END" value="<?=$END;?>">
+          
+        
+
+<?
+
+	$cmd = " select 	count(DISTINCT TO_CHAR(abs.PER_ID)+TO_CHAR(att.TIME_STAMP,'yyyymmdd')) as count_data 
+                        from  PER_ABSENTHIS  abs 
+                        left join PER_TIME_ATTENDANCE att on(att.PER_ID=abs.PER_ID AND
+                                        ( TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')  BETWEEN substr(abs.ABS_STARTDATE,1,10)AND substr(abs.ABS_ENDDATE,1,10)))
+                        left join PER_PERSONAL a on(a.PER_ID=abs.PER_ID)
+                        left join PER_ORG b on(b.ORG_ID=a.ORG_ID) 
+                        left join PER_POSITION c on(c.POS_ID=a.POS_ID) 
+                        left join PER_POS_EMP d on(d.POEM_ID=a.POEM_ID) 
+                        left join PER_POS_EMPSER e on(e.POEMS_ID=a.POEMS_ID) 
+                        left join PER_LEVEL f on(f.LEVEL_NO=a.LEVEL_NO) 
+                        left join PER_PRENAME g on(g.PN_CODE=a.PN_CODE) 
+                        left join PER_MGT h on(h.PM_CODE=c.PM_CODE)
+                        left join PER_LINE i on(i.PL_CODE=c.PL_CODE)
+                        left join PER_POS_TEMP j on (j.POT_ID=a.POT_ID)
+                        left join PER_ABSENTTYPE k on (k.AB_CODE=abs.AB_CODE)
+                        left join PER_WORK_CYCLEHIS his on ( his.PER_ID=a.PER_ID and (att.TIME_STAMP between to_date(his.START_DATE, 'YYYY-MM-DD hh24:mi:ss') and to_date(his.END_DATE,'YYYY-MM-DD hh24:mi:ss')) )
+                        left join PER_WORK_CYCLE l on (l.wc_code=his.wc_code)
+                        WHERE abs.AB_CODE NOT IN(10,13) AND att.TIME_STAMP IS NOT NULL
+                    	AND (att.TIME_STAMP  BETWEEN to_date('$BGN','yyyy-mm-dd hh24:mi:ss')   AND to_date('$END','yyyy-mm-dd hh24:mi:ss')) 
+                        
+                        AND (abs.ABS_ENDPERIOD = 3 or 
+                                 (abs.ABS_ENDPERIOD = 1 and att.TIME_STAMP <=
+                                  TRUNC(att.TIME_STAMP)+(((to_number(substr(l.End_LateTime,1,2))*60)+to_number(substr(l.End_LateTime,3,2)))/1440)+(59/86400) 
+                                 ) or
+                                 (abs.ABS_ENDPERIOD = 2 and att.TIME_STAMP >=
+                                 
+                                    TRUNC(att.TIME_STAMP)+(((to_number(substr(l.End_LateTime,1,2))*60)+to_number(substr(l.End_LateTime,3,2)))/1440)+(59/86400) 
+                                 
+                                   and ((SELECT max(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        ) =
+                                        (SELECT min(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        )
+                                        or
+                                        (SELECT max(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        ) >= (case when l.wc_code=-1 
+                                                then (SELECT min(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                                        where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                                      )+(8/24) 
+                                                else TRUNC(att.TIME_STAMP)+NextDay_Exit+((to_number(substr(l.WC_End,1,2))*60)+to_number(substr(l.WC_End,3,2))/1440)
+                                             end)
+                                      ) 
+                                 )
+                                )
+                        
+                        AND (a.ORG_ID in (select org_id from PER_ORG_ASS start with ORG_ID in
+                             								(select org_id from PER_ORG_ASS where org_id =$ORGID) 
+                        									CONNECT BY PRIOR org_id = ORG_ID_REF)  ) ";
+        $db_dpis->send_cmd($cmd);
+        $data = $db_dpis->get_array();
+        $data = array_change_key_case($data, CASE_LOWER);
+		$count_data = $data[count_data];	
+?>  
+    <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by;?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type;?>">
+    <?=$SORT_TITLE;?>
+</td>
+</tr>
+</table>
+
+          <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="26%" height="22"><? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <!--<? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);"> 
+				       <? if ($RTF_FLAG==1) { ?>
+                <input name="btn21" type="button" class="button" style="width:150" value="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);"> 
+	                    <? } ?>
+                <?  } else { ?>
+                <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);"> 
+			        	 <? if ($RTF_FLAG==1) { ?>
+                <img src="images/doc_icon_word.jpg" border="0" alt="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);"> 
+	                     <? } ?>
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?>--></td>
+              <td width="59%" align="center">พบข้อมูล การลงเวลาในช่วงที่มีการลา ทั้งสิ้น <?=($count_data);?> รายการ</td>
+              <td width="15%" align="right"><!--<? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <?  } else { ?>
+                <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?>--></td>
+            </tr>
+          </table>  
+	</td></tr>
+</table>  
+<?
+  
+  		if(!$sort_by) $sort_by=1;
+        if(!$sort_type) $sort_type="1:asc";
+        $arrSort=explode(":",$sort_type);
+        $SortType[$arrSort[0]]	=$arrSort[1];
+        if(!$order_by) $order_by=1;
+    
+        if($order_by==1){	//เลขที่ตำแหน่ง
+           $order_str =  "ORDER BY q1.TIME_STAMP ".$SortType[$order_by].",q1.HHII ".$SortType[$order_by];
+        }elseif($order_by==2) {	//ชื่อ-สกุล
+            $order_str = "ORDER BY q1.FULLNAME_SHOW ".$SortType[$order_by];
+        } elseif($order_by==3) {	//ประเภทการลา
+            $order_str = "ORDER BY q1.PER_TYPE ".$SortType[$order_by];
+        } elseif($order_by==4) {	//วันที่ลา
+            $order_str = "ORDER BY q1.ABS_STARTDATE ".$SortType[$order_by];
+        } elseif($order_by==5) {	//วันที่ปฏิบัติราชการ
+            $order_str =  "ORDER BY q1.ABS_ENDDATE  ".$SortType[$order_by];
+        } 
+    
+		$total_page = ceil( $count_data / $data_per_page );
+		$page_link = create_link_page($total_page, $current_page);
+		$limit_data = "";
+        
+
+		
+			$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = " select		*
+                         from (
+                             select	 q1.*
+                             from (
+                             
+                             
+                                select 	DISTINCT
+                                        abs.PER_ID,abs.ABS_STARTDATE,abs.ABS_STARTPERIOD,abs.ABS_ENDDATE,abs.ABS_ENDPERIOD,
+                                        TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd') AS TIME_STAMP,
+                                        (SELECT TO_CHAR(min(TIME_STAMP),'HH24:MI:SS') 
+                                        		FROM PER_TIME_ATTENDANCE  
+                 								where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd') =TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                                ) AS HHII ,
+                                        a.PER_TYPE,g.PN_SHORTNAME||a.PER_NAME||' '||a.PER_SURNAME  AS FULLNAME_SHOW,
+                                         c.POS_NO,d.POEM_NO,e.POEMS_NO,k.AB_NAME,j.POT_NO,abs.ABS_DAY
+                                from  PER_ABSENTHIS  abs 
+                                left join PER_TIME_ATTENDANCE att on(att.PER_ID=abs.PER_ID AND
+												( TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')  BETWEEN substr(abs.ABS_STARTDATE,1,10)AND substr(abs.ABS_ENDDATE,1,10)))
+                                left join PER_PERSONAL a on(a.PER_ID=abs.PER_ID)
+                                left join PER_ORG b on(b.ORG_ID=a.ORG_ID) 
+                                left join PER_POSITION c on(c.POS_ID=a.POS_ID) 
+                                left join PER_POS_EMP d on(d.POEM_ID=a.POEM_ID) 
+                                left join PER_POS_EMPSER e on(e.POEMS_ID=a.POEMS_ID) 
+                                left join PER_LEVEL f on(f.LEVEL_NO=a.LEVEL_NO) 
+                                left join PER_PRENAME g on(g.PN_CODE=a.PN_CODE) 
+                                left join PER_MGT h on(h.PM_CODE=c.PM_CODE)
+                                left join PER_LINE i on(i.PL_CODE=c.PL_CODE)
+                                left join PER_POS_TEMP j on (j.POT_ID=a.POT_ID)
+                                left join PER_ABSENTTYPE k on (k.AB_CODE=abs.AB_CODE)
+                                left join PER_WORK_CYCLEHIS his on ( his.PER_ID=a.PER_ID and (att.TIME_STAMP between to_date(his.START_DATE, 'YYYY-MM-DD hh24:mi:ss') and to_date(his.END_DATE,'YYYY-MM-DD hh24:mi:ss')) )
+                        		left join PER_WORK_CYCLE l on (l.wc_code=his.wc_code)
+                            WHERE abs.AB_CODE NOT IN(10,13) AND att.TIME_STAMP IS NOT NULL
+                            AND (att.TIME_STAMP  BETWEEN to_date('$BGN','yyyy-mm-dd hh24:mi:ss')   AND to_date('$END','yyyy-mm-dd hh24:mi:ss')) 
+                            
+                            AND (abs.ABS_ENDPERIOD = 3 or 
+                                 (abs.ABS_ENDPERIOD = 1 and att.TIME_STAMP <=
+                                  TRUNC(att.TIME_STAMP)+(((to_number(substr(l.End_LateTime,1,2))*60)+to_number(substr(l.End_LateTime,3,2)))/1440)+(59/86400) 
+                                 ) or
+                                 (abs.ABS_ENDPERIOD = 2 and att.TIME_STAMP >=
+                                 
+                                    TRUNC(att.TIME_STAMP)+(((to_number(substr(l.End_LateTime,1,2))*60)+to_number(substr(l.End_LateTime,3,2)))/1440)+(59/86400) 
+                                 
+                                   and ((SELECT max(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        ) =
+                                        (SELECT min(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        )
+                                        or
+                                        (SELECT max(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                          where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                        ) >= (case when l.wc_code=-1 
+                                                then (SELECT min(TIME_STAMP)	FROM PER_TIME_ATTENDANCE  
+                                                        where PER_ID=abs.PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd')=TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd')
+                                                      )+(8/24) 
+                                                else TRUNC(att.TIME_STAMP)+NextDay_Exit+((to_number(substr(l.WC_End,1,2))*60)+to_number(substr(l.WC_End,3,2))/1440)
+                                             end)
+                                      ) 
+                                 )
+                                )
+                            
+                        	AND (a.ORG_ID in (select org_id from PER_ORG_ASS start with ORG_ID in
+                             								(select org_id from PER_ORG_ASS where org_id =$ORGID) 
+                        									CONNECT BY PRIOR org_id = ORG_ID_REF)  )
+                                			
+                            ) q1 $order_str
+                        ) where rownum between $rec_start and $rec_end ";
+                        //echo "<pre>".$cmd."<br>";
+		$count_page_data = $db_dpis->send_cmd($cmd);
+		if($count_page_data){
+?>
+        <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+    <tr align="center" class="table_head">
+      <td nowrap width="14%" onClick="call_sort(1);"><strong>
+        <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        วัน-เวลาที่สแกน</strong></td>
+      <td nowrap width="23%" height="21" onClick="call_sort(2);"><strong>
+        <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        ชื่อ-สกุล</strong></td>
+      <td width="17%" onClick="call_sort(3);">
+      <? if($order_by==3&&$sort_by==3){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+        ประเภทการลา</strong>
+      </td>
+      <td width="14%" onClick="call_sort(4);"><? if($order_by==4&&$sort_by==4){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> วันที่เริ่มต้น</td>
+      <td width="13%" onClick="call_sort(5);"><? if($order_by==5&&$sort_by==5){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?> วันที่สิ้นสุด</td>
+      <td width="19%"><strong>จำนวนวัน</strong></td>
+      </tr>
+     <? 
+			$current_list = "";
+			$data_count = 0;
+  			while($data = $db_dpis->get_array()) :
+				$data_count++;
+				if($data_count > $data_per_page) break;
+				$DATA_PER_ID = $data[PER_ID];
+				$current_list .= ((trim($current_list))?",":"") . "'$DATA_PER_ID'";
+                $DATA_FULLNAME_SHOW = trim($data[FULLNAME_SHOW]);
+				$DATA_WC_NAME = trim($data[WC_NAME]);
+				$DATA_TIME_STAMP = show_date_format($data[TIME_STAMP], $DATE_DISPLAY);
+                $DATA_POS_NO = trim($data[POS_NO]).trim($data[POEM_NO]).trim($data[POEMS_NO]);  
+                $DATA_ABS_STARTDATE = show_date_format($data[ABS_STARTDATE], $DATE_DISPLAY);
+                $DATA_ABS_ENDDATE = show_date_format($data[ABS_ENDDATE], $DATE_DISPLAY); 
+                $DATA_AB_NAME = trim($data[AB_NAME]); 
+                
+                $DATA_ABS_STARTPERIOD ="";
+                if($data[ABS_STARTPERIOD]=="1"){
+                    $DATA_ABS_STARTPERIOD =" (ครึ่งเช้า)";
+                }elseif($data[ABS_STARTPERIOD]=="2"){
+                    $DATA_ABS_STARTPERIOD =" (ครึ่งบ่าย)";
+                }
+                if($data[ABS_DAY]!="0.5"){
+                    $DATA_ABS_STARTPERIOD ="";
+                }
+                
+                $DATA_ABS_DAY = trim(round($data[ABS_DAY],2)).$DATA_ABS_STARTPERIOD;
+                
+                /*$cmd = " SELECT TO_CHAR(min(TIME_STAMP),'HH24:MI:SS') AS HHII FROM PER_TIME_ATTENDANCE  
+                 			where PER_ID=$DATA_PER_ID AND TO_CHAR(TIME_STAMP,'yyyy-mm-dd') ='".$data[TIME_STAMP]."'";
+                $db_dpis1->send_cmd($cmd);
+                $data1 = $db_dpis1->get_array();*/
+                $TMP_HHII = $data[HHII];
+                   
+  ?>
+    <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+      <td align="center"><?=$DATA_TIME_STAMP;?> <?=$TMP_HHII;?></td>
+      <td height="25" align="left">&nbsp;<?=$DATA_FULLNAME_SHOW;?></td>
+      <td align="left">&nbsp;<?=$DATA_AB_NAME;?></td>
+      <td align="center"><?=$DATA_ABS_STARTDATE;?></td>
+      <td align="center"><?=$DATA_ABS_ENDDATE;?></td>
+      <td align="center"><?=$DATA_ABS_DAY;?></td>
+      </tr>
+    
+    <?	 endwhile;?>
+  </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link;?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list;?>">
+        <input name="hddata_count" type="hidden" value="<?=$data_count;?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

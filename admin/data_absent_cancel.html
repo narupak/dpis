@@ -1,0 +1,1708 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/data_absent_change.php");
+	
+	if(!$PER_TYPE){ 	$PER_TYPE=1;  }
+	$ABS_STARTPERIOD = (trim($ABS_STARTPERIOD))? $ABS_STARTPERIOD : 3;
+	$ABS_ENDPERIOD = (trim($ABS_ENDPERIOD))? $ABS_ENDPERIOD : 3;
+	$ABS_LETTER = (trim($ABS_LETTER))? $ABS_LETTER : 1;
+	
+	$search_ab_code = trim($search_ab_code);
+	$search_abs_startdate = trim($search_abs_startdate);
+	$search_abs_enddate = trim($search_abs_enddate);		
+
+	$per_id_search = "";
+	$per_id_join = "";
+
+        
+	/*if($SEARCHABS_PER_ID){		// $SEARCHABS_PER_ID (ผู้ลาที่ค้นหา)  + $PER_ID (ล็อกอิน)
+		$arr_search_condition[] = "(a.PER_ID = $SEARCHABS_PER_ID and (a.PER_ID = $PER_ID or a.REVIEW1_PER_ID = $PER_ID or a.REVIEW2_PER_ID = $PER_ID or a.AUDIT_PER_ID = $PER_ID or a.APPROVE_PER_ID = $PER_ID))";
+	}else{*/
+		if ($SESS_PER_ID){
+			if($search_onlyme_flag==1){
+				$arr_search_condition[] = "(a.PER_ID = $SESS_PER_ID)";
+			}else{
+				$arr_search_condition[] = "(a.PER_ID = $SESS_PER_ID or a.REVIEW1_PER_ID = $SESS_PER_ID or a.REVIEW2_PER_ID = $SESS_PER_ID or a.AUDIT_PER_ID = $SESS_PER_ID or a.APPROVE_PER_ID = $SESS_PER_ID)";
+			}
+		}
+	//}
+
+	if ($search_ab_code)		$arr_search_condition[] = "(a.AB_CODE = '$search_ab_code')";
+	if ($search_per_type){
+		$arr_search_condition[] = "(trim(b.PER_TYPE) = $search_per_type)";
+	}else if ($search_per_type==0)	{	//ทั้งหมด
+		$arr_search_condition[] = "(trim(b.PER_TYPE) in('1','2','3','4')) ";
+	}
+	
+	if ($search_abs_startdate || $search_abs_enddate) {
+		$temp_date = explode("/", $search_abs_startdate);
+		$temp_start = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];
+		$temp_date = explode("/", $search_abs_enddate);
+		$temp_end = ($temp_date[2] - 543) ."-". $temp_date[1] ."-". $temp_date[0];		
+		$arr_search_condition[] = "(a.ABS_STARTDATE >= '$temp_start' and a.ABS_ENDDATE <= '$temp_end')";
+	}
+
+	if(!$search_abs_approve)	$search_abs_approve=4;
+	if($search_abs_approve==4){	
+		$arr_search_condition[] = "(a.APPROVE_FLAG in(0,1,2) or a.APPROVE_FLAG is null)";
+	}else{
+		if($search_abs_approve==3){
+			$arr_search_condition[] = "(a.APPROVE_FLAG = 0 or a.APPROVE_FLAG is null)";
+		} else{
+			if($search_abs_approve==1)	$search_abs_approve_tmp = 1; 
+			if($search_abs_approve==2)	$search_abs_approve_tmp = 2; 
+			$arr_search_condition[] = "(a.APPROVE_FLAG in($search_abs_approve_tmp))";
+		}
+	}
+
+	if($search_cancel_flag==1) $arr_search_condition[] = "(a.CANCEL_FLAG = 1)";
+    if($search_org_id){
+		if($select_org_structure==0)		$arr_search_condition[] = "(d.ORG_ID=$search_org_id or e.ORG_ID=$search_org_id or f.ORG_ID=$search_org_id or g.ORG_ID=$search_org_id)";
+  		if($select_org_structure==1)		$arr_search_condition[] = "(b.ORG_ID=$search_org_id)";			
+  	}elseif($search_department_id){
+		$arr_search_condition[] = "(b.DEPARTMENT_ID = $search_department_id)";
+	}elseif($search_ministry_id){
+		$cmd = " select ORG_ID from PER_ORG where ORG_ID_REF=$search_ministry_id ";
+		$db_dpis->send_cmd($cmd);
+		while($data = $db_dpis->get_array()) $arr_org[] = $data[ORG_ID];
+		$arr_search_condition[] = "(b.DEPARTMENT_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+
+	if(trim($search_per_name)) $arr_search_condition[] = "(b.PER_NAME like '$search_per_name%')";
+	if(trim($search_per_surname)) $arr_search_condition[] = "(b.PER_SURNAME like '$search_per_surname%')";
+
+// SORT -----------------------
+	if(!$sort_by) $sort_by=3;
+	$sort_type = (isset($sort_type))?  $sort_type : "3:desc";
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=3;
+
+	if($order_by==1){	//ชื่อ-สกุล
+		$order_str = "b.PER_NAME ".$SortType[$order_by].",b.PER_SURNAME ".$SortType[$order_by];
+	}elseif($order_by==2){	//ประเภท
+		$order_str = "AB_NAME ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ตั้งแต่วันที่
+		$order_str = "ABS_STARTDATE ".$SortType[$order_by].",CREATE_DATE ".$SortType[$order_by];
+		//if($temp_todate){ 
+			//$having_str = "HAVING ABS_STARTDATE<= ('$temp_todate') ";
+		//}		
+	} elseif($order_by==4) {	//ถึงวันที่
+		$order_str =  "ABS_ENDDATE  ".$SortType[$order_by];
+	}elseif($order_by==5) {	//จำนวนวัน
+		$order_str = "ABS_DAY ".$SortType[$order_by];
+	}elseif($order_by==6) {	//การส่งใบลา
+		$order_str = "ABS_LETTER ".$SortType[$order_by];
+	}elseif($order_by==7) {	//อนุมัติ
+		$order_str = "a.APPROVE_FLAG ".$SortType[$order_by];
+	}elseif($order_by==8) {	//ประเภทบุคลากร
+		$order_str = "b.PER_TYPE ".$SortType[$order_by];
+	}elseif($order_by==9) {	//วันที่ส่งใบลา
+		$order_str = "a.CREATE_DATE ".$SortType[$order_by];
+	}
+//--------------------------------
+
+	$search_condition = "";
+	if ($arr_search_condition)	$search_condition = " and " . implode(" and ", $arr_search_condition);
+	
+	$cmd =" 	select 		a.PER_ID 
+			from 		PER_ABSENT a, PER_PERSONAL b, PER_POSITION d, PER_POS_EMP e, PER_POS_EMPSER f, PER_POS_TEMP g 
+			where	 a.PER_ID=b.PER_ID and b.POS_ID=d.POS_ID(+) and b.POEM_ID=e.POEM_ID(+) and b.POEMS_ID=f.POEMS_ID(+) and b.POT_ID=g.POT_ID(+) 
+						$search_condition 
+						order by 	$order_str";
+	$count_data = $db_dpis->send_cmd($cmd);
+	//$db_dpis->show_error();
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";	
+        
+        
+        $EditTextDisable = "";
+        if($ABS_APPROVE_FLAG==1 && $UPD==1){
+            $EditTextDisable = "disabled";
+        }
+        
+$PAGE_AUTH["edit"]="Y";
+
+//หาว่าอยู่กลุ่ม กจ. กรม หรือไม่--------------------------------
+    $cmd4 = "	select	 b.CODE from	user_detail a, user_group b
+					where a.group_id=b.id AND a.ID=".$SESS_USERID;
+    $db_dpis2->send_cmd($cmd4);
+    $data4 = $db_dpis2->get_array();
+    if ($data4[CODE]) {
+        $NAME_GROUP_HRD = $data4[CODE];
+    }else{
+        $NAME_GROUP_HRD = "";
+    }
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+<style type="text/css">
+<!--
+.style1 {
+	color: #FFFFFF;
+	font-weight: bold;
+}
+.style2 {color: #FFFFFF}
+.style3 {color: #393E4E}
+.style4 {color: #000000}
+-->
+</style>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.current_page.value = page;
+		form1.submit();
+	}
+	
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+
+	function confirm_delete(abs_id , ab_name){
+		if(confirm("ต้องการลบประวัติการลา นี้ [ " + ab_name + " ]  ใช่หรือไม่ ?")){
+			form1.command.value = "DELETE";
+			form1.ABS_ID.value = abs_id;
+			form1.submit();
+		} // end if
+	}
+	
+	function compare_diff_date(startdate,enddate) {
+		  var StartDateArr  =  startdate.split("/");
+		  //var StartDateF = new Date(parseInt(StartDateArr[2])-543,parseInt(StartDateArr[1])-1,parseInt(StartDateArr[0]));
+                  var StartDateF = StartDateArr[2]+StartDateArr[1]+StartDateArr[0];
+		   
+		  var StopDateArr  =  enddate.split("/");
+		  //var StopDateF = new Date(parseInt(StopDateArr[2])-543,parseInt(StopDateArr[1])-1,parseInt(StopDateArr[0]));
+                  var StopDateF = StopDateArr[2]+StopDateArr[1]+StopDateArr[0];
+
+		if (StopDateF < StartDateF){
+		   return false;
+		}else{
+			return true;
+		}
+	}
+	
+	function chkOverNumDay(){
+
+		    var ebgn = document.getElementById("selectBgnDate");
+			var bgnArray = ebgn.options[ebgn.selectedIndex].value.split("/");
+			var eend = document.getElementById("selectEndDate");
+			var endArray = eend.options[eend.selectedIndex].value.split("/");
+			sDate = new Date(bgnArray[2]-543,bgnArray[1]-1,bgnArray[0]); 
+			eDate = new Date(endArray[2]-543,endArray[1]-1,endArray[0]); 
+			var daysDiff = Math.round((eDate-sDate)/86400000) + 1;
+			
+			
+			var HID_ABS_DAY = form1.HID_ABS_DAY.value;
+			var ABS_DAY = form1.ABS_DAY.value;
+			if(parseInt(ABS_DAY) < parseInt(HID_ABS_DAY)){
+				alert("ระบุจำนวนวัน ต้องไม่น้อยกว่า จำนวนวันทำการที่เลือกลา");
+				form1.ABS_DAY.value = '';
+                form1.ABS_DAY.focus();
+                return false;
+				
+			}
+			
+			if(parseInt(ABS_DAY) > parseInt(daysDiff)){
+				alert("ระบุจำนวนวัน ต้องไม่มากกว่า จำนวนวันที่เลือกลา");
+				form1.ABS_DAY.value = '';
+                form1.ABS_DAY.focus();
+                return false;
+				
+			}
+			
+			
+			
+		}
+	
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+	
+	function call_search_ministry () {	
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=" + PROVINCE_CODE;
+	    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$MINISTRY_TITLE?>");		
+	}
+
+	function call_search_department () {	
+		var MINISTRY_ID = <?=(($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3)?"$search_ministry_id":"form1.search_ministry_id.value")?>;
+		var PROVINCE_CODE = "<?=($CTRL_TYPE==2 || $SESS_USERGROUP_LEVEL==2)?"$PROVINCE_CODE":""?>";
+		if(MINISTRY_ID != ""){
+			parameter = "&send_by=search_department&OL_CODE=02&ORG_ID_REF=" + MINISTRY_ID + "&PV_CODE=" + PROVINCE_CODE;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$DEPARTMENT_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==3 || $SESS_USERGROUP_LEVEL==3){ ?>
+			alert('<?=$MINISTRY_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$MINISTRY_ALERT?>');
+			form1.btn_search_ministry.focus();
+			<? } ?>
+		} // end if
+	}
+
+	function call_search_org () {	
+		var DEPARTMENT_ID = <?=(($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4)?"$DEPARTMENT_ID":"form1.search_department_id.value")?>;
+		if(DEPARTMENT_ID != ""){
+			parameter = "&send_by=search_org&OL_CODE=03&ORG_ID_REF=" + DEPARTMENT_ID;
+		    call_openDialog("search_org.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,800,600,"<?=$ORG_TITLE?>");		
+		}else{
+			<? if($CTRL_TYPE==4 || $SESS_USERGROUP_LEVEL==4){ ?>
+			alert('<?=$DEPARTMENT_ALERT?> (กำหนดค่าเริ่มต้นหน่วยงาน)');
+			<? }else{ ?>
+			alert('<?=$DEPARTMENT_ALERT?>');
+			form1.btn_department.focus();
+			<? } ?>
+		} // end if
+	}
+	
+	function call_search_person(var_type) {	
+		parameter = "";
+		if(form1.MINISTRY_ID.value)	parameter += "&isLock=1&LOCK_MINISTRY_ID="+form1.MINISTRY_ID.value;
+		if(form1.DEPARTMENT_ID.value)	parameter += "&LOCK_DEPARTMENT_ID="+form1.DEPARTMENT_ID.value;
+		if(form1.ORG_ID.value)	parameter += "&LOCK_ORG_ID="+form1.ORG_ID.value;
+		if(var_type=="APPROVE_" || var_type=="AUDIT_" || var_type=="REVIEW1_" || var_type=="REVIEW2_") {
+			if(form1.PER_ID.value && var_type!="AUDIT_")						parameter += "&EXCEPT_PER_ID=" + form1.PER_ID.value;
+			if(form1.APPROVE_PER_ID.value && var_type!="AUDIT_")	parameter += "," + form1.APPROVE_PER_ID.value;
+			if(form1.AUDIT_PER_ID.value && var_type!="AUDIT_")		parameter += "," + form1.AUDIT_PER_ID.value;
+			if(form1.REVIEW1_PER_ID.value && var_type!="AUDIT_")		parameter += "," + form1.REVIEW1_PER_ID.value;	
+			if(form1.REVIEW2_PER_ID.value && var_type!="AUDIT_")	parameter += "," + form1.REVIEW2_PER_ID.value;
+			if(var_type=="AUDIT_")					parameter += "&AUDIT_FLAG=1";
+		}
+		parameter += "&send_by="+var_type;
+	    call_openDialog("search_person.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"รายชื่อ<?=$PERSON_TITLE?>");		
+	}
+        function BtnChangeDate(){
+            call_openDialog("data_absent_change.html?UPD=1",1100,800,'เปลี่ยนแปลงวัน');
+        }
+
+	function call_search_absenttype (code, name) {	
+		parameter = "";
+		ab_code = eval('form1.'+code);
+		ab_name = eval('form1.'+name);
+		parameter = "&data_absent_flag=1";
+	    call_openDialog("search_absenttype.html?MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>" + parameter,1100,800,"<?=$ORG_TITLE?>");		
+	}
+	
+	function show_all_absent () {
+		//form1.search_ab_code.value = ""; 
+		//form1.search_ab_name.value = ""; 
+		//form1.search_abs_startdate.value = ""; 
+		//form1.search_abs_enddate.value = ""; 
+		form1.search_abs_startdate.value = '';
+		form1.search_abs_enddate.value = '';
+		form1.search_abs_approve.value = 4;
+		//form1.SEARCHABS_PER_ID.value = '';
+		//form1.SEARCHABS_PER_NAME.value = '';
+		form1.search_ab_code.value = '';
+		form1.search_ab_name.value = '';
+		form1.search_per_type[0].selected = true;
+		form1.search_onlyme_flag.checked = false;
+		form1.search_cancel_flag.checked = false;
+		form1.current_page.value=0;	
+		form1.submit();
+	}
+	
+	function calcDaysBetweenDate(chkSave,command){
+            var chk_OLD_ABS_STARTDATE = document.getElementById('OLD_ABS_STARTDATE').value;
+            var chk_ABS_STARTDATE = document.getElementById('ABS_STARTDATE').value;
+            var chk_OLD_ABS_STARTPERIOD = document.getElementById('OLD_ABS_STARTPERIOD').value;
+            var chk_HID_ABS_STARTPERIOD = document.getElementById('HID_ABS_STARTPERIOD').value;
+            
+            var chk_OLD_ABS_ENDDATE = document.getElementById('OLD_ABS_ENDDATE').value;
+            var chk_ABS_ENDDATE = document.getElementById('ABS_ENDDATE').value;
+            var chk_ABS_ENDPERIOD_HIDDEN = document.getElementById('ABS_ENDPERIOD_HIDDEN').value;
+            var chk_OLD_ABS_ENDPERIOD = document.getElementById('OLD_ABS_ENDPERIOD').value;
+            if( (chk_OLD_ABS_STARTDATE==chk_ABS_STARTDATE && chk_OLD_ABS_STARTPERIOD==chk_HID_ABS_STARTPERIOD) &&
+                (chk_OLD_ABS_ENDDATE==chk_ABS_ENDDATE && chk_ABS_ENDPERIOD_HIDDEN==chk_OLD_ABS_ENDPERIOD) ){
+                alert('ท่านยังไม่ได้เปลี่ยนแปลงวันลา กรุณาเลือกวันหรือช่วงวันที่ต้องการ');
+                return false;
+            }
+
+            //alert(chkSave+','+command);
+		var date = new Date();
+		thisdate = date.getDate();
+		thismonth = (parseInt(date.getMonth())+1);	
+		if(thisdate.toString().length==1)			thisdate = "0"+thisdate;
+		if(thismonth.toString().length==1)		thismonth = "0"+thismonth;	
+		var tothisdate = thisdate + "/" + thismonth + "/" + (parseInt(date.getFullYear())+543);	//หาวันที่ วันปัจจุบัน
+	
+		var str_start_date = form1.ABS_STARTDATE.value;
+		var str_end_date = form1.ABS_ENDDATE.value;
+		var ab_count = form1.AB_COUNT.value;
+		
+		//alert(form1.AB_CODE.value+'!!'+tothisdate+' -- '+str_start_date);
+                /*ตัดเงื่อนไข ไม่สามารถเพิ่มวันลาย้อนหลังของประเภทพักผ่อนออก*/
+                /*
+                 else if(( command=='ADD' || command=='UPDATE' ) 
+                        && (form1.AB_CODE.value!='01'&&form1.AB_CODE.value!='03') 
+                        && compare_diff_date(tothisdate, str_start_date)==false){   // วันปัจจุบัน > วันที่ key เริ่มต้น (เฉพาะลาป่วย (01) และลากิจ (03) key ย้อนหลังได้ check เฉพาะวันเริ่มต้น)
+			alert('ไม่สามารถเพิ่มวันลาย้อนหลังของประเภท'+form1.AB_NAME.value+'ได้');
+			form1.ABS_STARTDATE.focus();
+			return false;
+		} 
+                 **/
+		if(form1.AB_NAME.value=="") {
+			alert("กรุณาระบุ ประเภทการลา");
+			form1.AB_NAME.focus();
+			return false;
+		} else if(str_start_date=="") {
+			alert("กรุณาระบุ ตั้งแต่วันที่");
+			form1.ABS_STARTDATE.focus();
+			return false;
+		}else if(str_end_date=="") {
+			alert("กรุณาระบุ  ถึงวันที่");
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else if(compare_diff_date(str_start_date, str_end_date)==false){
+			alert('กรุณาระบุ ถึงวันที่ ใหม่ ต้องมีค่ามากกว่า ตั้งแต่วันที่');
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else if(document.all.DIV_REASON.style.display == "block" && (form1.ABS_REASON && form1.ABS_REASON.value=="")) {
+			alert("กรุณาระบุ  เหตุผลการลา");
+			form1.ABS_REASON.focus();
+			return false;
+		} else if(form1.APPROVE_PER_ID.value=="") {
+			alert("กรุณาระบุ  ผู้อนุญาตการลา");
+			form1.btn_approve_person.focus();
+			return false;
+		} else {	
+                    
+			if(str_start_date){
+				var arrTmp = str_start_date.split("/");
+				var start_year = parseInt(arrTmp[2]) - 543;
+				var start_month = arrTmp[1];
+				var start_date = arrTmp[0];
+				
+				str_start_date = start_month + "/" + start_date + "/" + start_year;
+			}else{
+				alert("ใส่วันที่เริ่มต้น");
+				form1.ABS_DAY.value = "";
+				form1.ABS_STARTDATE.focus();
+				return false;
+			} // end if
+			if(str_end_date){
+				var arrTmp = str_end_date.split("/");
+				var end_year = parseInt(arrTmp[2]) - 543;
+				var end_month = arrTmp[1];
+				var end_date = arrTmp[0];
+				
+				str_end_date = end_month + "/" + end_date + "/" + end_year;
+			}else{
+				if(form1.AB_CODE.value.trim() != "10"){	// is not late
+					alert("ใส่วันที่สิ้นสุด");
+					form1.ABS_DAY.value = "";
+					form1.ABS_ENDDATE.focus();
+					return false;
+				}
+			} // end if
+                        
+			// check วันลาระหว่างเดือน มี.ค - เม.ย. และ ก.ย. - ต.ค.
+			if((start_month=="03" && end_month=="04") || (start_month=="09" && end_month=="10")){
+				if(form1.AB_CODE.value.trim() == "04"){			// พักผ่อน		(ก.ย. - ต.ค.)
+					if(start_month=="09" && end_month=="10"){
+						alert("ไม่สามารถลาลาพักผ่อนระหว่างเดือนกันยายน ถึงตุลาคมได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}
+				}else{		//  อื่นๆ		(มี.ค - เม.ย. และ ก.ย. - ต.ค.)
+					/*if(start_month=="03" && end_month=="04"){
+						alert("ไม่สามารถลาระหว่างเดือนมีนาคม ถึงเมษายนได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}
+					if(start_month=="09" && end_month=="10"){
+						alert("ไม่สามารถลาระหว่างเดือนกันยายน ถึงตุลาคมได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}*/
+				}
+			} // end if
+                        //alert(chkSave+','+command);
+                               // alert(form1.AB_CODE.value.trim());
+			if(form1.AB_CODE.value.trim() != "10"){			// is not late
+				var STARTPERIOD = 0;
+				var objRadio = form1.ABS_STARTPERIOD;
+				STARTPERIOD = objRadio.options[objRadio.selectedIndex].value;
+		
+				var ENDPERIOD = 0;
+				var objRadio = form1.ABS_ENDPERIOD;
+				ENDPERIOD = objRadio.options[objRadio.selectedIndex].value;
+				//alert(STARTPERIOD+'+++'+ENDPERIOD);	
+
+//				alert("date st ("+form1.ABS_STARTDATE.value+")-> en ("+form1.ABS_ENDDATE.value+")");
+				// เดิม document.all.PROCESS_IFRAME.src = "find_absent_day.html?linkfrom='data_absent'&chkSave=" + chkSave + "&PER_ID=" + form1.PER_ID.value + "&ABS_ID=" + form1.ABS_ID.value + "&AB_CODE=" + form1.AB_CODE.value + "&AB_COUNT=" + form1.AB_COUNT.value + "&STARTDATE=" + form1.ABS_STARTDATE.value + "&STARTPERIOD=" + STARTPERIOD + "&ENDDATE=" + form1.ABS_ENDDATE.value + "&ENDPERIOD=" + ENDPERIOD + "&VAR_DAY=ABS_DAY&command=" +command;
+				
+				if(form1.ABS_DAY.value == "" || form1.ABS_DAY.value == "0"){
+					alert("จำนวนวันลาไม่ถูกต้อง กรุณาตรวจสอบจำนวนวันลาอีกครั้ง");
+					form1.butt_calc_absent.focus();
+					return false;
+				}
+				
+				if(form1.EDIT_ABSENT_DAY.value == "Y"){
+					if(confirm('จำนวนวันลาทั้งหมด ' +form1.ABS_DAY.value+' วัน ท่านยืนยันจำนวนวันลาดังกล่าวใช่หรือไม่?\nคลิกปุ่ม [OK] เพื่อยืนยันบันทึกข้อมูล\nคลิกปุ่ม [Cancel] เพื่อกลับไปตรวจสอบข้อมูลอีกครั้ง')){
+						form1.command.value = "CANCELSOMONE";
+						form1.submit();	
+					}
+					
+				}else{
+					form1.command.value = "CANCELSOMONE";
+				form1.submit();	
+				}
+				
+				
+				
+				//alert("day="+form1.ABS_DAY.value);
+			}else{										// is late
+                          
+				/*form1.ABS_DAY.value = "1";
+                                alert(form1.AB_CODE.value);
+				if (form1.AB_CODE.value) { 
+					if (!form1.ABS_ID.value)				form1.command.value = "ADD";
+					else if (form1.ABS_ID.value)		form1.command.value = "CANCELSOMONE";
+					form1.submit();	
+				}*/
+                                //form1.command.value = "CANCELSOMONE";
+                                //form1.submit();
+                                
+			}
+                        /*if(chkSave==1 && command=='CANCELSOMONE'){
+                            form1.ABS_DAY.value = form1.ABS_DAY.value;
+                            alert(form1.ABS_DAY.value);
+                            //form1.command.value = "CANCELSOMONE";
+                            form1.submit();
+                        }*/
+		} // end else
+/*		
+//		alert(str_start_date + " vs " + str_end_date);
+		var dayNum = calcDBD(str_start_date, str_end_date);
+//		var dayNum = myDBD(str_start_date, str_end_date);
+		if(dayNum == false || dayNum == "false"){ 
+			return false;
+		}else{ 
+			for (var i=0; i<3; i++) {
+				if ((i == 0 || i == 1) && (form1.ABS_STARTPERIOD[i].checked == true))
+					dayNum -= 0.5;
+				if ((i == 0 || i == 1) && (form1.ABS_ENDPERIOD[i].checked == true))
+					dayNum -= 0.5;				
+			}
+			form1.ABS_DAY.value = dayNum;
+			return true;
+		} // end if
+*/
+
+		return true;
+	}
+	
+	function calcDaysBetweenDateNew(chkSave,command){
+            var chk_OLD_ABS_STARTDATE = document.getElementById('OLD_ABS_STARTDATE').value;
+            var chk_ABS_STARTDATE = document.getElementById('ABS_STARTDATE').value;
+            var chk_OLD_ABS_STARTPERIOD = document.getElementById('OLD_ABS_STARTPERIOD').value;
+            var chk_HID_ABS_STARTPERIOD = document.getElementById('HID_ABS_STARTPERIOD').value;
+            
+            var chk_OLD_ABS_ENDDATE = document.getElementById('OLD_ABS_ENDDATE').value;
+            var chk_ABS_ENDDATE = document.getElementById('ABS_ENDDATE').value;
+            var chk_ABS_ENDPERIOD_HIDDEN = document.getElementById('ABS_ENDPERIOD_HIDDEN').value;
+            var chk_OLD_ABS_ENDPERIOD = document.getElementById('OLD_ABS_ENDPERIOD').value;
+            if( (chk_OLD_ABS_STARTDATE==chk_ABS_STARTDATE && chk_OLD_ABS_STARTPERIOD==chk_HID_ABS_STARTPERIOD) &&
+                (chk_OLD_ABS_ENDDATE==chk_ABS_ENDDATE && chk_ABS_ENDPERIOD_HIDDEN==chk_OLD_ABS_ENDPERIOD) ){
+                alert('ท่านยังไม่ได้เปลี่ยนแปลงวันลา กรุณาเลือกวันหรือช่วงวันที่ต้องการ');
+                return false;
+            }
+
+            //alert(chkSave+','+command);
+		var date = new Date();
+		thisdate = date.getDate();
+		thismonth = (parseInt(date.getMonth())+1);	
+		if(thisdate.toString().length==1)			thisdate = "0"+thisdate;
+		if(thismonth.toString().length==1)		thismonth = "0"+thismonth;	
+		var tothisdate = thisdate + "/" + thismonth + "/" + (parseInt(date.getFullYear())+543);	//หาวันที่ วันปัจจุบัน
+	
+		var str_start_date = form1.ABS_STARTDATE.value;
+		var str_end_date = form1.ABS_ENDDATE.value;
+		var ab_count = form1.AB_COUNT.value;
+		
+		//alert(form1.AB_CODE.value+'!!'+tothisdate+' -- '+str_start_date);
+                /*ตัดเงื่อนไข ไม่สามารถเพิ่มวันลาย้อนหลังของประเภทพักผ่อนออก*/
+                /*
+                 else if(( command=='ADD' || command=='UPDATE' ) 
+                        && (form1.AB_CODE.value!='01'&&form1.AB_CODE.value!='03') 
+                        && compare_diff_date(tothisdate, str_start_date)==false){   // วันปัจจุบัน > วันที่ key เริ่มต้น (เฉพาะลาป่วย (01) และลากิจ (03) key ย้อนหลังได้ check เฉพาะวันเริ่มต้น)
+			alert('ไม่สามารถเพิ่มวันลาย้อนหลังของประเภท'+form1.AB_NAME.value+'ได้');
+			form1.ABS_STARTDATE.focus();
+			return false;
+		} 
+                 **/
+		if(form1.AB_NAME.value=="") {
+			alert("กรุณาระบุ ประเภทการลา");
+			form1.AB_NAME.focus();
+			return false;
+		} else if(str_start_date=="") {
+			alert("กรุณาระบุ ตั้งแต่วันที่");
+			form1.ABS_STARTDATE.focus();
+			return false;
+		}else if(str_end_date=="") {
+			alert("กรุณาระบุ  ถึงวันที่");
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else if(compare_diff_date(str_start_date, str_end_date)==false){
+			alert('กรุณาระบุ ถึงวันที่ ใหม่ ต้องมีค่ามากกว่า ตั้งแต่วันที่');
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else if(document.all.DIV_REASON.style.display == "block" && (form1.ABS_REASON && form1.ABS_REASON.value=="")) {
+			alert("กรุณาระบุ  เหตุผลการลา");
+			form1.ABS_REASON.focus();
+			return false;
+		} else if(form1.APPROVE_PER_ID.value=="") {
+			alert("กรุณาระบุ  ผู้อนุญาตการลา");
+			form1.btn_approve_person.focus();
+			return false;
+		} else {	
+                    
+			if(str_start_date){
+				var arrTmp = str_start_date.split("/");
+				var start_year = parseInt(arrTmp[2]) - 543;
+				var start_month = arrTmp[1];
+				var start_date = arrTmp[0];
+				
+				str_start_date = start_month + "/" + start_date + "/" + start_year;
+			}else{
+				alert("ใส่วันที่เริ่มต้น");
+				form1.ABS_DAY.value = "";
+				form1.ABS_STARTDATE.focus();
+				return false;
+			} // end if
+			if(str_end_date){
+				var arrTmp = str_end_date.split("/");
+				var end_year = parseInt(arrTmp[2]) - 543;
+				var end_month = arrTmp[1];
+				var end_date = arrTmp[0];
+				
+				str_end_date = end_month + "/" + end_date + "/" + end_year;
+			}else{
+				if(form1.AB_CODE.value.trim() != "10"){	// is not late
+					alert("ใส่วันที่สิ้นสุด");
+					form1.ABS_DAY.value = "";
+					form1.ABS_ENDDATE.focus();
+					return false;
+				}
+			} // end if
+                        
+			// check วันลาระหว่างเดือน มี.ค - เม.ย. และ ก.ย. - ต.ค.
+			if((start_month=="03" && end_month=="04") || (start_month=="09" && end_month=="10")){
+				if(form1.AB_CODE.value.trim() == "04"){			// พักผ่อน		(ก.ย. - ต.ค.)
+					if(start_month=="09" && end_month=="10"){
+						alert("ไม่สามารถลาลาพักผ่อนระหว่างเดือนกันยายน ถึงตุลาคมได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}
+				}else{		//  อื่นๆ		(มี.ค - เม.ย. และ ก.ย. - ต.ค.)
+					/*if(start_month=="03" && end_month=="04"){
+						alert("ไม่สามารถลาระหว่างเดือนมีนาคม ถึงเมษายนได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}
+					if(start_month=="09" && end_month=="10"){
+						alert("ไม่สามารถลาระหว่างเดือนกันยายน ถึงตุลาคมได้");
+						form1.ABS_DAY.value = "";
+						form1.ABS_STARTDATE.focus();
+						return false;
+					}*/
+				}
+			} // end if
+                        //alert(chkSave+','+command);
+                               // alert(form1.AB_CODE.value.trim());
+			if(form1.AB_CODE.value.trim() != "10"){			// is not late
+				var STARTPERIOD = 0;
+				var objRadio = form1.ABS_STARTPERIOD;
+				STARTPERIOD = objRadio.options[objRadio.selectedIndex].value;
+		
+				var ENDPERIOD = 0;
+				var objRadio = form1.ABS_ENDPERIOD;
+				ENDPERIOD = objRadio.options[objRadio.selectedIndex].value;
+				//alert(STARTPERIOD+'+++'+ENDPERIOD);	
+
+//				alert("date st ("+form1.ABS_STARTDATE.value+")-> en ("+form1.ABS_ENDDATE.value+")");
+				if(form1.ABS_STARTDATE.value!='' && form1.ABS_ENDDATE.value!=''){
+					document.all.PROCESS_IFRAME.src = "find_absent_day.html?linkfrom='data_absent'&chkSave=" + chkSave + "&PER_ID=" + form1.PER_ID.value + "&ABS_ID=" + form1.ABS_ID.value + "&AB_CODE=" + form1.AB_CODE.value + "&AB_COUNT=" + form1.AB_COUNT.value + "&STARTDATE=" + form1.ABS_STARTDATE.value + "&STARTPERIOD=" + STARTPERIOD + "&ENDDATE=" + form1.ABS_ENDDATE.value + "&ENDPERIOD=" + ENDPERIOD + "&VAR_DAY=ABS_DAY&command=" +command;
+				}
+				//alert("day="+form1.ABS_DAY.value);
+			}else{										// is late
+                          
+				/*form1.ABS_DAY.value = "1";
+                                alert(form1.AB_CODE.value);
+				if (form1.AB_CODE.value) { 
+					if (!form1.ABS_ID.value)				form1.command.value = "ADD";
+					else if (form1.ABS_ID.value)		form1.command.value = "CANCELSOMONE";
+					form1.submit();	
+				}*/
+                                //form1.command.value = "CANCELSOMONE";
+                                //form1.submit();
+                                
+			}
+
+		} // end else
+
+
+		return true;
+	}
+	
+
+	function call_pdf_report() {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent.php?report_title=" + report_title + "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	} 
+	
+	function call_export_file() {
+		var parameter = "";
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			   rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "รายงานข้อมูล<?=($MENU_ID_LV3)?$MENU_TITLE_LV3:(($MENU_ID_LV2)?$MENU_TITLE_LV2:(($MENU_ID_LV1)?$MENU_TITLE_LV1:(($MENU_ID_LV0)?$MENU_TITLE_LV0:"")))?>";
+		if(form1.search_per_type.value)	parameter = "&search_per_type="+form1.search_per_type.value;
+		//if(form1.search_onlyme_flag.checked==true)	var PER_ID = '<?=$SESS_PER_ID; ?>'; 	parameter = "&search_per_id="+PER_ID;
+		if(form1.search_onlyme_flag.checked==true)	parameter = "&search_onlyme_flag="+form1.search_onlyme_flag.value;
+		if(form1.search_abs_approve.value)	parameter = "&search_abs_approve="+form1.search_abs_approve.value;
+		if(form1.search_cancel_flag.checked==true)	parameter = "&search_cancel_flag="+form1.search_cancel_flag.value;
+		if(form1.search_abs_startdate.value)	parameter = "&search_abs_startdate="+form1.search_abs_startdate.value;
+		if(form1.search_abs_enddate.value)	parameter = "&search_abs_enddate="+form1.search_abs_enddate.value;
+		if(form1.search_ab_code.value)	parameter = "&search_ab_code="+form1.search_ab_code.value;
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent_xls.php?report_title=" + report_title + "&UTC" + rptDate+parameter;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	}				
+
+	function call_export_rtf (ABS_ID, AB_CODE) {
+		var currDate = new Date();
+		var rptDate = currDate.getFullYear().toString() + currDate.getMonth().toString() + currDate.getDate().toString(); 
+			rptDate += currDate.getHours().toString() + currDate.getMinutes().toString() + currDate.getSeconds().toString();
+		var report_title = "data_absent";
+		document.form1.target = "_blank";
+		document.form1.action = "report/rpt_data_absent_rtf.php?report_title=" + report_title +"&ABS_ID="+ABS_ID+"&AB_CODE="+AB_CODE+ "&UTC" + rptDate;
+		document.form1.submit();
+		document.form1.target = "_self";
+		document.form1.action = "data_absent.html";
+	}
+	
+	function call_menu_desc (cate, id, name, per_id) {	
+		var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+		parameter = "";
+		MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=950,height=1200');
+	}
+
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.submit();
+	} // end function call_sort
+	
+	function set_check_all(ischecked,name,count_data){
+		for(var i=1; i <= count_data; i++){	
+			if(ischecked==true){
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=true;
+			}else{
+				if(eval(document.getElementById(name+i)))	eval(document.getElementById(name+i)).checked=false;
+			}
+		}
+	}
+	
+	function set_uncheck_all(ischecked,name,id){
+		if(ischecked==false && name.checked==true)		name.checked=false;
+	}
+
+	function e_ABS_STARTDATE() {
+		alert("e_ABS_STARTDATE==>"+form1.ABS_STARTDATE.value);
+/*		if (!form1.ABS_STARTDATE.value) {//
+			alert("กรุณาระบุ ตั้งแต่วันที่");
+			form1.ABS_STARTDATE.focus();
+			return false;
+		} else {*/
+			if (form1.ABS_STARTDATE.value == form1.ABS_ENDDATE.value) {
+//				alert("ABS_START-->"+form1.ABS_STARTPERIOD.value);
+				form1.ABS_STARTPERIOD.value = form1.ABS_ENDPERIOD.value;
+				if (form1.ABS_ENDPERIOD.value < 3) {	// ถ้าเป็น ครึ่งวันหลัง
+					form1.ABS_ENDPERIOD.disabled = true;
+				}
+			}
+			return true;
+/*		}*/
+	}
+
+	function e_ABS_ENDDATE() {
+		alert("e_ABS_ENDDATE==>"+form1.ABS_ENDDATE.value);
+/*		if (!form1.ABS_ENDDATE.value) {
+			alert("กรุณาระบุ ถึงวันที่");
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else {*/
+			if (form1.ABS_STARTDATE.value == form1.ABS_ENDDATE.value) {
+//				alert("ABS_START-->"+form1.ABS_STARTPERIOD.value);
+				if (form1.ABS_STARTPERIOD.value < 3) {	// ถ้าเป็น ครึ่งวันหลัง
+					form1.ABS_ENDPERIOD.value = form1.ABS_STARTPERIOD.value;
+					form1.ABS_ENDPERIOD.disabled = true;
+				}
+			}
+			return true;
+/*		}*/
+	}
+        function getvalChangeBgnDate() {
+            var e = document.getElementById('selectBgnDate');
+            var valid = e.options[e.selectedIndex].value;
+            document.getElementById('ABS_STARTDATE').value= valid;
+            
+            var Endidx=e.selectedIndex;
+            var options = document.forms['form1']['selectEndDate'].options;
+            for (var i=0, iLen=options.length; i<iLen; i++) { //
+             // options[i].disabled = false;
+            }
+            for (var i=0, iLen=Endidx; i<iLen; i++) { //options.length
+             // options[i].disabled = true;
+            }
+            
+            calcDaysBetweenDateNew(0,'');
+            
+            /*ล๊อกครึ่งแรก*/
+            /*var e = document.getElementById('ABS_STARTPERIOD');
+            var valEndPeriod = e.options[e.selectedIndex].value;
+            var Bgnidx=e.selectedIndex+1;
+            var options = document.forms['form1']['ABS_STARTPERIOD'].options;
+            if(valid==form1.OLD_ABS_STARTDATE.value && form1.OLD_ABS_STARTPERIOD.value==2){  
+                document.getElementById('ABS_STARTPERIOD').selectedIndex=0;
+                options[0].disabled = true;
+                options[1].disabled = true;
+            }else{
+                options[0].disabled = false;
+                options[1].disabled = false;
+            }*/
+        }
+        function getvalChangeEndDate(disabledFalg){
+             var e = document.getElementById('selectEndDate');
+            var valid = e.options[e.selectedIndex].value;
+            document.getElementById('ABS_ENDDATE').value= valid;
+            
+            var Bgnidx=e.selectedIndex+1;
+            var options = document.forms['form1']['selectBgnDate'].options;
+            
+            for (var i=0, iLen=options.length; i<iLen; i++) { //
+                if(disabledFalg=='disabled'){
+                   // options[i].disabled = true;
+                }else{
+                   // options[i].disabled = false;
+                }
+              
+            }
+            for (var i=Bgnidx, iLen=options.length; i<iLen; i++) { //
+             // options[i].disabled = true;
+            }
+			
+			calcDaysBetweenDateNew(0,'');
+           
+            /*ล๊อกครึ่งหลัง*/
+            /*var e = document.getElementById('ABS_ENDPERIOD');
+            var valEndPeriod = e.options[e.selectedIndex].value;
+            var Bgnidx=e.selectedIndex+1;
+            var options = document.forms['form1']['ABS_ENDPERIOD'].options;
+            if(valid==form1.OLD_ABS_ENDDATE.value && form1.OLD_ABS_ENDPERIOD.value==1){  
+                document.getElementById('ABS_ENDPERIOD').selectedIndex=0;
+                options[0].disabled = true;
+                options[1].disabled = true;
+            }else{
+                options[0].disabled = false;
+                options[1].disabled = false;
+            }*/
+        }
+	function e_ABS_STARTPERIOD() {
+//		alert("_ABS_STARTPERIOD==>"+(!form1.ABS_STARTDATE.value)+" period="+form1.ABS_STARTPERIOD.value);
+                var e = document.getElementById('ABS_STARTPERIOD');
+                var valid = e.options[e.selectedIndex].value;
+                document.getElementById('HID_ABS_STARTPERIOD').value= valid;
+                //document.getElementById('ABS_ENDPERIOD_HIDDEN').value= valid;               
+		if (!form1.ABS_STARTDATE.value) {
+			alert("กรุณาระบุ ตั้งแต่วันที่");
+			form1.ABS_STARTDATE.focus();
+			return false;
+		} else {
+			calcDaysBetweenDateNew(0,'');
+			if (form1.ABS_STARTDATE.value == form1.ABS_ENDDATE.value) {
+//				alert("ABS_START-->"+form1.ABS_STARTPERIOD.value);
+				//form1.ABS_ENDPERIOD.value = form1.ABS_STARTPERIOD.value;
+				//if (form1.ABS_ENDPERIOD.value < 3) {	// ถ้าเป็น ครึ่งวันหลัง
+				//	form1.ABS_ENDPERIOD.disabled = true;
+				//} else {
+				//	form1.ABS_ENDPERIOD.disabled = false;
+				//}
+			}// else 	form1.ABS_ENDPERIOD.disabled = false;
+			return true;
+		}
+                
+	}
+	
+	function e_ABS_ENDPERIOD() {
+//		alert("call_set_END_ABSDATE==>"+(!form1.ABS_STARTDATE.value));
+            var e = document.getElementById('ABS_ENDPERIOD');
+            var valid = e.options[e.selectedIndex].value;
+            document.getElementById('ABS_ENDPERIOD_HIDDEN').value= valid;
+            //document.getElementById('HID_ABS_STARTPERIOD').value= valid;
+
+		if (!form1.ABS_ENDDATE.value) {
+			alert("กรุณาระบุ ถึงวันที่");
+			form1.ABS_ENDDATE.focus();
+			return false;
+		} else {
+			calcDaysBetweenDateNew(0,'');
+			if (form1.ABS_STARTDATE.value == form1.ABS_ENDDATE.value) {
+//				alert("ABS_START-->"+form1.ABS_STARTPERIOD.value);
+				//form1.ABS_STARTPERIOD.value = form1.ABS_ENDPERIOD.value;
+				/*if (form1.ABS_ENDPERIOD.value < 3) {	// ถ้าเป็น ครึ่งวันหลัง
+					form1.ABS_ENDPERIOD.disabled = true;
+				} else {
+					form1.ABS_ENDPERIOD.disabled = false;
+				}*/
+			}// else 	form1.ABS_ENDPERIOD.disabled = false;
+			return true;
+		}
+	}
+
+	function returnFrom(src, returnValue){
+//		alert("src="+src+"("+returnValue+")");
+		 if  (src.indexOf("search_org") > -1) {
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				if (arrValue[7]=="search_ministry") {
+					form1.search_ministry_id.value = arrValue[0];
+					form1.search_ministry_name.value = arrValue[1];
+					form1.search_department_id.value = "";
+					form1.search_department_name.value = "";
+				} else if (arrValue[7]=="search_department") {
+					form1.search_department_id.value = arrValue[0];
+					form1.search_department_name.value = arrValue[1];
+				} else if (arrValue[7]=="search_org") {
+					form1.search_org_id.value = arrValue[0];
+					form1.search_org_name.value = arrValue[1];
+				}
+			} // end if
+		} else if  (src.indexOf("search_person") > -1) {
+                
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				var_type = arrValue[20];
+				eval("form1."+var_type+"PER_ID.value = " + arrValue[0]);
+				eval("form1."+var_type+"PER_NAME.value = '" + arrValue[1] + "'");
+				if(var_type!="APPROVE_" && var_type!="AUDIT_" && var_type!="REVIEW1_" && var_type!="REVIEW2_"){
+					form1.ORG_ID.value = arrValue[9];
+					form1.ORG_NAME.value = arrValue[4];
+		//			alert(form1.ORG_ID.value+":"+form1.ORG_NAME.value);
+					form1.submit(); 
+				} // end if
+			} // end if
+		} else if  (src.indexOf("search_absenttype") > -1) {
+                   
+			if(returnValue){
+				arrValue = returnValue.split("<::>");
+				ab_code.value = arrValue[0];
+				ab_name.value = arrValue[1];
+				document.form1.AB_COUNT.value = arrValue[2];
+				
+				if(ab_code.value.trim() == "10"){
+					document.form1.ABS_STARTPERIOD.value = 3;
+	
+					document.form1.ABS_STARTPERIOD[0].disabled = true;
+					document.form1.ABS_STARTPERIOD[1].disabled = true;
+					document.form1.ABS_STARTPERIOD[2].disabled = true;
+	
+					document.form1.ABS_ENDDATE.disabled = true;
+	
+					document.form1.ABS_ENDPERIOD.value = 3;
+	
+					document.form1.ABS_ENDPERIOD[0].disabled = true;
+					document.form1.ABS_ENDPERIOD[1].disabled = true;
+					document.form1.ABS_ENDPERIOD[2].disabled = true;
+	
+					//document.form1.ABS_LETTER[0].disabled = true;
+					//document.form1.ABS_LETTER[1].disabled = true;
+					//document.form1.ABS_LETTER[2].disabled = true;	
+	
+					document.form1.btn_enddate.disabled = true;
+				}else{
+					document.form1.ABS_STARTPERIOD[0].disabled = false;
+					document.form1.ABS_STARTPERIOD[1].disabled = false;
+					document.form1.ABS_STARTPERIOD[2].disabled = false;
+	
+					document.form1.ABS_ENDDATE.disabled = false;
+	
+					document.form1.ABS_ENDPERIOD[0].disabled = false;
+					document.form1.ABS_ENDPERIOD[1].disabled = false;
+					document.form1.ABS_ENDPERIOD[2].disabled = false;
+	
+					//document.form1.ABS_LETTER[0].disabled = false;
+					//document.form1.ABS_LETTER[1].disabled = false;
+					//document.form1.ABS_LETTER[2].disabled = false;
+	
+					document.form1.btn_enddate.disabled = false;
+				} // end else
+				
+				if(ab_code.value.trim() == "01" || ab_code.value.trim() == "02" || ab_code.value.trim() == "03"){
+					document.all.DIV_REASON.style.display = "block";
+				}else{
+					document.all.DIV_REASON.style.display = "none";
+				}
+			} // end if
+		}		
+//		$( "#d_frame" )[0].src="";
+		//alert("returnValue="+tt.value);
+		tt.value = returnValue;
+	} // end if
+	
+</script>
+<?php if($refreshOpener=='1'){echo "<script>parent.refresh_opener('1');</script>";}?>
+<script>
+    function Inint_AJAX() {
+        try { return new ActiveXObject("Msxml2.XMLHTTP");  } catch(e) {} //IE
+        try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch(e) {} //IE
+        try { return new XMLHttpRequest();          } catch(e) {} //Native Javascript
+        alert("XMLHttpRequest not supported");
+        return null;
+     };
+     function ChkOverLeave() {
+         var req = new XMLHttpRequest();  //Inint_AJAX();
+         req.onreadystatechange = function () {
+            if (req.readyState==4) {
+                if (req.status==200) {
+                   // alert(req.responseText);
+                    if(req.responseText!=''){
+                        alert('ไม่สามารถเปลี่ยนวันลาได้ เนื่องจากเกินช่วงวันลาที่ได้อนุมัติไปแล้ว');
+                    }
+                }
+            }
+        };
+        var url = 'php_scripts/chkoverleave.php';
+        req.open("GET", url+'?OldBgnDay='+form1.OLD_ABS_STARTDATE.value
+        +'&OldEndDay='+form1.OLD_ABS_ENDDATE.value
+        +'&NewBgnDay='+form1.ABS_STARTDATE.value
+        +'&NewEndDay='+form1.ABS_ENDDATE.value
+        +'&ApproveFlag='+form1.HIDDEN_ABS_APPROVE_FLAG.value);
+        req.setRequestHeader("Content-Type", "application/json;charset=utf8"); // set Header
+        req.send(); //ส่งค่า
+     }
+     function chkcancelday(typecancel){
+         var req = new XMLHttpRequest();  //Inint_AJAX();
+         req.onreadystatechange = function () {
+            if (req.readyState==4) {
+                if (req.status==200) {
+                    if(req.responseText!=''){
+                        document.getElementById('ChkCancle').value = req.responseText;
+                    }
+                }
+            }
+        };
+        var url = 'php_scripts/ajchkcancelday.php';
+        req.open("GET", url+'?PER_ID='+form1.PER_ID.value+'&TYPECANCEL=ALL&ABS_ID='+form1.ABS_ID.value);
+        req.setRequestHeader("Content-Type", "application/json;charset=utf8"); // set Header
+        req.send(); //ส่งค่า 
+     }
+     function btncancelall(){
+         if(confirm('คุณต้องการยกเลิกใบลานี้ ใช่หรือไม่')){
+             form1.command.value = 'CANCELALL';form1.submit();
+         }else{
+            return false;
+        };
+     }
+</script>     
+<?  //เช็คปุ่มที่ได้ค่าออกมา ว่าเป็นปุ่มเพิ่มหรือแก้ไข 
+	if($PAGE_AUTH["edit"]=="Y" && $UPD) 
+	$Submit = "Submit_edit";
+	else if(!$VIEW && $PAGE_AUTH["add"]=="Y") 
+	$Submit = "Submit_add";    
+?>
+<span id="defaultTheme"></span>
+<body>
+    <script>
+        function swithTr(ishidden){
+            if(ishidden==0){
+                document.getElementById("tr-space").style.display = 'none';
+                document.getElementById("tr-buttom").style.display = 'none';
+                document.getElementById("tr-Detail").style.display = '';
+				document.getElementById("tr-fs1").style.display = 'none';
+				document.getElementById("tr-fs2").style.display = 'none';
+				document.getElementById("tr-fs3").style.display = '';
+				document.getElementById("tr-fs4").style.display = '';
+				
+            }
+        }
+        function ProcessUploading(){
+            return true;
+        }
+        function calcDaysBetweenDateV2(){
+            return true;
+        }
+    </script>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+    <tr id="tr-space" >
+        <td height="100px"></td>
+    </tr>
+    <tr id="tr-fs1">
+        <td style="text-align: center;color: red">
+            <br>!! รายการลาของท่านนี้ได้รับการอนุญาตการลาเรียบร้อยแล้ว<br>หากต้องการยกเลิกหรือเปลี่ยนแปลงวันลา กรุณาคลิกปุ่มตัวเลือกตามต้องการ<br><br>
+        </td>
+    </tr>
+    <tr id="tr-buttom">
+        <td style="text-align: center">
+            <?php 
+            
+            $cmdBgnDate = "
+            WITH tbdate AS(
+                SELECT ROWNUM,to_char( (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ROWNUM,'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS SELECTDATE,
+                CASE WHEN to_char(sysdate,'yyyymmdd') > to_char( to_date(:BEGINDATEAT,'yyyy-mm-dd'),'yyyymmdd')THEN 1 ELSE 0 END CHKDISABLE
+                                FROM all_objects
+                                WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= TO_DATE(:TODATEAT, 'YYYY-MM-DD')
+            )
+            SELECT * FROM tbdate
+            WHERE SELECTDATE NOT IN(
+              SELECT to_char((TO_DATE(substr(hol_date,0,10), 'YYYY-MM-DD')),'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS xx
+              FROM per_holiday
+            )";
+            $cmdBgnDate=str_ireplace(":BEGINDATEAT","'".save_date($ORI_ABS_STARTDATE)."'",$cmdBgnDate);
+            $cmdBgnDate=str_ireplace(":TODATEAT","'".save_date($ORI_ABS_ENDDATE)."'",$cmdBgnDate);
+            $db_dpis->send_cmd($cmdBgnDate);
+            $data = $db_dpis->get_array();
+            
+            
+            
+            $disabled ='';
+            if($DisableTimeAtt=="CLOSE" && $SESS_USERGROUP!=1 && $NAME_GROUP_HRD!='HRD' ){
+                $disabled ='disabled';
+            }
+            $CHKDISABLE = false;
+            $disabled_a ='';
+            if($data[CHKDISABLE]==1){
+                $CHKDISABLE = true;
+                $disabled_a ='disabled';
+            }
+            ?>
+            <input type="hidden" name="ChkCancle" id="ChkCancle" value="" >
+            <button  name="Submit_xCancleAll" type="submit"  value="ยกเลิกวันลาทุกวันของรายการนี้" onMouseOver="chkcancelday('ALL');" onClick="return btncancelall();" <?php echo $disabled;?> >ยกเลิกวันลาทุกวันของรายการนี้</button>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            
+            <?
+            	$cmd = " 	select ABS_DAY from	PER_ABSENT where ABS_ID=$ABS_ID  "; 
+				$db_dpis->send_cmd($cmd);
+				$data_chk = $db_dpis->get_array();	
+                
+                $disabled_chkchange ='disabled';	
+                if(trim($data_chk[ABS_DAY])>=1){
+                    $disabled_chkchange ='';
+                }
+            
+            ?>
+
+            <button  name="Submit_xCancleSometime" type="button"  value="เปลี่ยนแปลงวันลาของรายการนี้" onClick="javascript:swithTr(0);" <?php echo $disabled;?> <?php echo $disabled_chkchange;?>> เปลี่ยนแปลงวันลาของรายการนี้</button>    
+        </td>
+    </tr>
+    <tr id="tr-fs2">
+        <td style="text-align: center;color: red"> <br>!! จำนวนวันลาที่ขอยกเลิกหรือเปลี่ยนแปลงในครั้งนี้<br>จะมีผลก็ต่อเมื่อได้รับการอนุมัติ/อนุญาตแล้วเท่านั้น<br>
+            ***ข้อควรทราบ<br>
+1) รายการประวัติการลาจะถูกลบออกเมื่อได้รับการอนุมัติการยกเลิกวันลา<br>
+2) หากท่านต้องการทำรายการลาใหม่ในวันเดิมที่ขอยกเลิก รายการเดิมจะต้องได้รับการอนุมัติการยกเลิกวันลาก่อน
+            <h3 style="color: red">
+                <?php 
+                if($DisableTimeAtt=="CLOSE" && $SESS_USERGROUP!=1 && $NAME_GROUP_HRD!='HRD'){
+                    echo "<br>มีการยืนยันข้อมูลการลงเวลาของเดือนนี้ ไปแล้ว <br>หากต้องการทำรายการ กรุณาติดต่อ กจ. หรือผู้ดูแลข้อมูลประจำหน่วยงาน";
+                }
+                ?>
+            </h3>
+        </td>
+    </tr>
+    <tr id="tr-fs3" style="display:none">
+        <td style="text-align: center;"> <h3 style="color: red"><br>ท่านกำลังทำรายการขอเปลี่ยนแปลงวันลา กรุณาระบุวันที่ท่านต้องการลา</h3>
+													 <br><span style="color: #0000FF;">* วันที่ระบุ (ตั้งแต่วันที่ - ถึงวันที่) เป็นวันที่ท่านต้องการลา </span>
+        </td>
+    </tr>
+    <tr id="tr-fs4" style="display:none">
+        <td style="text-align: center;color:#0000FF;">
+        ** การเปลี่ยนแปลงวันลา เป็นการลดจำนวนวันที่ได้ทำรายการลาไว้เดิม 
+        <br> และจะมีผลก็ต่อเมื่อได้รับการอนุมัติ/อนุญาตแล้วเท่านั้น
+        </td>
+    </tr>
+    
+    
+    <tr id="tr-Detail" style="display:none">
+    	<td align="left" valign="top">
+            <form name="form1" method="post" action="data_absent_cancel.html" enctype="multipart/form-data">
+		<input type="hidden" name="current_page" value="<?=$current_page?>" >
+		<input type="hidden" name="total_page" value="<?=$total_page?>">
+		<input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		<input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		<input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		<input type="hidden" name="command" value="">
+                
+		<input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		<input type="hidden" name="ABS_ID" value="<?=$ABS_ID?>">
+		<input type="hidden" name="chkconfirm_absent" value="">
+        <input type="hidden" name="EDIT_ABSENT_DAY" value="<?=$EDIT_ABSENT_DAY;?>">
+		&nbsp;&nbsp; <!-- ($ABS_REVIEW1_FLAG=="" && $ABS_REVIEW2_FLAG=="" && $ABS_AUDIT_FLAG=="" && $ABS_APPROVE_FLAG=="")--->
+		<table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body">เปลี่ยนแปลงวันลา</td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table>
+        <table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table" 
+		onKeyPress="return keyEnter(event,document.form1.<?=$Submit?>);">
+    <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td  align="center"><table width="100%" border="0" cellpadding="0" cellspacing="0" class="label_normal">
+		    <tr><td height="5"></td></tr>
+	   		<tr>
+			  <td width="20%" nowrap="nowrap"align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FULLNAME_TITLE;?>&nbsp;:&nbsp;</td>
+			  <td width="30%"> <input type="text" name="PER_NAME" value="<?=$PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="PER_CODE" value="<?=$PER_CODE?>">
+                         <? if(($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW && !$SESS_PER_ID) : ?>
+                         <input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="javascript:call_search_person('');">
+                         <? endif; ?></td>			
+			  <td width="20%" nowrap="nowrap" align="right"><?=$MINISTRY_TITLE;?>&nbsp;:&nbsp;</td>
+			  <td width="30%"><input type="text" name="MINISTRY_NAME" value="<?=$MINISTRY_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="MINISTRY_ID" value="<?=$MINISTRY_ID?>">			</tr>
+			<tr>
+	                <td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;ประเภทการลา&nbsp;:&nbsp;</td>
+                        <td>
+								<input type="text" name="AB_NAME" value="<?=$AB_NAME?>"  style="width:75%" class="textbox" readonly> 
+                                <input type="hidden" name="AB_CODE" value="<?=$AB_CODE?>">				    
+								<? if((($SESS_PER_ID==$PER_ID && $AB_CODE=="") || ($CAN_EDIT=="Y" || $SESS_USERGROUP==1)) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                                <input type="button" class="button" value="<?=$SELECT_TITLE?>" alt="เลือกประเภทการลา" onClick="call_search_absenttype('AB_CODE', 'AB_NAME');"> 
+                                <? endif; ?> 
+				    				<input type="hidden" name="AB_COUNT" value="<?=$AB_COUNT?>"></td>
+                        <td  align="right"><?=$DEPARTMENT_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td><input type="text" name="DEPARTMENT_NAME" value="<?=$DEPARTMENT_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="DEPARTMENT_ID" value="<?=$DEPARTMENT_ID?>">			</td>
+                      </tr>
+			<tr>
+			  <td  align="right"><?=$ORG_TITLE;?>
+			    &nbsp;:&nbsp;</td>
+			  <td><input type="text" name="ORG_NAME" value="<?=$ORG_NAME?>"  style="width:75%" class="textbox" readonly>
+                  <input type="hidden" name="ORG_ID" value="<?=$ORG_ID?>">              </td>
+			  <td  align="right">&nbsp;</td>
+			  <td>&nbsp;</td>
+			  </tr>
+                      <tr> 
+                        <td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;<?=$FROM_DATE_TITLE;?>&nbsp;:&nbsp;</td>
+                        <td>
+                          <?php 
+                                $Con = " WHERE SELECTDATE NOT IN(
+                                                  SELECT to_char((TO_DATE(substr(hol_date,0,10), 'YYYY-MM-DD')),'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS xx
+                                                  FROM per_holiday 
+                                               )";
+                                if($EDIT_ABSENT_DAY=="Y"){
+                                    $Con = "  ";
+                                }
+
+                                 $cmdBgnDate = "WITH tbdate AS(
+                                                SELECT ROWNUM,to_char( (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ROWNUM,'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS SELECTDATE
+                                                FROM all_objects
+                                                WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= TO_DATE(:TODATEAT, 'YYYY-MM-DD')
+                                                )
+                                                SELECT * FROM tbdate
+                                                    $Con
+                                                ";
+                                $cmdBgnDate=str_ireplace(":BEGINDATEAT","'".save_date($ORI_ABS_STARTDATE)."'",$cmdBgnDate);
+                                $cmdBgnDate=str_ireplace(":TODATEAT","'".save_date($ORI_ABS_ENDDATE)."'",$cmdBgnDate);
+                                                    
+                            $db_dpis->send_cmd($cmdBgnDate);
+                            //echo '<pre>'.$cmdBgnDate;
+                            ?>
+                            <select name="selectBgnDate" id="selectBgnDate" onChange="return getvalChangeBgnDate();">
+                                <?php 
+                                $idx=0;
+                                while ($data = $db_dpis->get_array()) {
+                                    $day = explode('/',$data[SELECTDATE]);
+                                    $jd=cal_to_jd(CAL_GREGORIAN,$day[1],$day[0],($day[2]-543)); 
+                                    if($EDIT_ABSENT_DAY!="Y"){
+                                    	if(strtoupper(jddayofweek($jd,1)) != "SATURDAY" && strtoupper(jddayofweek($jd,1)) != "SUNDAY"){
+                                        
+                                    	$disabled='';
+                                    	if($data[CHKDISABLE]==1){$disabled='disabled';}
+                                    
+                                ?>
+                                		<option  id="Bgn<?php echo $idx;?>" value="<?php echo $data[SELECTDATE];?>" <?php if($data[SELECTDATE]==$ABS_STARTDATE){echo "selected";}?>><?php echo $data[SELECTDATE];?></option>
+                                    <?php 
+                                        $idx++;
+                                        }
+                                    ?>
+                                    <?php 
+                                       }else{
+                                       	  	 // kittiphat 02/11/2561
+                                            // หาค่าปีงบประมาณ
+                                            $ArrYear = explode('/',trim($ORI_ABS_STARTDATE));
+                                            $YEAR_BGN=(($ArrYear[2]-543)-1).'-10-01'; 
+                                            $YEAR_ENG=($ArrYear[2]-543).'-09-30'; 
+                                            if($ArrYear[2].$ArrYear[1].$ArrYear[0]>=$ArrYear[2].'1001'){ 
+                                                $YEAR_BGN=($ArrYear[2]-543).'-10-01'; 
+                                                $YEAR_ENG=(($ArrYear[2]-543)+1).'-09-30';  
+                                            }
+                                            
+                                            $Showday = "";
+                                            
+                                           $cmdH = " SELECT HOL_NAME,to_char((TO_DATE(substr(hol_date,0,10), 'YYYY-MM-DD')),'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') as HDAY
+                                                  FROM per_holiday 
+                                                  where  TO_DATE(substr(hol_date,0,10), 'yyyy-mm-dd') between TO_DATE('$YEAR_BGN', 'yyyy-mm-dd') and TO_DATE('$YEAR_ENG', 'yyyy-mm-dd') ";
+                                            $db_dpis2->send_cmd($cmdH);
+                                           while ($data_hd = $db_dpis2->get_array()) {
+                                                    if($data[SELECTDATE]==$data_hd[HDAY]){
+                                                        $Showday = "[".$data_hd[HOL_NAME]."]";
+                                                    }
+                                           }
+                                           
+                                           
+                                            if(strtoupper(jddayofweek($jd,1)) == "SATURDAY"){
+                                                $Showday = "[วันเสาร์]";
+                                            }else if(strtoupper(jddayofweek($jd,1)) == "SUNDAY"){
+                                                $Showday = "[วันอาทิตย์]";
+                                            }
+                                    ?>
+                                    	<option   id="Bgn<?php echo $idx;?>" value="<?php echo $data[SELECTDATE];?>" <?php if($data[SELECTDATE]==$ABS_STARTDATE){echo "selected";}?>><?php echo $data[SELECTDATE].' '.$Showday ;?></option>
+                                        <?php 
+                                            $idx++;
+                                        ?>
+                                 <?php 
+                                      }
+                                   }?>
+                            </select>
+                            <input type="hidden" name="OLD_ABS_STARTDATE" id="OLD_ABS_STARTDATE" value="<?=$ABS_STARTDATE?>">	
+                            <input type="hidden" name="ABS_STARTDATE" id="ABS_STARTDATE" value="<?=$ABS_STARTDATE?>"  class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.ABS_STARTDATE,this.value);" <?=((!$ABS_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && trim($AB_CODE) != "10")?"":"readonly"?>>&nbsp;&nbsp;					
+                                <input hidden="" type="reset" name="btn_startdate" class="button" onClick="return showCalendar('ABS_STARTDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');"  value="<?=$SELECT_TITLE?>">
+                           
+                            <select name="ABS_STARTPERIOD" id="ABS_STARTPERIOD" onChange="return e_ABS_STARTPERIOD();" >
+                                            
+                                            <option  value="1" <?=($ABS_STARTPERIOD==1)? "selected":"";?> > ครึ่งวันเช้า</option>
+                                            
+                                            <option  value="2" <?=($ABS_STARTPERIOD==2)? "selected":"";?> > ครึ่งวันบ่าย</option>
+                                            <option  value="3" <?=($ABS_STARTPERIOD==3 || !$ABS_STARTPERIOD)? "selected":"";?> >ทั้งวัน</option>
+                                        </select>	<input type="hidden" name="OLD_ABS_STARTPERIOD" id="OLD_ABS_STARTPERIOD" value="<?=$ABS_STARTPERIOD; ?>">
+                            <input type="hidden" name="HID_ABS_STARTPERIOD" id="HID_ABS_STARTPERIOD" value="<?=$ABS_STARTPERIOD?>">	
+                        </td>
+						<td  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;
+						    <?=$TO_DATE_TITLE;?>
+						  &nbsp;:&nbsp;</td>
+						<td>
+                                                    <?php 
+                                                    $Con = " WHERE SELECTDATE NOT IN(
+                                                                      SELECT to_char((TO_DATE(substr(hol_date,0,10), 'YYYY-MM-DD')),'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS xx
+                                                                      FROM per_holiday 
+                                                                   )";
+                                                    if($EDIT_ABSENT_DAY=="Y"){
+                                                    	$Con = "  ";
+                                                    }
+
+                                                     $cmdBgnDate = "WITH tbdate AS(
+                                                                    SELECT ROWNUM,to_char( (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ROWNUM,'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') AS SELECTDATE
+                                                                    FROM all_objects
+                                                                    WHERE (TO_DATE(:BEGINDATEAT, 'YYYY-MM-DD'))-1+ rownum <= TO_DATE(:TODATEAT, 'YYYY-MM-DD')
+                                                                    )
+                                                                    SELECT * FROM tbdate
+                                                                    	$Con
+                                                                    ";
+                                                    $cmdBgnDate=str_ireplace(":BEGINDATEAT","'".save_date($ORI_ABS_STARTDATE)."'",$cmdBgnDate);
+                                                    $cmdBgnDate=str_ireplace(":TODATEAT","'".save_date($ORI_ABS_ENDDATE)."'",$cmdBgnDate);
+                                                    $db_dpis->send_cmd($cmdBgnDate);
+                                                    ?>
+                                                    <select name="selectEndDate" id="selectEndDate" onChange="return getvalChangeEndDate('<?php echo $disabled?>');">
+                                                        <?php 
+                                                        $idx=0;
+                                                        while ($data = $db_dpis->get_array()) {
+                                                          $day = explode('/',$data[SELECTDATE]);
+                                                          $jd=cal_to_jd(CAL_GREGORIAN,$day[1],$day[0],($day[2]-543)); 
+                                                          if($EDIT_ABSENT_DAY!="Y"){
+                                                            if(strtoupper(jddayofweek($jd,1)) != "SATURDAY" && strtoupper(jddayofweek($jd,1)) != "SUNDAY"){
+                                                        ?>
+                                                        		<option id="End<?php echo $idx;?>" value="<?php echo $data[SELECTDATE];?>" <?php if($data[SELECTDATE]==$ABS_ENDDATE){echo "selected";}?>><?php echo $data[SELECTDATE];?></option>
+                                                        <?php 
+                                                        		$idx++;
+                                                        	}
+                                                        ?>
+                                                         <?php 
+                                                           }else{
+                                                                 // kittiphat 02/11/2561
+                                                           		// หาค่าปีงบประมาณ
+                                                                $ArrYear = explode('/',trim($ORI_ABS_STARTDATE));
+                                                                $YEAR_BGN=(($ArrYear[2]-543)-1).'-10-01'; 
+                                                                $YEAR_ENG=($ArrYear[2]-543).'-09-30'; 
+                                                                if($ArrYear[2].$ArrYear[1].$ArrYear[0]>=$ArrYear[2].'1001'){ 
+                                                                	$YEAR_BGN=($ArrYear[2]-543).'-10-01'; 
+                                                                  	$YEAR_ENG=(($ArrYear[2]-543)+1).'-09-30';  
+                                                                }
+                                                                
+                                                                $Showday = "";
+                                                                
+                                                               $cmdH = " SELECT HOL_NAME,to_char((TO_DATE(substr(hol_date,0,10), 'YYYY-MM-DD')),'DD/MM/YYYY','NLS_CALENDAR=''THAI BUDDHA''') as HDAY
+                                                                      FROM per_holiday 
+                                                                      where  TO_DATE(substr(hol_date,0,10), 'yyyy-mm-dd') between TO_DATE('$YEAR_BGN', 'yyyy-mm-dd') and TO_DATE('$YEAR_ENG', 'yyyy-mm-dd') ";
+                                                    			$db_dpis2->send_cmd($cmdH);
+                                                               while ($data_hd = $db_dpis2->get_array()) {
+                                                               			if($data[SELECTDATE]==$data_hd[HDAY]){
+                                                                        	$Showday = "[".$data_hd[HOL_NAME]."]";
+                                                                        }
+                                                               }
+                                                           
+                                                                
+                                                                if(strtoupper(jddayofweek($jd,1)) == "SATURDAY"){
+                                                                	$Showday = "[วันเสาร์]";
+                                                                }else if(strtoupper(jddayofweek($jd,1)) == "SUNDAY"){
+                                                                	$Showday = "[วันอาทิตย์]";
+                                                                }
+                                                        ?>
+                                                           <option id="End<?php echo $idx;?>" value="<?php echo $data[SELECTDATE];?>" <?php if($data[SELECTDATE]==$ABS_ENDDATE){echo "selected";}?>><?php echo $data[SELECTDATE].' '.$Showday;?></option>
+                                                            <?php 
+                                                            $idx++;
+                                                            ?>
+                                                         
+                                                        <?php 
+                                                     	   }
+                                                        }?>
+                                                    </select>
+                                                    <input type="hidden" name="OLD_ABS_ENDDATE" id="OLD_ABS_ENDDATE" value="<?=$ABS_ENDDATE?>">	
+                                                    <input type="hidden" name="ABS_ENDDATE" id="ABS_ENDDATE" value="<?=$ABS_ENDDATE?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.ABS_ENDDATE,this.value);" onChange="return e_ABS_ENDDATE();" <?=((!$ABS_ID) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && trim($AB_CODE) != "10")?"":"readonly"?>>
+						  &nbsp;&nbsp;
+                                                  <input hidden="" type="reset" name="btn_enddate" class="button" onClick="return showCalendar('ABS_ENDDATE', 'dd/mm/y', '<?=$SESS_HOLIDAY?>', 'confirm');" value="<?=$SELECT_TITLE?>" <?=(trim($AB_CODE) != "10")?"":"disabled"?>>
+                                                  <select name="ABS_ENDPERIOD" id="ABS_ENDPERIOD" onChange="return e_ABS_ENDPERIOD();" >
+                                                        <option  value="1" <?=($ABS_ENDPERIOD==1)? "selected":"";?> > ครึ่งวันเช้า</option>
+                                                        
+                                                        <option  value="2" <?=($ABS_ENDPERIOD==2)? "selected":"";?> > ครึ่งวันบ่าย</option>
+                                                        
+                                                        <option   value="3" <?=($ABS_ENDPERIOD==3 || !$ABS_ENDPERIOD)? "selected":"";?> >ทั้งวัน</option>
+  </select>
+  <input type="hidden" name="ABS_ENDPERIOD_HIDDEN" id="ABS_ENDPERIOD_HIDDEN" value="<?=$ABS_ENDPERIOD; ?>">
+                                                <input type="hidden" name="OLD_ABS_ENDPERIOD" id="OLD_ABS_ENDPERIOD"  value="<?=$ABS_ENDPERIOD; ?>"></td>
+                      </tr>
+			<tr>
+			  <td  align="right" <?=(($SESS_PER_ID==$REVIEW1_PER_ID)?"style='color:#0000FF'":"")?>>ผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="REVIEW1_PER_NAME" value="<?=$REVIEW1_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="REVIEW1_PER_ID" value="<?=$REVIEW1_PER_ID?>">
+                         <? if((($SESS_PER_ID==$PER_ID && $ABS_REVIEW1_FLAG==0) || $SESS_USERGROUP==1) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_review1_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('REVIEW1_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW1_PER_ID.value=''; form1.REVIEW1_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  <td align="right" <?=(($SESS_PER_ID==$REVIEW2_PER_ID)?"style='color:#0000FF'":"")?>>ผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป&nbsp;:&nbsp;</td>
+			  <td><input type="text" name="REVIEW2_PER_NAME" value="<?=$REVIEW2_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="REVIEW2_PER_ID" value="<?=$REVIEW2_PER_ID?>">
+                         <? if((($SESS_PER_ID==$PER_ID && $ABS_REVIEW2_FLAG==0) || $SESS_USERGROUP==1) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_review2_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('REVIEW2_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.REVIEW2_PER_ID.value=''; form1.REVIEW2_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?></td>
+			  </tr>
+			  <?  if($ABS_ID){ ?>
+					  <tr> 
+                        <? if($REVIEW1_PER_ID  || $SESS_USERGROUP==1){ ?>
+						<td  nowrap="nowrap" align="right" <?=(($SESS_PER_ID==$REVIEW1_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชาชั้นต้น&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_REVIEW1_FLAG" type="radio" value="1" <?=(($ABS_REVIEW1_FLAG==1)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$REVIEW1_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;เห็นควรอนุญาต&nbsp;&nbsp;<input name="ABS_REVIEW1_FLAG" type="radio" value="2" <?=(($ABS_REVIEW1_FLAG==2)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$REVIEW1_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;ไม่เห็นควรอนุญาต<input type="hidden" name="ABS_REVIEW1_FLAG_HIDDEN" value="<?=$ABS_REVIEW1_FLAG; ?>"><input type="hidden" name="REVIEW1_DATE" value="<?=$REVIEW1_DATE; ?>"><?=(($REVIEW1_DISPLAY_DATE)?"<br>(วันที่ ".$REVIEW1_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+						<? if($REVIEW2_PER_ID || $SESS_USERGROUP==1){ ?>
+						<td align="right" <?=(($SESS_PER_ID==$REVIEW2_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้บังคับบัญชาชั้นต้นเหนือขึ้นไป&nbsp;&nbsp;:&nbsp;</td>
+                        <td><input name="ABS_REVIEW2_FLAG" type="radio" value="1" <?=(($ABS_REVIEW2_FLAG==1)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$REVIEW2_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;เห็นควรอนุญาต&nbsp;&nbsp;<input name="ABS_REVIEW2_FLAG" type="radio" value="2" <?=(($ABS_REVIEW2_FLAG==2)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$REVIEW2_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;ไม่เห็นควรอนุญาต<input type="hidden" name="ABS_REVIEW2_FLAG_HIDDEN" value="<?=$ABS_REVIEW2_FLAG; ?>"><input type="hidden" name="REVIEW2_DATE" value="<?=$REVIEW2_DATE; ?>"><?=(($REVIEW2_DISPLAY_DATE)?"<br>(วันที่ ".$REVIEW2_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+                      </tr>
+			<? } ?>		  
+			<tr>
+			  <td  align="right" <?=(($SESS_PER_ID==$AUDIT_PER_ID)?"style='color:#0000FF'":"")?>>ผู้ตรวจสอบการลา&nbsp;:&nbsp;</td>
+			  <td>
+                        <input type="text" name="AUDIT_PER_NAME" value="<?=$AUDIT_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			<input type="hidden" name="AUDIT_PER_ID" value="<?=$AUDIT_PER_ID?>">
+                        <? if((($SESS_PER_ID==$PER_ID && $ABS_AUDIT_FLAG==0)  || $SESS_USERGROUP==1) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                        <input type="button" name="btn_audit_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('AUDIT_');">
+			<input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.AUDIT_PER_ID.value=''; form1.AUDIT_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                        <? endif; ?>
+                          </td>
+			  <td  align="right" <?=(($SESS_PER_ID==$APPROVE_PER_ID)?"style='color:#0000FF'":"")?>>&nbsp;<span class="label_alert">*</span>&nbsp;ผู้อนุญาตการลา&nbsp;:&nbsp;</td>
+			  <td>
+                              <input type="text" name="APPROVE_PER_NAME" value="<?=$APPROVE_PER_NAME?>"  style="width:75%" class="textbox" readonly>
+			    <input type="hidden" name="APPROVE_PER_ID" value="<?=$APPROVE_PER_ID?>">
+                         <? if((($SESS_PER_ID==$PER_ID && $ABS_APPROVE_FLAG==0) || $SESS_USERGROUP==1) && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+                         <input type="button" name="btn_approve_person" class="button" value="<?=$SELECT_TITLE?>" alt="เลือก<?=$PERSON_TITLE?>" onClick="call_search_person('APPROVE_');">
+						 <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form1.APPROVE_PER_ID.value=''; form1.APPROVE_PER_NAME.value=''; return false;" align="center" alt="ล้างค่า">
+                         <? endif; ?>
+                          </td>
+			  </tr>
+			  <?  if($ABS_ID){ ?>
+					  <tr> 
+                        <? if($AUDIT_PER_ID || $SESS_USERGROUP==1){ ?>
+						<td  align="right" <?=(($SESS_PER_ID==$AUDIT_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้ตรวจสอบการลา&nbsp;:&nbsp;</td>
+                        <td>
+                            <input name="ABS_AUDIT_FLAG" type="radio" value="1" <?=(($ABS_AUDIT_FLAG==1)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$AUDIT_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;ตรวจสอบแล้ว&nbsp;&nbsp;<input name="ABS_AUDIT_FLAG" type="radio" value="2" <?=(($ABS_AUDIT_FLAG==2)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$AUDIT_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;ยังไม่ตรวจสอบ<input type="hidden" name="ABS_AUDIT_FLAG_HIDDEN" value="<?=$ABS_AUDIT_FLAG; ?>"><input type="hidden" name="AUDIT_DATE" value="<?=$AUDIT_DATE; ?>"><?=(($AUDIT_DISPLAY_DATE)?"<br>(วันที่ ".$AUDIT_DISPLAY_DATE.")":"")?>
+                        </td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+						<? if($APPROVE_PER_ID || $SESS_USERGROUP==1){ ?>
+						<td  align="right" <?=(($SESS_PER_ID==$APPROVE_PER_ID)?"style='color:#0000FF'":"")?>>ความเห็นผู้อนุญาตการลา&nbsp;&nbsp;:&nbsp;</td>
+                        <td>
+                            <input type="hidden" name="HIDDEN_ABS_APPROVE_FLAG" value="<?php echo $ABS_APPROVE_FLAG;?>">
+                            <input name="ABS_APPROVE_FLAG" type="radio" value="1" <?=(($ABS_APPROVE_FLAG==1)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$APPROVE_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;อนุญาต&nbsp;&nbsp;<input name="ABS_APPROVE_FLAG" type="radio" value="2" <?=(($ABS_APPROVE_FLAG==2)?"checked":"")?> 
+		<?=((($SESS_PER_ID!=$APPROVE_PER_ID || $ABS_CANCEL_FLAG==1) && $SESS_USERGROUP!=1)?"disabled":"")?>>&nbsp;ไม่อนุญาต<input type="hidden" name="ABS_APPROVE_FLAG_HIDDEN" value="<?=$ABS_APPROVE_FLAG; ?>"><input type="hidden" name="APPROVE_DATE" value="<?=$APPROVE_DATE; ?>"><?=(($APPROVE_DISPLAY_DATE)?"<br>(วันที่ ".$APPROVE_DISPLAY_DATE.")":"")?></td>
+						<? }else{ ?>
+						<td></td>
+						<td></td>
+						<? } ?>
+                      </tr>
+				<? } ?>
+			<tr id="DIV_REASON" >
+			  <td  nowrap="nowrap"  align="right">&nbsp;<span class="label_alert">*</span>&nbsp;เนื่องจาก&nbsp;:&nbsp;</td>
+			  <td colspan="5"><input type="text" name="ABS_REASON" value="<?=$ABS_REASON?>"  style="width:50%" class="textbox"  <?=((($VIEW || $CAN_EDIT=="N") && $SESS_USERGROUP!=1) || ($SESS_PER_ID!=$PER_ID && $SESS_USERGROUP!=1) || (($ABS_APPROVE_FLAG==1 || $ABS_APPROVE_FLAG==2) && $SESS_USERGROUP!=1))?"readonly":""?>><!-- && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"--></td>
+			  </tr>
+        	<tr>
+			<tr>
+			  <td  nowrap="nowrap" align="right">ที่อยู่ที่ติดต่อได้ระหว่างลา&nbsp;:&nbsp;</td>
+			  <td colspan="5"><textarea name="ABS_ADDRESS" rows="3" class="selectbox" style="width:50%" <?=((($VIEW || $CAN_EDIT=="N") && $SESS_USERGROUP!=1) || ($SESS_PER_ID!=$PER_ID && $SESS_USERGROUP!=1) || (($ABS_APPROVE_FLAG==1 || $ABS_APPROVE_FLAG==2) && $SESS_USERGROUP!=1))?"readonly":""?>><?=$ABS_ADDRESS?></textarea></td>
+			  </tr><!-- && $PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y"-->
+        	<tr>
+<tr>
+  <td  align="right">จำนวนวันลา&nbsp;:&nbsp;</td>
+  <td>
+      <input type="text" name="ABS_DAY" value="<?=$ABS_DAY?>" style="text-align:right" class="textbox" onKeyPress="return DigitOnly();" onChange="return chkOverNumDay();" <?=($EDIT_ABSENT_DAY!="Y")?"readonly":"" ?>>
+    &nbsp;
+    <? if((($SESS_PER_ID==$PER_ID || $SESS_USERGROUP==1) || $CAN_EDIT=="Y") && ($PAGE_AUTH["add"]=="Y" || $PAGE_AUTH["edit"]=="Y") && !$VIEW) : ?>
+    <input type="button" class="button" name="butt_calc_absent" value="คำนวณวัน" onClick="calcDaysBetweenDateNew(0,'');">
+    <? endif; ?>  
+    <input type="hidden" name="HID_ABS_DAY" value="<?=$HID_ABS_DAY;?>">
+    <input type="hidden" name="HID_count_duplicate_date" value="0">
+    </td>
+  <td>&nbsp;</td>
+  <td><!--<select name="ABS_LETTER">
+							   <option  value="1" <?=($ABS_LETTER==1 || !$ABS_LETTER)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ยังไม่ได้ส่งใบลา</option>
+								<option  value="2"  <?=($ABS_LETTER==2)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ส่งใบลาถูกต้อง</option>
+								<option  value="3" <?=($ABS_LETTER==3)? "selected":"";?> <?=(trim($AB_CODE) != "10")?"":"disabled"?>>ล่งใบลาไม่ถูกต้อง</option>
+						</select>-->
+      <input type="hidden" name="ABS_LETTER" value="<?=$ABS_LETTER; ?>"></td> 
+                      </tr>
+					  <? if($ABS_ID){ ?>
+					  <tr> 
+                        <td  align="right">วันที่ส่งใบลา&nbsp;:&nbsp;</td>
+                        <td><?=(($ABS_CREATE_DATE)?$ABS_CREATE_DATE:"-")?></td>
+                        <td colspan="2" <?=(($ABS_CANCEL_FLAG==1)?"style='color:#FF0000'":"")?>>
+                           <!--<?="$TODATE>=$ABS_STARTDATE_CHECK"; ?>-->
+
+<?php
+/*เดิม*/
+/*=( ($SESS_USERGROUP!=1) || 
+                                    ($SESS_PER_ID!=$PER_ID || (($SESS_PER_ID==$PER_ID && $TODATE>=$ABS_STARTDATE_CHECK) 
+                                                                || ($SESS_PER_ID==$PER_ID && $ABS_CANCEL_FLAG==1)
+                                                              )
+                                    )?'disabled':'')*/
+/*Release 5.1.0.5 Begin*/
+/*echo $ABS_CANCEL_FLAG."<br>";
+echo $TODATE."<=".$ABS_STARTDATE_CHECK."<br>";
+echo $SESS_PER_ID."==".$PER_ID."<br>";
+echo ">>".$PAGE_AUTH["edit"];*/
+
+/*if($ABS_CANCEL_FLAG!=1 || $SESS_USERGROUP==1 
+    || ($SESS_PER_ID==$PER_ID  && $TODATE <= $ABS_STARTDATE_CHECK) 
+    || ($SESS_PER_ID==$PER_ID && $ABS_CANCEL_FLAG==1) 
+    || $PAGE_AUTH["edit"]=="Y" ){
+    $txtDisabled = "";
+}*/
+
+//echo "ABS_APPROVE_FLAG->".$TODATE.",".$ABS_STARTDATE_CHECK."<br>";
+$txtDisabled = "disabled";
+if(($TODATE>=$TMP_ABS_STARTDATE_CHECK) && ($SESS_PER_ID==$PER_ID && $ABS_CANCEL_FLAG==1) ){
+    $txtDisabled = "disabled";
+}elseif( $SESS_USERGROUP==1 || ($ABS_APPROVE_FLAG==1 && ($SESS_PER_ID==$PER_ID  && $TODATE <= $ABS_STARTDATE_CHECK)) 
+    || ($SESS_PER_ID!=$PER_ID && $ABS_APPROVE_FLAG==1 && $PAGE_AUTH["edit"]=="Y" && $TODATE <= $ABS_STARTDATE_CHECK ) 
+     ){ /*|| ($SESS_PER_ID==$PER_ID && $ABS_CANCEL_FLAG==0)*/
+    $txtDisabled = "";
+}
+//$ABS_CANCEL_FLAG==1
+//echo $txtDisabled.'<<<'.$ABS_CANCEL_FLAG;
+/*Release 5.1.0.5 End*/
+?>
+                            <input hidden="" type="checkbox" name="ABS_CANCEL_FLAG" value="<?=($ABS_CANCEL_FLAG)?($ABS_CANCEL_FLAG):1; ?>" 
+                               <?=(($ABS_CANCEL_FLAG==1)?"checked":"")?> 
+                               <?php //echo $txtDisabled;?> >&nbsp;<!--ยกเลิกการลา-->
+                               <? //if($ABS_STARTDATE){ 
+                                  //  echo $FROM_DATE_TITLE." ".$ABS_STARTDATE." ".$TO_DATE_TITLE." ".$ABS_ENDDATE; ?>
+                               <? //} ?>
+                               <input type="hidden" name="ABS_CANCEL_FLAG_HIDDEN" value="<?=$ABS_CANCEL_FLAG; ?>">
+                        </td>
+                      </tr><? } ?>
+<tr>
+			<td>&nbsp;</td>
+			<td colspan="5">
+			<table width="67%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+						 <tr>
+						  <td height="22" align="right">ปีงบประมาณ&nbsp;:&nbsp;</td>
+						  <td><input type="text" name="AS_YEAR" value="<?=$AS_YEAR?>" size="10" readonly></td>
+					</tr>
+					<tr>						  
+                        <td align="right" height="22">รอบการลา&nbsp;:&nbsp;</td>
+                        <td nowrap="nowrap">
+						  <input type="radio" name="AS_CYCLE" value="1"  disabled <?=($AS_CYCLE==1)?"checked":""?>> ครั้งที่ 1
+                          <input type="text" name="START_DATE_1" value="<?=$START_DATE_1?>" class="textbox" readonly>						  
+                          &nbsp;ถึง&nbsp;
+						  <input type="text" name="END_DATE_1" value="<?=$END_DATE_1?>" class="textbox" readonly>						</td>
+                      </tr>
+					<tr>						  
+                        <td align="right" height="22"></td>
+                        <td nowrap="nowrap"><input type="radio" name="AS_CYCLE" value="2"  disabled <?=($AS_CYCLE==2)?"checked":""?>> ครั้งที่ 2
+						  <input type="text" name="START_DATE_2" value="<?=$START_DATE_2?>" class="textbox" readonly>
+						  &nbsp;ถึง&nbsp;
+						  <input type="text" name="END_DATE_2" value="<?=$END_DATE_2?>" class="textbox" readonly></td>
+                      </tr>
+			</table>			
+			<table width="67%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+					<tr>
+					  <td width="16%" align="right"  nowrap="nowrap">ประเภทการลา&nbsp;&nbsp;&nbsp;&nbsp;</td>
+					  <td width="16%" align="center" nowrap="nowrap">ใช้สิทธิ์ลามาแล้ว (วัน)</td>
+					  <td width="16%" align="center" nowrap="nowrap">ใช้สิทธิ์ลามาแล้ว (ครั้ง)</td>
+					  <td width="16%" align="center" nowrap="nowrap">วันที่ใช้สิทธิ์ลาล่าสุด</td>
+					</tr>
+					<tr>
+					  <td  align="right">ป่วย&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_01" value="<?=$AB_CODE_01?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="AB_COUNT_01" value="<?=$AB_COUNT_01?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="ABS_DATE_01" value="<?=$ABS_DATE_01?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">กิจส่วนตัว&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_03" value="<?=$AB_CODE_03?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="AB_COUNT_03" value="<?=$AB_COUNT_03?>" style="text-align:right" class="textbox" readonly></td>
+					  <td><input type="text" name="ABS_DATE_03" value="<?=$ABS_DATE_03?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">คลอดบุตร&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_02" value="<?=$AB_CODE_02?>" style="text-align:right" class="textbox" readonly></td>
+					  <td></td>
+					  <td><input type="text" name="ABS_DATE_02" value="<?=$ABS_DATE_02?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">พักผ่อน&nbsp;:&nbsp;</td>
+					  <td><input type="text" name="AB_CODE_04" value="<?=$AB_CODE_04?>" style="text-align:right" class="textbox" readonly></td>
+					  <td></td>
+					  <td><input type="text" name="ABS_DATE_4" value="<?=$ABS_DATE_04?>" class="textbox" readonly></td>
+					</tr>
+					<tr>
+					  <td  align="right">สิทธิลาพักผ่อนประจำปี</td>
+					  <td><input type="text" name="AB_COUNT_TOTAL_04" value="<?=$AB_COUNT_TOTAL_04?>" style="text-align:right" class="textbox" readonly></td>
+					  <td>จำนวนวันลาพักผ่อนคงเหลือ</td>
+					  <td><input type="text" name="AB_COUNT_04" value="<?=$AB_COUNT_04?>" style="text-align:right" class="textbox" readonly></td>
+					</tr>
+			</table>			
+                        </td>
+</tr>            
+</table></td>
+        </tr>
+        <tr>
+          <td height="5" align="center"><iframe src="javascript:;" id="PROCESS_IFRAME" frameborder="0" height="5" scrolling="no"></iframe></td>
+        </tr>
+<? if($PER_ID) : ?>		
+        <tr align="center">
+          <td height="25">
+		  	  <? if(($VIEW || $UPD) || (!$UPD && !$SESS_PER_ID)){ ?><? if ($BUTTON_DISPLAY==1) { ?>
+              <input hidden="" type="submit" name="Reset2" value="<?=$CANCEL_TITLE?>" onClick="form1.command.value='CANCEL';" class="button" ><?  } else { ?>
+              <input hidden="" name="image2" type="image" onClick="form1.command.value='CANCEL';" src="images/cancel.gif" alt="<?=$CANCEL_TITLE?>">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <? } // end if ?>
+		<? if ($UPD || $VIEW) { ?>
+      		  <?if($PAGE_AUTH["edit"]=="Y" && $UPD){?>
+                  <? if ($BUTTON_DISPLAY==1) { ?>
+			  <input name="Submit_edit" type="button" class="button" 
+                                 onClick="calcDaysBetweenDate(1,'CANCELSOMONE');" 
+                                 <?php if($SESS_USERGROUP!=1){echo 'onmouseover="ChkOverLeave();"';}?>
+                                 value="<?=$EDIT_TITLE?>"><?  } else { ?>
+              <input name="image2" type="image" onClick="calcDaysBetweenDate(1,'CANCELSOMONE');"  src="images/save.png" alt="<?=$EDIT_TITLE?>">  
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?> <? if ($BUTTON_DISPLAY==1) { ?>
+		  <input hidden="" type="button" name="Reset2" value="พิมพ์ใบลา" onClick="call_export_rtf(<?=$ABS_ID?>, '<?=$AB_CODE?>');" class="button" > <?  } else { ?>
+                  <img hidden="" src="images/print02.gif" alt="พิมพ์ใบลา" width="32" height="32" border="0" onClick="call_export_rtf(<?=$ABS_ID?>, '<?=$AB_CODE?>');">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+      		  <? } else { ?><? if ($BUTTON_DISPLAY==1) { ?>
+      		  <input name="Reset2" type="reset" class="button" value="<?=$CLEAR_TITLE?>">  <?  } else { ?>
+                  <img src="images/default.jpg" alt="<?=$CLEAR_TITLE?>" width="32" height="32" border="0" onClick="form1.reset();">&nbsp;
+                  <? } echo "&nbsp; &nbsp;";?>
+	  		  <?if($PAGE_AUTH["add"]=="Y"){?><? if ($BUTTON_DISPLAY==1) { ?>
+	  		  <input name="Submit_add" type="button" class="button" onClick="calcDaysBetweenDate(1,'ADD');" value="บันทึก">
+	  		  <?  } else { ?>
+<input name="image2" type="image" onClick="calcDaysBetweenDate(1,'ADD');" src="images/save.png" alt="บันทึก">
+              <? } echo "&nbsp; &nbsp;";?>
+			  <?}?>
+	  		  <?}?>
+          <?php 
+          if($DisableTimeAtt=="CLOSE"){
+            echo "<br><font color=red>มีการยืนยันข้อมูลการลงเวลาของเดือนนี้ ไปแล้ว<br>หากต้องการทำรายการ กรุณาติดต่อ กจ. หรือผู้ดูแลข้อมูลประจำหน่วยงาน</font>";
+          }
+          ?>
+          </td>
+        </tr>
+<? endif; ?>	
+		<tr><td height="5"></td></tr>	
+      </table></td>
+    </tr>
+  </table> 
+ 
+<input type="hidden" name="current_list" value="<?=$current_list?>">
+        </form>		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+<?=$alert_confirm_absent?>
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+<!--<? if($command=="ADD"){ ?>call_export_rtf(<?=$RPT_ABS_ID?>, "<?=$RPT_AB_CODE?>");<? }?>-->
+<?php 
+/*if($CHKDISABLE==true){
+echo 'swithTr(0);';    
+}*/
+?>
+
+</script>
+</html>

@@ -1,0 +1,121 @@
+<?
+	include("../php_scripts/connect_database.php");
+
+	$AB_COUNT = 1;
+	$arr_temp = explode("/", $STARTDATE);
+	$START_DAY = $arr_temp[0];
+	$START_MONTH = $arr_temp[1];
+	$START_YEAR = $arr_temp[2] - 543;
+	$STARTDATE_ce_era = $START_YEAR ."-". $START_MONTH ."-". $START_DAY;
+
+	$DAY_NUM = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));	//Numeric representation of the day of the week (0=sunday and 6=sat day)
+	if($DPISDB=="odbc") 
+		$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+		///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	elseif($DPISDB=="oci8") 
+		$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+		///$cmd = " select HOL_NAME from PER_HOLIDAY where (SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	elseif($DPISDB=="mysql")
+		$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+		///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+	
+	/***จาก system_config ($SA_SU_ABSENT=1 เพิ่ม/แก้ไข วันเสาร์ อาทิตย์ได้  ไม่ต้องเช็ค $DAY_NUM แต่เพิ่ม/แก้ไขวันหยุดราชการไม่ได้)
+	if($SA_SU_ABSENT && $SA_SU_ABSENT==1){
+		if($IS_HOLIDAY)	$INVALID_STARTDATE = "ใส่วันที่เริ่มต้นการลาไม่ถูกต้อง";
+	}else{	//เพิ่ม/แก้ไขวันเสาร์ อาทิตย์ และวันหยุดราชการไม่ได้
+		if($DAY_NUM == 0 || $DAY_NUM == 6 || $IS_HOLIDAY) $INVALID_STARTDATE = "ใส่วันที่เริ่มต้นการลาไม่ถูกต้อง";
+	} ***/
+	//ตรวจสอบการนับ/ไม่นับวันหยุดเสาร์อาทิตย์ จากประเภทการลาที่เลือกมา
+	//แต่เพิ่ม/แก้ไขวันหยุดราชการไม่ได้ทั้งคู่
+	if($AB_COUNT==2){	//ไม่นับ = เลือกหยุดเสาร์อาทิตย์ และวันหยุดราขการไม่ได้
+		if($DAY_NUM == 0 || $DAY_NUM == 6 || $IS_HOLIDAY) $INVALID_STARTDATE = "ใส่วันที่เริ่มต้นการลาไม่ถูกต้อง";
+	}else if($AB_COUNT==1){	//นับ = เลือกหยุดเสาร์อาทิตย์ และวันหยุดราชการได้
+		//if($IS_HOLIDAY)	$INVALID_STARTDATE = "ใส่วันที่เริ่มต้นการลาไม่ถูกต้อง";
+	}
+
+	//ถึงวันที่
+	$arr_temp = explode("/", $ENDDATE);
+	$END_DAY = $arr_temp[0];
+	$END_MONTH = $arr_temp[1];
+	$END_YEAR = $arr_temp[2] - 543;
+	$ENDDATE = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;
+	$ENDDATE_ce_era = $END_YEAR ."-". $END_MONTH ."-". $END_DAY;	
+	
+	$DAY_NUM = date("w", mktime(0, 0, 0, $END_MONTH, $END_DAY, $END_YEAR));
+	if($DPISDB=="odbc") 
+		$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+		///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	elseif($DPISDB=="oci8") 
+		$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+		 ///$cmd = " select HOL_NAME from PER_HOLIDAY where (SUBSTR(HOL_DATE, 1, 10)='$END_YEAR-$END_MONTH-$END_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	elseif($DPISDB=="mysql")
+		$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY' ";
+		///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$END_YEAR-$END_MONTH-$END_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+	$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+	
+	/*** จาก system_config ($SA_SU_ABSENT=1 เพิ่ม/แก้ไข วันเสาร์ อาทิตย์ได้  ไม่ต้องเช็ค $DAY_NUM แต่เพิ่ม/แก้ไขวันหยุดราชการไม่ได้)
+	if($SA_SU_ABSENT && $SA_SU_ABSENT==1){
+		if($IS_HOLIDAY)	$INVALID_ENDDATE = "ใส่วันที่สิ้นสุดการลาไม่ถูกต้อง";
+	}else{	//เพิ่ม/แก้ไขวันเสาร์ อาทิตย์ และวันหยุดราชการไม่ได้
+		if($DAY_NUM == 0 || $DAY_NUM == 6 || $IS_HOLIDAY) $INVALID_ENDDATE = "ใส่วันที่สิ้นสุดการลาไม่ถูกต้อง";
+	} ***/
+	//ตรวจสอบการนับ/ไม่นับวันหยุดเสาร์อาทิตย์ จากประเภทการลาที่เลือกมา
+	//แต่เพิ่ม/แก้ไขวันหยุดราชการไม่ได้ทั้งคู่
+	if($AB_COUNT==2){	//ไม่นับ = เลือกหยุดเสาร์อาทิตย์ และวันหยุดราขการไม่ได้
+		if($DAY_NUM == 0 || $DAY_NUM == 6 || $IS_HOLIDAY) $INVALID_ENDDATE= "ใส่วันที่สิ้นสุดการลาไม่ถูกต้อง";
+	}else if($AB_COUNT==1){	//นับ = เลือกหยุดเสาร์อาทิตย์ และวันหยุดราขการ่ได้
+		//if($IS_HOLIDAY)	$INVALID_ENDDATE= "ใส่วันที่สิ้นสุดการลาไม่ถูกต้อง";
+	}
+	
+	if(!$INVALID_STARTDATE && !$INVALID_ENDDATE){
+		$ABSENT_DAY = 1;
+		$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+		while($START_YEAR!=$END_YEAR || $START_MONTH!=$END_MONTH || $START_DAY!=$END_DAY){
+			$DAY_NUM = date("w", mktime(0, 0, 0, $START_MONTH, $START_DAY, $START_YEAR));
+	
+			if($AB_COUNT == 2){		//ไม่นับ
+				if($DPISDB=="odbc") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+					///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+				elseif($DPISDB=="oci8") 
+					$cmd = " select HOL_NAME from PER_HOLIDAY where SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+					///$cmd = " select HOL_NAME from PER_HOLIDAY where (SUBSTR(HOL_DATE, 1, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+				elseif($DPISDB=="mysql")
+					$cmd = " select HOL_NAME from PER_HOLIDAY where LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY' ";
+					///$cmd = " select HOL_NAME from PER_HOLIDAY where (LEFT(HOL_DATE, 10)='$START_YEAR-$START_MONTH-$START_DAY') and (HOL_NAME NOT LIKE '%เสาร์%' and HOL_NAME NOT LIKE '%อาทิตย์%') ";
+				$IS_HOLIDAY = $db_dpis->send_cmd($cmd);
+
+				/***จาก system_config ($SA_SU_ABSENT=1 เพิ่ม/แก้ไข วันเสาร์ อาทิตย์ได้  ไม่ต้องเช็ค $DAY_NUM แต่เพิ่ม/แก้ไขวันหยุดราชการไม่ได้)
+				if($SA_SU_ABSENT && $SA_SU_ABSENT==1){
+					if(!$IS_HOLIDAY) $ABSENT_DAY++;
+				}else{	//เพิ่ม/แก้ไขวันเสาร์ อาทิตย์ และวันหยุดราชการไม่ได้
+					if($DAY_NUM > 0 && $DAY_NUM < 6 && !$IS_HOLIDAY) $ABSENT_DAY++;
+				}***/
+				if($DAY_NUM > 0 && $DAY_NUM < 6 && !$IS_HOLIDAY) $ABSENT_DAY++;
+			}elseif($AB_COUNT == 1){	//นับ
+				$ABSENT_DAY++;
+			} // end if
+
+			$TMP_STARTDATE = date("Y-m-d", mktime(0, 0, 0, $START_MONTH, ($START_DAY + 1), $START_YEAR));
+			$arr_temp = explode("-", $TMP_STARTDATE);
+			$START_DAY = $arr_temp[2];
+			$START_MONTH = $arr_temp[1];
+			$START_YEAR = $arr_temp[0];
+		} // end while
+	} // end if
+?>
+<script>
+<? if(!$INVALID_STARTDATE && !$INVALID_ENDDATE && !$count_confirm && !$count_duplicate_date) { ?>
+	parent.document.form1.<?=$VAR_DAY?>.value = '<?=$ABSENT_DAY?>';
+	<? if(($command=="ADD" || $command=="UPDATE") && ($chkSave==1 || $chkSave ==2)){ ?>
+		parent.document.form1.submit();
+	<? } ?>
+<? }else if($count_confirm) { ?>	
+	alert('ไม่สามารถเพิ่มข้อมูลการลา/สาย/ขาดได้  เนื่องจากมีการยืนยันข้อมูลแล้ว');
+<? }else if($count_duplicate_date){ ?>
+	alert('พบข้อมูลการลาในวันที่ต้องการลาแล้ว กรุณาเลือกวันที่ใหม่อีกครั้ง\n');
+<? }else{ ?>
+	alert("<?=$INVALID_STARTDATE?><?=(($INVALID_STARTDATE && $INVALID_ENDDATE)?"\\n":"")?><?=$INVALID_ENDDATE?>");
+<? } ?>
+</script>

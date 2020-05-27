@@ -1,0 +1,212 @@
+<? 
+	require_once("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+	
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+	
+	$cmd = " select substr(KF_END_DATE,1,4) as KF_YEAR, KF_CYCLE from PER_KPI_FORM a, PER_PERFORMANCE_GOALS b where a.KF_ID=b.KF_ID and PG_ID=$PG_ID ";
+	$db_dpis2->send_cmd($cmd);
+	$data2 = $db_dpis2->get_array();
+	$KF_YEAR = $data2[KF_YEAR];
+	$KF_CYCLE = $data2[KF_CYCLE];
+	
+?>
+<html>
+<head>
+<title><?=$webpage_title?> - <?=$MENU_TITLE_LV0?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1?><?}?><?if($MENU_ID_LV2){?> - <?=$MENU_TITLE_LV2?><?}?><?if($MENU_ID_LV3){?> - <?=$MENU_TITLE_LV3?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+<? if($command=="ADD" || $command=="UPDATE" || $command=="DELETE"){ ?>parent.refresh_opener(true);<? } ?>
+
+	function MM_openBrWindow(theURL,winName,features) { //v2.0
+	  window.open(theURL,winName,features);
+	}
+
+	function call_menu_desc (cate, id, name, per_id) {	
+			var ulink = cfile+'?CATEGORY='+cate+'&PER_ID='+ per_id+'&UPFOR='+name+'&LAST_SUBDIR='+id;		
+			parameter = "";
+			MM_openBrWindow(ulink+"&MENU_ID_LV0=<?=$MENU_ID_LV0?>&MENU_ID_LV1=<?=$MENU_ID_LV1?>&MENU_ID_LV2=<?=$MENU_ID_LV2?>&MENU_ID_LV3=<?=$MENU_ID_LV3?>&HIDE_HEADER=1<?=($MAIN_VIEW?"&MAIN_VIEW=1":"")?>&getdate=<?=date('YmdHis')?>" + parameter,'moreeditor','toolbar=no,location=no,status=yes,menubar=no,scrollbars=yes,resizable=yes,width=3200,height=1200');
+	} 
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="kpi_kpi_form_portfolio.html" target="frame_personal_master_desc" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page?>">
+          <input type="hidden" name="total_page" value="<?=$total_page?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+		  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="PG_ID" value="<?=$PG_ID?>">
+          <input type="hidden" name="PER_ID" value="<?=$PER_ID?>">
+		  
+<? if(!$MAIN_VIEW){ echo"&nbsp;"; }?>
+  <table width="95%" height="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+    <tr>
+      <td><table width="100%" height="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+        <tr>
+          <td height="25" class="table_head">&nbsp;&nbsp;แบบฟอร์ม Portfolio</td>
+        </tr>
+ <tr>
+    <td valign="top">
+<?
+	if(!$sort_by) $sort_by=1;
+	if(!$sort_type){	if ($PER_ORDER_BY==1) { $sort_type = "1:asc"; } else {  $sort_type = "1:desc"; }	}
+	$arrSort=explode(":",$sort_type);
+	$SortType[$arrSort[0]]	=$arrSort[1];
+	if(!$order_by) $order_by=1;
+	
+	if($order_by==1){	//(ค่าเริ่มต้น) วันที่เริ่ม
+		$order_str = "a.DOCID $SortType[$order_by], WORKID $SortType[$order_by], STARTDATE $SortType[$order_by]";
+  	}elseif($order_by==2) {	//วันที่สิ้นสุด
+		$order_str = "TRN_ENDDATE  ".$SortType[$order_by];
+  	} elseif($order_by==3) {	//ชื่อหลักสูตร
+		$order_str = "pt.TR_NAME ".$SortType[$order_by];
+	}elseif($order_by==4) {	//รุ่น
+		$order_str = "TRN_NO ".$SortType[$order_by];
+	}elseif($order_by==5) {	//สถานที่
+		$order_str = "TRN_PLACE ".$SortType[$order_by];
+	}elseif($order_by==6) {	//ผ่าน / ไม่ผ่าน
+		$order_str = "TRN_PASS ".$SortType[$order_by];
+	}
+	
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+		$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+		$cmd = "select * from (
+					   select rownum rnum, q1.* from ( 
+							  select 		WORKID, a.DOCID, a.CONTENTID, a.REMOVEDBY, a.PJ_ID, PJ_NAME,
+							  			a.KPI_ID, KPI_NAME, WORKLEVEL, WORKNAME, a.OWNERID, OWNERNAME,  ASSIGNID,  ASSIGNNAME,
+										to_char(STARTDATE,'yyyy-mm-dd') as STARTDATE, 
+										to_char(a.FINISHEXPECTDATE,'yyyy-mm-dd') as FINISHEXPECTDATE, 
+										to_char(a.FINISHDATE,'yyyy-mm-dd') as FINISHDATE, NOTE, WORKDATE, WORKTYPE, REFNO, PG_ID,
+										KF_ID, PROCESSDATE, PROCESSTYPE, PROCESSRESULT, KF_NAME, PROCESSNAME, PROCESSDETAIL, LINKWORKID, b.F8
+							  from 		PC_WORK  a, PC_CONTENT b
+							  where 		a.CONTENTID=b.CONTENTID(+) and (WORKID in (select LINKWORKID from PC_WORK where KPI_TYPE=0 and PER_ID=$PER_ID and PG_ID=$PG_ID) or WORKID in (select LINKWORKID from PC_WORK where KPI_TYPE=2 and PER_ID=$PER_ID and KF_YEAR='$KF_YEAR' and KF_CYCLE=$KF_CYCLE) or (WORKTYPE=0 and KPI_TYPE=0 and PER_ID=$PER_ID and PG_ID=$PG_ID) or (WORKTYPE=0 and KPI_TYPE=2 and PER_ID=$PER_ID and KF_YEAR='$KF_YEAR' and KF_CYCLE=$KF_CYCLE))
+										$search_condition
+							  order by 	$order_str  
+					   )  q1
+				) where rnum between $rec_start and $rec_end  ";				 					 
+//							  where 		a.CONTENTID=b.CONTENTID and WORKID in (select LINKWORKID from PC_WORK where PER_ID=$PER_ID) and (WORKTYPE=0 or WORKTYPE=2)
+	
+	$count_page_data = $db_dpis35->send_cmd($cmd);
+	//$db_dpis35->show_error();
+	//echo $cmd;
+	if ($count_page_data) {
+?>
+	<table width="100%" border="0" align="center" cellpadding="1" cellspacing="2" class="label_normal">
+    <tr align="center" class="table_head">
+    <td height="21">เรื่อง</td>
+	<td width="7%">วันที่เริ่มดำเนินการ</td>
+    <td width="7%">วันที่เสร็จ</td>
+    <td width="7%">วันที่เสร็จจริง</td>
+	<td width="30%">ผลการดำเนินการ</td>
+    <td width="7%">สถานะ</td>
+    <td width="5%">ไฟล์แนบ</td>
+  </tr>
+    <?
+	$current_list = "";
+	$data_count = $num_order = 0;
+	if ($PER_ORDER_BY==1) $num_order = ($current_page - 1) * $data_per_page;
+	else $num_order = $count_data - (($current_page - 1) * $data_per_page) + 1;	
+	while ($data = $db_dpis35->get_array()) {
+		$data_count++;
+		if ($PER_ORDER_BY==1) $num_order++;
+		else $num_order--;
+		if($data_count > $data_per_page) break;
+		$TMP_WORKID = $data[WORKID];
+		$TRN_PASS = $data[TRN_PASS];
+		$current_list .= ((trim($current_list))?",":"") . $TMP_TRN_ID;
+		$TMP_STARTDATE = show_date_format($data[STARTDATE], $DATE_DISPLAY);
+		$TMP_FINISHDATE = show_date_format($data[FINISHDATE], $DATE_DISPLAY);
+		$TMP_FINISHEXPECTDATE = show_date_format($data[FINISHEXPECTDATE], $DATE_DISPLAY);
+
+		$TMP_WORKNAME = $data[WORKNAME];
+		$TMP_PROCESSNAME = $data[PROCESSNAME];
+		$TMP_PROCESSRESULT = $data[PROCESSRESULT];
+		$TMP_PROCESSDETAIL = $data[PROCESSDETAIL];
+		$TMP_NOTE = $data[NOTE];
+		$TMP_F8 = $data[F8];
+		$TMP_PROCESSTYPE = $data[PROCESSTYPE];
+
+		$cmd = " select PER_CARDNO from PER_PERSONAL where PER_ID=$PER_ID ";
+		$db_dpis2->send_cmd($cmd);
+		$data2 = $db_dpis2->get_array();
+		$PER_CARDNO = $data2[PER_CARDNO];
+	
+		$class = "table_body";
+		$onmouse_event = " onMouseOver=\"this.className='table_body_over';\" onMouseOut=\"this.className='table_body';\" ";
+		if($TRN_ID==$TMP_TRN_ID){ 
+			$class = "table_body_over";
+			$onmouse_event = "";
+		} // end if		
+?>
+  <tr class="<?=$class?>" <?=$onmouse_event?>>
+	<td align="left">&nbsp;&nbsp;<?=$TMP_F8?></td>
+	<td align="center"><?=$TMP_STARTDATE?></td>
+	<td align="center"><?=$TMP_FINISHEXPECTDATE?></td>
+	<td align="center"><?=$TMP_FINISHDATE?></td>
+	<td align="center"><?=$TMP_NOTE?></td>
+	<td align="center"><? if ($TMP_PROCESSTYPE == "F") { ?><img src="images/true.gif" border="0" title="เสร็จแล้ว"><? } else{ ?><img src="images/false.gif" border="0" title="ยังไม่เสร็จ"><? } ?></td>
+	<td align="center">	
+<? $parameter1=$parameter2=$parameter3=$parameter4=""; 
+	if($ATTACH_FILE==1){
+		$parameter1="PER_ATTACHMENT";	$parameter2="42";	$parameter3="การอบรม - ดูงาน";	$parameter4=$PER_ID;
+	}else{
+		$parameter1="PER_TRAINING";			$parameter2=$TMP_TRN_ID;	$parameter3="$TMP_TR_NAME";	$parameter4=$PER_ID;
+	}
+	
+	  $FILE_PATH = '../attachments/'.str_replace("'" ,"",$PER_CARDNO).'/'.$parameter1.'/'.$parameter2;
+	  $numfiles=0;
+	  if(is_dir($FILE_PATH)){	
+		if ($dh = opendir($FILE_PATH)) {		//นับจำนวนไฟล์ทั้งหมดใน folder
+			while (($file = readdir($dh)) !== false) {	//---อ่านไฟล์ทั้งหมดมาจาก folder ($FILE_PATH) นั้น
+				if ($file != "." && $file != "..") {
+					$numfiles++;
+				} // end if
+			} // while loop readdir
+		closedir($dh);
+		} // end if
+?>
+		<a href="<?="javascript:call_menu_desc('$parameter1','$parameter2','$parameter3','$parameter4')"?>"><?=$numfiles; ?></a> 		
+<?
+	  }else{	 echo "-";	} 
+?>
+	</td>
+  </tr>
+  <? }
+   } 
+  ?>
+</table>
+			  </td>
+	     </tr>
+        <tr>
+          <td height="5" align="center"></td>
+        </tr>
+      </table></td>
+    </tr>
+  </table> 
+  <input type="hidden" name="current_list" value="<?=$current_list?>">
+  </form>	
+		</td>
+	</tr>
+</table>
+</body>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

@@ -1,0 +1,551 @@
+<? 
+	include("../php_scripts/connect_database.php");
+	include("../php_scripts/calendar_data.php");
+    include("php_scripts/session_start.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+    
+    $db_dpis1 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+    $db_dpis_img = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd, $dpisdb_port);
+    
+    
+    
+   /* ตรวจสอบ*/ 
+   	$srtAlert='';
+    if($IS_OPEN_TIMEATT_ES=="OPEN"){
+        $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE,TABLE_NAME
+                    FROM USER_TAB_COLS 
+                    WHERE TABLE_NAME = 'PER_TIME_ATTENDANCE' ";
+        $countChk = $db_dpis2->send_cmd($cmdChk);                
+        $isTable=1;
+        
+        if($countChk==0){
+            $isTable=0;
+        }
+        if($isTable==1){
+            $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE
+                            FROM USER_TAB_COLS 
+                            WHERE TABLE_NAME = 'PER_TIME_ATTENDANCE' AND UPPER(COLUMN_NAME)IN('RECORD_BY')";
+            $countChk = $db_dpis2->send_cmd($cmdChk);
+            if($countChk==0){
+                $srtAlert='<font color=red>"เมนู T0304 ตรวจสอบข้อมูลการลงเวลาที่ไม่สำเร็จ" ไม่สามารถทำงานได้<br>
+                            กรุณาไปทำรายการที่เมนู C07 การจัดการข้อมูล -> C0704 โปรแกรมปรับเปลี่ยนฐานข้อมูล ก่อน<br>
+                            โดยกดปุ่ม "ปรับปรุงโครงสร้างตารางลงเวลา(T0304,T0207)"    <br>
+                            หากท่านไม่ได้รับสิทธิ์ในเมนูดังกล่าวนี้ กรุณาติดต่อผู้ดูแลระบบ</font>';
+            }
+        }
+        
+         ////////////////////////
+             
+         $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE,TABLE_NAME
+                    FROM USER_TAB_COLS 
+                    WHERE TABLE_NAME = 'TA_UNKNOWN_PIC' ";
+        $countChk = $db_dpis2->send_cmd($cmdChk);                
+        $isTable_pic=1;
+        if($countChk==0){
+            $isTable_pic=0;
+        }
+        
+        if($isTable_pic==1){
+            $cmdChk ="  SELECT COLUMN_NAME, DATA_SCALE
+                            FROM USER_TAB_COLS 
+                            WHERE TABLE_NAME = 'TA_UNKNOWN_PIC' AND UPPER(COLUMN_NAME)IN('PER_ID','UPDATE_USER','UPDATE_DATE')";
+            $countChk = $db_dpis2->send_cmd($cmdChk);
+            if($countChk==0){
+                $srtAlert='<font color=red>"เมนู T0304 ตรวจสอบข้อมูลการลงเวลาที่ไม่สำเร็จ" ไม่สามารถทำงานได้<br>
+                            กรุณาไปทำรายการที่เมนู C07 การจัดการข้อมูล -> C0704 โปรแกรมปรับเปลี่ยนฐานข้อมูล ก่อน<br>
+                            โดยกดปุ่ม "ปรับปรุงโครงสร้างตารางลงเวลา(T0304,T0207)"    <br>
+                            หากท่านไม่ได้รับสิทธิ์ในเมนูดังกล่าวนี้ กรุณาติดต่อผู้ดูแลระบบ</font>';
+            }
+        }
+        
+        
+        
+        
+    }
+   /**/ 
+    
+    
+    
+    
+    if(!$sort_by) $sort_by=1;
+    if(!$sort_type) $sort_type="1:desc";
+    $arrSort=explode(":",$sort_type);
+    $SortType[$arrSort[0]]	=$arrSort[1];
+    if(!$order_by) $order_by=1;
+
+    switch($CTRL_TYPE){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+	} // end switch case
+
+	switch($SESS_USERGROUP_LEVEL){
+		case 2 :
+			$search_pv_code = $PROVINCE_CODE;
+			$search_pv_name = $PROVINCE_NAME;
+			break;
+		case 3 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			break;
+		case 4 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			break;
+		case 5 :
+			$search_ministry_id = $MINISTRY_ID;
+			$search_ministry_name = $MINISTRY_NAME;
+			$search_department_id = $DEPARTMENT_ID;
+			$search_department_name = $DEPARTMENT_NAME;
+			$search_org_id = $ORG_ID;
+			$search_org_name = $ORG_NAME;
+			break;
+	} // end switch case
+    
+
+    if(empty($TIME_STAMP_START)){ 
+    	$TIME_STAMP_START =  date("d/m")."/".(date("Y")+543); 
+        
+    }
+   // $TIME_STAMP_END =  date("t", strtotime(date("Y-m-d")))."/".date("m")."/".(date("Y")+543); 
+   
+    if(empty($TIME_STAMP_END)){ 
+    	$TIME_STAMP_END =  date("d/m")."/".(date("Y")+543); 
+        
+    }
+    
+
+
+    if(trim($search_time_att))  $arr_search_condition[] = "(tat.TA_CODE='$search_time_att')";
+  	
+    
+    if($TIME_STAMP_START & $TIME_STAMP_END){
+    	$YMD_TIME_START = (substr($TIME_STAMP_START,6,4)-543)."-".substr($TIME_STAMP_START,3,2)."-".substr($TIME_STAMP_START,0,2);
+    	$YMD_TIME_END = (substr($TIME_STAMP_END,6,4)-543)."-".substr($TIME_STAMP_END,3,2)."-".substr($TIME_STAMP_END,0,2);
+    	
+        $arr_search_condition[] = " (att.TIME_STAMP between to_date('$YMD_TIME_START 00:00:00','yyyy-mm-dd hh24:mi:ss') 
+                                              AND to_date('$YMD_TIME_END 23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+                                              
+   }else if($TIME_STAMP_START & !$TIME_STAMP_END){
+    	$YMD_TIME_START = (substr($TIME_STAMP_START,6,4)-543)."-".substr($TIME_STAMP_START,3,2)."-".substr($TIME_STAMP_START,0,2);
+    	
+        $arr_search_condition[] = " (att.TIME_STAMP between to_date('$YMD_TIME_START 00:00:00','yyyy-mm-dd hh24:mi:ss') 
+                                              AND to_date('$YMD_TIME_START 23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+    }else if(!$TIME_STAMP_START & $TIME_STAMP_END){
+    	$YMD_TIME_END = (substr($TIME_STAMP_END,6,4)-543)."-".substr($TIME_STAMP_END,3,2)."-".substr($TIME_STAMP_END,0,2);
+    	$arr_search_condition[] = " (att.TIME_STAMP between to_date('$YMD_TIME_END 00:00:00','yyyy-mm-dd hh24:mi:ss') 
+                                              AND to_date('$YMD_TIME_END 23:59:59','yyyy-mm-dd hh24:mi:ss')) ";
+    }
+
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+    
+    
+    
+?>
+<html>
+<head>
+<title><?=$webpage_title;?> - <?=$MENU_TITLE_LV0;?><?if($MENU_ID_LV1){?> - <?=$MENU_TITLE_LV1;?><?}?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected;?>" type="text/css">
+<link rel="alternate stylesheet" type="text/css" media="all" href="stylesheets/calendar-blue.css" title="winter"/>
+</head>
+<script type="text/javascript" src="java_scripts/chk_date.js"></script>
+<script type="text/javascript" src="java_scripts/calendar.js"></script>
+<script type="text/javascript" src="java_scripts/calendar-th.js"></script> 
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script language="JavaScript">
+	function change_current_page( page ){
+		form1.HIDSORT.value=1;
+		form1.current_page.value = page;
+		form1.submit();
+	}
+
+	function changedateformat(name,str) {
+		var arr = str.split('/');
+		if((str) && (str != arr[0]+'/'+arr[1]+'/'+arr[2])){
+			name.value = str.substr(0,2) + "/" + str.substr(2,2) + "/"  + str.substr(4,4) ;
+		}
+		chk_date(name, "BDH");
+	}
+	
+	function clear_form() {
+		form1.search_time_att.value = "";
+		form1.TIME_STAMP_START.value = "";
+		form1.TIME_STAMP_END.value = "";
+
+	}
+	
+	
+	
+	function call_sort(flag) {
+		form1.order_by.value=flag;		form1.sort_by.value=flag;
+		if(form1.sort_type.value==flag+":asc"){
+			form1.sort_type.value=flag+":desc";
+		}else{ //desc
+			form1.sort_type.value=flag+":asc";
+		}		
+		form1.command.value='SEARCH';
+		form1.HIDSORT.value=1;
+		
+		form1.submit();
+	} // end function call_sort
+	
+
+	
+	function call_SEARCH() {
+
+		if(form1.TIME_STAMP_START.value !="" && form1.TIME_STAMP_END.value !="") {
+			arrValueS = form1.TIME_STAMP_START.value.split("/");
+			arrValueE = form1.TIME_STAMP_END.value.split("/");
+			var START =arrValueS[2]+''+arrValueS[1]+''+arrValueS[0];
+			var END = arrValueE[2]+''+arrValueE[1]+''+arrValueE[0];
+			if(parseInt(START) > parseInt(END)){
+				alert("วันที่สิ้นสุด ต้องมากกว่า วันที่เริ่มต้น");
+				form1.TIME_STAMP_END.focus();
+				return false;
+			}
+
+		} 
+		
+		form1.command.value='SEARCH';
+		form1.current_page.value=0;
+			
+	}
+
+	
+	
+	function UpdateData(f){
+		if(f.TIME_ADJUST.value=="") {
+				alert("กรุณาระบุ วันที่ปรับ");
+				f.TIME_ADJUST.focus();
+				return false;
+	    }
+		
+
+		form1.submit();
+	}
+	
+	function call_add_personShowHis(TIME_STAMP,TA_CODE,AUTHTYPE) {
+	    call_openDialog("es_t0304_unknown_picshow.html?MENU_ID_LV0=<?=$MENU_ID_LV0;?>&MENU_ID_LV1=<?=$MENU_ID_LV1;?>&MENU_ID_LV2=<?=$MENU_ID_LV2;?>&MENU_ID_LV3=<?=$MENU_ID_LV3;?>&TIME_STAMP="+TIME_STAMP + "&TA_CODE="+TA_CODE + "&AUTHTYPE="+AUTHTYPE,1000,700,"ตรวจสอบข้อมูลการลงเวลาที่ไม่สำเร็จ");		
+	}
+	
+	
+</script>
+<span id="defaultTheme"></span>
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="label_normal">
+	<tr>
+    	
+    <td height="10">
+      <? include("header_menu.html");?>
+    </td>
+  	</tr>
+    <tr> 
+	  <td align="left" valign="top">
+<?	
+		include("current_location.html");
+?>
+	  </td>
+	</tr>
+  	<tr>
+    	<td align="left" valign="top"><form name="form1" method="post" action="es_t0304_unknown_pic.html" enctype="multipart/form-data">
+          <input type="hidden" name="current_page" value="<?=$current_page;?>">
+          <input type="hidden" name="total_page" value="<?=$total_page;?>">
+		  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0;?>">
+		  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1;?>">
+		  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2;?>">
+          <input type="hidden" name="command" value="">
+          <input type="hidden" name="HIDPER_ID" value="<?=$HIDPER_ID;?>">
+          <input type="hidden" name="HIDTIME_STAMP" value="<?=$HIDTIME_STAMP;?>">
+          <input type="hidden" name="HIDTIME" value="<?=$HIDTIME;?>">
+        <input type="hidden" name="HIDSORT" value="<?=$HIDSORT;?>">
+&nbsp;
+
+  <? if ($UPD) { ?>
+  &nbsp;
+<? }?>
+<table width="95%" align="center" cellpadding="0" cellspacing="0" class="input_table">
+  <tr>
+      <td><table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">  
+        <tr>
+          <td height="22" align="center">
+              <table width="100%"  border="0" cellpadding="1" cellspacing="1" class="label_normal">
+                <tr>
+                    <td width="16%" height="3" colspan="4" ><center><?php echo $srtAlert;?></center></td></tr>       
+ 
+                      
+                      
+                      <tr>
+                        <td align="right">ช่วงวันที่สแกน&nbsp;:&nbsp;</td>
+                        <td width="41%"><input style="width:32%" type="text" name="TIME_STAMP_START" id="TIME_STAMP_START" value="<?=$TIME_STAMP_START;?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIME_STAMP_DATE,this.value)"> 
+                          <input type="reset" class="button" onClick="return showCalendar('TIME_STAMP_START', 'dd/mm/y');" value="<?=$SELECT_TITLE;?>">
+                          &nbsp;&nbsp;
+                          -&nbsp;
+                          <input type="text" style="width:32%" name="TIME_STAMP_END" id="TIME_STAMP_END" value="<?=$TIME_STAMP_END;?>" class="textbox" onKeyPress="return DateOnly();" onBlur="changedateformat(form1.TIME_STAMP_END,this.value)"> 
+                          <input type="reset" class="button" onClick="return showCalendar('TIME_STAMP_END', 'dd/mm/y');" value="<?=$SELECT_TITLE;?>"></td>
+                        <td width="10%" align="right">เครื่องบันทึกเวลา&nbsp;:&nbsp;</td>
+                        <td width="33%"><select name="search_time_att" class="selectbox" >
+                          <option value="" <?=($search_time_att=="")?"selected":"";?>>== ทั้งหมด ==</option>
+                          <?
+                            $cmd = " select TA_CODE, TA_NAME from PER_TIME_ATT where TA_ACTIVE = 1 order by TA_CODE, TA_NAME  ";
+                            $db_dpis->send_cmd($cmd);
+                            while($data = $db_dpis->get_array()){					
+                                $DB_TA_CODE = $data[TA_CODE];
+                                $DB_TA_NAME = $data[TA_NAME];
+                          ?>
+                          <option value="<?=$DB_TA_CODE;?>" <?=(trim($DB_TA_CODE)==trim($search_time_att))?"selected":"";?>>
+                            <?=$DB_TA_NAME;?>
+                            </option>
+                          <?
+                            } // end while
+                          ?>
+                        </select></td>
+                      </tr>
+                      
+                      <tr>
+			   <td height="30" colspan="4" align="left">
+               <table width="100%" align="center" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="38%">&nbsp;</td>
+                  <td width="62%"><? if ($BUTTON_DISPLAY==1) { ?>
+                    <input name="Submit2" type="submit" class="button" onClick="return call_SEARCH();" value="<?=$SEARCH_TITLE;?>">
+                    <?  } else { ?>
+                    <input name="image2" type="image" onClick="return call_SEARCH();" src="images/search.png" alt="<?=$SEARCH_TITLE;?>">
+                    <? } echo "&nbsp;";?>
+                    <? if ($BUTTON_DISPLAY==1) { ?>
+                    <input name="Reset" type="button" class="button" value="<?=$CLEAR_TITLE;?>" onClick="clear_form();">
+                    <?  } else { ?>
+                    <img src="images/default.jpg" alt="<?=$CLEAR_TITLE;?>" width="32" height="32" border="0" onClick="clear_form();">
+                    <? } echo "&nbsp;";?>
+
+                 </tr>
+                  </table></td>
+			   </tr>			 			 			 
+		      </table></td>
+	 </tr>
+      </table></td>
+    </tr>
+</table> 
+<?
+  	$cmd = "	select count(att.TA_CODE+TO_CHAR(att.TIME_STAMP,'yyyymmddHH24MISS')) AS  count_data    
+                                from  TA_UNKNOWN_PIC  att
+                                left join PER_TIME_ATT tat on(tat.TA_CODE=att.TA_CODE) 
+                    WHERE 1=1 $search_condition 
+				  ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);	
+	$count_data = $data[count_data];	
+?>  
+    <table width="95%" align="center"  border="0" cellspacing="0" cellpadding="0">
+    <tr><td>
+	<table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr><td><input type="hidden" name="order_by" value="<?=$order_by;?>">
+    <input type="hidden" name="sort_by" value="<?=$sort_by;?>">
+    <input type="hidden" name="sort_type" value="<?=$sort_type;?>">
+    <?=$SORT_TITLE;?>
+</td>
+</tr>
+</table>
+		  <table width="100%" border="0" cellpadding="0" cellspacing="0" class="table_body_3">
+            <tr>
+              <td width="26%" height="22">
+              <!--<? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_report" type="button" class="button" style="width:150" value="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);"> 
+				       <? if ($RTF_FLAG==1) { ?>
+                <input name="btn21" type="button" class="button" style="width:150" value="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);"> 
+	                    <? } ?>
+                <?  } else { ?>
+                <img src="images/doc_icon_pdf.jpg" border="0" alt="<?=$PDF_TITLE;?>" onClick="call_rtf_pdf_report(0);"> 
+			        	 <? if ($RTF_FLAG==1) { ?>
+                <img src="images/doc_icon_word.jpg" border="0" alt="<?=$RTF_TITLE;?>" onClick="call_rtf_pdf_report(1);"> 
+	                     <? } ?>
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?>--></td>
+              <td width="59%" align="center">พบข้อมูล <?=$MENU_TITLE_LV2;?> ทั้งสิ้น <?=($count_data+0);?> รายการ</td>
+              <td width="15%" align="right">
+              <!--<? if($PAGE_AUTH["print"]=="Y"){ ?>
+                <? if ($BUTTON_DISPLAY==1) { ?>
+                <input name="btn_export" type="button" class="button" style="width:130" value="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <?  } else { ?>
+                <img src="images/doc_icon_excel.jpg" border="0" alt="<?=$EXCEL_TITLE;?>" onClick="call_export_file();">
+                <? } ?>                <? }else{ echo "&nbsp;"; } ?>--></td>
+            </tr>
+          </table>  
+	</td></tr>
+</table>  
+<?
+		
+        
+    
+        if($order_by==1){	//(ค่าเริ่มต้น)
+       		$order_str = "ORDER BY q1.TIME_STAMP ".$SortType[$order_by].", q1.TA_NAME ".$SortType[$order_by];
+        }else if($order_by==2){	//
+            $order_str = "ORDER BY q1.TA_NAME ".$SortType[$order_by];
+        }
+        
+     if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+
+	$total_page = ceil( $count_data / $data_per_page );
+	$page_link = create_link_page($total_page, $current_page);
+	$limit_data = "";
+        
+	if($DPISDB=="oci8"){
+    		 
+		$rec_start = (($current_page-1) * $data_per_page) + 1;
+			$rec_end = ($current_page > 1)? ($current_page * $data_per_page) : $data_per_page;
+			$cmd = " select		*
+                         from (
+                             select		 rownum rnum, q1.*
+                             from (
+                             
+                                select 	DISTINCT 
+                                att.TA_CODE,att.AUTHTYPE,
+                                tat.TA_NAME ,
+                                TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd') AS TIME_STAMP1,
+                      			TO_CHAR(att.TIME_STAMP,'HH24:MI:SS')  AS ATT_STARTTIME,
+                                TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd HH24:MI:SS') AS TIME_STAMP
+                                        
+                                from  TA_UNKNOWN_PIC  att
+                                left join PER_TIME_ATT tat on(tat.TA_CODE=att.TA_CODE) 
+                                
+                            WHERE 1=1
+                            $search_condition
+                            
+                           
+                                			
+                            ) q1 $order_str
+                        ) where rnum between $rec_start and $rec_end ";				 
+	}
+    
+//  $order_str 
+	/* กรณี วันเสาร์-อาทิตย์ หรือ วันหยุดราชการตามปฏิทิน ให้แสดงสถานะ เป็น วันหยุด ไม่ใช่ ขาด */
+	$count_page_data = $db_dpis->send_cmd($cmd);
+// $con_TIME_STAMP 	
+ //echo "<pre>$cmd<br>";
+	if ($count_page_data) {
+?>
+        <table width="95%" border="0" align="center" cellpadding="1" cellspacing="1" class="label_normal">
+          <tr align="center" class="table_head"> 
+            <td nowrap width="5%" height="40"><strong>
+            ลำดับ</strong></td>
+            <td nowrap width="25%" onClick="call_sort(1);">
+            <? if($order_by==1&&$sort_by==1){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>
+            วัน-เวลาที่สแกน</td>
+			<td width="32%" onClick="call_sort(2);">
+		    <? if($order_by==2&&$sort_by==2){  if($SortType[$order_by]=="asc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>เครื่องบันทึกเวลา</td>
+			<td width="25%" height="40" nowrap>ประเภทที่สแกน</td>
+			  
+      		<td width="13%" nowrap>แสดงรูปภาพ</td>
+   		  </tr>
+          <?
+	$current_list = "";
+    $data_num = 0;
+	$data_count = 0;
+    $data_num = $data_per_page * ($current_page - 1);
+	while ($data = $db_dpis->get_array()) {
+		$data_count++;
+        $data_num++;
+		if($data_count > $data_per_page) break;
+        $DATA_TIME_STAMP = $data[TIME_STAMP];
+
+
+		$TIME_STAMP_STR = "";
+		if ($data[TIME_STAMP1]) {
+            $TIME_STAMP_STR  = substr($data[TIME_STAMP1],8,2)."/".substr($data[TIME_STAMP1],5,2)."/".(substr($data[TIME_STAMP1],0,4)+543);
+		} 
+        
+        $DATA_att_starttime = "";
+        if ($data[ATT_STARTTIME]) { 
+        	$DATA_att_starttime = "(".$data[ATT_STARTTIME].")";
+        }
+        
+        $DATA_TA_NAME = $data[TA_NAME];
+        
+        if($data[AUTHTYPE]=="0"){
+        	$DATA_AUTHTYPE = "นิ้ว";
+        }elseif($data[AUTHTYPE]=="3"){
+        	$DATA_AUTHTYPE = "บัตร";
+        }else{
+        	$DATA_AUTHTYPE = "หน้า";
+        }
+        
+        
+        $cmd = "select 		att.PICTUREDATA
+						 from	 TA_UNKNOWN_PIC att
+						 left join PER_TIME_ATT tat on(tat.TA_CODE=att.TA_CODE) 
+						 where  TO_CHAR(att.TIME_STAMP,'yyyy-mm-dd HH24:MI:SS')='".$data[TIME_STAMP]."' and att.TA_CODE=".$data[TA_CODE]."  and att.AUTHTYPE=".$data[AUTHTYPE]." ";
+	
+		$db_dpis_img->send_cmd($cmd);
+        $data_img = $db_dpis_img->get_array();
+        if($data_img['PICTUREDATA']){ 
+            $img= $data_img['PICTUREDATA']->load();
+        }else { 
+            $imgShow="<img src='images/icon_eye.gif'  alt='".$DETAIL_TITLE."' border='0'>";
+        }
+        
+        
+        
+        	
+?>
+          <tr align="center" class="table_body" onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';">
+             
+            <td height="25" align="center"><?=$data_num;?></td>
+            <td align="center"><?=$TIME_STAMP_STR;?> <?=$DATA_att_starttime;?></td>
+			<td align="left">&nbsp;<?=$DATA_TA_NAME;?></td>
+			<td align="center">&nbsp;<?=$DATA_AUTHTYPE;?></td> 
+      		<td align="center"><a href="<?=("javascript:call_add_personShowHis('".$data[TIME_STAMP]."','".$data[TA_CODE]."','".$data[AUTHTYPE]."')")?>">
+            <?php 
+                    if($imgShow){
+                        echo $imgShow;
+                    }else{
+                        print('<img  src="data:image/png;base64,'.base64_encode($img).'" height="60" width="90" />');
+                    }
+                ?>
+            
+            </a></td>
+   		  </tr>
+          <? } ?>
+        </table>
+  <? if($total_page > 1) : ?>
+  <table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+    <tr>
+      <td align="center"><?=$page_link;?></td>
+    </tr>
+  </table>
+        <? endif; ?>
+        &nbsp; 
+        <? } // if  count show ?>
+        <input type="hidden" name="current_list" value="<?=$current_list;?>">
+        <input name="hddata_count" type="hidden" value="<?=$data_count;?>">
+        </form>	
+		</td>
+	</tr>
+</table>
+<?
+	include("jqModalDialog.html");
+?>
+</body>
+<script language="JavaScript" src="java_scripts/menu_layer.js"></script>
+<script type="text/javascript">
+setActiveStyleSheet(document.getElementById("defaultTheme"), "winter");
+</script>
+</html>

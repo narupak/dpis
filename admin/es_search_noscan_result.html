@@ -1,0 +1,251 @@
+<?
+	include("../php_scripts/connect_database.php");
+	include("php_scripts/function_share.php");
+	include("php_scripts/load_per_control.php");
+	
+	$db_dpis2 = new connect_dpis($dpisdb_host, $dpisdb_name, $dpisdb_user, $dpisdb_pwd);
+
+	if($OL_CODE=="01") $page_title = $MINISTRY_TITLE;
+	elseif($OL_CODE=="02") $page_title = $DEPARTMENT_TITLE;
+	elseif($OL_CODE=="03") $page_title = $ORG_TITLE;
+	elseif($OL_CODE=="04") $page_title = $ORG_TITLE1;
+	elseif($OL_CODE=="05") $page_title = $ORG_TITLE2;
+
+	if( !$current_page ) $current_page = 1;
+	if(!$data_per_page) $data_per_page = 30;
+	$start_record = ($current_page - 1) * $data_per_page;
+
+	if(trim($OL_CODE)) $arr_search_condition[] = "(trim(OL_CODE)='".trim($OL_CODE)."')";
+	if(($OL_CODE=="01" || $OL_CODE=="02" || $OL_CODE=="03") && trim($PV_CODE)){
+		$PV_CODE=trim($PV_CODE);
+		$cmd = " 	select 	a.ORG_ID as MINISTRY_ID, b.ORG_ID as DEPARTMENT_ID, c.ORG_ID
+			 	from   	PER_ORG a, PER_ORG b, PER_ORG c
+				where  	a.OL_CODE='01' and b.OL_CODE='02' and c.OL_CODE='03' and trim(c.PV_CODE)='$PV_CODE' 
+				 		and a.ORG_ID=b.ORG_ID_REF and b.ORG_ID=c.ORG_ID_REF
+				order by 	a.ORG_ID, b.ORG_ID, c.ORG_ID  ";
+		$db_dpis->send_cmd($cmd);
+//$db_dpis->show_error();
+//echo "<br>$cmd<br>";
+		while($data = $db_dpis->get_array()){ 
+			if($OL_CODE=="01") {
+				if(!in_array("$data[MINISTRY_ID]", $arr_org)) $arr_org[] = $data[MINISTRY_ID];
+			} elseif($OL_CODE=="02") {
+				if(!in_array("$data[DEPARTMENT_ID]", $arr_org)) $arr_org[] = $data[DEPARTMENT_ID];
+			} elseif($OL_CODE=="03") {
+				if(!in_array("$data[ORG_ID]", $arr_org)) $arr_org[] = $data[ORG_ID];
+			} // end if
+		} // end while
+		$arr_search_condition[] = "(ORG_ID in (". implode(",", $arr_org) ."))";
+	} // end if
+	if(trim($ORG_ID_REF)) $arr_search_condition[] = "(ORG_ID_REF=$ORG_ID_REF)";
+  	if(trim($search_org_code)) $arr_search_condition[] = "(ORG_CODE like '$search_org_code%')";
+  	if(trim($search_org_name)) $arr_search_condition[] = "(ORG_NAME like '%$search_org_name%')";
+	$search_condition = "";
+	if(count($arr_search_condition)) $search_condition = " and " . implode(" and ", $arr_search_condition);
+
+  	$cmd = " select 	count(ORG_CODE) as count_data 
+					 from 		PER_ORG 
+					 where 	ORG_ACTIVE=1
+					 				$search_condition ";
+	$db_dpis->send_cmd($cmd);
+//	$db_dpis->show_error();
+//	echo "<br>$cmd<br>";
+	$data = $db_dpis->get_array();
+	$data = array_change_key_case($data, CASE_LOWER);
+	$count_data = $data[count_data];
+?>
+<html>
+<head>
+<title><?=$page_title?></title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-874">
+<link rel="stylesheet" href="<?=$cssfileselected?>" type="text/css">
+</head>
+<script type="text/javascript" src="java_scripts/function_utility.js"></script> 
+<script>
+function change_current_page( page ){
+	form1.current_page.value = page;
+	form1.submit();
+}
+
+function call_search_ministry () {	
+
+		parameter = "&send_by=search_ministry&OL_CODE=01&PV_CODE=0";
+	    call_openDialog("search_org.html?MENU_ID_LV0=0&MENU_ID_LV1=0&MENU_ID_LV2=0&MENU_ID_LV3=0" + parameter,800,600,"111");		
+	}
+	
+	function change_div(div_id){	
+		eval("document.all.DIV_TOPIC_" + div_id + ".style.display='block'");
+	
+	}
+</script>
+<body>
+<form action="" method="post" enctype="multipart/form-data" name="form1">
+  <input type="hidden" name="current_page" value="<?=$current_page?>">
+  <input type="hidden" name="total_page" value="<?=$total_page?>">
+  <input type="hidden" name="MENU_ID_LV0" value="<?=$MENU_ID_LV0?>">
+  <input type="hidden" name="MENU_ID_LV1" value="<?=$MENU_ID_LV1?>">
+  <input type="hidden" name="MENU_ID_LV2" value="<?=$MENU_ID_LV2?>">
+  <input type="hidden" name="MENU_ID_LV3" value="<?=$MENU_ID_LV3?>">
+  <input type="hidden" name="OL_CODE" value="<?=$OL_CODE?>">
+  <input type="hidden" name="PV_CODE" value="<?=$PV_CODE?>">
+  <input type="hidden" name="ORG_ID_REF" value="<?=$ORG_ID_REF?>">
+  <input type="hidden" name="command" value="">
+  <input type="hidden" name="send_by" value="<?=$send_by?>">
+  <input type="hidden" name="show_topic" value="<?=$show_topic?>">
+&nbsp;
+  <table width="98%"  border="0" align="center" cellpadding="0" cellspacing="0" class="label_normal">
+    <tr>
+      <td height="25" align="center">
+	  <table width="95%" align="center" cellpadding="0" cellspacing="0">
+  	<tr>
+	  <td><table width="15%" cellpadding="0" cellspacing="0" class="input_table" style="border-bottom:none;">
+		  <tr>
+		  	<td height="22" align="center" class="table_body"><?=$SEARCH_TITLE?></td>
+		  </tr>		
+	  </table></td>
+	</tr>
+  </table><table width="95%"  border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" class="input_table"><table width="100%"  border="0" cellpadding="0" cellspacing="0" class="label_normal">
+           
+            <tr>
+              <td width="23%" align="right"><?=$MINISTRY_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="77%">
+                <input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:75%" class="textbox"  readonly="true" >
+                <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+                <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()" >
+                <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form0.search_ministry_name.value=''; form0.search_ministry_id.value=''; form0.search_department_name.value=''; form0.search_department_id.value=''; form0.search_org_name.value=''; form0.search_org_id.value=''; form0.search_org_name_1.value=''; form0.search_org_id_1.value=''; return false;" align="center" alt="ล้างค่า">	 
+                
+              </td>
+              </tr>
+              
+              <tr>
+              <td width="23%" align="right"><?=$DEPARTMENT_TITLE?>&nbsp;:&nbsp;</td>
+              <td width="77%">
+                <input type="text" name="search_ministry_name" value="<?=$search_ministry_name?>" style="width:75%" class="textbox"  readonly="true" >
+                <input type="hidden" name="search_ministry_id" value="<?=$search_ministry_id?>">
+                <input type="button" name="btn_ministry" value="<?=$SELECT_TITLE?>" class="button" onClick="call_search_ministry()" >
+                <input type="image" src="images/icon_clear.gif" width="22" height="22" onClick="form0.search_ministry_name.value=''; form0.search_ministry_id.value=''; form0.search_department_name.value=''; form0.search_department_id.value=''; form0.search_org_name.value=''; form0.search_org_id.value=''; form0.search_org_name_1.value=''; form0.search_org_id_1.value=''; return false;" align="center" alt="ล้างค่า">	 
+                
+              </td>
+              </tr>
+              
+              <tr>
+              <td width="23%" align="right">สำนัก/กอง&nbsp;:&nbsp;</td>
+              <td width="77%">
+                <input type="text" name="search_name"  value="" style="width:75%" class="textbox" > 
+                
+              </td>
+              </tr>
+              
+              <tr>
+              <td width="23%" align="right">ชื่อ-สกุล&nbsp;:&nbsp;</td>
+              <td width="77%">
+                <input type="text" name="search_name"  value="" style="width:35%" class="textbox" >
+                &nbsp; 
+                <input type="text" name="search_name"  value="" style="width:35%" class="textbox" >
+              </td>
+              </tr>
+              
+              <tr>
+          <td height="5" colspan="2"></td>
+        </tr>
+			  <tr>
+              <td align="center" colspan="2">
+                <input name="btn2" type="button" class="button" value="<?=$SEARCH_TITLE?>" onClick="return change_div(2);">
+				<input name="btn3" type="reset" class="button" value="<?=$CLEAR_TITLE?>"></td>
+            </tr>
+          </table></td>
+        </tr>
+      </table></td>
+    </tr>
+
+  </table>
+<div id="DIV_TOPIC_2" style="display:block">
+
+<table width="95%" border="0" cellpadding="1" cellspacing="1" class="label_normal" align="center">
+    <tr>
+	  <td height="30" align="center" class="label_hilight" colspan="6">พบข้อมูลทั้งสิ้น 4 รายการ</td>
+	</tr>
+    <? if ($SESS_DEPARTMENT_NAME=="กรมการปกครอง" && $command == "SEARCHPAY") { 
+			$SORT_TITLE1=$PAY_NO_TITLE;
+		} else { 
+  			$SORT_TITLE1=$POS_NO_TITLE;
+  		}
+  ?>
+  <tr align="center" class="table_head">
+<td width="13%" align="center"><input name="btn2" type="button" class="button" value=" กำหนดบุคลากร "></td>
+<td nowrap width="11%" onClick="call_sort(6);"><strong><? if($order_by==6&&$sort_by==6){  if($SortType[$order_by]=="desc"){  echo $SORT_ASC;  }else{ echo $SORT_DESC; } }else{  echo $SORT_CUR;  } ?>เลขที่ตำแหน่ง</strong></td>
+    <td width="21%"><strong>
+      <?=$FULLNAME_TITLE; ?>
+    </strong></td>
+    <td width="21%"><strong>
+      <? if($search_per_type==1 || $search_per_type==5){ echo $PM_TITLE;} else if($search_per_type==2 || $search_per_type==3){ echo "กลุ่มงาน"; } else { echo "$PM_TITLE / กลุ่มงาน"; }?>
+    </strong></td>
+    <td width="19%" ><strong>
+      <?=$PL_TITLE?>
+    </strong></td>
+    <td  width="15%" ><strong>
+      <?=$LEVEL_TITLE?>
+    </strong></td>
+    </tr>
+  
+
+  <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+<td width="13%" height="21" align="center">
+  <input name="del" type="checkbox" value="">
+</td>
+<td class="<?=$sub_class?>" align="center" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">1</td>
+    <td class="<?=$sub_class?>" align="left" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">นายปราณีต ร้อยบาง</td>
+    <td class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">อธิบดี</td>
+    <td width="19%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">นักบริหาร</td>
+    <td width="15%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">สูง</td>
+    </tr>
+  
+  <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+<td width="13%" height="21" align="center">
+  <input name="del" type="checkbox" value="">
+</td>
+<td class="<?=$sub_class?>" align="center" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">2</td>
+    <td class="<?=$sub_class?>" align="left" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">นางอรัญญา เฟื่องสวัสดิ์ </td>
+    <td class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">รองอธิบดี</td>
+    <td width="19%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">นักบริหาร</td>
+    <td width="15%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">ต้น</td>
+    </tr>
+  
+  <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+<td width="13%" height="21" align="center">
+  <input name="del" type="checkbox" value="">
+</td>
+<td class="<?=$sub_class?>" align="center" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">3</td>
+
+    <td class="<?=$sub_class?>" align="left" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">นายสุวัฒน์ เปี่ยมปัจจัย</td>
+    <td class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">รองอธิบดี</td>
+    <td width="19%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">นักบริหาร</td>
+    <td width="15%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">ต้น</td>
+    </tr>
+  
+  <tr class="table_body"  onMouseOver="this.className='table_body_over';" onMouseOut="this.className='table_body';" >
+<td width="13%" height="21" align="center">
+  <input name="del" type="checkbox" value="">
+</td>
+<td class="<?=$sub_class?>" align="center" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">4</td>
+    <td class="<?=$sub_class?>" align="left" <?=$linkredirect; ?> style="<?=$curstyle; ?>" nowrap="nowrap">นางอรนุช หล่อเพ็ญศรี</td>
+    <td class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">ผู้อำนวยการสำนัก</td>
+    <td width="19%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">ผู้อำนวยการ</td>
+    <td width="15%" class="<?=$sub_class?>" <?=$linkredirect; ?> style="<?=$curstyle; ?>">สูง</td>
+    </tr>
+
+</table>
+</div>
+
+<table width="95%" border="0" align="center" cellpadding="2" cellspacing="2" class="label_normal">
+  <tr>
+	<td></td>
+  </tr>
+</table>
+
+  <input type="hidden" name="current_list" value="">
+</form>
+</body>
+</html>
